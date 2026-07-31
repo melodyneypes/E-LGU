@@ -684,39 +684,33 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
                     {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && !transaction.orSeriesNumber && !transaction.paymentType)) && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
-                            {/* If status is FOR_REQUESTING: Show Evaluation stage (Approve, Request Revision, Decline) */}
+                            {/* If status is FOR_REQUESTING: Show Queue notice and optional Request Revision */}
                             {transaction.status === "FOR_REQUESTING" && (
                                 <div className="space-y-4">
-                                    <Button
-                                        onClick={handleEvaluate}
-                                        disabled={actionLoading}
-                                        className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                                    >
-                                        {actionLoading ? "Processing..." : "Approve"}
-                                    </Button>
-
-                                    {/* REVISION + REJECT — side by side */}
-                                    <div className="flex gap-3">
-                                        {!isCedula && transaction.revisionCount < 3 && (
-                                            <Button
-                                                onClick={() => {
-                                                    setRemarks("");
-                                                    setIsRequestingRevision(true);
-                                                }}
-                                                disabled={actionLoading}
-                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
-                                            >
-                                                {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
-                                            </Button>
-                                        )}
-                                        <Button
-                                            onClick={() => { setRemarks(""); setIsRejecting(true); }}
-                                            disabled={actionLoading}
-                                            className="flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-red-600/10 active:scale-95 transition-all"
-                                        >
-                                            Decline
-                                        </Button>
+                                    {/* Notice Banner */}
+                                    <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2">
+                                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
+                                            <AlertCircle className="w-5 h-5 shrink-0" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest italic">Awaiting Queue Arrival</span>
+                                        </div>
+                                        <p className="text-xs font-bold leading-relaxed italic text-slate-600 dark:text-slate-300">
+                                            Please wait for the resident to arrive on-site and enter the physical queue before processing and marking this request as paid.
+                                        </p>
                                     </div>
+
+                                    {/* Optional Request Revision button */}
+                                    {!isCedula && transaction.revisionCount < 3 && (
+                                        <Button
+                                            onClick={() => {
+                                                setRemarks("");
+                                                setIsRequestingRevision(true);
+                                            }}
+                                            disabled={actionLoading}
+                                            className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
+                                        >
+                                            Request Revision
+                                        </Button>
+                                    )}
                                 </div>
                             )}
 
@@ -857,8 +851,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         </div>
                     )}
 
-                    {/* INTERACTIVE RELEASE HUB FOR PROCESSING PHASES */}
-                    {(["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) || (transaction.status === "FOR_PROCESSING" && (!!transaction.orSeriesNumber || !!transaction.paymentType))) && (
+                    {/* INTERACTIVE RELEASE HUB FOR PROCESSING PHASES — Temporarily hidden per request */}
+                    {false && (["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) || (transaction.status === "FOR_PROCESSING" && (!!transaction.orSeriesNumber || !!transaction.paymentType))) && (
                         <div className="space-y-6">
                             <div>
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 block italic leading-none">Document Issuance</span>
