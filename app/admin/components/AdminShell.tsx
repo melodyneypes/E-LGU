@@ -250,7 +250,7 @@ export function AdminShell({
                 pendingTransactionsCount={transactionsCount}
                 unviewedLcrCounts={lcrCounts}
             />
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 relative">
                 <TopNav
                     session={session}
                     themeColor={themeColor}

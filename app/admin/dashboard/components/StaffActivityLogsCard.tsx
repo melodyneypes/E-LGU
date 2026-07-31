@@ -21,6 +21,20 @@ interface StaffActivityLogsCardProps {
   maxItems?: number;
 }
 
+function maskName(rawName: string): string {
+  if (!rawName || typeof rawName !== "string") return rawName || "";
+  const trimmed = rawName.trim();
+  if (trimmed.includes("@")) {
+    const parts = trimmed.split("@");
+    return parts[0].length > 2 ? `${parts[0].slice(0, 3)}***@${parts[1]}` : rawName;
+  }
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 1) return trimmed;
+  const firstName = words.slice(0, -1).join(" ");
+  const lastInitial = words[words.length - 1][0]?.toUpperCase();
+  return `${firstName} ${lastInitial}.`;
+}
+
 export function StaffActivityLogsCard({ initialLogs = [], maxItems = 7 }: StaffActivityLogsCardProps) {
   const [logs, setLogs] = useState<StaffActivityItem[]>(initialLogs);
 

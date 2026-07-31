@@ -33,6 +33,20 @@ const typeColors = {
   report: "text-amber-500 bg-amber-500/10",
 };
 
+function maskName(rawName: string): string {
+  if (!rawName || typeof rawName !== "string") return rawName || "";
+  const trimmed = rawName.trim();
+  if (trimmed.includes("@")) {
+    const parts = trimmed.split("@");
+    return parts[0].length > 2 ? `${parts[0].slice(0, 3)}***@${parts[1]}` : rawName;
+  }
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 1) return trimmed;
+  const firstName = words.slice(0, -1).join(" ");
+  const lastInitial = words[words.length - 1][0]?.toUpperCase();
+  return `${firstName} ${lastInitial}.`;
+}
+
 export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "", maxItems = 7 }: ActivityLogsCardProps) {
   const [currentLogs, setCurrentLogs] = useState<ActivityLogItem[]>(initialLogs);
 
@@ -123,7 +137,7 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "", max
                 {/* Content */}
                 <div className="flex-1 min-w-0 space-y-1">
                   <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-snug break-words">
-                    <span className="font-black text-slate-900 dark:text-white text-xs mr-1">{log.user}</span>
+                    <span className="font-black text-slate-900 dark:text-white text-xs mr-1">{maskName(log.user)}</span>
                     <span className="text-slate-500 dark:text-slate-400 italic mr-1">{log.action}</span>
                     <span className="font-black text-rose-500 dark:text-rose-400 uppercase italic">{log.details}</span>
                   </p>

@@ -478,16 +478,34 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     additionalData: true,
                     updatedAt: true,
                     type: { select: { name: true, category: true } },
-                    user: { select: { name: true, department: true } },
+                    // user here is the REQUESTER (citizen) — only use for details field
+                    user: { select: { name: true } },
                 },
             }),
         ])
     ]);
 
     const [staffTickets, staffTx] = (staffLogsRaw || [[], []]) as [any[], any[]];
+
+    // Batch-resolve processedBy CUIDs → real staff names (same logic as API route)
+    const pbCuidIds = [...new Set(
+        staffTx
+            .map((tx: any) => tx.processedBy as string | null)
+            .filter((v): v is string => !!v && (v.length > 20 || /^c[a-z0-9]{20,}$/i.test(v)))
+    )];
+    const pbStaffUsers = pbCuidIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: pbCuidIds } },
+            select: { id: true, name: true, department: true },
+        })
+        : [];
+    const pbStaffMap = new Map<string, { name: string; department?: string | null }>(
+        pbStaffUsers.map((u) => [u.id, { name: u.name ?? "Municipal Staff", department: u.department }])
+    );
+
     const staffLogs = [
-        ...staffTickets.map((t) => {
-            const name = (t.officerName && !t.officerName.startsWith("c") && t.officerName.length < 24)
+        ...staffTickets.map((t: any) => {
+            const name = (t.officerName && t.officerName.length <= 20 && !/^c[a-z0-9]{20,}$/i.test(t.officerName))
                 ? t.officerName
                 : "POSO Officer";
             return {
@@ -497,37 +515,38 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 department: "POSO",
                 action: "issued citation ticket",
                 module: "POSO Citation",
-                details: `POSO Traffic Violation Citation for ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                details: `POSO Traffic Violation Citation for ${(t.violatorName || "Violator").split(" ")[0]}`,
                 time: formatTimeAgo(t.createdAt),
                 createdAt: t.createdAt.toISOString(),
             };
         }),
-        ...staffTx.map((tx) => {
+        ...staffTx.map((tx: any) => {
             const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData || {};
-            let dept = tx.user?.department;
-            if (!dept && addData.servingDepartment) {
-                dept = addData.servingDepartment;
-            }
-            if (!dept && tx.processedBy) {
-                const pLower = tx.processedBy.toLowerCase();
-                if (pLower.includes("treasury")) dept = "Treasury";
-                else if (pLower.includes("bplo") || pLower.includes("business")) dept = "BPLO";
-                else if (pLower.includes("registrar") || pLower.includes("civil")) dept = "Civil Registry";
-                else if (pLower.includes("poso")) dept = "POSO";
-                else if (pLower.includes("engineer")) dept = "Engineering";
-            }
-            if (!dept) {
-                dept = tx.type?.category || "LGU Staff";
+            const processedById: string = tx.processedBy ?? "";
+
+            // Priority 1: DB lookup via CUID batch map
+            // Priority 2: processedBy is already a plain name string
+            // Priority 3: additionalData fallback
+            let staffName = "Municipal Staff";
+            let staffDept: string | null | undefined = null;
+
+            if (processedById && pbStaffMap.has(processedById)) {
+                const resolved = pbStaffMap.get(processedById)!;
+                staffName = resolved.name;
+                staffDept = resolved.department;
+            } else if (processedById && processedById.length <= 20 && !/^c[a-z0-9]{20,}$/i.test(processedById)) {
+                staffName = processedById;
+            } else {
+                staffName = addData.processedByStaff || addData.officerName || "Municipal Staff";
             }
 
+            const dept = staffDept || addData.servingDepartment || tx.type?.category || "LGU Staff";
             const st = String(tx.status);
-            const isApprovedOrPaid = st === "APPROVED" || st === "RELEASED" || st === "PAID" || st === "DELIVERED";
+            const isApprovedOrPaid = ["APPROVED", "RELEASED", "PAID", "DELIVERED"].includes(st);
             const isRejected = st === "REJECTED";
-
-            let staffName = tx.processedBy;
-            if (!staffName || staffName.startsWith("cm") || staffName.length > 20) {
-                staffName = addData.processedByStaff || addData.officerName || tx.user?.name || "Municipal Staff";
-            }
+            // tx.user is the REQUESTER — only used in details field
+            // Show first name only to keep audit trail concise
+            const requesterName = (tx.user?.name || addData.violatorName || "Resident").split(" ")[0];
 
             return {
                 id: `tx-${tx.id}`,
@@ -536,7 +555,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 department: String(dept).toUpperCase(),
                 action: isApprovedOrPaid ? "processed payment / approved" : isRejected ? "rejected request for" : "updated status for",
                 module: tx.type?.name || "Service Request",
-                details: `${tx.type?.name || "Document"} for ${tx.user?.name || addData.violatorName || "Resident"}`,
+                details: `${tx.type?.name || "Document"} for ${requesterName}`,
                 time: formatTimeAgo(tx.updatedAt),
                 createdAt: tx.updatedAt.toISOString(),
             };
@@ -689,7 +708,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 id: p.id,
                 type: "payment" as const,
                 user: name,
-                action: `paid ₱${p.amount.toLocaleString()} via`,
+                action: "paid via",
                 details: p.method,
                 time: formatTimeAgo(p.createdAt),
                 createdAt: p.createdAt
