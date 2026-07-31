@@ -4,20 +4,10 @@ import React, { useState, useEffect, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Search, Utensils, MapPin, ChevronLeft, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
-
-interface KainanItem {
-    id: string;
-    name: string;
-    cuisineType: string | null;
-    address: string | null;
-    imageUrl: string | null;
-    barangay: string | null;
-    isPublished: boolean;
-    createdAt: string;
-}
+import { MayorKainanDetailModal, KainanDetailItem } from "./MayorKainanDetailModal";
 
 interface MayorKainanTableProps {
-    diningData: KainanItem[];
+    diningData: KainanDetailItem[];
     totalCount: number;
     currentPage: number;
     pageSize: number;
@@ -43,6 +33,7 @@ export function MayorKainanTable({
     const [isPending, startTransition] = useTransition();
 
     const [search, setSearch] = useState(searchQuery);
+    const [selectedItem, setSelectedItem] = useState<KainanDetailItem | null>(null);
 
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
@@ -143,7 +134,9 @@ export function MayorKainanTable({
                                 diningData.map((item) => (
                                     <tr
                                         key={item.id}
-                                        className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors group"
+                                        onClick={() => setSelectedItem(item)}
+                                        className="hover:bg-slate-50/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                                        title="Click to view details (Read-Only)"
                                     >
                                         {/* Establishment Photo + Name */}
                                         <td className="py-4 px-6">
@@ -267,6 +260,13 @@ export function MayorKainanTable({
                     </div>
                 </div>
             </div>
+
+            {/* Read-Only Modal View */}
+            <MayorKainanDetailModal
+                item={selectedItem}
+                onClose={() => setSelectedItem(null)}
+            />
         </div>
     );
 }
+
