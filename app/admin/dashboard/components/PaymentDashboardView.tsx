@@ -5,18 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import { TrendingUp, Calendar, Folder, RotateCcw, CreditCard } from "lucide-react";
 
 interface PaymentChartPoint {
   date: string;
   amount: number;
+  [key: string]: any;
 }
 
 interface PaymentDashboardViewProps {
@@ -186,7 +188,6 @@ export function PaymentDashboardView({
           >
             <option value="ALL">All Methods</option>
             <option value="CASH">Cash</option>
-            <option value="CASH_ON_DELIVERY">COD</option>
             <option value="E_PAYMENT">E-Pay</option>
             <option value="BANK_TRANSFER">Bank</option>
           </select>
@@ -222,14 +223,7 @@ export function PaymentDashboardView({
           className="w-full mt-4 transition-all duration-300"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorRevenueOnly" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-
+            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
 
               <XAxis
@@ -264,22 +258,70 @@ export function PaymentDashboardView({
                   fontSize: "12px",
                   fontFamily: "inherit",
                 }}
-                formatter={(value: any) => [
+                formatter={(value: any, name?: any) => [
                   `₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                  "Collections",
+                  name === "amount" ? "Total Revenue" : String(name || ""),
                 ]}
                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
               />
 
-              <Area
-                type="monotone"
-                dataKey="amount"
-                stroke="#10b981"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorRevenueOnly)"
+              <Legend 
+                wrapperStyle={{ paddingTop: "12px", fontSize: "11px", fontWeight: "bold" }} 
+                iconType="circle"
               />
-            </AreaChart>
+
+              {/* Render category lines if ALL is selected, otherwise render selected category line */}
+              {activeCategory === "ALL" ? (
+                categories.length > 0 ? (
+                  categories.map((cat, idx) => {
+                    const colors = [
+                      "#059669", // Dark Emerald / Teal
+                      "#7c3aed", // Deep Royal Purple
+                      "#2563eb", // Deep Electric Blue
+                      "#d97706", // Dark Gold / Amber
+                      "#b91c1c", // Dark Wine Red
+                      "#0891b2", // Dark Cyan
+                      "#ea580c", // Deep Burnt Orange
+                      "#4f46e5"  // Deep Indigo
+                    ];
+                    const strokeColor = colors[idx % colors.length];
+                    return (
+                      <Line
+                        key={cat}
+                        type="monotone"
+                        dataKey={cat}
+                        name={cat}
+                        stroke={strokeColor}
+                        strokeWidth={3}
+                        dot={{ r: 3, strokeWidth: 1 }}
+                        activeDot={{ r: 6 }}
+                        connectNulls
+                      />
+                    );
+                  })
+                ) : (
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    name="Total Revenue"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 6 }}
+                  />
+                )
+              ) : (
+                <Line
+                  type="monotone"
+                  dataKey={activeCategory}
+                  name={activeCategory}
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 7 }}
+                />
+              )}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}

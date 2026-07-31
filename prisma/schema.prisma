@@ -1235,6 +1235,7 @@ enum UserRole {
   RHU_STAFF
   RHU_DOCTOR
   RHU_CENTER_ADMIN
+  MAYOR
 }
 
 enum ResidentStatus {

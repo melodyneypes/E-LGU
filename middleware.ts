@@ -37,9 +37,10 @@ export default withAuth(
 
     const isUserPath = url.pathname.startsWith("/user");
     const isAdminPath = url.pathname.startsWith("/admin");
+    const isMayorPath = url.pathname.startsWith("/mayor-dashboard");
 
     // Clean redirect if trying to access protected paths without a session
-    if (!token && (isAdminPath || (isUserPath && !isPublicUserPath))) {
+    if (!token && (isAdminPath || isMayorPath || (isUserPath && !isPublicUserPath))) {
       const redirectUrl = new URL("/auth/login", req.url);
       redirectUrl.searchParams.set("callbackUrl", requestTarget);
       return NextResponse.redirect(redirectUrl);
@@ -48,6 +49,20 @@ export default withAuth(
     // Guard: Force users who need password setup to go to /auth/verify-otp
     if (token && token.isPasswordChanged === false) {
       const redirectUrl = new URL("/auth/verify-otp", req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Guard: MAYOR role is only allowed to access /mayor-dashboard
+    if (token?.role === "MAYOR") {
+      if (!url.pathname.startsWith("/mayor-dashboard")) {
+        const redirectUrl = new URL("/mayor-dashboard", req.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
+    // Guard: Non-MAYOR roles cannot access /mayor-dashboard
+    if (token?.role !== "MAYOR" && isMayorPath) {
+      const redirectUrl = new URL(token?.role === "USER" ? "/" : "/admin/dashboard", req.url);
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -158,5 +173,7 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/user/:path*",
+    "/mayor-dashboard/:path*",
+    "/mayor-dashboard",
   ],
 };

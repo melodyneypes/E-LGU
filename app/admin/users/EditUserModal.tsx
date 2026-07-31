@@ -191,6 +191,7 @@ export function EditUserModal({
                       <SelectItem value="ENGINEER">Municipal Engineer</SelectItem>
                       <SelectItem value="MPDC_ZONING">MPDC Zoning</SelectItem>
                       <SelectItem value="BFP">BFP / Bureau of Fire Protection</SelectItem>
+                      <SelectItem value="MAYOR">Municipal Mayor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

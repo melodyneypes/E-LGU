@@ -244,7 +244,17 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             },
             select: {
                 amount: true,
-                createdAt: true
+                createdAt: true,
+                transaction: {
+                    select: {
+                        type: {
+                            select: {
+                                category: true,
+                                name: true
+                            }
+                        }
+                    }
+                }
             }
         }),
         prisma.resident.findMany({
@@ -624,22 +634,28 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         .sort()
         .map((key) => chartDataMap[key]);
 
-    // Map dashboard chart statistics for payments dynamically based on date range
-    const paymentDataMap: { [key: string]: { date: string; amount: number } } = {};
+    // Map dashboard chart statistics for payments dynamically based on date range (category breakdown)
+    const paymentDataMap: { [key: string]: any } = {};
     const payCursor = new Date(payFromDate);
     let paySafetyCounter = 0;
     while (payCursor <= payToDate && paySafetyCounter < 400) {
         const dateStr = getPhilippineDisplayString(payCursor);
         const key = getPhilippineDateString(payCursor);
-        paymentDataMap[key] = { date: dateStr, amount: 0 };
+        const initialPoint: any = { date: dateStr, amount: 0 };
+        categoriesList.forEach((c) => {
+            if (c.category) initialPoint[c.category] = 0;
+        });
+        paymentDataMap[key] = initialPoint;
         payCursor.setDate(payCursor.getDate() + 1);
         paySafetyCounter++;
     }
 
-    paymentsList.forEach((pay) => {
+    paymentsList.forEach((pay: any) => {
         const key = getPhilippineDateString(pay.createdAt);
         if (paymentDataMap[key]) {
             paymentDataMap[key].amount += pay.amount;
+            const categoryName = pay.transaction?.type?.category || pay.transaction?.type?.name || "General Collection";
+            paymentDataMap[key][categoryName] = (paymentDataMap[key][categoryName] || 0) + pay.amount;
         }
     });
 
@@ -757,7 +773,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                             Executive Dashboard
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                            Office of the Municipal Mayor — Jurisdiction: <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
+                             <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
                         </p>
                     </div>
                 }
