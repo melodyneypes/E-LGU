@@ -3,91 +3,56 @@
 import React, { useState, useEffect } from "react";
 import { GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
-import { TransactionDashboardView } from "./TransactionDashboardView";
-import { PaymentDashboardView } from "./PaymentDashboardView";
-import { ResidentDashboardView } from "./ResidentDashboardView";
-import { ReportsOverviewCard } from "./ReportsOverviewCard";
+import { RecentAnnouncementsCard } from "./RecentAnnouncementsCard";
+import { LatestNewsCard } from "./LatestNewsCard";
+import { UpcomingEventsCard } from "./UpcomingEventsCard";
+import { LGUProjectsCard } from "./LGUProjectsCard";
 import { toast } from "sonner";
 
-export interface AnalyticsCardConfig {
+export interface CommunityCardConfig {
     id: string;
     colSpan: number; // 6 or 12
     rowSpan: number; // 1 to 4
 }
 
-interface ConfigurableAnalyticsSectionProps {
-    // Transaction Dashboard Props
-    chartData: any[];
-    fromDate: Date;
-    toDate: Date;
-    categories: string[];
-    selectedCategory: string;
-    themeColor: string;
-
-    // Payment Dashboard Props
-    paymentChartData: any[];
-    payFromDate: Date;
-    payToDate: Date;
-    payCategory: string;
-    payMethod: string;
-
-    // Resident Dashboard Props
-    residentChartData: any[];
-    resFromDate: Date;
-    resToDate: Date;
-    resGender: string;
-    resCivil: string;
-    resSector: string;
-
-    // Reports Overview Props
-    recentReportsDetailed?: any[];
-
-    // Visibility toggles from Sidebar Modal
+interface ConfigurableCommunitySectionProps {
+    announcements: any[];
+    news: any[];
+    events: any[];
+    pastEvents: any[];
+    projects: any[];
     cardVisibility?: Record<string, boolean>;
 }
 
 const DEFAULT_KEYS = [
-    "daily_requests",
-    "collections_ledger",
-    "resident_analytics",
-    "citizen_reports",
+    "recent_announcements",
+    "latest_news",
+    "upcoming_events",
+    "lgu_projects",
 ];
 
 const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number }> = {
-    daily_requests: { defaultCols: 12, defaultRows: 1 },
-    collections_ledger: { defaultCols: 12, defaultRows: 1 },
-    resident_analytics: { defaultCols: 12, defaultRows: 1 },
-    citizen_reports: { defaultCols: 12, defaultRows: 1 },
+    recent_announcements: { defaultCols: 6, defaultRows: 1 },
+    latest_news: { defaultCols: 6, defaultRows: 1 },
+    upcoming_events: { defaultCols: 6, defaultRows: 1 },
+    lgu_projects: { defaultCols: 6, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_analytics_cards_grid_v1";
-const ORDER_STORAGE_KEY = "emapandan_analytics_cards_order_v1";
+const STORAGE_KEY = "mayor_community_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "mayor_community_cards_order_v5";
 
-export function ConfigurableAnalyticsSection({
-    chartData,
-    fromDate,
-    toDate,
-    categories,
-    selectedCategory,
-    themeColor,
-    paymentChartData,
-    payFromDate,
-    payToDate,
-    payCategory,
-    payMethod,
-    residentChartData,
-    resFromDate,
-    resToDate,
-    resGender,
-    resCivil,
-    resSector,
-    recentReportsDetailed,
+export function ConfigurableCommunitySection({
+    announcements,
+    news,
+    events,
+    pastEvents,
+    projects,
     cardVisibility = {},
-}: ConfigurableAnalyticsSectionProps) {
+}: ConfigurableCommunitySectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
-    const [configs, setConfigs] = useState<Record<string, AnalyticsCardConfig>>(() => {
-        const initial: Record<string, AnalyticsCardConfig> = {};
+    const [configs, setConfigs] = useState<Record<string, CommunityCardConfig>>(() => {
+        const initial: Record<string, CommunityCardConfig> = {};
         DEFAULT_KEYS.forEach((key) => {
             initial[key] = {
                 id: key,
@@ -105,7 +70,7 @@ export function ConfigurableAnalyticsSection({
         try {
             const savedConfigs = localStorage.getItem(STORAGE_KEY);
             if (savedConfigs) {
-                const parsed: Record<string, AnalyticsCardConfig> = JSON.parse(savedConfigs);
+                const parsed: Record<string, CommunityCardConfig> = JSON.parse(savedConfigs);
                 setConfigs((prev) => {
                     const next = { ...prev };
                     Object.keys(parsed).forEach((k) => {
@@ -133,7 +98,7 @@ export function ConfigurableAnalyticsSection({
         }
     }, []);
 
-    const saveConfigs = (newConfigs: Record<string, AnalyticsCardConfig>) => {
+    const saveConfigs = (newConfigs: Record<string, CommunityCardConfig>) => {
         setConfigs(newConfigs);
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfigs));
@@ -228,7 +193,7 @@ export function ConfigurableAnalyticsSection({
 
         if (!DEFAULT_KEYS.includes(sourceKey)) {
             toast.error("Cross-Section Drag Restricted", {
-                description: "Analytics & Intelligence Cards can only be reordered within the Analytics section.",
+                description: "Community & Public Affairs Cards can only be reordered within the Community section.",
             });
             return;
         }
@@ -264,63 +229,19 @@ export function ConfigurableAnalyticsSection({
         12: "col-span-12",
     };
 
-    const renderCardInner = (key: string, cfg: AnalyticsCardConfig) => {
-        const isCompact = cfg.colSpan <= 6;
-
+    const renderCardInner = (key: string, cfg: CommunityCardConfig) => {
         switch (key) {
-            case "daily_requests":
-                return (
-                    <TransactionDashboardView
-                        data={chartData}
-                        initialFrom={fromDate.toISOString().split("T")[0]}
-                        initialTo={toDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={selectedCategory}
-                        themeColor={themeColor}
-                        isCompact={isCompact}
-                        rowSpan={cfg.rowSpan}
-                    />
-                );
+            case "recent_announcements":
+                return <RecentAnnouncementsCard announcements={announcements} rowSpan={cfg.rowSpan} />;
 
-            case "collections_ledger":
-                return (
-                    <PaymentDashboardView
-                        data={paymentChartData}
-                        initialFrom={payFromDate.toISOString().split("T")[0]}
-                        initialTo={payToDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={payCategory}
-                        activeMethod={payMethod}
-                        isCompact={isCompact}
-                        rowSpan={cfg.rowSpan}
-                    />
-                );
+            case "latest_news":
+                return <LatestNewsCard news={news} rowSpan={cfg.rowSpan} />;
 
-            case "resident_analytics":
-                return (
-                    <ResidentDashboardView
-                        data={residentChartData}
-                        initialFrom={resFromDate.toISOString().split("T")[0]}
-                        initialTo={resToDate.toISOString().split("T")[0]}
-                        activeGender={resGender}
-                        activeCivilStatus={resCivil}
-                        activeSector={resSector}
-                        isCompact={isCompact}
-                        rowSpan={cfg.rowSpan}
-                    />
-                );
+            case "upcoming_events":
+                return <UpcomingEventsCard events={events} pastEvents={pastEvents} rowSpan={cfg.rowSpan} />;
 
-            case "citizen_reports":
-                return (
-                    <ReportsOverviewCard
-                        initialReports={(recentReportsDetailed || []).map((r: any) => ({
-                            ...r,
-                            createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-                        }))}
-                        isCompact={isCompact}
-                        rowSpan={cfg.rowSpan}
-                    />
-                );
+            case "lgu_projects":
+                return <LGUProjectsCard projects={projects} rowSpan={cfg.rowSpan} />;
 
             default:
                 return null;
@@ -334,8 +255,8 @@ export function ConfigurableAnalyticsSection({
     return (
         <div className="grid grid-cols-12 gap-8 items-stretch transition-all duration-500 ease-in-out">
             {visibleCardOrder.map((key) => {
-                const cfg = configs[key] || { id: key, colSpan: 12, rowSpan: 1 };
-                const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12";
+                const cfg = configs[key] || { id: key, colSpan: 6, rowSpan: 1 };
+                const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 lg:col-span-6";
                 const isBeingDragged = draggedKey === key;
                 const isOver = dragOverKey === key;
 
@@ -348,14 +269,14 @@ export function ConfigurableAnalyticsSection({
                         onDragLeave={onDragLeave}
                         onDrop={(e) => onDrop(e, key)}
                         onDragEnd={onDragEnd}
-                        className={`group relative transition-all duration-300 h-full ${currentClass} ${
+                        className={`group relative transition-all duration-300 ${currentClass} ${
                             isBeingDragged ? "opacity-40 scale-[0.99] rounded-[2.5rem] border-2 border-dashed border-indigo-500" : ""
                         } ${
                             isOver ? "ring-2 ring-indigo-500/80 rounded-[2.5rem] scale-[1.01] shadow-2xl" : ""
                         }`}
                     >
                         {/* Overlay Controls: Grid Matrix Picker + Drag Handle */}
-                        <div className="absolute top-8 right-8 z-30 flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-6 right-6 z-30 flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                             <MetricCardGridPicker
                                 currentCols={cfg.colSpan}
                                 currentRowSpan={cfg.rowSpan}
@@ -365,7 +286,7 @@ export function ConfigurableAnalyticsSection({
 
                             <div
                                 className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-500 hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/60 shadow-sm cursor-grab active:cursor-grabbing"
-                                title="Click and drag to reposition analytical section"
+                                title="Click and drag to reposition card"
                             >
                                 <GripVertical className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                             </div>

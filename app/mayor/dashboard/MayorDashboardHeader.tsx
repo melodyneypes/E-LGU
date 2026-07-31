@@ -5,12 +5,18 @@ import { signOut } from "next-auth/react";
 import { ShieldCheck, ChevronDown, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
+import { MayorDashboardSettingsSidebar } from "./components/MayorDashboardSettingsSidebar";
 
 interface MayorDashboardHeaderProps {
     session: any;
     themeColor: string;
     activeBarangays: string[];
     selectedBarangay: string;
+    cardVisibility?: Record<string, boolean>;
+    onToggleVisibility?: (key: string) => void;
+    onResetAll?: () => void;
+    sectionOrder?: string[];
+    onReorderSections?: (newOrder: string[]) => void;
 }
 
 export function MayorDashboardHeader({
@@ -18,6 +24,11 @@ export function MayorDashboardHeader({
     themeColor,
     activeBarangays,
     selectedBarangay,
+    cardVisibility = {},
+    onToggleVisibility = () => {},
+    onResetAll = () => {},
+    sectionOrder,
+    onReorderSections,
 }: MayorDashboardHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -66,6 +77,15 @@ export function MayorDashboardHeader({
 
                 {/* Right: Controls & User Menu */}
                 <div className="flex items-center gap-4">
+                    {/* Customize Dashboard Sheet Sidebar Button */}
+                    <MayorDashboardSettingsSidebar
+                        cardVisibility={cardVisibility}
+                        onToggleVisibility={onToggleVisibility}
+                        onResetAll={onResetAll}
+                        sectionOrder={sectionOrder}
+                        onReorderSections={onReorderSections}
+                    />
+
                     {/* Barangay Switcher */}
                     <BarangaySwitcher
                         availableBarangays={activeBarangays}
