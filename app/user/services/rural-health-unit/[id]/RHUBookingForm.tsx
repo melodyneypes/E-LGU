@@ -27,16 +27,27 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import dynamic from "next/dynamic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import SchedulePicker from "@/components/shared/SchedulePicker";
 import { submitRHUAppointment } from "../actions";
+
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+    ssr: false,
+    loading: () => (
+        <div className="h-[220px] w-full rounded-2xl bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500 font-bold">
+            Loading Health Center Map...
+        </div>
+    )
+});
 
 interface MedicalConsultationFormProps {
     resident: any;
     transactionType: any;
     appointmentConfig: any;
     bookedSlots: any[];
+    healthCenters?: any[];
     themeColor: string;
 }
 
@@ -62,11 +73,29 @@ export function MedicalConsultationForm({
     transactionType,
     appointmentConfig,
     bookedSlots: initialBookedSlots,
+    healthCenters = [],
     themeColor
 }: MedicalConsultationFormProps) {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
     const [submitting, setSubmitting] = useState(false);
+
+    // Selected Health Center state
+    const [selectedCenterId, setSelectedCenterId] = useState<string>(
+        healthCenters[0]?.id || ""
+    );
+
+    const selectedCenter = healthCenters.find((c: any) => c.id === selectedCenterId) || healthCenters[0] || {
+        id: "main-rhu",
+        name: "Main Rural Health Unit (RHU)",
+        code: "RHU-MAIN",
+        location: "Poblacion, Mapandan, Pangasinan",
+        latitude: 16.0250,
+        longitude: 120.4450,
+        barangay: "Poblacion",
+        contactNumber: "(075) 555-0101",
+        operatingHours: "Mon-Fri 8:00 AM - 5:00 PM"
+    };
 
     // Validation errors state
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -294,6 +323,9 @@ export function MedicalConsultationForm({
                 customCheckupType: additionalFields.customCheckupType,
                 purpose: `${checkupDisplay} Check-up: ${additionalFields.symptomsPurpose}`,
                 findings: additionalFields.findings,
+                healthCenterId: selectedCenter.id,
+                healthCenterName: selectedCenter.name,
+                healthCenterLocation: selectedCenter.location,
                 bookingFor,
                 relationship: bookingFor === "RELATIVE" ? relationship : "Self",
             };
@@ -657,12 +689,109 @@ export function MedicalConsultationForm({
                             >
                                 {/* Check-up details */}
                                 <div className="space-y-4">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 italic border-b border-slate-100 dark:border-white/5 pb-2">Check-up Details</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 italic border-b border-slate-100 dark:border-white/5 pb-2">Facility & Check-up Details</h4>
                                     
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
-                                            Type of Check-up <span className="text-red-500 font-bold ml-0.5">*</span>
-                                        </Label>
+                                    {/* 1. Health Center Selection comes FIRST */}
+                                    <div className="space-y-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
+                                                Health Center Location / Barangay Station <span className="text-red-500 font-bold ml-0.5">*</span>
+                                            </Label>
+                                            <Select
+                                                value={selectedCenterId}
+                                                onValueChange={v => {
+                                                    setSelectedCenterId(v);
+                                                    const centerObj = healthCenters.find((c: any) => c.id === v);
+                                                    if (centerObj && centerObj.servicesOffered) {
+                                                        const offeredStr = centerObj.servicesOffered.toLowerCase();
+                                                        const ALL_OPTIONS = [
+                                                            { value: "General Consultation", keywords: ["general", "consultation", "check-up", "checkup"] },
+                                                            { value: "Pre-Marital", keywords: ["marital", "pre-marital", "marriage"] },
+                                                            { value: "Prenatal / Maternal", keywords: ["prenatal", "maternal", "pregnant", "pregnancy"] },
+                                                            { value: "Pediatric", keywords: ["pediatric", "child", "infant", "vaccination", "immunization"] },
+                                                            { value: "Dental", keywords: ["dental", "tooth", "teeth", "oral"] }
+                                                        ];
+                                                        const matched = ALL_OPTIONS.filter(opt =>
+                                                            opt.keywords.some(kw => offeredStr.includes(kw))
+                                                        );
+                                                        if (matched.length > 0) {
+                                                            setAdditionalFields(prev => ({ ...prev, checkupType: matched[0].value }));
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus">
+                                                    <SelectValue placeholder="Select Health Center Location" />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
+                                                    {(healthCenters && healthCenters.length > 0 ? healthCenters : [selectedCenter]).map((center: any) => (
+                                                        <SelectItem key={center.id} value={center.id} className="text-xs font-bold rounded-lg">
+                                                            {center.name} ({center.barangay || "Mapandan"})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Center Location Map Preview Card */}
+                                        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4 space-y-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                                                <div className="space-y-0.5">
+                                                    <h5 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                        <Home className="w-3.5 h-3.5 text-rose-500" />
+                                                        {selectedCenter.name}
+                                                    </h5>
+                                                    <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                                                        <span>📍</span> {selectedCenter.location}
+                                                    </p>
+                                                </div>
+                                                <a
+                                                    href={selectedCenter.latitude && selectedCenter.longitude
+                                                        ? `https://www.google.com/maps?q=${selectedCenter.latitude},${selectedCenter.longitude}`
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedCenter.name}, ${selectedCenter.location}`)}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 hover:bg-emerald-900/80 transition-all shrink-0"
+                                                >
+                                                    Open Google Maps ↗
+                                                </a>
+                                            </div>
+
+                                            <div className="h-[220px] w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
+                                                <LocationPicker
+                                                    lat={selectedCenter.latitude || 16.0250}
+                                                    lng={selectedCenter.longitude || 120.4450}
+                                                    onChange={() => {}}
+                                                />
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400 pt-1">
+                                                {selectedCenter.operatingHours && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3 text-slate-500" /> {selectedCenter.operatingHours}
+                                                    </span>
+                                                )}
+                                                {selectedCenter.contactNumber && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Activity className="w-3 h-3 text-rose-500" /> Hotline: {selectedCenter.contactNumber}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Type of Check-up (Dynamically filtered by selected center) */}
+                                    <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
+                                                Type of Check-up <span className="text-red-500 font-bold ml-0.5">*</span>
+                                            </Label>
+                                            {selectedCenter.servicesOffered && (
+                                                <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                                                    Available at {selectedCenter.name.split(' ')[0]}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Select
                                             value={additionalFields.checkupType}
                                             onValueChange={v => setAdditionalFields(prev => ({ ...prev, checkupType: v }))}
@@ -674,12 +803,32 @@ export function MedicalConsultationForm({
                                                 <SelectValue placeholder="Select type of check-up" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                <SelectItem value="General Consultation" className="text-xs font-bold rounded-lg">General Consultation / Check-up</SelectItem>
-                                                <SelectItem value="Pre-Marital" className="text-xs font-bold rounded-lg">Pre-Marital / Marital Check-up</SelectItem>
-                                                <SelectItem value="Prenatal / Maternal" className="text-xs font-bold rounded-lg">Maternal / Prenatal Check-up</SelectItem>
-                                                <SelectItem value="Pediatric" className="text-xs font-bold rounded-lg">Pediatric / Child Check-up</SelectItem>
-                                                <SelectItem value="Dental" className="text-xs font-bold rounded-lg">Dental Check-up / Consultation</SelectItem>
-                                                <SelectItem value="OTHER" className="text-xs font-bold rounded-lg">Other (Please specify)</SelectItem>
+                                                {(() => {
+                                                    const offeredStr = (selectedCenter.servicesOffered || "").toLowerCase();
+                                                    const ALL_OPTIONS = [
+                                                        { value: "General Consultation", label: "General Consultation / Check-up", keywords: ["general", "consultation", "check-up", "checkup"] },
+                                                        { value: "Pre-Marital", label: "Pre-Marital / Marital Check-up", keywords: ["marital", "pre-marital", "marriage"] },
+                                                        { value: "Prenatal / Maternal", label: "Maternal / Prenatal Check-up", keywords: ["prenatal", "maternal", "pregnant", "pregnancy"] },
+                                                        { value: "Pediatric", label: "Pediatric / Child Check-up", keywords: ["pediatric", "child", "infant", "vaccination", "immunization"] },
+                                                        { value: "Dental", label: "Dental Check-up / Consultation", keywords: ["dental", "tooth", "teeth", "oral"] }
+                                                    ];
+                                                    const matched = offeredStr ? ALL_OPTIONS.filter(opt =>
+                                                        opt.keywords.some(kw => offeredStr.includes(kw))
+                                                    ) : ALL_OPTIONS;
+
+                                                    const listToRender = matched.length > 0 ? matched : ALL_OPTIONS;
+
+                                                    return (
+                                                        <>
+                                                            {listToRender.map(opt => (
+                                                                <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold rounded-lg">
+                                                                    {opt.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                            <SelectItem value="OTHER" className="text-xs font-bold rounded-lg">Other (Please specify)</SelectItem>
+                                                        </>
+                                                    );
+                                                })()}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -701,6 +850,7 @@ export function MedicalConsultationForm({
                                         </div>
                                     )}
 
+                                    {/* 3. Purpose / Symptoms / Remarks */}
                                     <div className="space-y-1.5">
                                         <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
                                             Purpose / Symptoms / Remarks <span className="text-red-500 font-bold ml-0.5">*</span>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
     ArrowLeft, CheckCircle2, XCircle, Printer,
-    Activity, Heart, Clock,
+    Activity, Heart,
     ZoomIn, ZoomOut, RotateCw, Eye
 } from "lucide-react";
 import { toast } from "sonner";
@@ -398,42 +398,28 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                         ACTION REQUIRED
                                     </p>
                                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                        {transaction.status === "FOR_REQUESTING"
-                                            ? "Patient must check in at RHU counter first"
-                                            : "Evaluate or complete patient consultation"}
+                                        Evaluate or complete patient consultation
                                     </p>
                                 </div>
 
-                                {transaction.status === "FOR_REQUESTING" ? (
-                                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-left space-y-1">
-                                        <div className="flex items-center gap-2 text-amber-500 font-black text-xs uppercase tracking-widest italic">
-                                            <Clock className="w-4 h-4" />
-                                            AWAITING PATIENT CHECK-IN
-                                        </div>
-                                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            Patient has not checked in at the RHU counter window yet. Clinical check-up controls will be available once the patient arrives and checks in at the counter queue terminal.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={() => handleUpdateStatus("COMPLETED")}
-                                            className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Heart className="w-4 h-4" />
-                                            MARK CONSULTATION COMPLETED
-                                        </Button>
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={() => setCancelModalOpen(true)}
-                                            className="w-full h-14 bg-red-600/90 hover:bg-red-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <XCircle className="w-4 h-4" />
-                                            CANCEL APPOINTMENT
-                                        </Button>
-                                    </div>
-                                )}
+                                <div className="space-y-3">
+                                    <Button
+                                        disabled={submitting}
+                                        onClick={() => handleUpdateStatus("COMPLETED")}
+                                        className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Heart className="w-4 h-4" />
+                                        MARK CONSULTATION COMPLETED
+                                    </Button>
+                                    <Button
+                                        disabled={submitting}
+                                        onClick={() => setCancelModalOpen(true)}
+                                        className="w-full h-14 bg-red-600/90 hover:bg-red-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <XCircle className="w-4 h-4" />
+                                        CANCEL APPOINTMENT
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </Card>

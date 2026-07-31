@@ -20,11 +20,13 @@ export default async function RHUAppointmentSettingsPage() {
     const role = (session.user as any)?.role;
     const department = ((session.user as any)?.department || "").toUpperCase();
 
-    const allowedRoles = ["ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN"];
-    const allowedDepts = ["RHU", "HEALTH", "RURAL_HEALTH_UNIT"];
+    const allowedRoles = ["ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
+    const allowedDepts = ["RHU", "HEALTH", "RURAL_HEALTH_UNIT", "MEDICAL"];
 
-    if (!allowedRoles.includes(role) && !allowedDepts.includes(department)) {
-        redirect("/admin/dashboard");
+    const isAuthorized = allowedRoles.includes(role) || allowedDepts.some(d => department.includes(d)) || (role && role.startsWith("RHU_"));
+
+    if (!isAuthorized) {
+        redirect("/admin/rhu/centers");
     }
 
     const themeColor = "#f43f5e";

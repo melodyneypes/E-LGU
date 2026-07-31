@@ -943,6 +943,7 @@ model BirthCertificateRegistry {
 model Payment {
   id            String        @id @default(cuid())
   transactionId String        @unique
+  userId        String?
   amount        Float         @default(0)
   method        PaymentType   @default(CASH)
   status        PaymentStatus @default(PENDING)
@@ -1060,6 +1061,63 @@ model RHUInventoryBatch {
   @@index([expirationDate])
 }
 
+model RHUHealthCenter {
+  id              String                @id @default(cuid())
+  name            String
+  code            String?
+  location        String
+  latitude        Float?
+  longitude       Float?
+  barangay        String?
+  contactNumber   String?
+  operatingHours  String?               @default("Mon-Fri 8:00 AM - 5:00 PM")
+  headPersonnel   String?
+  servicesOffered String?
+  status          String                @default("ACTIVE")
+  remarks         String?
+  userId          String?
+  accountEmail    String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  personnel       RHUMedicalPersonnel[]
+
+  @@index([name])
+  @@index([barangay])
+  @@index([status])
+}
+
+enum MedicalRole {
+  DOCTOR
+  NURSE
+  MIDWIFE
+  DENTIST
+}
+
+model RHUMedicalPersonnel {
+  id              String           @id @default(cuid())
+  name            String
+  role            MedicalRole      @default(DOCTOR)
+  specialization  String?
+  licenseNumber   String?
+  contactNumber   String?
+  email           String?
+  schedule        String?          @default("Mon-Fri 8:00 AM - 5:00 PM")
+  assignedServices String?
+  status          String           @default("ACTIVE")
+  healthCenterId  String?
+  userId          String?
+  accountEmail    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  healthCenter    RHUHealthCenter? @relation(fields: [healthCenterId], references: [id], onDelete: SetNull)
+
+  @@index([role])
+  @@index([healthCenterId])
+  @@index([status])
+}
+
 enum TicketStatus {
   ISSUED
   PAID
@@ -1174,6 +1232,9 @@ enum UserRole {
   MPDC_ZONING
   BFP
   POSO_OFFICER
+  RHU_STAFF
+  RHU_DOCTOR
+  RHU_CENTER_ADMIN
 }
 
 enum ResidentStatus {

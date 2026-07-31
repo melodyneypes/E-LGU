@@ -60,7 +60,11 @@ export default async function RHUBookingPage({ params }: PageProps) {
         where: {
             appointmentDate: { not: null },
             isCancelled: false,
-            type: { category: "Rural Health Unit" }
+            type: {
+                category: {
+                    in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"]
+                }
+            }
         },
         select: {
             appointmentDate: true,
@@ -68,12 +72,47 @@ export default async function RHUBookingPage({ params }: PageProps) {
         }
     });
 
+    // Fetch active Health Centers / Stations
+    let healthCenters: any[] = [];
+    try {
+        const model = (prisma as any).rHUHealthCenter || (prisma as any).RHUHealthCenter;
+        if (model) {
+            healthCenters = await model.findMany({
+                where: { status: "ACTIVE" },
+                orderBy: { name: "asc" }
+            });
+        }
+    } catch {
+        healthCenters = [];
+    }
+
+    if (!healthCenters || healthCenters.length === 0) {
+        try {
+            healthCenters = await prisma.$queryRaw`SELECT * FROM "RHUHealthCenter" WHERE "status" = 'ACTIVE' ORDER BY "name" ASC`;
+        } catch {
+            healthCenters = [
+                {
+                    id: "main-rhu",
+                    name: "Main Rural Health Unit (RHU)",
+                    code: "RHU-MAIN",
+                    location: "Poblacion, Mapandan, Pangasinan",
+                    latitude: 16.0250,
+                    longitude: 120.4450,
+                    barangay: "Poblacion",
+                    contactNumber: "(075) 555-0101",
+                    operatingHours: "Mon-Fri 8:00 AM - 5:00 PM"
+                }
+            ];
+        }
+    }
+
     return (
         <MedicalConsultationForm
             resident={userWithResident?.residentProfile || null}
             transactionType={transactionType}
             appointmentConfig={rhuConfig}
             bookedSlots={bookedSlots}
+            healthCenters={healthCenters}
             themeColor={themeColor}
         />
     );

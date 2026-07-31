@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, Building2, DollarSign
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -70,7 +70,7 @@ export function Sidebar({
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
-    const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings") && !pathname.startsWith("/admin/rhu/queue"));
+    const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -449,9 +449,9 @@ export function Sidebar({
             category: "Rural Health Unit"
         },
         {
-            href: "/admin/rhu/queue",
-            label: "Counter Queue",
-            icon: Users,
+            href: "/admin/rhu/centers",
+            label: "Health Centers",
+            icon: Building2,
             category: "Rural Health Unit"
         },
         {
@@ -643,6 +643,8 @@ export function Sidebar({
             ];
         } else if (role === "POSO_OFFICER") {
             menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist"].includes(item.label));
+        } else if (role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF") {
+            menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
         }
     }
 
@@ -970,7 +972,7 @@ export function Sidebar({
                                                             ? "Municipal Engineer"
                                                             : role === "MPDC_ZONING"
                                                                 ? "MPDC Zoning Officer"
-                                                            : "Admin System"}
+                                                                : "Admin System"}
                                     </p>
                                 </div>
                             </div>
@@ -989,12 +991,12 @@ export function Sidebar({
                                     )}
                                 </button>
                                 <button
-onClick={() => {
-                                    logoutToLogin();
-                                }}
-                                     className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                     title="Log Out"
-                                 >
+                                    onClick={() => {
+                                        logoutToLogin();
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Log Out"
+                                >
                                     <LogOut size={18} />
                                 </button>
                             </div>

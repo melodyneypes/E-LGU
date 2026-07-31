@@ -33,10 +33,20 @@ export const authOptions: NextAuthOptions = {
                     throw new Error(`Too many failed login attempts. Try again in ${minutesLeft} minute(s).`);
                 }
 
-                const user = await prisma.user.findUnique({
-                    where: { email: emailClean },
-                    include: { residentProfile: true }
-                });
+                let user: any = null;
+                try {
+                    user = await prisma.user.findUnique({
+                        where: { email: emailClean },
+                        include: { residentProfile: true }
+                    });
+                } catch (pErr) {
+                    console.warn("Prisma findUnique failed in authorize, using raw SQL fallback:", pErr);
+                    const rawUsers: any[] = await prisma.$queryRaw`
+                        SELECT "id", "name", "email", "password", "role"::text as "role", "isEmailVerified", "isPasswordChanged", "rejectionCount", "managedBarangay", "department", "accessiblePages"
+                        FROM "User" WHERE "email" = ${emailClean}
+                    `;
+                    user = rawUsers[0] || null;
+                }
 
                 if (!user || !user.password) {
                     throw new Error("Invalid email or password");
@@ -94,7 +104,6 @@ export const authOptions: NextAuthOptions = {
         },
         async jwt({ token, user }) {
             if (user) {
-
                 token.role = (user as any).role;
                 token.id = user.id;
 
@@ -108,18 +117,27 @@ export const authOptions: NextAuthOptions = {
 
             // Sync Database dynamically with Session to Auto-Logout rejected/pending/deceased users!
             if (token.id && token.role === "USER") {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: token.id as string },
-                    select: {
-                        email: true,
-                        isEmailVerified: true,
-                        rejectionCount: true,
-                        isPasswordChanged: true,
-                        residentProfile: {
-                            select: { isDead: true }
+                let dbUser: any = null;
+                try {
+                    dbUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: {
+                            email: true,
+                            isEmailVerified: true,
+                            rejectionCount: true,
+                            isPasswordChanged: true,
+                            residentProfile: {
+                                select: { isDead: true }
+                            }
                         }
-                    }
-                });
+                    });
+                } catch {
+                    const rawUsers: any[] = await prisma.$queryRaw`
+                        SELECT "email", "isEmailVerified", "rejectionCount", "isPasswordChanged"
+                        FROM "User" WHERE "id" = ${token.id as string}
+                    `;
+                    dbUser = rawUsers[0] || null;
+                }
 
                 const isEmailMismatch = 
                     !dbUser ||
@@ -145,16 +163,25 @@ export const authOptions: NextAuthOptions = {
 
             // Sync Database dynamically with Session for admins/staff too!
             if (token.id && token.role !== "USER") {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: token.id as string },
-                    select: {
-                        role: true,
-                        department: true,
-                        accessiblePages: true,
-                        isPasswordChanged: true,
-                        isEmailVerified: true
-                    }
-                });
+                let dbUser: any = null;
+                try {
+                    dbUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: {
+                            role: true,
+                            department: true,
+                            accessiblePages: true,
+                            isPasswordChanged: true,
+                            isEmailVerified: true
+                        }
+                    });
+                } catch {
+                    const rawUsers: any[] = await prisma.$queryRaw`
+                        SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified"
+                        FROM "User" WHERE "id" = ${token.id as string}
+                    `;
+                    dbUser = rawUsers[0] || null;
+                }
 
                 if (dbUser) {
                     token.role = dbUser.role;

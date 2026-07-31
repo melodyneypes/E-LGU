@@ -16,15 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { 
-    Megaphone, 
-    Calendar, 
-    Pin, 
-    Loader2, 
-    X, 
-    UploadCloud, 
-    ImageIcon, 
-    Trash2, 
+import {
+    Megaphone,
+    Calendar,
+    Pin,
+    Loader2,
+    X,
+    UploadCloud,
+    ImageIcon,
+    Trash2,
     Link as LinkIcon,
     ShieldAlert,
     AlertTriangle,
@@ -46,7 +46,7 @@ export function AddAnnouncementModal() {
     const [category, setCategory] = useState(hideCategory ? "Health" : "General");
     const [priority, setPriority] = useState("Normal");
     const [isPinned, setIsPinned] = useState(false);
-    
+
     // Image upload / URL states
     const [imageUrl, setImageUrl] = useState<string>("");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -159,18 +159,16 @@ export function AddAnnouncementModal() {
                         {/* Interactive Live Card Preview */}
                         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl space-y-0">
                             {/* Card Top Banner / Header */}
-                            <div className={`p-4 text-white relative overflow-hidden ${
-                                isCritical
+                            <div className={`p-4 text-white relative overflow-hidden ${isCritical
                                     ? "bg-gradient-to-r from-red-600 to-rose-600"
                                     : isHigh
-                                    ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                    : "bg-slate-800"
-                            }`}>
+                                        ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                        : "bg-slate-800"
+                                }`}>
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                     <div className="flex flex-wrap items-center gap-1.5">
-                                        <Badge className={`px-2.5 py-0.5 text-[8px] font-black uppercase tracking-widest border-0 ${
-                                            isCritical ? "bg-white text-red-600" : isHigh ? "bg-white text-orange-600" : "bg-slate-700 text-white"
-                                        }`}>
+                                        <Badge className={`px-2.5 py-0.5 text-[8px] font-black uppercase tracking-widest border-0 ${isCritical ? "bg-white text-red-600" : isHigh ? "bg-white text-orange-600" : "bg-slate-700 text-white"
+                                            }`}>
                                             {isCritical ? (
                                                 <ShieldAlert className="w-2.5 h-2.5 mr-1" />
                                             ) : isHigh ? (
@@ -281,11 +279,10 @@ export function AddAnnouncementModal() {
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="e.g., Scheduled Water Interruption Notice"
-                                    className={`h-11 bg-slate-50 dark:bg-white/5 rounded-xl text-xs font-medium ${
-                                        title.length >= 100 || (title.trim().length === 0 && editingData)
+                                    className={`h-11 bg-slate-50 dark:bg-white/5 rounded-xl text-xs font-medium ${title.length >= 100 || (title.trim().length === 0 && editingData)
                                             ? "border-red-500 focus-visible:ring-red-500"
                                             : "border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-primary/20"
-                                    }`}
+                                        }`}
                                 />
                                 {title.length >= 100 && (
                                     <p className="text-[10px] text-red-500 font-medium">
@@ -293,10 +290,10 @@ export function AddAnnouncementModal() {
                                     </p>
                                 )}
                                 {(currentBarangay || editingData?.barangay) && (
-                                    <input 
-                                        type="hidden" 
-                                        name="barangay" 
-                                        value={editingData?.barangay || currentBarangay || ""} 
+                                    <input
+                                        type="hidden"
+                                        name="barangay"
+                                        value={editingData?.barangay || currentBarangay || ""}
                                     />
                                 )}
                             </div>
@@ -317,11 +314,10 @@ export function AddAnnouncementModal() {
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
                                     placeholder="Provide detailed information regarding schedules, affected areas, and guidelines..."
-                                    className={`min-h-[130px] bg-slate-50 dark:bg-white/5 rounded-xl p-4 resize-none text-xs font-medium leading-relaxed ${
-                                        content.length >= 500 || (content.trim().length === 0 && editingData)
+                                    className={`min-h-[130px] bg-slate-50 dark:bg-white/5 rounded-xl p-4 resize-none text-xs font-medium leading-relaxed ${content.length >= 500 || (content.trim().length === 0 && editingData)
                                             ? "border-red-500 focus-visible:ring-red-500"
                                             : "border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-primary/20"
-                                    }`}
+                                        }`}
                                 />
                                 {content.length >= 500 && (
                                     <p className="text-[10px] text-red-500 font-medium">
@@ -377,7 +373,7 @@ export function AddAnnouncementModal() {
                                         </div>
                                     </div>
                                 ) : imageTab === "file" ? (
-                                    <div 
+                                    <div
                                         onClick={() => fileInputRef.current?.click()}
                                         className="border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 dark:hover:border-primary/50 bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 group"
                                     >
