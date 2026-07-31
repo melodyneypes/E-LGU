@@ -643,6 +643,8 @@ export function Sidebar({
             ];
         } else if (role === "POSO_OFFICER") {
             menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist"].includes(item.label));
+        } else if (role === "RHU_PHARMACY" || (department && department.toUpperCase().includes("PHARMACY"))) {
+            menuItems = allMenuItems.filter(item => item.href === "/admin/rhu/inventory" || item.label === "Medicine & Supplies");
         } else if (role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF") {
             menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
         }
@@ -817,7 +819,7 @@ export function Sidebar({
                                                         animate={{ height: "auto", opacity: 1 }}
                                                         exit={{ height: 0, opacity: 0 }}
                                                         transition={{ duration: 0.2, ease: "easeInOut" }}
-                                                        className="overflow-hidden mt-1 ml-4 pl-4 border-l border-slate-200 dark:border-[#2a3040] space-y-1"
+                                                        className="overflow-hidden mt-1 ml-3 pl-3 mr-1 space-y-1 border-l border-slate-200 dark:border-[#2a3040] pr-1"
                                                     >
                                                         {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
                                                             const currentCategory = searchParams.get("category");
@@ -858,10 +860,10 @@ export function Sidebar({
                                                                         href={sub.href}
                                                                         prefetch={false}
                                                                         className={cn(
-                                                                            "flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all",
+                                                                            "flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all focus:outline-none focus-visible:outline-none focus-visible:ring-0 select-none",
                                                                             isSubActive
-                                                                                ? "font-bold text-slate-900 dark:text-white"
-                                                                                : "text-slate-500 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5",
+                                                                                ? "font-bold text-slate-900 dark:text-white border border-rose-500/20"
+                                                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent",
                                                                             isDashboard ? "font-semibold text-slate-700 dark:text-slate-400" : "font-medium"
                                                                         )}
                                                                         style={{

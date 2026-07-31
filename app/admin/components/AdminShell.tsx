@@ -186,6 +186,10 @@ export function AdminShell({
             if (!pathname.startsWith("/admin/zoning")) {
                 isRestricted = true;
             }
+        } else if (role === "RHU_PHARMACY" || deptUpper.includes("PHARMACY")) {
+            if (!pathname.startsWith("/admin/rhu/inventory")) {
+                isRestricted = true;
+            }
         }
     }
 
@@ -220,6 +224,8 @@ export function AdminShell({
                         router.push("/admin/poso/tickets");
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
+                    } else if (role === "RHU_PHARMACY" || deptUpper.includes("PHARMACY")) {
+                        router.push("/admin/rhu/inventory");
                     } else if (role === "ADMIN_AIDE") {
                         if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                             router.push("/admin/rhu");

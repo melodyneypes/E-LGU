@@ -50,6 +50,8 @@ export default async function RHUAppointmentSettingsPage() {
         });
     }
 
+    const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
+
     return (
         <div className="p-2 md:p-4 max-w-full mx-auto space-y-6 pb-20">
             {/* Elegant Header Banner */}
@@ -66,6 +68,7 @@ export default async function RHUAppointmentSettingsPage() {
                 <RHUAppointmentSettingsClient 
                     themeColor={themeColor}
                     appointmentConfig={appointmentConfig as any}
+                    isCenterAdmin={isCenterAdmin}
                 />
             </div>
         </div>

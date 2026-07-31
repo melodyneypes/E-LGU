@@ -9,6 +9,34 @@ async function getSession() {
     return await getServerSession(authOptions);
 }
 
+async function getMatchedCenterForUser(user: any) {
+    if (!user) return null;
+    const role = user.role;
+    const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
+    if (!isCenterAdmin) return null;
+
+    const userEmail = (user.email || "").toLowerCase();
+    const userIdStr = String(user.id);
+
+    try {
+        const centers: any[] = await prisma.$queryRaw`
+            SELECT "id", "name", "code", "barangay", "accountEmail", "userId" FROM "RHUHealthCenter"
+        `;
+
+        const matched = centers.find((c: any) =>
+            (c.userId && String(c.userId) === userIdStr) ||
+            (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
+            (userEmail.includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
+            (userEmail.includes("main") && String(c.name).toLowerCase().includes("main")) ||
+            (user.managedBarangay && c.barangay === user.managedBarangay)
+        );
+
+        return matched || null;
+    } catch {
+        return null;
+    }
+}
+
 export async function getRHUAdminTransactions(params?: {
     status?: string;
     page?: number;
@@ -46,24 +74,63 @@ export async function getRHUAdminTransactions(params?: {
             whereClause.status = status;
         }
 
+        const andConditions: any[] = [];
+
         // Search Filter (Control Number, User Name, Patient Name, Barangay)
         if (search) {
-            whereClause.OR = [
-                { controlNumber: { contains: search, mode: "insensitive" } },
-                { user: { name: { contains: search, mode: "insensitive" } } },
-                { user: { email: { contains: search, mode: "insensitive" } } },
-                { residentSnapshot: { path: ["firstName"], string_contains: search } },
-                { residentSnapshot: { path: ["lastName"], string_contains: search } },
-                { residentSnapshot: { path: ["barangay"], string_contains: search } },
-            ];
+            andConditions.push({
+                OR: [
+                    { controlNumber: { contains: search, mode: "insensitive" } },
+                    { user: { name: { contains: search, mode: "insensitive" } } },
+                    { user: { email: { contains: search, mode: "insensitive" } } },
+                    { residentSnapshot: { path: ["firstName"], string_contains: search } },
+                    { residentSnapshot: { path: ["lastName"], string_contains: search } },
+                    { residentSnapshot: { path: ["barangay"], string_contains: search } },
+                ]
+            });
         }
 
         // Checkup Type Filter
         if (checkupType && checkupType !== "ALL") {
-            whereClause.additionalData = {
-                path: ["checkupType"],
-                equals: checkupType
-            };
+            andConditions.push({
+                additionalData: {
+                    path: ["checkupType"],
+                    equals: checkupType
+                }
+            });
+        }
+
+        // Center Isolation for Center Admins / Center Staff
+        const matchedCenter = await getMatchedCenterForUser(session.user);
+        if (matchedCenter) {
+            const centerId = matchedCenter.id;
+            const centerName = matchedCenter.name;
+            const centerNameLower = centerName.toLowerCase();
+
+            const centerOrConditions: any[] = [
+                { additionalData: { path: ["healthCenterId"], equals: centerId } },
+                { additionalData: { path: ["healthCenterName"], equals: centerName } }
+            ];
+
+            if (centerNameLower.includes("lalas")) {
+                centerOrConditions.push(
+                    { additionalData: { path: ["healthCenterName"], string_contains: "Lalas" } },
+                    { additionalData: { path: ["healthCenterName"], string_contains: "lalas" } }
+                );
+            } else if (centerNameLower.includes("main")) {
+                centerOrConditions.push(
+                    { additionalData: { path: ["healthCenterName"], string_contains: "Main" } },
+                    { additionalData: { path: ["healthCenterName"], string_contains: "main" } }
+                );
+            }
+
+            andConditions.push({
+                OR: centerOrConditions
+            });
+        }
+
+        if (andConditions.length > 0) {
+            whereClause.AND = andConditions;
         }
 
         const [transactions, total] = await Promise.all([
@@ -152,13 +219,43 @@ export async function getRHUDashboardStats() {
             return { success: false, error: "Unauthorized" };
         }
 
-        const baseWhere = {
+        const baseWhere: any = {
             type: {
                 category: {
                     in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"]
                 }
             }
         };
+
+        const matchedCenter = await getMatchedCenterForUser(session.user);
+        if (matchedCenter) {
+            const centerId = matchedCenter.id;
+            const centerName = matchedCenter.name;
+            const centerNameLower = centerName.toLowerCase();
+
+            const centerOrConditions: any[] = [
+                { additionalData: { path: ["healthCenterId"], equals: centerId } },
+                { additionalData: { path: ["healthCenterName"], equals: centerName } }
+            ];
+
+            if (centerNameLower.includes("lalas")) {
+                centerOrConditions.push(
+                    { additionalData: { path: ["healthCenterName"], string_contains: "Lalas" } },
+                    { additionalData: { path: ["healthCenterName"], string_contains: "lalas" } }
+                );
+            } else if (centerNameLower.includes("main")) {
+                centerOrConditions.push(
+                    { additionalData: { path: ["healthCenterName"], string_contains: "Main" } },
+                    { additionalData: { path: ["healthCenterName"], string_contains: "main" } }
+                );
+            }
+
+            baseWhere.AND = [
+                {
+                    OR: centerOrConditions
+                }
+            ];
+        }
 
         const [total, pending, confirmed, completed, cancelled] = await Promise.all([
             prisma.transaction.count({ where: baseWhere }),
