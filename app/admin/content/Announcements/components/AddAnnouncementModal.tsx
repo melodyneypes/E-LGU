@@ -3,6 +3,7 @@
 import { useAnnouncements } from "../providers/AnnouncementProvider";
 import { useAnnouncementForm } from "../hooks/useAnnouncementForm";
 import { useState, useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
@@ -30,22 +31,35 @@ import {
     AlertTriangle,
     Tag,
     Eye,
-    BellRing
+    BellRing,
+    MapPin
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 export function AddAnnouncementModal() {
-    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, hideCategory } = useAnnouncements();
+    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, hideCategory, activeBarangays = [] } = useAnnouncements();
     const { handleSubmit, loading } = useAnnouncementForm();
     const [themeColor, setThemeColor] = useState("#2563eb");
+    const [validationError, setValidationError] = useState("");
 
     // Real-time Form States for Live Preview
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [category, setCategory] = useState(hideCategory ? "Health" : "General");
-    const [priority, setPriority] = useState("Normal");
+    const [priority, setPriority] = useState("");
+    const [barangay, setBarangay] = useState("ALL");
     const [isPinned, setIsPinned] = useState(false);
+
+    const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!priority || priority.trim() === "") {
+            setValidationError("Priority is a required field. Please select a priority.");
+            return;
+        }
+        setValidationError("");
+        await handleSubmit(e);
+    };
 
     // Image upload / URL states
     const [imageUrl, setImageUrl] = useState<string>("");
@@ -79,7 +93,8 @@ export function AddAnnouncementModal() {
             setTitle(editingData.title || "");
             setContent(editingData.content || "");
             setCategory(editingData.category || (hideCategory ? "Health" : "General"));
-            setPriority(editingData.priority || "Normal");
+            setPriority(editingData.priority || "");
+            setBarangay(editingData.barangay || "ALL");
             setIsPinned(Boolean(editingData.isPinned));
             setImageUrl(editingData.imageUrl || "");
             setImagePreview(editingData.imageUrl || null);
@@ -88,14 +103,15 @@ export function AddAnnouncementModal() {
             setTitle("");
             setContent("");
             setCategory(hideCategory ? "Health" : "General");
-            setPriority("Normal");
+            setPriority("");
+            setBarangay(currentBarangay || "ALL");
             setIsPinned(false);
             setImageUrl("");
             setImagePreview(null);
             setImageFile(null);
             setExpiryDate("");
         }
-    }, [editingData, isAddModalOpen, hideCategory]);
+    }, [editingData, isAddModalOpen, hideCategory, currentBarangay]);
 
     const formatDateForInput = (dateInput: Date | string | null | undefined) => {
         if (!dateInput) return "";
@@ -137,9 +153,10 @@ export function AddAnnouncementModal() {
             if (!open) {
                 setEditingData(null);
                 setImageUrl("");
+                setValidationError("");
             }
         }}>
-            <DialogContent showCloseButton={false} className="sm:max-w-[1020px] w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#161820] border border-slate-200 dark:border-white/10 shadow-2xl rounded-[2.2rem] flex flex-row h-[800px] max-h-[92vh]">
+            <DialogContent showCloseButton={false} className="sm:max-w-[1020px] w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#161820] border border-slate-200 dark:border-white/10 shadow-2xl rounded-none flex flex-row h-[800px] max-h-[92vh]">
                 {/* Left Panel: Real-Time Live Preview */}
                 <div className="hidden md:flex w-[350px] p-6 flex-col justify-between bg-slate-950 text-white relative overflow-hidden shrink-0 h-full border-r border-slate-800/80">
                     {/* Background Subtle Gradient Glow */}
@@ -176,7 +193,7 @@ export function AddAnnouncementModal() {
                                             ) : (
                                                 <Megaphone className="w-2.5 h-2.5 mr-1" />
                                             )}
-                                            {priority} Priority
+                                            {priority ? `${priority} Priority` : "Select Priority"}
                                         </Badge>
 
                                         {isPinned && (
@@ -209,7 +226,7 @@ export function AddAnnouncementModal() {
                                     <img
                                         src={imageUrl}
                                         alt="Banner Preview"
-                                        className="w-full max-h-[220px] object-contain rounded-md"
+                                        className="w-full max-h-[220px] object-contain rounded-none"
                                     />
                                 </div>
                             )}
@@ -260,7 +277,7 @@ export function AddAnnouncementModal() {
                     </DialogHeader>
 
                     <div className="flex-1 px-7 overflow-y-auto custom-scrollbar">
-                        <form id="announcementForm" onSubmit={handleSubmit} className="space-y-5 py-4">
+                        <form id="announcementForm" onSubmit={handleFormSubmit} className="space-y-5 py-4">
                             <input type="hidden" name="imageUrl" value={imageUrl} />
 
                             <div className="space-y-1.5">
@@ -289,13 +306,7 @@ export function AddAnnouncementModal() {
                                         Title cannot exceed 100 characters to prevent UI distortion.
                                     </p>
                                 )}
-                                {(currentBarangay || editingData?.barangay) && (
-                                    <input
-                                        type="hidden"
-                                        name="barangay"
-                                        value={editingData?.barangay || currentBarangay || ""}
-                                    />
-                                )}
+                                {/* Hidden inputs removed, handled dynamically by form fields below */}
                             </div>
 
                             <div className="space-y-1.5">
@@ -358,7 +369,7 @@ export function AddAnnouncementModal() {
                                         <img
                                             src={imageUrl}
                                             alt="Announcement banner preview"
-                                            className="w-full max-h-[220px] object-contain rounded-lg"
+                                            className="w-full max-h-[220px] object-contain rounded-none"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                             <Button
@@ -416,15 +427,15 @@ export function AddAnnouncementModal() {
                                 <input type="hidden" name="category" value={category || "Health"} />
                             ) : null}
 
-                            <div className={hideCategory ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 {!hideCategory && (
                                     <div className="space-y-1.5">
                                         <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Category</Label>
                                         <Select name="category" value={category} onValueChange={setCategory}>
-                                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs">
+                                            <SelectTrigger className="h-11 bg-slate-50/50 dark:bg-[#1c1f2e] border border-slate-200 dark:border-slate-800 rounded-xl text-xs px-3.5 flex items-center transition-all hover:bg-slate-100/50 dark:hover:bg-[#23273a]">
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="bg-white dark:bg-[#161820] border-slate-200 dark:border-slate-850">
                                                 <SelectItem value="General">General</SelectItem>
                                                 <SelectItem value="Weather">Weather</SelectItem>
                                                 <SelectItem value="Health">Health</SelectItem>
@@ -436,46 +447,106 @@ export function AddAnnouncementModal() {
                                 )}
 
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Priority</Label>
-                                    <Select name="priority" value={priority} onValueChange={setPriority}>
-                                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs">
-                                            <SelectValue />
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Priority *</Label>
+                                    <Select name="priority" value={priority} onValueChange={(val) => {
+                                        setPriority(val);
+                                        if (val) setValidationError("");
+                                    }}>
+                                        <SelectTrigger className={cn(
+                                            "h-11 bg-slate-50/50 dark:bg-[#1c1f2e] border rounded-xl text-xs px-3.5 flex items-center gap-2 transition-all hover:bg-slate-100/50 dark:hover:bg-[#23273a]",
+                                            validationError 
+                                                ? "border-red-500 focus-visible:ring-red-500" 
+                                                : "border-slate-200 dark:border-slate-800"
+                                        )}>
+                                            <div className="flex items-center gap-2">
+                                                {!priority ? (
+                                                    <Megaphone className="w-4 h-4 text-slate-400" />
+                                                ) : priority === "Critical" ? (
+                                                    <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse" />
+                                                ) : priority === "High" ? (
+                                                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                                ) : (
+                                                    <Megaphone className="w-4 h-4 text-blue-500" />
+                                                )}
+                                                <SelectValue placeholder="Select priority..." />
+                                            </div>
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-white dark:bg-[#161820] border-slate-200 dark:border-slate-850">
                                             <SelectItem value="Normal">Normal</SelectItem>
                                             <SelectItem value="High">High Priority</SelectItem>
                                             <SelectItem value="Critical">Critical Alert</SelectItem>
                                             <SelectItem value="Low">Low Priority</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> Expiry Date <span className="text-slate-400 font-normal lowercase">(optional)</span>
-                                </Label>
-                                <Input
-                                    type="date"
-                                    name="expiryDate"
-                                    defaultValue={formatDateForInput(editingData?.expiryDate)}
-                                    className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 pt-1">
-                                <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer">
-                                        <Pin className="w-3.5 h-3.5 text-primary" /> Pin to Feed
-                                    </Label>
-                                    <Switch name="isPinned" checked={isPinned} onCheckedChange={setIsPinned} />
+                                    {validationError && (
+                                        <p className="text-[10px] text-red-500 font-medium">{validationError}</p>
+                                    )}
                                 </div>
 
-                                <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 cursor-pointer">
-                                        Set Active
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Scope / Barangay</Label>
+                                    {currentBarangay ? (
+                                        <div className="relative">
+                                            <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                                            <Input
+                                                readOnly
+                                                value={currentBarangay}
+                                                className="h-11 pl-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold cursor-not-allowed"
+                                            />
+                                            <input type="hidden" name="barangay" value={currentBarangay} />
+                                        </div>
+                                    ) : (
+                                        <Select name="barangay" value={barangay} onValueChange={setBarangay}>
+                                            <SelectTrigger className="h-11 bg-slate-50/50 dark:bg-[#1c1f2e] border border-slate-200 dark:border-slate-800 rounded-xl text-xs px-3.5 flex items-center gap-2 transition-all hover:bg-slate-100/50 dark:hover:bg-[#23273a]">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-4 h-4" style={{ color: themeColor }} />
+                                                    <SelectValue placeholder="Select Scope..." />
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white dark:bg-[#161820] border-slate-200 dark:border-slate-850">
+                                                <SelectItem value="ALL">Whole Municipality</SelectItem>
+                                                {activeBarangays.map((b) => (
+                                                    <SelectItem key={b} value={b}>
+                                                        {b}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                        Expiry Date <span className="text-slate-400 font-normal lowercase">(optional)</span>
                                     </Label>
-                                    <Switch name="isActive" defaultChecked={editingData?.isActive ?? true} />
+                                    <div className="relative">
+                                        <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                        <Input
+                                            type="date"
+                                            name="expiryDate"
+                                            defaultValue={formatDateForInput(editingData?.expiryDate)}
+                                            className="h-11 pl-10 bg-slate-50/50 dark:bg-[#1c1f2e] border-slate-200 dark:border-slate-800 rounded-xl text-xs transition-all hover:bg-slate-100/50 dark:hover:bg-[#23273a]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col justify-end space-y-1.5 md:col-span-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Quick Actions</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex items-center justify-between px-3 h-11 bg-slate-50/30 dark:bg-[#1c1f2e]/50 rounded-xl border border-slate-200/60 dark:border-slate-800/80 hover:border-slate-300 transition-all">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer">
+                                                <Pin className="w-3.5 h-3.5 text-primary" /> Pin to Feed
+                                            </Label>
+                                            <Switch name="isPinned" checked={isPinned} onCheckedChange={setIsPinned} />
+                                        </div>
+
+                                        <div className="flex items-center justify-between px-3 h-11 bg-slate-50/30 dark:bg-[#1c1f2e]/50 rounded-xl border border-slate-200/60 dark:border-slate-800/80 hover:border-slate-300 transition-all">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 cursor-pointer">
+                                                Set Active
+                                            </Label>
+                                            <Switch name="isActive" defaultChecked={editingData?.isActive ?? true} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </form>

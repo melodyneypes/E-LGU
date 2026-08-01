@@ -109,6 +109,7 @@ interface RHUInventoryClientProps {
     initialItems: RHUInventoryItemData[];
     initialCenters?: any[];
     currentUser?: any;
+    matchedCenter?: any;
 }
 
 function getExpirationStatus(expirationDate?: string | Date | null) {
@@ -135,7 +136,7 @@ function getExpirationStatus(expirationDate?: string | Date | null) {
             days: Math.abs(diffDays),
             badgeText: `Expired (${Math.abs(diffDays)}d ago)`
         };
-    } else if (diffDays <= 30) {
+    } else if (diffDays <= 60) {
         return {
             status: "EXPIRING_SOON",
             label: dateStr,
@@ -152,7 +153,7 @@ function getExpirationStatus(expirationDate?: string | Date | null) {
     }
 }
 
-export default function RHUInventoryClient({ initialItems, initialCenters = [], currentUser }: RHUInventoryClientProps) {
+export default function RHUInventoryClient({ initialItems, initialCenters = [], currentUser, matchedCenter }: RHUInventoryClientProps) {
     const [items, setItems] = useState<RHUInventoryItemData[]>(initialItems);
     const [centers] = useState<any[]>(initialCenters);
     const [searchQuery, setSearchQuery] = useState("");
@@ -160,12 +161,32 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "EXPIRING_SOON" | "EXPIRED">("ALL");
 
     const role = currentUser?.role || "";
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const department = (currentUser?.department || "").toUpperCase();
-    const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
-    const canManageInventory = isLguAdmin || role === "RHU_PHARMACY" || department.includes("PHARMACY");
+    const userEmail = (currentUser?.email || "").toLowerCase();
+    const userName = (currentUser?.name || "").toLowerCase();
 
-    const isCenterAdmin = currentUser?.role === "RHU_CENTER_ADMIN";
-    const defaultCenterId = isCenterAdmin && centers.length > 0 ? (centers[0]?.id || "ALL") : "ALL";
+    const userMatchedCenter = matchedCenter || (
+        currentUser && centers.length > 0 ? centers.find((c: any) => {
+            const cName = (c.name || "").toLowerCase();
+            return (
+                (c.accountEmail && c.accountEmail.toLowerCase() === userEmail) ||
+                (userEmail.includes("lalas") && cName.includes("lalas")) ||
+                (userName.includes("lalas") && cName.includes("lalas")) ||
+                (userEmail.includes("main") && cName.includes("main"))
+            );
+        }) : null
+    );
+
+    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and CANNOT modify master inventory/adjust stock
+    const isCenterAdmin = currentUser?.role === "RHU_CENTER_ADMIN" || (userMatchedCenter && !userEmail.includes("rhu@") && !userEmail.includes("main"));
+    const isCenterScopedUser = !!userMatchedCenter;
+
+    // Only RHU Administrator (Main RHU / Super Admin / Pharmacy / RHU_ADMIN) can add/edit/adjust inventory
+    const isRhuAdmin = (role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_PHARMACY" || userEmail.includes("rhu@") || userEmail.includes("main")) && !isCenterAdmin;
+    const canManageInventory = isRhuAdmin;
+
+    const defaultCenterId = userMatchedCenter ? userMatchedCenter.id : "ALL";
     const [centerFilter, setCenterFilter] = useState<string>(defaultCenterId);
     const [isPending, startTransition] = useTransition();
 
@@ -729,22 +750,29 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
-                        {/* Health Center Filter Dropdown */}
-                        <Select
-                            value={centerFilter}
-                            onValueChange={(val: string) => setCenterFilter(val)}
-                        >
-                            <SelectTrigger className="w-full sm:w-[200px] h-9 rounded-lg text-xs font-semibold">
-                                <Hospital className="w-3.5 h-3.5 mr-2 text-rose-500" />
-                                <SelectValue placeholder="Health Center" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Health Centers</SelectItem>
-                                {centers.map((c: any) => (
-                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {/* Health Center Filter Dropdown or Locked Badge */}
+                        {isCenterScopedUser ? (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/20 rounded-lg text-xs font-bold text-rose-500 shrink-0 h-9">
+                                <Hospital className="w-3.5 h-3.5" />
+                                <span>{userMatchedCenter.name}</span>
+                            </div>
+                        ) : (
+                            <Select
+                                value={centerFilter}
+                                onValueChange={(val: string) => setCenterFilter(val)}
+                            >
+                                <SelectTrigger className="w-full sm:w-[200px] h-9 rounded-lg text-xs font-semibold">
+                                    <Hospital className="w-3.5 h-3.5 mr-2 text-rose-500" />
+                                    <SelectValue placeholder="Health Center" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">All Health Centers</SelectItem>
+                                    {centers.map((c: any) => (
+                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
 
                         {/* Stock & Expiration Filter Dropdown */}
                         <Select
@@ -760,7 +788,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                 <SelectItem value="IN_STOCK">In Stock</SelectItem>
                                 <SelectItem value="LOW_STOCK">Low Stock Alert</SelectItem>
                                 <SelectItem value="OUT_OF_STOCK">Out of Stock</SelectItem>
-                                <SelectItem value="EXPIRING_SOON">Expiring Soon (30d)</SelectItem>
+                                <SelectItem value="EXPIRING_SOON">Expiring Soon (60d)</SelectItem>
                                 <SelectItem value="EXPIRED">Already Expired</SelectItem>
                             </SelectContent>
                         </Select>

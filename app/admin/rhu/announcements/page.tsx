@@ -4,6 +4,7 @@ import { AnnouncementPage } from "@/app/admin/content/Announcements/Announcement
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Metadata } from "next";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function RHUAnnouncementsPage({
 
     const user = session?.user as any;
     const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";
+    const matchedCenter = user ? await getMatchedCenterForUser(user) : null;
 
     // Build optimized Prisma filter clause
     const where: any = {};
@@ -81,18 +83,6 @@ export default async function RHUAnnouncementsPage({
     const [announcements, totalCount, activeBarangays] = await Promise.all([
         announcementDelegate.findMany({
             where,
-            select: {
-                id: true,
-                title: true,
-                priority: true,
-                category: true,
-                isPinned: true,
-                isActive: true,
-                barangay: true,
-                expiryDate: true,
-                createdAt: true,
-                updatedAt: true,
-            },
             orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
             skip: (page - 1) * pageSize,
             take: pageSize,
@@ -116,6 +106,12 @@ export default async function RHUAnnouncementsPage({
             currentBarangay={isBarangayAdmin ? user.managedBarangay : barangayParam || undefined}
             activeBarangays={activeBarangays.map((b) => b.name)}
             hideCategory={true}
+            currentUser={{
+                id: user?.id,
+                email: user?.email,
+                role: user?.role,
+                matchedCenterId: matchedCenter?.id
+            }}
         />
     );
 }

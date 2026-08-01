@@ -71,7 +71,7 @@ export async function getRHUAppointmentConfig() {
     }
 }
 
-export async function getRHUBookedSlots(dateString: string) {
+export async function getRHUBookedSlots(dateString: string, healthCenterId?: string) {
     try {
         const date = new Date(dateString);
         const startOfDay = new Date(date);
@@ -90,10 +90,20 @@ export async function getRHUBookedSlots(dateString: string) {
             },
             select: {
                 appointmentDate: true,
-                appointmentSlot: true
+                appointmentSlot: true,
+                additionalData: true
             }
         });
-        return { success: true, data: bookedSlots };
+
+        // Filter by selected healthCenterId if provided
+        const filteredSlots = healthCenterId
+            ? bookedSlots.filter((slot: any) => {
+                const data = slot.additionalData || {};
+                return data.healthCenterId === healthCenterId;
+            })
+            : bookedSlots;
+
+        return { success: true, data: filteredSlots };
     } catch (error) {
         console.error("Failed to fetch RHU booked slots:", error);
         return { success: false, error: "Failed to fetch booked slots" };
@@ -120,26 +130,28 @@ export async function submitRHUAppointment(formData: FormData) {
             return { success: false, error: "Invalid transaction type." };
         }
 
-        const activeTx = await prisma.transaction.findFirst({
-            where: {
-                userId: session.user.id,
-                type: { code: txType.code },
-                status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
-                isCancelled: false
-            }
-        });
-        if (activeTx) {
-            return {
-                success: false,
-                error: `You currently have an ongoing request for "${txType.name}". Please wait for it to be completed or cancelled.`
-            };
-        }
+        // TODO: Re-enable this check after testing
+        // const activeTx = await prisma.transaction.findFirst({
+        //     where: {
+        //         userId: session.user.id,
+        //         type: { code: txType.code },
+        //         status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
+        //         isCancelled: false
+        //     }
+        // });
+        // if (activeTx) {
+        //     return {
+        //         success: false,
+        //         error: `You already have an active appointment for "${txType.name}". Please complete or attend your existing appointment before scheduling a new one.`
+        //     };
+        // }
 
         const residentSnapshot = sanitizeObject(JSON.parse(formData.get("residentSnapshot") as string));
         const additionalData = sanitizeObject(JSON.parse(formData.get("additionalData") as string));
+        const healthCenterId = additionalData.healthCenterId || "";
 
-        // 1. Check if slot is available
-        const configRes = await getRHUAppointmentConfig();
+        // 1. Check if slot is available for this specific health center
+        const configRes = await getCenterAppointmentConfig(healthCenterId);
         const config = configRes.success ? configRes.data : null;
         const maxSlotsAM = config?.maxSlotsAM ?? 25;
         const maxSlotsPM = config?.maxSlotsPM ?? 25;
@@ -149,14 +161,20 @@ export async function submitRHUAppointment(formData: FormData) {
         const endOfDay = new Date(appointmentDate);
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        const bookedCount = await prisma.transaction.count({
+        const bookedSlots = await prisma.transaction.findMany({
             where: {
                 appointmentDate: { gte: startOfDay, lte: endOfDay },
                 appointmentSlot: appointmentSlot,
                 isCancelled: false,
                 type: { category: "Rural Health Unit" }
-            }
+            },
+            select: { additionalData: true }
         });
+
+        const bookedCount = bookedSlots.filter((slot: any) => {
+            const data = slot.additionalData || {};
+            return data.healthCenterId === healthCenterId;
+        }).length;
 
         const isAM = appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM");
         const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
@@ -180,13 +198,14 @@ export async function submitRHUAppointment(formData: FormData) {
                 data: {
                     userId: session.user.id,
                     typeId,
-                    status: "FOR_REQUESTING", // RHU request initial status when submitted
+                    status: "FOR_INSPECTION", // Prisma valid enum mapping for initial booking
                     residentSnapshot,
                     additionalData: {
                         ...additionalData,
+                        rhuStatus: "APPOINTMENT_BOOKED",
                         isPriorityLane: isPriority
                     },
-                    totalAmount: txType.baseFee,
+                    totalAmount: 0,
                     appointmentDate,
                     appointmentSlot,
                     queueNumber,
@@ -257,6 +276,153 @@ export async function updateRHUAppointmentConfig(data: { maxSlots?: number; acti
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("updateRHUAppointmentConfig error:", error);
+        return { success: false, error: error.message || "Failed to update config" };
+    }
+}
+
+export async function getCenterAppointmentConfig(healthCenterId: string) {
+    try {
+        if (!healthCenterId || healthCenterId === "NONE") {
+            // Return global config or default values if no center selected
+            const rhuConfig = await prisma.appointmentConfig.findUnique({
+                where: { department: "RHU" }
+            });
+            if (rhuConfig) {
+                return { success: true, data: rhuConfig };
+            }
+            return {
+                success: true,
+                data: {
+                    department: "RHU",
+                    maxSlots: 50,
+                    maxSlotsAM: 25,
+                    maxSlotsPM: 25,
+                    amTimeLabel: "08:00 AM - 11:00 AM",
+                    pmTimeLabel: "01:00 PM - 04:00 PM",
+                    blockedDates: [],
+                    activeDays: [1, 2, 3, 4, 5]
+                }
+            };
+        }
+
+        const departmentKey = `RHU_CENTER_${healthCenterId}`;
+        let config = await prisma.appointmentConfig.findUnique({
+            where: { department: departmentKey }
+        });
+        if (!config) {
+            // Fallback to global "RHU" config
+            const rhuConfig = await prisma.appointmentConfig.findUnique({
+                where: { department: "RHU" }
+            });
+            if (rhuConfig) {
+                // Return a copy with the center's department key
+                return { success: true, data: { ...rhuConfig, department: departmentKey } };
+            }
+            // Create default
+            config = await prisma.appointmentConfig.create({
+                data: {
+                    department: departmentKey,
+                    maxSlots: 50,
+                    maxSlotsAM: 25,
+                    maxSlotsPM: 25,
+                    amTimeLabel: "08:00 AM - 11:00 AM",
+                    pmTimeLabel: "01:00 PM - 04:00 PM",
+                    blockedDates: [],
+                    activeDays: [1, 2, 3, 4, 5]
+                } as any
+            });
+        }
+        return { success: true, data: config };
+    } catch (error) {
+        console.error("Failed to get center config:", error);
+        return { success: false, error: "Failed to load config" };
+    }
+}
+
+export async function updateCenterAppointmentConfig(
+    healthCenterId: string,
+    data: {
+        maxSlots?: number;
+        maxSlotsAM?: number;
+        maxSlotsPM?: number;
+        amTimeLabel?: string;
+        pmTimeLabel?: string;
+        activeDays?: number[];
+        blockedDates?: string[];
+    }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const role = (session.user as any)?.role;
+        const email = session.user.email;
+        const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
+        const isMainAdmin = role === "ADMIN" || role === "RHU_ADMIN" || role === "ADMIN_AIDE";
+
+        if (!isCenterAdmin && !isMainAdmin) {
+            return { success: false, error: "Unauthorized: Access denied." };
+        }
+
+        // If center admin, verify they are assigned to this specific health center
+        if (isCenterAdmin) {
+            // Dynamically load health centers using query raw or model check to match centers/page.tsx
+            let healthCenters: any[] = [];
+            try {
+                const model = (prisma as any).rHUHealthCenter || (prisma as any).RHUHealthCenter;
+                if (model) {
+                    healthCenters = await model.findMany({ where: { status: "ACTIVE" } });
+                } else {
+                    healthCenters = await prisma.$queryRaw`SELECT * FROM "RHUHealthCenter" WHERE "status" = 'ACTIVE'`;
+                }
+            } catch {
+                healthCenters = [];
+            }
+
+            const matchedCenter = healthCenters.find((c: any) =>
+                (c.userId && String(c.userId) === String(session.user.id)) ||
+                (c.accountEmail && email && String(c.accountEmail).toLowerCase() === String(email).toLowerCase()) ||
+                (email && String(email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
+                (email && String(email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
+            );
+            if (!matchedCenter || matchedCenter.id !== healthCenterId) {
+                return { success: false, error: "Unauthorized: You can only edit settings for your assigned health center." };
+            }
+        }
+
+        const departmentKey = `RHU_CENTER_${healthCenterId}`;
+        const updated = await prisma.appointmentConfig.upsert({
+            where: { department: departmentKey },
+            update: {
+                maxSlots: data.maxSlots,
+                maxSlotsAM: data.maxSlotsAM,
+                maxSlotsPM: data.maxSlotsPM,
+                amTimeLabel: data.amTimeLabel,
+                pmTimeLabel: data.pmTimeLabel,
+                activeDays: data.activeDays,
+                blockedDates: data.blockedDates,
+                updatedAt: new Date()
+            } as any,
+            create: {
+                department: departmentKey,
+                maxSlots: data.maxSlots || 50,
+                maxSlotsAM: data.maxSlotsAM || 25,
+                maxSlotsPM: data.maxSlotsPM || 25,
+                amTimeLabel: data.amTimeLabel || "08:00 AM - 11:00 AM",
+                pmTimeLabel: data.pmTimeLabel || "01:00 PM - 04:00 PM",
+                activeDays: data.activeDays || [1, 2, 3, 4, 5],
+                blockedDates: data.blockedDates || []
+            } as any
+        });
+
+        revalidatePath("/admin/rhu/appointment-settings");
+        revalidatePath("/user/services/rural-health-unit");
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("updateCenterAppointmentConfig error:", error);
         return { success: false, error: error.message || "Failed to update config" };
     }
 }

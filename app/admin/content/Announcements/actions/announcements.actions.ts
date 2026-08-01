@@ -4,6 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -14,6 +15,7 @@ export type ActionResponse<T = unknown> = {
 
 interface SessionUser {
     id?: string;
+    email?: string;
     role?: string;
     managedBarangay?: string;
 }
@@ -29,7 +31,7 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
         }
         
         const user = session.user as SessionUser;
-        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
         if (user.role && !allowedRoles.includes(user.role)) {
             return { user: null, error: "Forbidden: You do not have administrative privileges." };
         }
@@ -39,6 +41,41 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
         console.error("[Auth Guard Error]:", err);
         return { user: null, error: "Authentication check failed." };
     }
+}
+
+/**
+ * Helper to check if user owns the announcement or is global super admin.
+ */
+async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ allowed: boolean; error?: string }> {
+    const userEmail = (user.email || "").toLowerCase();
+    const matchedCenter = await getMatchedCenterForUser(user);
+    const isSuperAdmin = (user.role === "ADMIN" || user.role === "RHU_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
+
+    if (isSuperAdmin) {
+        return { allowed: true };
+    }
+
+    if (user.role === "BARANGAY_ADMIN") {
+        if (existing.barangay && existing.barangay !== user.managedBarangay) {
+            return { allowed: false, error: "Forbidden: You cannot modify announcements outside your barangay." };
+        }
+        return { allowed: true };
+    }
+
+    const existingAuthorEmail = (existing.authorEmail || "").toLowerCase();
+    const isOwner =
+        (existing.authorId && user.id && String(existing.authorId) === String(user.id)) ||
+        (existingAuthorEmail && existingAuthorEmail === userEmail) ||
+        (matchedCenter && existing.healthCenterId && String(existing.healthCenterId) === String(matchedCenter.id));
+
+    if (!isOwner) {
+        return {
+            allowed: false,
+            error: "Forbidden: You can only edit or modify announcements created by your center."
+        };
+    }
+
+    return { allowed: true };
 }
 
 /**
@@ -117,12 +154,18 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         }
 
         let barangay = (formData.get("barangay") as string)?.trim() || null;
+        if (barangay === "ALL" || barangay === "All") {
+            barangay = null;
+        }
         if (user.role === "BARANGAY_ADMIN") {
             if (!user.managedBarangay) {
                 return { success: false, error: "Barangay Admin does not have an assigned barangay." };
             }
             barangay = user.managedBarangay;
         }
+
+        const matchedCenter = await getMatchedCenterForUser(user);
+        const userEmail = (user.email || "").toLowerCase();
 
         const announcementDelegate = getAnnouncementDelegate();
         
@@ -135,6 +178,9 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
             isActive: formData.get("isActive") === "on",
             expiryDate: expiryDate ? new Date(expiryDate) : null,
             barangay: barangay || null,
+            authorId: user.id || null,
+            authorEmail: userEmail || null,
+            healthCenterId: matchedCenter?.id || null,
         };
 
         if (imageUrl) {
@@ -159,6 +205,7 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         }
 
         revalidatePath("/admin/announcements");
+        revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
         return { success: true, announcement: newAnnouncement };
     } catch (error) {
@@ -194,19 +241,20 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
         }
 
         const announcementDelegate = getAnnouncementDelegate();
-        
-        // Scope check for Barangay Admin
-        if (user.role === "BARANGAY_ADMIN") {
-            const existing = await announcementDelegate.findUnique({ where: { id } });
-            if (!existing) {
-                return { success: false, error: "Announcement not found." };
-            }
-            if (existing.barangay && existing.barangay !== user.managedBarangay) {
-                return { success: false, error: "Forbidden: You cannot modify announcements outside your barangay." };
-            }
+        const existing = await announcementDelegate.findUnique({ where: { id } });
+        if (!existing) {
+            return { success: false, error: "Announcement not found." };
+        }
+
+        const guard = await checkOwnershipGuard(user, existing);
+        if (!guard.allowed) {
+            return { success: false, error: guard.error || "Forbidden" };
         }
 
         let barangay = (formData.get("barangay") as string)?.trim() || null;
+        if (barangay === "ALL" || barangay === "All") {
+            barangay = null;
+        }
         if (user.role === "BARANGAY_ADMIN") {
             barangay = user.managedBarangay || null;
         }
@@ -246,6 +294,7 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
         }
 
         revalidatePath("/admin/announcements");
+        revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
         return { success: true, announcement: updated };
     } catch (error) {
@@ -270,19 +319,19 @@ export async function deleteAnnouncement(id: string): Promise<ActionResponse> {
         }
 
         const announcementDelegate = getAnnouncementDelegate();
+        const existing = await announcementDelegate.findUnique({ where: { id } });
+        if (!existing) {
+            return { success: false, error: "Announcement not found." };
+        }
 
-        if (user.role === "BARANGAY_ADMIN") {
-            const existing = await announcementDelegate.findUnique({ where: { id } });
-            if (!existing) {
-                return { success: false, error: "Announcement not found." };
-            }
-            if (existing.barangay && existing.barangay !== user.managedBarangay) {
-                return { success: false, error: "Forbidden: You cannot delete announcements outside your barangay." };
-            }
+        const guard = await checkOwnershipGuard(user, existing);
+        if (!guard.allowed) {
+            return { success: false, error: guard.error || "Forbidden" };
         }
 
         await announcementDelegate.delete({ where: { id } });
         revalidatePath("/admin/announcements");
+        revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
         return { success: true };
     } catch (error) {
@@ -307,19 +356,19 @@ export async function toggleAnnouncementStatus(id: string, isActive: boolean): P
         }
 
         const announcementDelegate = getAnnouncementDelegate();
+        const existing = await announcementDelegate.findUnique({ where: { id } });
+        if (!existing) {
+            return { success: false, error: "Announcement not found." };
+        }
 
-        if (user.role === "BARANGAY_ADMIN") {
-            const existing = await announcementDelegate.findUnique({ where: { id } });
-            if (!existing) {
-                return { success: false, error: "Announcement not found." };
-            }
-            if (existing.barangay && existing.barangay !== user.managedBarangay) {
-                return { success: false, error: "Forbidden: You cannot modify status outside your barangay." };
-            }
+        const guard = await checkOwnershipGuard(user, existing);
+        if (!guard.allowed) {
+            return { success: false, error: guard.error || "Forbidden" };
         }
 
         await announcementDelegate.update({ where: { id }, data: { isActive } });
         revalidatePath("/admin/announcements");
+        revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
         return { success: true };
     } catch (error) {
@@ -344,19 +393,19 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean): Prom
         }
 
         const announcementDelegate = getAnnouncementDelegate();
+        const existing = await announcementDelegate.findUnique({ where: { id } });
+        if (!existing) {
+            return { success: false, error: "Announcement not found." };
+        }
 
-        if (user.role === "BARANGAY_ADMIN") {
-            const existing = await announcementDelegate.findUnique({ where: { id } });
-            if (!existing) {
-                return { success: false, error: "Announcement not found." };
-            }
-            if (existing.barangay && existing.barangay !== user.managedBarangay) {
-                return { success: false, error: "Forbidden: You cannot modify pin status outside your barangay." };
-            }
+        const guard = await checkOwnershipGuard(user, existing);
+        if (!guard.allowed) {
+            return { success: false, error: guard.error || "Forbidden" };
         }
 
         await announcementDelegate.update({ where: { id }, data: { isPinned } });
         revalidatePath("/admin/announcements");
+        revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
         return { success: true };
     } catch (error) {

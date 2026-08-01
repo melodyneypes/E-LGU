@@ -1,6 +1,6 @@
 "use client";
 
-import { AnnouncementProvider, Announcement } from "./providers/AnnouncementProvider";
+import { AnnouncementProvider, Announcement, CurrentUserSession } from "./providers/AnnouncementProvider";
 import { AnnouncementCards } from "./components/AnnouncementCards";
 import { AnnouncementFilters } from "./components/AnnouncementFilters";
 import { AnnouncementTable } from "./components/AnnouncementTable";
@@ -18,6 +18,7 @@ interface AnnouncementPageProps {
     currentBarangay?: string;
     activeBarangays?: string[];
     hideCategory?: boolean;
+    currentUser?: CurrentUserSession;
 }
 
 export function AnnouncementPage({
@@ -31,6 +32,7 @@ export function AnnouncementPage({
     currentBarangay,
     activeBarangays,
     hideCategory,
+    currentUser,
 }: AnnouncementPageProps) {
     return (
         <AnnouncementProvider
@@ -44,6 +46,7 @@ export function AnnouncementPage({
             currentBarangay={currentBarangay}
             activeBarangays={activeBarangays}
             hideCategory={hideCategory}
+            currentUser={currentUser}
         >
             <AnnouncementPageContent />
         </AnnouncementProvider>

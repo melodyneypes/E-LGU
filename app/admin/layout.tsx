@@ -19,6 +19,7 @@ export default async function AdminLayout({
     const role = (session.user as { role?: string })?.role;
     const isAllowedAdmin = [
         "ADMIN",
+        "RHU_ADMIN",
         "CONTENT_ADMIN",
         "BARANGAY_ADMIN",
         "TREASURY_STAFF",

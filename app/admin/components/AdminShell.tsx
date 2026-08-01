@@ -62,8 +62,10 @@ export function AdminShell({
                         setLcrCounts(data.unviewedLcrCounts || {});
                     }
                 }
-            } catch (err) {
-                console.error("Failed to fetch sidebar counts:", err);
+            } catch (err: any) {
+                if (err?.name !== "AbortError" && !err?.message?.includes("Failed to fetch")) {
+                    console.error("Failed to fetch sidebar counts:", err);
+                }
             }
         };
 
@@ -187,7 +189,7 @@ export function AdminShell({
                 isRestricted = true;
             }
         } else if (role === "RHU_PHARMACY" || deptUpper.includes("PHARMACY")) {
-            if (!pathname.startsWith("/admin/rhu/inventory")) {
+            if (!pathname.startsWith("/admin/rhu")) {
                 isRestricted = true;
             }
         }

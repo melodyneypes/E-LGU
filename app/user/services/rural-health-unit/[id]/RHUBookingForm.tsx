@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Home,
@@ -31,13 +31,13 @@ import dynamic from "next/dynamic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import SchedulePicker from "@/components/shared/SchedulePicker";
-import { submitRHUAppointment } from "../actions";
+import { submitRHUAppointment, getCenterAppointmentConfig } from "../actions";
 
-const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+const AllHealthCentersMap = dynamic(() => import("@/components/shared/AllHealthCentersMap"), {
     ssr: false,
     loading: () => (
-        <div className="h-[220px] w-full rounded-2xl bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500 font-bold">
-            Loading Health Center Map...
+        <div className="h-[280px] w-full rounded-2xl bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500 font-bold uppercase tracking-widest">
+            Loading Mapandan Health Centers Map...
         </div>
     )
 });
@@ -81,21 +81,25 @@ export function MedicalConsultationForm({
     const [submitting, setSubmitting] = useState(false);
 
     // Selected Health Center state
-    const [selectedCenterId, setSelectedCenterId] = useState<string>(
-        healthCenters[0]?.id || ""
-    );
+    const [selectedCenterId, setSelectedCenterId] = useState<string>("");
+    const [currentConfig, setCurrentConfig] = useState<any>(appointmentConfig);
 
-    const selectedCenter = healthCenters.find((c: any) => c.id === selectedCenterId) || healthCenters[0] || {
-        id: "main-rhu",
-        name: "Main Rural Health Unit (RHU)",
-        code: "RHU-MAIN",
-        location: "Poblacion, Mapandan, Pangasinan",
-        latitude: 16.0250,
-        longitude: 120.4450,
-        barangay: "Poblacion",
-        contactNumber: "(075) 555-0101",
-        operatingHours: "Mon-Fri 8:00 AM - 5:00 PM"
-    };
+    const selectedCenter = healthCenters.find((c: any) => c.id === selectedCenterId) || null;
+
+    // When user selects a different health center, dynamically load its schedule config
+    useEffect(() => {
+        if (!selectedCenterId) {
+            setCurrentConfig(appointmentConfig);
+            return;
+        }
+        getCenterAppointmentConfig(selectedCenterId).then((res) => {
+            if (res.success && res.data) {
+                setCurrentConfig(res.data);
+            } else {
+                setCurrentConfig(appointmentConfig);
+            }
+        });
+    }, [selectedCenterId, appointmentConfig]);
 
     // Validation errors state
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -323,9 +327,9 @@ export function MedicalConsultationForm({
                 customCheckupType: additionalFields.customCheckupType,
                 purpose: `${checkupDisplay} Check-up: ${additionalFields.symptomsPurpose}`,
                 findings: additionalFields.findings,
-                healthCenterId: selectedCenter.id,
-                healthCenterName: selectedCenter.name,
-                healthCenterLocation: selectedCenter.location,
+                healthCenterId: selectedCenter?.id || "",
+                healthCenterName: selectedCenter?.name || "",
+                healthCenterLocation: selectedCenter?.location || "",
                 bookingFor,
                 relationship: bookingFor === "RELATIVE" ? relationship : "Self",
             };
@@ -733,7 +737,8 @@ export function MedicalConsultationForm({
                                             </Select>
                                         </div>
 
-                                        {/* Center Location Map Preview Card */}
+                                        {/* Center Location Map Preview Card — only show when a center is selected */}
+                                        {selectedCenter && (
                                         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4 space-y-3">
                                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
                                                 <div className="space-y-0.5">
@@ -757,11 +762,11 @@ export function MedicalConsultationForm({
                                                 </a>
                                             </div>
 
-                                            <div className="h-[220px] w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
-                                                <LocationPicker
-                                                    lat={selectedCenter.latitude || 16.0250}
-                                                    lng={selectedCenter.longitude || 120.4450}
-                                                    onChange={() => {}}
+                                            <div className="w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
+                                                <AllHealthCentersMap
+                                                     centers={healthCenters.length > 0 ? healthCenters : [selectedCenter]}
+                                                     selectedCenterId={selectedCenterId}
+                                                     onSelectCenter={(id) => setSelectedCenterId(id)}
                                                 />
                                             </div>
 
@@ -778,6 +783,7 @@ export function MedicalConsultationForm({
                                                 )}
                                             </div>
                                         </div>
+                                        )}
                                     </div>
 
                                     {/* 2. Type of Check-up (Dynamically filtered by selected center) */}
@@ -786,7 +792,7 @@ export function MedicalConsultationForm({
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
                                                 Type of Check-up <span className="text-red-500 font-bold ml-0.5">*</span>
                                             </Label>
-                                            {selectedCenter.servicesOffered && (
+                                            {selectedCenter?.servicesOffered && (
                                                 <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                                                     Available at {selectedCenter.name.split(' ')[0]}
                                                 </span>
@@ -804,7 +810,7 @@ export function MedicalConsultationForm({
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
                                                 {(() => {
-                                                    const offeredStr = (selectedCenter.servicesOffered || "").toLowerCase();
+                                                    const offeredStr = (selectedCenter?.servicesOffered || "").toLowerCase();
                                                     const ALL_OPTIONS = [
                                                         { value: "General Consultation", label: "General Consultation / Check-up", keywords: ["general", "consultation", "check-up", "checkup"] },
                                                         { value: "Pre-Marital", label: "Pre-Marital / Marital Check-up", keywords: ["marital", "pre-marital", "marriage"] },
@@ -818,16 +824,11 @@ export function MedicalConsultationForm({
 
                                                     const listToRender = matched.length > 0 ? matched : ALL_OPTIONS;
 
-                                                    return (
-                                                        <>
-                                                            {listToRender.map(opt => (
-                                                                <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold rounded-lg">
-                                                                    {opt.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                            <SelectItem value="OTHER" className="text-xs font-bold rounded-lg">Other (Please specify)</SelectItem>
-                                                        </>
-                                                    );
+                                                    return listToRender.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold rounded-lg">
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ));
                                                 })()}
                                             </SelectContent>
                                         </Select>
@@ -903,8 +904,14 @@ export function MedicalConsultationForm({
                                         setSelectedDate={setSelectedDate}
                                         selectedSlot={selectedSlot}
                                         setSelectedSlot={setSelectedSlot}
-                                        bookedSlots={initialBookedSlots}
-                                        config={appointmentConfig}
+                                        bookedSlots={selectedCenterId
+                                            ? initialBookedSlots.filter((slot: any) => {
+                                                const data = slot.additionalData || {};
+                                                return data.healthCenterId === selectedCenterId;
+                                            })
+                                            : initialBookedSlots
+                                        }
+                                        config={currentConfig}
                                         themeColor={themeColor}
                                     />
                                 </div>
@@ -978,16 +985,7 @@ export function MedicalConsultationForm({
                                     </div>
                                 </div>
 
-                                {/* Cost Summary */}
-                                <div className="p-5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 flex items-center justify-between select-none">
-                                    <div className="flex flex-col">
-                                        <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1 italic">Total Amount Due</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase italic">Pay at the treasury or health office counter</span>
-                                    </div>
-                                    <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-                                        ₱{transactionType?.baseFee?.toFixed(2) || "50.00"}
-                                    </span>
-                                </div>
+
                             </motion.div>
                         )}
                     </AnimatePresence>

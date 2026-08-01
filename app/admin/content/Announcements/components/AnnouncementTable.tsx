@@ -26,6 +26,7 @@ export function AnnouncementTable() {
         totalCount,
         isPending,
         setIsPending,
+        currentUser,
     } = useAnnouncements();
 
     const router = useRouter();
@@ -38,6 +39,12 @@ export function AnnouncementTable() {
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
     const endRange = Math.min(page * pageSize, totalCount);
+
+    const userEmail = (currentUser?.email || "").toLowerCase();
+    const userId = currentUser?.id;
+    const userRole = currentUser?.role;
+    const userCenterId = currentUser?.matchedCenterId;
+    const isSuperAdmin = (userRole === "ADMIN" || userRole === "RHU_ADMIN") && !userCenterId && !userEmail.includes("lalas") && !userEmail.includes("main");
 
     const updateUrlParam = (paramName: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -105,7 +112,7 @@ export function AnnouncementTable() {
                 toast.error(res.error || "Failed to update status.");
             }
         } catch {
-            toast.error("Error updating status.");
+            toast.error("Error updating announcement status.");
         } finally {
             setTogglingId(null);
         }
@@ -117,7 +124,7 @@ export function AnnouncementTable() {
             if (res.success) {
                 toast.success(`Announcement ${!currentPin ? "pinned to top" : "unpinned"}!`);
             } else {
-                toast.error(res.error || "Failed to update pin.");
+                toast.error(res.error || "Failed to update pin status.");
             }
         } catch {
             toast.error("Error updating pin status.");
@@ -139,7 +146,7 @@ export function AnnouncementTable() {
     }
 
     return (
-        <>
+        <div className="space-y-4">
             <div className="overflow-x-auto relative">
                 {isPending && (
                     <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
@@ -155,9 +162,9 @@ export function AnnouncementTable() {
                     </div>
                 )}
                 <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
-                    <TableHeader>
-                        <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
-                            <TableHead className="w-[320px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
+                    <TableHeader className="bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-[#2a3040]">
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-[380px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pl-8 py-4">
                                 Notice Details
                             </TableHead>
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
@@ -174,7 +181,7 @@ export function AnnouncementTable() {
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Date Posted
                             </TableHead>
-                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
+                            <TableHead className="text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Active
                             </TableHead>
                             <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pr-8">
@@ -183,144 +190,180 @@ export function AnnouncementTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {announcements.map((item) => (
-                            <TableRow key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]">
-                                <TableCell className="pl-8 py-5">
-                                    <div className="flex flex-col space-y-1.5">
-                                        <div className="flex items-center gap-2">
-                                            {item.isPinned && <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />}
-                                            <span className="dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
-                                                {item.title}
-                                            </span>
+                        {announcements.map((item) => {
+                            const itemAuthorEmail = (item.authorEmail || "").toLowerCase();
+                            const canEdit =
+                                isSuperAdmin ||
+                                (item.authorId && userId && String(item.authorId) === String(userId)) ||
+                                (itemAuthorEmail && userEmail && itemAuthorEmail === userEmail) ||
+                                (userCenterId && item.healthCenterId && String(item.healthCenterId) === String(userCenterId));
+
+                            return (
+                                <TableRow key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]">
+                                    <TableCell className="pl-8 py-5">
+                                        <div className="flex flex-col space-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                {item.isPinned && <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />}
+                                                <span className="dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
+                                                    {item.title}
+                                                </span>
+                                            </div>
+                                            {item.content && (
+                                                <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
+                                                    {item.content}
+                                                </span>
+                                            )}
                                         </div>
-                                        {item.content && (
-                                            <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
-                                                {item.content}
+                                    </TableCell>
+                                    <TableCell>
+                                        {item.barangay ? (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
+                                                {item.barangay}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50">
+                                                Whole Municipality
                                             </span>
                                         )}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {item.barangay ? (
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
-                                            {item.barangay}
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50">
-                                            Whole Municipality
-                                        </span>
-                                    )}
-                                </TableCell>
-                                {!hideCategory && (
-                                    <TableCell>
-                                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                            {item.category}
-                                        </span>
                                     </TableCell>
-                                )}
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className={cn(
-                                                "w-2 h-2 rounded-full shadow-sm",
-                                                item.priority === "Critical"
-                                                    ? "bg-red-500 animate-pulse"
-                                                    : item.priority === "High"
-                                                        ? "bg-orange-500"
-                                                        : item.priority === "Low"
-                                                            ? "bg-slate-400"
-                                                            : ""
-                                            )}
-                                            style={item.priority === "Normal" ? { backgroundColor: themeColor } : {}}
-                                        />
-                                        <span
-                                            className={cn(
-                                                "text-[10px] font-black uppercase tracking-widest italic",
-                                                item.priority === "Critical" ? "text-red-500" : "text-slate-600 dark:text-slate-400"
-                                            )}
-                                        >
-                                            {item.priority}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
-                                        <Calendar className="w-3.5 h-3.5 mr-2" style={{ color: themeColor }} />
-                                        {format(new Date(item.createdAt), "MMM d, yyyy")}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                    <Switch
-                                        checked={item.isActive}
-                                        onCheckedChange={() => handleToggleStatus(item.id, item.isActive)}
-                                        disabled={togglingId === item.id}
-                                    />
-                                </TableCell>
-                                <TableCell className="text-right pr-8">
-                                    <div className="flex justify-end gap-2">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleTogglePin(item.id, item.isPinned)}
-                                                        className={cn(
-                                                            "h-9 w-9 rounded-xl transition-all",
-                                                            item.isPinned
-                                                                ? "text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100"
-                                                                : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
-                                                        )}
-                                                    >
-                                                        {item.isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>{item.isPinned ? "Unpin" : "Pin to Top"}</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                    {!hideCategory && (
+                                        <TableCell>
+                                            <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                {item.category}
+                                            </span>
+                                        </TableCell>
+                                    )}
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className={cn(
+                                                    "w-2 h-2 rounded-full shadow-sm",
+                                                    item.priority === "Critical"
+                                                        ? "bg-red-500 animate-pulse"
+                                                        : item.priority === "High"
+                                                            ? "bg-orange-500"
+                                                            : item.priority === "Low"
+                                                                ? "bg-slate-400"
+                                                                : ""
+                                                )}
+                                                style={item.priority === "Normal" ? { backgroundColor: themeColor } : {}}
+                                            />
+                                            <span
+                                                className={cn(
+                                                    "text-[10px] font-black uppercase tracking-widest italic",
+                                                    item.priority === "Critical" ? "text-red-500" : "text-slate-600 dark:text-slate-400"
+                                                )}
+                                            >
+                                                {item.priority}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
+                                            <Calendar className="w-3.5 h-3.5 mr-2" style={{ color: themeColor }} />
+                                            {format(new Date(item.createdAt), "MMM d, yyyy")}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        {canEdit ? (
+                                            <Switch
+                                                checked={item.isActive}
+                                                onCheckedChange={() => handleToggleStatus(item.id, item.isActive)}
+                                                disabled={togglingId === item.id}
+                                            />
+                                        ) : (
+                                            <span
+                                                className={cn(
+                                                    "inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider",
+                                                    item.isActive
+                                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700"
+                                                )}
+                                            >
+                                                {item.isActive ? "Active" : "Inactive"}
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-right pr-8">
+                                        <div className="flex justify-end gap-2">
+                                            {canEdit ? (
+                                                <>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleTogglePin(item.id, item.isPinned)}
+                                                                    className={cn(
+                                                                        "h-9 w-9 rounded-xl transition-all",
+                                                                        item.isPinned
+                                                                            ? "text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100"
+                                                                            : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
+                                                                    )}
+                                                                >
+                                                                    {item.isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                {item.isPinned ? "Unpin" : "Pin to Top"}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
 
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleEdit(item)}
-                                                        disabled={fetchingId === item.id}
-                                                        className="h-9 w-9 rounded-xl transition-all border border-transparent"
-                                                        style={{ color: themeColor }}
-                                                    >
-                                                        {fetchingId === item.id ? (
-                                                            <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                                                        ) : (
-                                                            <Edit2 className="w-4 h-4" />
-                                                        )}
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Edit Announcement</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleEdit(item)}
+                                                                    disabled={fetchingId === item.id}
+                                                                    className="h-9 w-9 rounded-xl transition-all border border-transparent"
+                                                                    style={{ color: themeColor }}
+                                                                >
+                                                                    {fetchingId === item.id ? (
+                                                                        <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                                                    ) : (
+                                                                        <Edit2 className="w-4 h-4" />
+                                                                    )}
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                Edit Announcement
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
 
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(item.id)}
-                                                        disabled={deletingId === item.id}
-                                                        className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Delete Announcement</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleDelete(item.id)}
+                                                                    disabled={deletingId === item.id}
+                                                                    className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                Delete Announcement
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </>
+                                            ) : (
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                                                    Read-Only
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </div>
@@ -378,6 +421,6 @@ export function AnnouncementTable() {
                     </Button>
                 </div>
             </div>
-        </>
+        </div>
     );
 }
