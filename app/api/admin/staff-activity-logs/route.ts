@@ -29,7 +29,7 @@ function formatTimeAgo(input: Date | string) {
     return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
-function parseDateMs(input: any): number {
+function parseDateMs(input: unknown): number {
     if (!input) return 0;
     const rawStr = String(input).trim();
     const dateObj = new Date(rawStr);
@@ -42,6 +42,14 @@ function parseDateMs(input: any): number {
     return ms;
 }
 
+/**
+ * Detects whether a given string looks like a CUID user ID
+ * (as opposed to a human-readable name or department string).
+ */
+function looksLikeCuid(value: string): boolean {
+    return value.length > 20 || /^c[a-z0-9]{20,}$/i.test(value);
+}
+
 export async function GET() {
     try {
         const session = await getServerSession(authOptions);
@@ -49,9 +57,9 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Query existing tables for staff & enforcer operational records
+        // 1. Fetch citation tickets + processed transactions in parallel
         const [recentTickets, processedTransactions] = await Promise.all([
-            // 1. POSO Enforcer Citation Tickets
+            // POSO Enforcer Citation Tickets
             prisma.ticketHeader.findMany({
                 orderBy: { createdAt: "desc" },
                 take: 5,
@@ -66,7 +74,7 @@ export async function GET() {
                     createdAt: true,
                 },
             }),
-            // 2. Staff Processed Transactions (Treasury, Registrar, BPLO, etc.)
+            // Staff Processed Transactions (Treasury, BPLO, Registrar, etc.)
             prisma.transaction.findMany({
                 where: {
                     processedBy: { not: null },
@@ -80,64 +88,114 @@ export async function GET() {
                     additionalData: true,
                     updatedAt: true,
                     type: { select: { name: true, category: true } },
-                    user: { select: { name: true, department: true } },
+                    // NOTE: tx.user is the REQUESTER (citizen), not the staff processor
+                    user: { select: { name: true } },
                 },
             }),
         ]);
 
+        // 2. Batch-resolve processedBy values that are CUIDs into actual staff names
+        //    Some legacy records store plain name strings (e.g. "Treasury Staff") — keep those as-is.
+        const cuidIds = [
+            ...new Set(
+                processedTransactions
+                    .map((tx) => tx.processedBy)
+                    .filter((v): v is string => !!v && looksLikeCuid(v))
+            ),
+        ];
+
+        // Single bulk query for all staff users referenced as processedBy
+        const staffUserRecords = cuidIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: cuidIds } },
+                select: { id: true, name: true, department: true },
+            })
+            : [];
+
+        // O(1) lookup: userId → { name, department }
+        const staffByIdMap = new Map<string, { name: string; department?: string | null }>(
+            staffUserRecords.map((u) => [u.id, { name: u.name ?? "Municipal Staff", department: u.department }])
+        );
+
+        // 3. Build the staff logs array
         const staffLogs = [
+            // --- POSO Citation Tickets ---
             ...recentTickets.map((t) => {
-                const name = (t.officerName && !t.officerName.startsWith("c") && t.officerName.length < 24)
-                    ? t.officerName
-                    : "POSO Officer";
+                // officerName may sometimes be a CUID — fall back gracefully
+                const officerName = (
+                    t.officerName &&
+                    !looksLikeCuid(t.officerName)
+                ) ? t.officerName : "POSO Officer";
+
                 return {
                     id: `ticket-${t.id}`,
-                    userName: name,
+                    userName: officerName,
                     userRole: "POSO_OFFICER",
                     department: "POSO",
                     action: "issued citation ticket",
                     module: "POSO Citation",
-                    details: `POSO Traffic Violation Citation for ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                    details: `POSO Traffic Violation Citation for ${(t.violatorName || "Violator").split(" ")[0]}`,
                     time: formatTimeAgo(t.createdAt),
                     createdAt: t.createdAt.toISOString(),
                 };
             }),
+
+            // --- Staff Processed Transactions ---
             ...processedTransactions.map((tx) => {
-                const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData || {};
-                let dept = tx.user?.department;
-                if (!dept && addData.servingDepartment) {
-                    dept = addData.servingDepartment;
+                const addData = typeof tx.additionalData === "string"
+                    ? JSON.parse(tx.additionalData || "{}")
+                    : tx.additionalData || {};
+
+                // Resolve actual staff name:
+                // Priority 1 — DB lookup by CUID
+                // Priority 2 — processedBy is already a readable name string
+                // Priority 3 — additionalData fallbacks
+                let staffName = "Municipal Staff";
+                let staffDepartment: string | null | undefined = null;
+
+                const processedById = tx.processedBy ?? "";
+
+                if (processedById && staffByIdMap.has(processedById)) {
+                    // ✅ CUID resolved to real user record
+                    const resolved = staffByIdMap.get(processedById)!;
+                    staffName = resolved.name;
+                    staffDepartment = resolved.department;
+                } else if (processedById && !looksLikeCuid(processedById)) {
+                    // Already a plain human-readable string (e.g. "Treasury Staff")
+                    staffName = processedById;
+                } else {
+                    // Fallback to additionalData name fields
+                    staffName = addData.processedByStaff || addData.officerName || "Municipal Staff";
                 }
-                if (!dept && tx.processedBy) {
-                    const pLower = tx.processedBy.toLowerCase();
-                    if (pLower.includes("treasury")) dept = "Treasury";
-                    else if (pLower.includes("bplo") || pLower.includes("business")) dept = "BPLO";
-                    else if (pLower.includes("registrar") || pLower.includes("civil")) dept = "Civil Registry";
-                    else if (pLower.includes("poso")) dept = "POSO";
-                    else if (pLower.includes("engineer")) dept = "Engineering";
-                }
-                if (!dept) {
-                    dept = tx.type?.category || "LGU Staff";
-                }
+
+                // Resolve department (DB-resolved dept takes highest priority)
+                const dept = (
+                    staffDepartment ||
+                    addData.servingDepartment ||
+                    tx.type?.category ||
+                    "LGU Staff"
+                );
 
                 const st = String(tx.status);
-                const isApprovedOrPaid = st === "APPROVED" || st === "RELEASED" || st === "PAID" || st === "DELIVERED";
+                const isApprovedOrPaid = ["APPROVED", "RELEASED", "PAID", "DELIVERED"].includes(st);
                 const isRejected = st === "REJECTED";
 
-                // Ensure userName is a human name and not a CUID/userId
-                let staffName = tx.processedBy;
-                if (!staffName || staffName.startsWith("cm") || staffName.length > 20) {
-                    staffName = addData.processedByStaff || addData.officerName || tx.user?.name || "Municipal Staff";
-                }
+                // Requester name — tx.user is the citizen, not the processor
+                // Show first name only to keep audit trail concise
+                const requesterName = (tx.user?.name || addData.violatorName || "Resident").split(" ")[0];
 
                 return {
                     id: `tx-${tx.id}`,
                     userName: staffName,
                     userRole: "STAFF",
                     department: String(dept).toUpperCase(),
-                    action: isApprovedOrPaid ? "processed payment / approved" : isRejected ? "rejected request for" : "updated status for",
+                    action: isApprovedOrPaid
+                        ? "processed payment / approved"
+                        : isRejected
+                        ? "rejected request for"
+                        : "updated status for",
                     module: tx.type?.name || "Service Request",
-                    details: `${tx.type?.name || "Document"} for ${tx.user?.name || addData.violatorName || "Resident"}`,
+                    details: `${tx.type?.name || "Document"} for ${requesterName}`,
                     time: formatTimeAgo(tx.updatedAt),
                     createdAt: tx.updatedAt.toISOString(),
                 };
@@ -147,8 +205,9 @@ export async function GET() {
             .slice(0, 7);
 
         return NextResponse.json({ success: true, logs: staffLogs });
-    } catch (err: any) {
-        console.error("Error fetching query-based staff activity logs:", err);
-        return NextResponse.json({ error: err.message || "Failed to fetch logs" }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to fetch logs";
+        console.error("Error fetching staff activity logs:", err);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

@@ -16,6 +16,9 @@ export function getPostLoginDestination(
             ? callbackUrl
             : "/";
     }
+    if (role === "MAYOR") {
+        return "/mayor/dashboard";
+    }
     if (role === "TREASURY_STAFF" || (role === "ADMIN" && department === "TREASURY")) {
         return "/admin/treasury?category=CEDULA";
     }

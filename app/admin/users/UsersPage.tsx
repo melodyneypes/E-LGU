@@ -314,6 +314,12 @@ export function UsersPage({
                 >
                   BFP / Fire Protection
                 </SelectItem>
+                <SelectItem
+                  value="MAYOR"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  Municipal Mayor
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -462,6 +468,9 @@ export function UsersPage({
                         else if (user.role === "CONTENT_ADMIN")
                           style =
                             "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
+                        else if ((user.role as string) === "MAYOR")
+                          style =
+                            "bg-amber-500/10 text-amber-500 border-amber-500/20";
                         else if (user.role === "ENGINEER")
                           style =
                             "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";

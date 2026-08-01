@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
                     id: p.id,
                     type: "payment" as const,
                     user: name,
-                    action: `paid ₱${p.amount.toLocaleString()} via`,
+                    action: "paid via",
                     details: p.method,
                     time: formatTimeAgo(p.createdAt),
                     createdAt: p.createdAt.toISOString()

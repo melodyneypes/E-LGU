@@ -17,6 +17,8 @@ interface Transaction {
     id: string;
     createdAt: string | Date;
     status: string;
+    residentSnapshot?: any;
+    additionalData?: any;
     type: {
         name: string;
         category: string;
@@ -988,7 +990,41 @@ export function DailyRequestsReportClient({
                                                 {format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm")}
                                             </td>
                                             <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
-                                                {tx.user?.name || "A Resident"}
+                                                {(() => {
+                                                    let name = tx.user?.name || null;
+                                                    if (!name && tx.residentSnapshot) {
+                                                        const snapshot = tx.residentSnapshot;
+                                                        if (typeof snapshot === "string") {
+                                                            try {
+                                                                const parsed = JSON.parse(snapshot);
+                                                                name = parsed.fullName || parsed.name || null;
+                                                            } catch {
+                                                                name = null;
+                                                            }
+                                                        } else if (typeof snapshot === "object") {
+                                                            name = snapshot.fullName || snapshot.name || null;
+                                                        }
+                                                    }
+                                                    if (!name && tx.additionalData) {
+                                                        const addData = tx.additionalData;
+                                                        if (typeof addData === "string") {
+                                                            try {
+                                                                const parsed = JSON.parse(addData);
+                                                                name = parsed.violatorName || null;
+                                                            } catch {
+                                                                name = null;
+                                                            }
+                                                        } else if (typeof addData === "object") {
+                                                            name = addData.violatorName || null;
+                                                        }
+                                                    }
+                                                    if (!name || name.trim() === "") return "A Resident";
+                                                    const parts = name.trim().split(/\s+/);
+                                                    if (parts.length === 1) return parts[0];
+                                                    const firstName = parts[0];
+                                                    const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+                                                    return `${firstName} ${lastInitial}.`;
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 font-medium italic text-slate-700 dark:text-slate-300">
                                                 {tx.type?.name || "Certificate"}

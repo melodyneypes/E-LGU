@@ -40,7 +40,7 @@ interface ConfigurableAnalyticsSectionProps {
     resSector: string;
 
     // Reports Overview Props
-    recentReportsDetailed: any[];
+    recentReportsDetailed?: any[];
 
     // Visibility toggles from Sidebar Modal
     cardVisibility?: Record<string, boolean>;
@@ -313,7 +313,7 @@ export function ConfigurableAnalyticsSection({
             case "citizen_reports":
                 return (
                     <ReportsOverviewCard
-                        initialReports={recentReportsDetailed.map((r: any) => ({
+                        initialReports={(recentReportsDetailed || []).map((r: any) => ({
                             ...r,
                             createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
                         }))}

@@ -62,6 +62,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
         <Providers isMaintenanceActive={isMaintenanceActive}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
