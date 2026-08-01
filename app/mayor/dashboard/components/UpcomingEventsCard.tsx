@@ -179,7 +179,7 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
       {/* Bottom Right View All Action Button */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
         <Link
-          href="/admin/events"
+          href="/mayor/events"
           className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <span>View All Events</span>
