@@ -54,7 +54,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
         try {
             const params = new URLSearchParams();
             if (barangayRef.current) params.set("barangay", barangayRef.current);
-            const res = await fetch(`/api/admin/reports/citizen?${params.toString()}`);
+            const res = await fetch(`/api/mayor/reports/citizen?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 setReports(data.recentReports || []);
@@ -66,7 +66,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
 
     // Subscribe to SSE for realtime updates with debouncing
     useEffect(() => {
-        const eventSource = new EventSource("/api/admin/reports/citizen/stream");
+        const eventSource = new EventSource("/api/mayor/reports/citizen/stream");
         let debounceTimer: NodeJS.Timeout | null = null;
 
         eventSource.onmessage = (event) => {
@@ -112,20 +112,6 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                     <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
                         5 most recent community reports — <span className="font-bold" style={{ color: themeColor }}>Live</span>
                     </p>
-                </div>
-                <div className="pr-0 lg:pr-20">
-                    <Link
-                        href="/admin/reports"
-                        prefetch={false}
-                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic px-4 py-2 rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-                        style={{ 
-                            backgroundColor: themeColor,
-                            boxShadow: `0 8px 16px -4px ${themeColor}40`
-                        }}
-                    >
-                        <span>View All</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
                 </div>
             </div>
 
@@ -215,6 +201,22 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* View All Action Button at the bottom */}
+            <div className="pt-4 border-t border-slate-100 dark:border-[#2a3040]/50 flex justify-end">
+                <Link
+                    href="/mayor/reports"
+                    prefetch={false}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all active:scale-95 hover:opacity-90"
+                    style={{
+                        backgroundColor: themeColor,
+                        boxShadow: `0 8px 16px -4px ${themeColor}40`
+                    }}
+                >
+                    <span>View All Reports</span>
+                    <ArrowRight className="w-4 h-4" />
+                </Link>
             </div>
         </div>
     );
