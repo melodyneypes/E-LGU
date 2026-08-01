@@ -329,7 +329,7 @@ export function TransactionDashboardView({
       {/* View Detailed Report Action Button (Bottom Right) */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30">
         <Link
-          href={`/admin/reports/daily-requests?from=${fromDate}&to=${toDate}&category=${activeCategory}&status=${
+          href={`/mayor/reports/daily-requests?from=${fromDate}&to=${toDate}&category=${activeCategory}&status=${
             activeFilter === "requests" ? "ALL" : activeFilter === "evaluation" ? "FOR_REQUESTING" : activeFilter === "processing" ? "FOR_PROCESSING" : activeFilter.toUpperCase()
           }`}
           className="px-6 py-3 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"

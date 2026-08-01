@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Flag, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
+import { Flag, FileText, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
 import { useTheme } from "next-themes";
 import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
 
@@ -12,6 +12,10 @@ interface MayorReportsHeaderProps {
     themeColor: string;
     activeBarangays: string[];
     selectedBarangay: string;
+    title?: string;
+    subtitle?: string;
+    badge?: string;
+    iconName?: "flag" | "file-text";
 }
 
 export function MayorReportsHeader({
@@ -19,7 +23,12 @@ export function MayorReportsHeader({
     themeColor,
     activeBarangays,
     selectedBarangay,
+    title = "Public Incident Reports",
+    subtitle = "Mapandan Executive Oversight & Community Reports",
+    badge,
+    iconName = "flag",
 }: MayorReportsHeaderProps) {
+    const Icon = iconName === "file-text" ? FileText : Flag;
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -62,14 +71,24 @@ export function MayorReportsHeader({
                             className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0"
                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}44` }}
                         >
-                            <Flag className="w-5 h-5" />
+                            <Icon className="w-5 h-5" />
                         </div>
                         <div>
-                            <h1 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
-                                Public Incident Reports
-                            </h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
+                                    {title}
+                                </h1>
+                                {badge && (
+                                    <span
+                                        className="text-[10px] font-black uppercase italic px-2 py-0.5 rounded-full text-white"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        {badge}
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Community Reports
+                                {subtitle}
                             </p>
                         </div>
                     </div>
