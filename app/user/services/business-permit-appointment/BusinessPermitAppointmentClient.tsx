@@ -129,6 +129,11 @@ const LINE_OF_BUSINESS_OPTIONS = [
     "Others / General Services"
 ];
 
+// Categories that legally require health card applications (food, hospitality, medical)
+const HEALTH_CARD_REQUIRED_LINES = [
+    "Eatery / Restaurant / Food Service",
+];
+
 type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
@@ -442,7 +447,9 @@ export function BusinessPermitAppointmentClient({
             const isFutureDate = formState.dtiSecDate ? formState.dtiSecDate > todayStr : false;
             const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate && !isFutureDate) : !!formState.permitNumber;
             const hasValidArea = !!formState.businessArea && parseFloat(formState.businessArea) > 0;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && hasValidArea;
+            const requiresHealthCard = HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness);
+            const hasValidHealthCard = requiresHealthCard ? parseInt(formState.healthCardCount, 10) >= 1 : true;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && hasValidArea && hasValidHealthCard;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -915,20 +922,32 @@ export function BusinessPermitAppointmentClient({
                                         />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Number of Health Card Applications</Label>
-                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
-                                            Required for all food-handling, hospitality, and medical personnel.
-                                        </p>
-                                        <Input
-                                            type="number"
-                                            value={formState.healthCardCount}
-                                            onChange={e => handleInputChange("healthCardCount", e.target.value)}
-                                            min="0"
-                                            placeholder="e.g. 5"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">
+                                             Number of Health Card Applications
+                                             {HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && (
+                                                 <span className="text-rose-500 ml-0.5">*</span>
+                                             )}
+                                         </Label>
+                                         <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
+                                             Required for all food-handling, hospitality, and medical personnel.
+                                         </p>
+                                         <Input
+                                             id="appointment-healthCardCount"
+                                             type="number"
+                                             value={formState.healthCardCount}
+                                             onChange={e => handleInputChange("healthCardCount", e.target.value)}
+                                             min={HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) ? "1" : "0"}
+                                             placeholder="e.g. 5"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">At least 1 health card application is required for food-handling businesses.</p>
+                                         )}
+                                     </div>
 
                                      <div className="space-y-2">
                                          <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
