@@ -12,7 +12,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { TrendingUp, CheckCircle, Clock, AlertTriangle, Eye, Calendar, Folder, RotateCcw, FileText } from "lucide-react";
+import { TrendingUp, CheckCircle, Clock, AlertTriangle, Eye, Calendar, RotateCcw, FileText } from "lucide-react";
 
 interface ChartDataPoint {
   date: string;
@@ -201,30 +201,6 @@ export function TransactionDashboardView({
             }}
             className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-200 outline-none border-none cursor-pointer [color-scheme:light|dark]"
           />
-        </div>
-
-        {/* Category Dropdown Selection */}
-        <div className="relative min-w-[110px] max-w-[130px] shrink-0">
-          <select
-            value={activeCategory}
-            onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value)}
-            className="w-full pl-7 pr-6 py-1.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-[10px] font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm truncate"
-          >
-            <option value="ALL">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-            <Folder className="w-3 h-3 text-slate-400" />
-          </div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500 dark:text-slate-400">
-            <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-            </svg>
-          </div>
         </div>
 
         {/* Status Select Dropdown */}
