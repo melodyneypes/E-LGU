@@ -2771,7 +2771,7 @@ export async function getAdminReports(params?: {
 
         const session = await getServerSession(authOptions);
         const userRole = (session?.user as any)?.role;
-        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
+        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN" && userRole !== "MAYOR")) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -2882,7 +2882,7 @@ export async function updateReportStatus(id: string, status: string, adminCommen
     try {
         const session = await getServerSession(authOptions);
         const userRole = (session?.user as any)?.role;
-        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
+        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN" && userRole !== "MAYOR")) {
             return { success: false, error: "Unauthorized" };
         }
 

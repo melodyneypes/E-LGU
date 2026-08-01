@@ -301,7 +301,7 @@ export function ConfigurableStrategicOpsSection({
                                     { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "View", path: "/mayor/kainan" },
                                     { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/mayor/tuluyan" },
                                     { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/mayor/tourism" },
-                                    { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/admin/reports" },
+                                    { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/mayor/reports" },
                                     { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/admin/hotlines" }
                                 ].map((item, idx) => (
                                     <Link
