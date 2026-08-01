@@ -202,7 +202,7 @@ function EventDetailsModal({
                                     <span>Event Reminders</span>
                                 </div>
                                 <ul className="space-y-1.5 pl-5 list-disc text-xs text-slate-600 dark:text-slate-400 font-medium italic">
-                                    {event.reminders.map((reminder, idx) => (
+                                    {event.reminders.map((reminder: string, idx: number) => (
                                         <li key={idx} className="marker:text-blue-500">
                                             {reminder}
                                         </li>

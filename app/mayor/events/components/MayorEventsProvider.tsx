@@ -14,6 +14,10 @@ export interface MayorEvent {
     contactNumber?: string | null;
     imageUrl: string | null;
     barangay: string | null;
+    reminders?: string[];
+    latitude?: number | null;
+    longitude?: number | null;
+    googleMapsUrl?: string | null;
     isPublished: boolean;
     createdAt: Date;
     updatedAt: Date;
