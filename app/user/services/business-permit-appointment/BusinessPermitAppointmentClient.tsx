@@ -242,10 +242,19 @@ export function BusinessPermitAppointmentClient({
     });
 
     const handleInputChange = (field: string, value: any) => {
-        setFormState(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        setFormState(prev => {
+            const updated = { ...prev, [field]: value };
+            if (field === "orgType") {
+                if (value === "SOLE_PROPRIETORSHIP") {
+                    updated.registrationType = "DTI";
+                } else if (value === "CORPORATION" || value === "PARTNERSHIP") {
+                    updated.registrationType = "SEC";
+                } else if (value === "COOPERATIVE") {
+                    updated.registrationType = "COA";
+                }
+            }
+            return updated;
+        });
     };
 
 
@@ -778,6 +787,7 @@ export function BusinessPermitAppointmentClient({
                                                 <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
                                                 <option value="PARTNERSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Partnership</option>
                                                 <option value="CORPORATION" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Corporation</option>
+                                                <option value="COOPERATIVE" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Cooperatives</option>
                                             </select>
                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                 <ChevronDown className="w-4 h-4" />
@@ -1053,7 +1063,7 @@ export function BusinessPermitAppointmentClient({
                                                     >
                                                         <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
                                                         <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
-                                                        <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">COA</option>
+                                                        <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">CDA</option>
                                                     </select>
                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                         <ChevronDown className="w-4 h-4" />
@@ -1062,12 +1072,12 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
                                                 <Input
                                                     type="text"
                                                     value={formState.dtiSecNumber}
                                                     onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
-                                                    placeholder={`e.g. ${formState.registrationType === "DTI" ? "DTI-123456789" : formState.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
+                                                    placeholder={`e.g. ${formState.registrationType === "DTI" ? "DTI-123456789" : formState.registrationType === "SEC" ? "SEC-CS202012345" : "CDA-987654"}`}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 font-bold",
                                                         showValidationErrors && !formState.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
@@ -1076,7 +1086,7 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
                                                 <Input
                                                     type="date"
                                                     value={formState.dtiSecDate}

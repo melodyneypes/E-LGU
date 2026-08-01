@@ -691,6 +691,15 @@ export default function BusinessPermitWizardPage() {
     const handleInputChange = (field: keyof FormState, value: any) => {
         setFormData(prev => {
             const updated = { ...prev, [field]: value };
+            if (field === "orgType") {
+                if (value === "SOLE_PROPRIETORSHIP") {
+                    updated.registrationType = "DTI";
+                } else if (value === "CORPORATION" || value === "PARTNERSHIP") {
+                    updated.registrationType = "SEC";
+                } else if (value === "COOPERATIVE") {
+                    updated.registrationType = "COA";
+                }
+            }
             persistDraftLocal(updated);
             return updated;
         });
@@ -1599,6 +1608,7 @@ export default function BusinessPermitWizardPage() {
                                                     <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
                                                     <option value="PARTNERSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Partnership</option>
                                                     <option value="CORPORATION" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Corporation</option>
+                                                    <option value="COOPERATIVE" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Cooperatives</option>
                                                 </select>
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                     <ChevronDown className="w-4 h-4" />
@@ -1898,7 +1908,7 @@ export default function BusinessPermitWizardPage() {
                                                         >
                                                             <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
                                                             <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
-                                                            <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">COA</option>
+                                                            <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">CDA</option>
                                                         </select>
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                             <ChevronDown className="w-4 h-4" />
@@ -1908,7 +1918,7 @@ export default function BusinessPermitWizardPage() {
 
                                                 <div className="space-y-2">
                                                     <div className="flex items-center gap-1.5">
-                                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
                                                         <button
                                                             type="button"
                                                             onClick={() => setIsDtiGuideOpen(true)}
@@ -1923,7 +1933,7 @@ export default function BusinessPermitWizardPage() {
                                                         type="text"
                                                         value={formData.dtiSecNumber}
                                                         onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
-                                                        placeholder={`e.g. ${formData.registrationType === "DTI" ? "DTI-123456789" : formData.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
+                                                        placeholder={`e.g. ${formData.registrationType === "DTI" ? "DTI-123456789" : formData.registrationType === "SEC" ? "SEC-CS202012345" : "CDA-987654"}`}
                                                         className={cn(
                                                          "rounded-xl h-12 border-slate-200 font-bold",
                                                          showValidationErrors && !formData.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
@@ -1932,7 +1942,7 @@ export default function BusinessPermitWizardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
                                                     <Input
                                                         id="profile-dtiSecDate"
                                                         type="date"
