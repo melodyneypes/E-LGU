@@ -441,7 +441,7 @@ export function BusinessPermitAppointmentClient({
             const todayStr = new Date().toISOString().split("T")[0];
             const isFutureDate = formState.dtiSecDate ? formState.dtiSecDate > todayStr : false;
             const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate && !isFutureDate) : !!formState.permitNumber;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && !!formState.businessArea;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && !!formState.businessArea;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -819,27 +819,41 @@ export function BusinessPermitAppointmentClient({
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit</Label>
-                                        <Input
-                                            type="text"
-                                            value={formState.building}
-                                            onChange={e => handleInputChange("building", e.target.value)}
-                                            placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-building"
+                                             type="text"
+                                             value={formState.building}
+                                             onChange={e => handleInputChange("building", e.target.value)}
+                                             placeholder="e.g. Bldg 4A, Green Meadows"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && !formState.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.building && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
+                                         )}
+                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address</Label>
-                                        <Input
-                                            type="text"
-                                            value={formState.street}
-                                            onChange={e => handleInputChange("street", e.target.value)}
-                                            placeholder="e.g. Rizal Avenue (Optional)"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-street"
+                                             type="text"
+                                             value={formState.street}
+                                             onChange={e => handleInputChange("street", e.target.value)}
+                                             placeholder="e.g. Rizal Avenue"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && !formState.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.street && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
+                                         )}
+                                     </div>
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Line of Business / Classification <span className="text-rose-500 ml-0.5">*</span></Label>

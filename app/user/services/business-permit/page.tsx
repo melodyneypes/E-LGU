@@ -733,7 +733,7 @@ export default function BusinessPermitWizardPage() {
                 const r = formData.residentData;
                 return !!(r?.firstName && r?.lastName && r?.dateOfBirth && r?.occupation && r?.contactNumber);
             case "PROFILE":
-                if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch) return false;
+                if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch || !formData.building || !formData.street) return false;
                 if (formData.businessType === "NEW") {
                     const todayStr = new Date().toISOString().split("T")[0];
                     const isFutureDate = formData.dtiSecDate ? formData.dtiSecDate > todayStr : false;
@@ -831,6 +831,10 @@ export default function BusinessPermitWizardPage() {
                     elementToFocus = document.getElementById("profile-orgType");
                 } else if (!formData.barangay) {
                     elementToFocus = document.getElementById("profile-barangay");
+                } else if (!formData.building) {
+                    elementToFocus = document.getElementById("profile-building");
+                } else if (!formData.street) {
+                    elementToFocus = document.getElementById("profile-street");
                 } else if (!formData.lineOfBusiness) {
                     if (isOtherLine) {
                         elementToFocus = document.getElementById("profile-lineOfBusiness");
@@ -1644,36 +1648,46 @@ export default function BusinessPermitWizardPage() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-building"
                                                     type="text"
                                                     value={formData.building}
                                                     onChange={e => handleInputChange("building", e.target.value)}
-                                                    placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
+                                                    placeholder="e.g. Bldg 4A, Green Meadows"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && !formData.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.building && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-street"
                                                     type="text"
                                                     value={formData.street}
                                                     onChange={e => handleInputChange("street", e.target.value)}
-                                                    placeholder="e.g. Rizal Avenue (Optional)"
+                                                    placeholder="e.g. Rizal Avenue"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && !formData.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.street && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
+                                                )}
                                             </div>
                                         </div>
 
