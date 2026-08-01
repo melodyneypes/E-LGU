@@ -16,6 +16,7 @@ interface MayorReportsHeaderProps {
     subtitle?: string;
     badge?: string;
     iconName?: "flag" | "file-text";
+    hideBarangaySwitcher?: boolean;
 }
 
 export function MayorReportsHeader({
@@ -27,6 +28,7 @@ export function MayorReportsHeader({
     subtitle = "Mapandan Executive Oversight & Community Reports",
     badge,
     iconName = "flag",
+    hideBarangaySwitcher = false,
 }: MayorReportsHeaderProps) {
     const Icon = iconName === "file-text" ? FileText : Flag;
     const { theme, setTheme } = useTheme();
@@ -96,11 +98,13 @@ export function MayorReportsHeader({
 
                 {/* Right: Controls & User Menu */}
                 <div className="flex items-center gap-4">
-                    <BarangaySwitcher
-                        availableBarangays={activeBarangays}
-                        currentBarangay={selectedBarangay}
-                        themeColor={themeColor}
-                    />
+                    {!hideBarangaySwitcher && (
+                        <BarangaySwitcher
+                            availableBarangays={activeBarangays}
+                            currentBarangay={selectedBarangay}
+                            themeColor={themeColor}
+                        />
+                    )}
 
                     {/* Profile Dropdown */}
                     <div className="relative shrink-0" ref={dropdownRef}>
