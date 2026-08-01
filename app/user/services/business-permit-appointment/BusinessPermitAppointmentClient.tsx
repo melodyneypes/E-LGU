@@ -441,7 +441,8 @@ export function BusinessPermitAppointmentClient({
             const todayStr = new Date().toISOString().split("T")[0];
             const isFutureDate = formState.dtiSecDate ? formState.dtiSecDate > todayStr : false;
             const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate && !isFutureDate) : !!formState.permitNumber;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && !!formState.businessArea;
+            const hasValidArea = !!formState.businessArea && parseFloat(formState.businessArea) > 0;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && hasValidArea;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -929,19 +930,32 @@ export function BusinessPermitAppointmentClient({
                                         />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
-                                        <Input
-                                            type="number"
-                                            value={formState.businessArea}
-                                            onChange={e => handleInputChange("businessArea", e.target.value)}
-                                            placeholder="e.g. 120"
-                                            className={cn(
-                                                "rounded-xl h-12 border-slate-200",
-                                                showValidationErrors && !formState.businessArea && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                            )}
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-businessArea"
+                                             type="number"
+                                             min="0.01"
+                                             step="any"
+                                             value={formState.businessArea}
+                                             onChange={e => handleInputChange("businessArea", e.target.value)}
+                                             onKeyDown={e => {
+                                                 const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
+                                                 if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                                             }}
+                                             placeholder="e.g. 120"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && (!formState.businessArea || parseFloat(formState.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.businessArea && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
+                                         )}
+                                         {showValidationErrors && formState.businessArea && parseFloat(formState.businessArea) <= 0 && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
+                                         )}
+                                     </div>
 
                                     <div className="space-y-2 relative">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Total Business Assets (₱) <span className="text-rose-500 ml-0.5">*</span></Label>

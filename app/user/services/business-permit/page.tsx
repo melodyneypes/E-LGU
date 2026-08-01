@@ -734,6 +734,7 @@ export default function BusinessPermitWizardPage() {
                 return !!(r?.firstName && r?.lastName && r?.dateOfBirth && r?.occupation && r?.contactNumber);
             case "PROFILE":
                 if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch || !formData.building || !formData.street) return false;
+                if (parseFloat(formData.businessArea) <= 0 || !formData.businessArea) return false;
                 if (formData.businessType === "NEW") {
                     const todayStr = new Date().toISOString().split("T")[0];
                     const isFutureDate = formData.dtiSecDate ? formData.dtiSecDate > todayStr : false;
@@ -1769,19 +1770,33 @@ export default function BusinessPermitWizardPage() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm)</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-businessArea"
                                                     type="number"
+                                                    min="0.01"
+                                                    step="any"
                                                     value={formData.businessArea}
                                                     onChange={e => handleInputChange("businessArea", e.target.value)}
+                                                    onKeyDown={e => {
+                                                        const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
+                                                        if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                                                    }}
                                                     placeholder="e.g. 120"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && (!formData.businessArea || parseFloat(formData.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.businessArea && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
+                                                )}
+                                                {showValidationErrors && formData.businessArea && parseFloat(formData.businessArea) <= 0 && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
+                                                )}
                                             </div>
                                         </div>
 
