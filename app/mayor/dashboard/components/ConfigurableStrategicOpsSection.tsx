@@ -302,7 +302,7 @@ export function ConfigurableStrategicOpsSection({
                                     { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/mayor/tuluyan" },
                                     { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/mayor/tourism" },
                                     { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/mayor/reports" },
-                                    { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/admin/hotlines" }
+                                    { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/mayor/hotlines" }
                                 ].map((item, idx) => (
                                     <Link
                                         key={idx}

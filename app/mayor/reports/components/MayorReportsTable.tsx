@@ -197,6 +197,7 @@ export function MayorReportsTable({
                 <Table className="w-full text-left border-collapse">
                     <TableHeader>
                         <TableRow className="border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/70 dark:bg-[#121622]/70 text-[11px] font-black uppercase italic tracking-wider text-slate-500 dark:text-slate-400">
+                            <TableHead className="py-4 px-6 w-12">#</TableHead>
                             <TableHead className="py-4 px-6">Reporter</TableHead>
                             <TableHead className="py-4 px-6">Category</TableHead>
                             <TableHead className="py-4 px-6">Barangay Scope</TableHead>
@@ -208,19 +209,22 @@ export function MayorReportsTable({
                     <TableBody className="divide-y divide-slate-100 dark:divide-[#2a3040] text-sm font-medium">
                         {initialReports.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="py-12 text-center text-slate-400 italic">
+                                <TableCell colSpan={6} className="py-12 text-center text-slate-400 italic">
                                     <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                                     No public incident reports found matching criteria.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            initialReports.map((report) => (
+                            initialReports.map((report, idx) => (
                                 <TableRow
                                     key={report.id}
                                     onClick={() => handleSelectReport(report)}
                                     className="hover:bg-slate-50/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
                                     title="Click to view report summary (Read-Only)"
                                 >
+                                    <TableCell className="py-4 px-6 text-xs font-bold text-slate-400 tabular-nums">
+                                        {(currentPage - 1) * limit + idx + 1}
+                                    </TableCell>
                                     <TableCell className="py-4 px-6">
                                         <p className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight group-hover:text-rose-500 transition-colors">
                                             {formatFormattedName(report.user.name)}

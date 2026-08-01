@@ -2,38 +2,36 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Image from "next/image";
-import { Search, BedDouble, MapPin, ChevronLeft, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
-import { MayorTuluyanDetailModal, TuluyanDetailItem } from "./MayorTuluyanDetailModal";
+import { Search, PhoneCall, Phone, Smartphone, ChevronLeft, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
+import { MayorHotlinesDetailModal, HotlineDetailItem } from "./MayorHotlinesDetailModal";
 
-interface MayorTuluyanTableProps {
-    accommodationData: TuluyanDetailItem[];
+interface MayorHotlinesTableProps {
+    hotlineData: HotlineDetailItem[];
     totalCount: number;
     currentPage: number;
     pageSize: number;
     searchQuery: string;
-    selectedBarangay: string;
+    selectedCategory: string;
     activeStatus: string;
     themeColor: string;
 }
 
-export function MayorTuluyanTable({
-    accommodationData,
+export function MayorHotlinesTable({
+    hotlineData,
     totalCount,
     currentPage,
     pageSize,
     searchQuery,
-    selectedBarangay,
     activeStatus,
     themeColor,
-}: MayorTuluyanTableProps) {
+}: MayorHotlinesTableProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
 
     const [search, setSearch] = useState(searchQuery);
-    const [selectedItem, setSelectedItem] = useState<TuluyanDetailItem | null>(null);
+    const [selectedItem, setSelectedItem] = useState<HotlineDetailItem | null>(null);
 
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
@@ -73,66 +71,63 @@ export function MayorTuluyanTable({
         <div className="space-y-6">
             {/* Filter Bar */}
             <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-5 shadow-sm space-y-4 md:space-y-0 md:flex md:items-center md:justify-between gap-4">
-                {/* Search Bar */}
                 <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search tuluyan name, type, address..."
-                        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                        placeholder="Search agency name, hotline number..."
+                        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                     {isPending && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                            <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-3.5 h-3.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                         </div>
                     )}
                 </form>
 
-                {/* Status Filter Options */}
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Status Filter */}
                     <select
                         value={activeStatus}
                         onChange={(e) => updateParams({ status: e.target.value, page: 1 })}
-                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+                        className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer"
                     >
                         <option value="All">All Statuses</option>
-                        <option value="Published">Active / Published</option>
-                        <option value="Draft">Draft / Inactive</option>
+                        <option value="Active">Active / Published</option>
+                        <option value="Inactive">Inactive / Draft</option>
                     </select>
 
                     <div className="text-xs font-black uppercase tracking-wider text-slate-400 italic px-3">
-                        Total: <span style={{ color: themeColor }}>{totalCount}</span> Properties
+                        Total: <span style={{ color: themeColor }}>{totalCount}</span> Hotlines
                     </div>
                 </div>
             </div>
 
-            {/* Tuluyan Data Table */}
+            {/* Hotlines Data Table */}
             <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl overflow-hidden shadow-sm transition-colors">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/70 dark:bg-[#121622]/70 text-[11px] font-black uppercase italic tracking-wider text-slate-500 dark:text-slate-400">
                                 <th className="py-4 px-6 w-12">#</th>
-                                <th className="py-4 px-6">Property</th>
-                                <th className="py-4 px-6">Type</th>
-                                <th className="py-4 px-6">Location / Barangay</th>
+                                <th className="py-4 px-6">Agency / Department</th>
+                                <th className="py-4 px-6">Category</th>
+                                <th className="py-4 px-6">Contact Number</th>
                                 <th className="py-4 px-6">Status</th>
                                 <th className="py-4 px-6">Date Registered</th>
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-slate-100 dark:divide-[#2a3040] text-sm font-medium">
-                            {accommodationData.length === 0 ? (
+                            {hotlineData.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="py-12 text-center text-slate-400 italic">
-                                        No Tuluyan properties found matching your criteria.
+                                        No emergency hotlines found matching your criteria.
                                     </td>
                                 </tr>
                             ) : (
-                                accommodationData.map((item, idx) => (
+                                hotlineData.map((item, idx) => (
                                     <tr
                                         key={item.id}
                                         onClick={() => setSelectedItem(item)}
@@ -143,25 +138,15 @@ export function MayorTuluyanTable({
                                         <td className="py-4 px-6 text-xs font-bold text-slate-400 tabular-nums">
                                             {(currentPage - 1) * pageSize + idx + 1}
                                         </td>
-                                        {/* Property Photo + Name */}
+
+                                        {/* Agency Name */}
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-3.5">
-                                                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#1e2330] overflow-hidden shrink-0 relative border border-slate-200/60 dark:border-[#2a3040]">
-                                                    {item.imageUrl ? (
-                                                        <Image
-                                                            src={item.imageUrl}
-                                                            alt={item.name}
-                                                            fill
-                                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                                            <BedDouble size={20} />
-                                                        </div>
-                                                    )}
+                                                <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-500/20 group-hover:scale-105 transition-transform">
+                                                    <PhoneCall size={18} />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight group-hover:text-blue-500 transition-colors">
+                                                    <h3 className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight group-hover:text-purple-500 transition-colors">
                                                         {item.name}
                                                     </h3>
                                                     <p className="text-xs text-slate-400 truncate max-w-xs">
@@ -171,30 +156,43 @@ export function MayorTuluyanTable({
                                             </div>
                                         </td>
 
-                                        {/* Type */}
+                                        {/* Category */}
                                         <td className="py-4 px-6">
-                                            <span className="px-3 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-black uppercase italic tracking-wider">
-                                                {item.type || "Lodging"}
+                                            <span className="px-3 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-black uppercase italic tracking-wider">
+                                                {item.category || "General"}
                                             </span>
                                         </td>
 
-                                        {/* Barangay Location */}
+                                        {/* Contact Number */}
                                         <td className="py-4 px-6">
-                                            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
-                                                <MapPin size={14} className="text-emerald-500 shrink-0" />
-                                                <span>{item.barangay || selectedBarangay || "Mapandan"}</span>
+                                            <div className="space-y-0.5">
+                                                {item.mobileNumber && (
+                                                    <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                                                        <Smartphone size={13} className="text-emerald-500 shrink-0" />
+                                                        <span>{item.mobileNumber}</span>
+                                                    </div>
+                                                )}
+                                                {item.telephone && (
+                                                    <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                                                        <Phone size={12} className="text-purple-500 shrink-0" />
+                                                        <span>{item.telephone}</span>
+                                                    </div>
+                                                )}
+                                                {!item.mobileNumber && !item.telephone && (
+                                                    <span className="text-slate-400 italic text-xs">N/A</span>
+                                                )}
                                             </div>
                                         </td>
 
                                         {/* Status */}
                                         <td className="py-4 px-6">
-                                            {item.isPublished ? (
+                                            {item.isActive ? (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-black uppercase italic tracking-wider">
                                                     <CheckCircle2 size={13} /> Active
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-400 text-xs font-black uppercase italic tracking-wider">
-                                                    <XCircle size={13} /> Draft
+                                                    <XCircle size={13} /> Inactive
                                                 </span>
                                             )}
                                         </td>
@@ -214,7 +212,7 @@ export function MayorTuluyanTable({
                     </table>
                 </div>
 
-                {/* Server-Side Pagination Bar */}
+                {/* Pagination Bar */}
                 <div className="px-6 py-4 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#121622]/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <p className="text-xs text-slate-400 font-medium italic">
@@ -222,7 +220,6 @@ export function MayorTuluyanTable({
                             <span className="font-bold text-slate-700 dark:text-slate-200">{totalPages}</span>
                         </p>
 
-                        {/* Page Size Selector */}
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-400 font-medium italic">Show:</span>
                             <select
@@ -233,7 +230,6 @@ export function MayorTuluyanTable({
                                 <option value={10}>10 per page</option>
                                 <option value={20}>20 per page</option>
                                 <option value={50}>50 per page</option>
-                                <option value={100}>100 per page</option>
                             </select>
                         </div>
                     </div>
@@ -267,9 +263,10 @@ export function MayorTuluyanTable({
             </div>
 
             {/* Read-Only Modal View */}
-            <MayorTuluyanDetailModal
+            <MayorHotlinesDetailModal
                 item={selectedItem}
                 onClose={() => setSelectedItem(null)}
+                themeColor={themeColor}
             />
         </div>
     );

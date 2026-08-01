@@ -115,6 +115,7 @@ export function MayorKainanTable({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/70 dark:bg-[#121622]/70 text-[11px] font-black uppercase italic tracking-wider text-slate-500 dark:text-slate-400">
+                                <th className="py-4 px-6 w-12">#</th>
                                 <th className="py-4 px-6">Establishment</th>
                                 <th className="py-4 px-6">Cuisine & Type</th>
                                 <th className="py-4 px-6">Location / Barangay</th>
@@ -126,18 +127,22 @@ export function MayorKainanTable({
                         <tbody className="divide-y divide-slate-100 dark:divide-[#2a3040] text-sm font-medium">
                             {diningData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="py-12 text-center text-slate-400 italic">
+                                    <td colSpan={6} className="py-12 text-center text-slate-400 italic">
                                         No Kainan establishments found matching your criteria.
                                     </td>
                                 </tr>
                             ) : (
-                                diningData.map((item) => (
+                                diningData.map((item, idx) => (
                                     <tr
                                         key={item.id}
                                         onClick={() => setSelectedItem(item)}
                                         className="hover:bg-slate-50/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
                                         title="Click to view details (Read-Only)"
                                     >
+                                        {/* Row Number */}
+                                        <td className="py-4 px-6 text-xs font-bold text-slate-400 tabular-nums">
+                                            {(currentPage - 1) * pageSize + idx + 1}
+                                        </td>
                                         {/* Establishment Photo + Name */}
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-3.5">
