@@ -735,7 +735,9 @@ export default function BusinessPermitWizardPage() {
             case "PROFILE":
                 if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch) return false;
                 if (formData.businessType === "NEW") {
-                    return parseFloat(formData.capitalInvestment.replace(/,/g, "")) > 0 && !!formData.dtiSecNumber && !!formData.dtiSecDate;
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const isFutureDate = formData.dtiSecDate ? formData.dtiSecDate > todayStr : false;
+                    return parseFloat(formData.capitalInvestment.replace(/,/g, "")) > 0 && !!formData.dtiSecNumber && !!formData.dtiSecDate && !isFutureDate;
                 } else {
                     return parseFloat(formData.grossSales.replace(/,/g, "")) > 0 && !!formData.permitNumber;
                 }
@@ -1942,18 +1944,25 @@ export default function BusinessPermitWizardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
-                                                    <Input
-                                                        id="profile-dtiSecDate"
-                                                        type="date"
-                                                        value={formData.dtiSecDate}
-                                                        onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                        className={cn(
-                                                         "rounded-xl h-12 border-slate-200 font-bold",
-                                                         showValidationErrors && !formData.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                     <Input
+                                                         id="profile-dtiSecDate"
+                                                         type="date"
+                                                         max={new Date().toISOString().split("T")[0]}
+                                                         value={formData.dtiSecDate}
+                                                         onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                         className={cn(
+                                                          "rounded-xl h-12 border-slate-200 font-bold",
+                                                          showValidationErrors && (!formData.dtiSecDate || (formData.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                      )}
+                                                     />
+                                                     {showValidationErrors && !formData.dtiSecDate && (
+                                                         <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
                                                      )}
-                                                    />
-                                                </div>
+                                                     {showValidationErrors && formData.dtiSecDate && formData.dtiSecDate > new Date().toISOString().split("T")[0] && (
+                                                         <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
+                                                     )}
+                                                 </div>
                                             </div>
                                         ) : (
                                             <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">

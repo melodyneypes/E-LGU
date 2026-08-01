@@ -438,7 +438,9 @@ export function BusinessPermitAppointmentClient({
         }
         if (step === "PROFILE") {
             const hasCapital = businessType === "NEW" ? !!formState.capitalInvestment : !!formState.grossSales;
-            const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate) : !!formState.permitNumber;
+            const todayStr = new Date().toISOString().split("T")[0];
+            const isFutureDate = formState.dtiSecDate ? formState.dtiSecDate > todayStr : false;
+            const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate && !isFutureDate) : !!formState.permitNumber;
             return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && !!formState.businessArea;
         }
         if (step === "CHECKLIST") {
@@ -1086,17 +1088,24 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
-                                                <Input
-                                                    type="date"
-                                                    value={formState.dtiSecDate}
-                                                    onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                    className={cn(
-                                                        "rounded-xl h-12 border-slate-200 font-bold",
-                                                        showValidationErrors && !formState.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                                    )}
-                                                />
-                                            </div>
+                                                 <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                 <Input
+                                                     type="date"
+                                                     max={new Date().toISOString().split("T")[0]}
+                                                     value={formState.dtiSecDate}
+                                                     onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                     className={cn(
+                                                         "rounded-xl h-12 border-slate-200 font-bold",
+                                                         showValidationErrors && (!formState.dtiSecDate || (formState.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     )}
+                                                 />
+                                                 {showValidationErrors && !formState.dtiSecDate && (
+                                                     <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
+                                                 )}
+                                                 {showValidationErrors && formState.dtiSecDate && formState.dtiSecDate > new Date().toISOString().split("T")[0] && (
+                                                     <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
+                                                 )}
+                                             </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">
