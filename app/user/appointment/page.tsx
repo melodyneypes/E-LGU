@@ -287,7 +287,7 @@ export default function UserAppointmentsPage() {
 
                                 <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5">
                                     <div className="text-left md:text-right">
-                                        {req.isCancelled ? (
+                                        {(req.type?.category === "Rural Health Unit" || req.type?.category === "RHU" || req.type?.code?.startsWith("RHU_")) ? null : req.isCancelled ? (
                                             <div className="py-0.5">
                                                 <p className="text-[7px] md:text-[8px] font-black text-red-500/40 uppercase tracking-widest italic leading-none">Status</p>
                                                 <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic tracking-tighter">Cancelled</p>

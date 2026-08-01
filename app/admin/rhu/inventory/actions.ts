@@ -4,6 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export type InventoryCategory = "MEDICINE" | "MEDICAL_SUPPLY";
 
@@ -17,13 +18,23 @@ async function checkAuth() {
 
 async function checkPharmacyAuth() {
     const session = await checkAuth();
-    const role = (session.user as any)?.role || "";
-    const department = ((session.user as any)?.department || "").toUpperCase();
-    const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
-    const isPharmacy = role === "RHU_PHARMACY" || department.includes("PHARMACY") || isLguAdmin;
+    const user = session.user as any;
+    const role = user?.role || "";
+    const email = (user?.email || "").toLowerCase();
+    const department = (user?.department || "").toUpperCase();
 
-    if (!isPharmacy) {
-        throw new Error("Only RHU Pharmacy can add or adjust inventory.");
+    const isCenterAdmin = role === "RHU_CENTER_ADMIN" || email.includes("lalas");
+
+    const isRhuAdmin = role === "ADMIN" || 
+        role === "RHU_ADMIN" ||
+        role === "RHU_PHARMACY" || 
+        email === "rhu@mapandan.gov.ph" || 
+        email === "main.rhu@mapandan.gov.ph" ||
+        department.includes("PHARMACY") || 
+        department.includes("LGU");
+
+    if (isCenterAdmin || !isRhuAdmin) {
+        throw new Error("Only RHU Administrator can modify inventory items and stock.");
     }
     return session;
 }
@@ -109,8 +120,8 @@ export async function ensureInventoryTablesExist() {
                 "quantity" INTEGER NOT NULL DEFAULT 0,
                 "initialQuantity" INTEGER NOT NULL DEFAULT 0,
                 "receivedDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                "remarks" TEXT,
                 "healthCenterId" TEXT,
+                "remarks" TEXT,
                 "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
@@ -129,8 +140,12 @@ export async function getRHUInventoryItems(params?: {
     healthCenterId?: string;
 }) {
     try {
-        await checkAuth();
+        const session = await checkAuth();
         await ensureInventoryTablesExist();
+
+        const currentUser = session?.user as any;
+        const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
+        const targetCenterId = matchedCenter ? matchedCenter.id : params?.healthCenterId;
 
         const categoryFilter = params?.category && params.category !== "ALL" 
             ? (params.category as InventoryCategory) 
@@ -175,8 +190,8 @@ export async function getRHUInventoryItems(params?: {
         const processedItems = items.map((item: any) => {
             let batches: RHUBatchData[] = item.batches || [];
 
-            if (params?.healthCenterId && params.healthCenterId !== "ALL") {
-                batches = batches.filter((b: any) => b.healthCenterId === params.healthCenterId);
+            if (targetCenterId && targetCenterId !== "ALL") {
+                batches = batches.filter((b: any) => b.healthCenterId === targetCenterId);
             }
 
             let totalQuantity = 0;
@@ -199,7 +214,7 @@ export async function getRHUInventoryItems(params?: {
                         earliestExpiration = new Date(allExpiries[0].expirationDate!);
                     }
                 }
-            } else if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+            } else if (targetCenterId && targetCenterId !== "ALL") {
                 totalQuantity = 0;
                 earliestExpiration = null;
             } else {
@@ -217,10 +232,10 @@ export async function getRHUInventoryItems(params?: {
 
         let filteredItems = processedItems;
 
-        if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+        if (targetCenterId && targetCenterId !== "ALL") {
             filteredItems = filteredItems.filter((item: any) => 
-                item.healthCenterId === params.healthCenterId ||
-                (item.batches && item.batches.some((b: any) => b.healthCenterId === params.healthCenterId))
+                (item.healthCenterId === targetCenterId) ||
+                (item.batches && item.batches.length > 0)
             );
         }
 

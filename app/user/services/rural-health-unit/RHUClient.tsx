@@ -242,16 +242,12 @@ export function RHUClient({
                                         </div>
                                     </div>
 
-                                    {/* Action & Fee */}
-                                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-between mt-6">
-                                        <div className="flex flex-col">
-                                            <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1 italic">Service Fee</span>
-                                            <span className="text-lg font-black text-slate-800 dark:text-white font-mono">{service.fee}</span>
-                                        </div>
+                                    {/* Action */}
+                                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-end mt-6">
                                         <Button
                                             onClick={() => router.push(`/user/services/rural-health-unit/${service.db.id}`)}
                                             style={{ backgroundColor: themeColor }}
-                                            className="h-10 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
+                                            className="h-10 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
                                         >
                                             Book Appointment
                                         </Button>

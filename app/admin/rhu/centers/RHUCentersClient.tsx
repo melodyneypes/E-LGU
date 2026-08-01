@@ -538,7 +538,7 @@ export default function RHUCentersClient({
             case "MIDWIFE":
                 return {
                     label: "Rural Midwife",
-                    badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+                    badgeClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
                     icon: UserCheck
                 };
             case "DENTIST":
@@ -714,7 +714,7 @@ export default function RHUCentersClient({
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="space-y-1">
                                                 {myCenter.code && (
-                                                    <span className="inline-block px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                                    <span className="inline-block px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                                         {myCenter.code}
                                                     </span>
                                                 )}
@@ -909,8 +909,8 @@ export default function RHUCentersClient({
                                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                                                     {personnel.specialization || "General Medicine"} • Lic: {personnel.licenseNumber || "N/A"}
                                                                 </p>
-                                                                <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
-                                                                    Assigned to: {personnel.assignedServices || "General Consultation"}
+                                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">
+                                                                    <span className="text-slate-400 dark:text-slate-500 font-normal">Assigned to:</span> {personnel.assignedServices || "General Consultation"}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -961,316 +961,316 @@ export default function RHUCentersClient({
                         <>
                             {/* Filter & Search Toolbar */}
                             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-                        <div className="relative flex-1">
-                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <Input
-                                type="text"
-                                placeholder="Search center name, code, barangay, address, or assigned staff..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 h-10 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
-                            />
-                        </div>
+                                <div className="relative flex-1">
+                                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search center name, code, barangay, address, or assigned staff..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="pl-10 h-10 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
+                                    />
+                                </div>
 
-                        <div className="flex items-center gap-2">
-                            <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                                <SelectTrigger className="h-10 text-xs w-[160px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
-                                    <SelectValue placeholder="Barangay" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">All Barangays</SelectItem>
-                                    {MAPANDAN_BARANGAYS.map(b => (
-                                        <SelectItem key={b} value={b}>{b}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <div className="flex items-center gap-2">
+                                    <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                                        <SelectTrigger className="h-10 text-xs w-[160px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+                                            <SelectValue placeholder="Barangay" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Barangays</SelectItem>
+                                            {MAPANDAN_BARANGAYS.map(b => (
+                                                <SelectItem key={b} value={b}>{b}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
 
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="h-10 text-xs w-[150px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">All Status</SelectItem>
-                                    <SelectItem value="ACTIVE">Active</SelectItem>
-                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                    <SelectItem value="UNDER_RENOVATION">Under Renovation</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="h-10 text-xs w-[150px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+                                            <SelectValue placeholder="Status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Status</SelectItem>
+                                            <SelectItem value="ACTIVE">Active</SelectItem>
+                                            <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                            <SelectItem value="UNDER_RENOVATION">Under Renovation</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                    {/* Health Center Cards Grid */}
-                    {filteredCenters.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {filteredCenters.map((center) => {
-                                const centerPersonnel = center.personnel || personnelList.filter(p => p.healthCenterId === center.id);
+                            {/* Health Center Cards Grid */}
+                            {filteredCenters.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    {filteredCenters.map((center) => {
+                                        const centerPersonnel = center.personnel || personnelList.filter(p => p.healthCenterId === center.id);
 
-                                return (
-                                    <Card
-                                        key={center.id}
-                                        className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-900 flex flex-col justify-between"
-                                    >
-                                        <CardContent className="p-5 space-y-4">
-                                            {/* Header badge + title */}
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="space-y-1">
-                                                    {center.code && (
-                                                        <span className="inline-block px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                                            {center.code}
-                                                        </span>
-                                                    )}
-                                                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                                                        {center.name}
-                                                    </h3>
-                                                </div>
+                                        return (
+                                            <Card
+                                                key={center.id}
+                                                className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-900 flex flex-col justify-between"
+                                            >
+                                                <CardContent className="p-5 space-y-4">
+                                                    {/* Header badge + title */}
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="space-y-1">
+                                                            {center.code && (
+                                                                <span className="inline-block px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                                                    {center.code}
+                                                                </span>
+                                                            )}
+                                                            <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                                                                {center.name}
+                                                            </h3>
+                                                        </div>
 
-                                                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                                                    <span
-                                                        className={cn(
-                                                            "px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full shrink-0",
-                                                            center.status === "ACTIVE"
-                                                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                                                : center.status === "UNDER_RENOVATION"
-                                                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                                                    : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                                                        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                                                            <span
+                                                                className={cn(
+                                                                    "px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full shrink-0",
+                                                                    center.status === "ACTIVE"
+                                                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                                        : center.status === "UNDER_RENOVATION"
+                                                                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                                                            : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                                                                )}
+                                                            >
+                                                                {center.status.replace("_", " ")}
+                                                            </span>
+
+                                                            {(!centerPersonnel || centerPersonnel.length === 0) ? (
+                                                                <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full shrink-0 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                                                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                                                    No Assigned Doctor
+                                                                </span>
+                                                            ) : !centerPersonnel.some((p: any) => p.role === "DOCTOR") ? (
+                                                                <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                                                    No Assigned Doctor
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Details List */}
+                                                    <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                                                        <a
+                                                            href={center.latitude && center.longitude ? `https://www.google.com/maps?q=${center.latitude},${center.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${center.name}, ${center.location}`)}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            title="Click to view exact pinned location on Google Maps"
+                                                            className="flex items-start gap-2 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors group cursor-pointer"
+                                                        >
+                                                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                                                            <span className="font-medium underline decoration-rose-400/40 group-hover:decoration-rose-500 underline-offset-2 flex items-center gap-1">
+                                                                {center.location}
+                                                                <ExternalLink className="w-3 h-3 text-rose-500 inline shrink-0 opacity-80 group-hover:opacity-100" />
+                                                            </span>
+                                                        </a>
+
+                                                        {center.operatingHours && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                <span>{center.operatingHours}</span>
+                                                            </div>
                                                         )}
-                                                    >
-                                                        {center.status.replace("_", " ")}
-                                                    </span>
 
-                                                    {(!centerPersonnel || centerPersonnel.length === 0) ? (
-                                                        <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full shrink-0 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1">
-                                                            <AlertTriangle className="w-3 h-3 text-rose-500" />
-                                                            No Assigned Doctor
-                                                        </span>
-                                                    ) : !centerPersonnel.some((p: any) => p.role === "DOCTOR") ? (
-                                                        <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
-                                                            <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                                            No Assigned Doctor
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            </div>
+                                                        {center.contactNumber && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                <span>{center.contactNumber}</span>
+                                                            </div>
+                                                        )}
 
-                                            {/* Details List */}
-                                            <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                                                <a
-                                                    href={center.latitude && center.longitude ? `https://www.google.com/maps?q=${center.latitude},${center.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${center.name}, ${center.location}`)}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    title="Click to view exact pinned location on Google Maps"
-                                                    className="flex items-start gap-2 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors group cursor-pointer"
-                                                >
-                                                    <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                                                    <span className="font-medium underline decoration-rose-400/40 group-hover:decoration-rose-500 underline-offset-2 flex items-center gap-1">
-                                                        {center.location}
-                                                        <ExternalLink className="w-3 h-3 text-rose-500 inline shrink-0 opacity-80 group-hover:opacity-100" />
-                                                    </span>
-                                                </a>
-
-                                                {center.operatingHours && (
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                        <span>{center.operatingHours}</span>
+                                                        {center.accountEmail && (
+                                                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                                <span>Medical Admin Account: <strong className="font-bold">{center.accountEmail}</strong></span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
 
-                                                {center.contactNumber && (
-                                                    <div className="flex items-center gap-2">
-                                                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                        <span>{center.contactNumber}</span>
-                                                    </div>
-                                                )}
+                                                    {/* ASSIGNED MEDICAL PERSONNEL SECTION */}
+                                                    <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                                                <Stethoscope className="w-3 h-3 text-blue-500" /> Assigned Medical Personnel ({centerPersonnel.length})
+                                                            </p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenCreatePersonnelModal(center.id)}
+                                                                className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-0.5"
+                                                            >
+                                                                <Plus className="w-3 h-3" /> Assign Staff
+                                                            </button>
+                                                        </div>
 
-                                                {center.accountEmail && (
-                                                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                                        <span>Medical Admin Account: <strong className="font-bold">{center.accountEmail}</strong></span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                        {centerPersonnel.length > 0 ? (
+                                                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                                                {centerPersonnel.map((p: any) => {
+                                                                    const badge = getRoleBadge(p.role);
+                                                                    return (
+                                                                        <div
+                                                                            key={p.id}
+                                                                            className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start justify-between gap-2 text-xs"
+                                                                        >
+                                                                            <div className="space-y-0.5">
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <span className={cn("px-1.5 py-0.2 text-[9px] font-black uppercase rounded-md border", badge.badgeClass)}>
+                                                                                        {p.role}
+                                                                                    </span>
+                                                                                    <span className="font-bold text-slate-800 dark:text-slate-100">{p.name}</span>
+                                                                                </div>
+                                                                                {p.specialization && (
+                                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-1">
+                                                                                        {p.specialization}
+                                                                                    </p>
+                                                                                )}
+                                                                                {p.assignedServices && (
+                                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-1">
+                                                                                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Services:</span> {p.assignedServices}
+                                                                                    </p>
+                                                                                )}
+                                                                                {p.accountEmail && (
+                                                                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pl-1 flex items-center gap-1">
+                                                                                        <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                                                        <span>Login: {p.accountEmail}</span>
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
 
-                                            {/* ASSIGNED MEDICAL PERSONNEL SECTION */}
-                                            <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                                        <Stethoscope className="w-3 h-3 text-rose-500" /> Assigned Medical Personnel ({centerPersonnel.length})
-                                                    </p>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenCreatePersonnelModal(center.id)}
-                                                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-0.5"
-                                                    >
-                                                        <Plus className="w-3 h-3" /> Assign Staff
-                                                    </button>
-                                                </div>
-
-                                                {centerPersonnel.length > 0 ? (
-                                                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                                                        {centerPersonnel.map((p: any) => {
-                                                            const badge = getRoleBadge(p.role);
-                                                            return (
-                                                                <div
-                                                                    key={p.id}
-                                                                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start justify-between gap-2 text-xs"
-                                                                >
-                                                                    <div className="space-y-0.5">
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className={cn("px-1.5 py-0.2 text-[9px] font-black uppercase rounded-md border", badge.badgeClass)}>
-                                                                                {p.role}
-                                                                            </span>
-                                                                            <span className="font-bold text-slate-800 dark:text-slate-100">{p.name}</span>
+                                                                            <button
+                                                                                onClick={() => handleOpenEditPersonnelModal(p)}
+                                                                                className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                                                                                title="Edit Personnel Assignment"
+                                                                            >
+                                                                                <Edit className="w-3 h-3" />
+                                                                            </button>
                                                                         </div>
-                                                                        {p.specialization && (
-                                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-1">
-                                                                                {p.specialization}
-                                                                            </p>
-                                                                        )}
-                                                                        {p.assignedServices && (
-                                                                            <p className="text-[10px] text-rose-600 dark:text-rose-400 font-medium pl-1">
-                                                                                Services: {p.assignedServices}
-                                                                            </p>
-                                                                        )}
-                                                                        {p.accountEmail && (
-                                                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pl-1 flex items-center gap-1">
-                                                                                <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
-                                                                                <span>Login: {p.accountEmail}</span>
-                                                                            </p>
-                                                                        )}
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                                                                    <div>
+                                                                        <p className="text-[11px] font-bold text-rose-700 dark:text-rose-300">No Assigned Doctor / Staff</p>
+                                                                        <p className="text-[10px] text-rose-600/80 dark:text-rose-400/80">Services registered, but no medical personnel assigned yet.</p>
                                                                     </div>
-
-                                                                    <button
-                                                                        onClick={() => handleOpenEditPersonnelModal(p)}
-                                                                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                                                                        title="Edit Personnel Assignment"
-                                                                    >
-                                                                        <Edit className="w-3 h-3" />
-                                                                    </button>
                                                                 </div>
-                                                            );
-                                                        })}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenCreatePersonnelModal(center.id)}
+                                                                    className="px-2 py-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm shrink-0 transition-colors"
+                                                                >
+                                                                    + Assign
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                                                            <div>
-                                                                <p className="text-[11px] font-bold text-rose-700 dark:text-rose-300">No Assigned Doctor / Staff</p>
-                                                                <p className="text-[10px] text-rose-600/80 dark:text-rose-400/80">Services registered, but no medical personnel assigned yet.</p>
+
+                                                    {/* Services Offered Chips with Assignment Status */}
+                                                    {center.servicesOffered && (
+                                                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-1.5">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Services Offered</p>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {center.servicesOffered.split(",").map((svc: string, i: number) => {
+                                                                    const cleanSvc = svc.trim();
+                                                                    if (!cleanSvc) return null;
+
+                                                                    const assignedStaff = centerPersonnel.filter((p: any) =>
+                                                                        p.assignedServices &&
+                                                                        p.assignedServices
+                                                                            .split(",")
+                                                                            .map((s: string) => s.trim().toLowerCase())
+                                                                            .includes(cleanSvc.toLowerCase())
+                                                                    );
+
+                                                                    const isAssigned = assignedStaff.length > 0;
+
+                                                                    return (
+                                                                        <span
+                                                                            key={i}
+                                                                            className={cn(
+                                                                                "px-2.5 py-1 text-[10px] font-semibold rounded-lg border flex items-center gap-1.5 transition-all cursor-default",
+                                                                                isAssigned
+                                                                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                                                                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-sm"
+                                                                            )}
+                                                                        >
+                                                                            {isAssigned ? (
+                                                                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                                            ) : (
+                                                                                <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                                                                            )}
+
+                                                                            <span className="font-bold">{cleanSvc}</span>
+
+                                                                            {!isAssigned && (
+                                                                                <span className="text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase shrink-0 bg-rose-500/20 text-rose-700 dark:text-rose-200">
+                                                                                    Unassigned
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleOpenCreatePersonnelModal(center.id)}
-                                                            className="px-2 py-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm shrink-0 transition-colors"
+                                                    )}
+                                                </CardContent>
+
+                                                {/* Action Buttons Footer */}
+                                                <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
+                                                    <a
+                                                        href={center.latitude && center.longitude ? `https://www.google.com/maps?q=${center.latitude},${center.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${center.name}, ${center.location}`)}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-bold rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"
+                                                    >
+                                                        <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                        Google Maps
+                                                    </a>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleOpenEditCenterModal(center)}
+                                                            className="h-8 px-3 text-xs font-semibold rounded-lg hover:border-rose-400 hover:text-rose-600"
                                                         >
-                                                            + Assign
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Services Offered Chips with Assignment Status */}
-                                            {center.servicesOffered && (
-                                                <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-1.5">
-                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Services Offered</p>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {center.servicesOffered.split(",").map((svc: string, i: number) => {
-                                                            const cleanSvc = svc.trim();
-                                                            if (!cleanSvc) return null;
-
-                                                            const assignedStaff = centerPersonnel.filter((p: any) =>
-                                                                p.assignedServices &&
-                                                                p.assignedServices
-                                                                    .split(",")
-                                                                    .map((s: string) => s.trim().toLowerCase())
-                                                                    .includes(cleanSvc.toLowerCase())
-                                                            );
-
-                                                            const isAssigned = assignedStaff.length > 0;
-
-                                                            return (
-                                                                <span
-                                                                    key={i}
-                                                                    className={cn(
-                                                                        "px-2.5 py-1 text-[10px] font-semibold rounded-lg border flex items-center gap-1.5 transition-all cursor-default",
-                                                                        isAssigned
-                                                                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-                                                                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-sm"
-                                                                    )}
-                                                                >
-                                                                    {isAssigned ? (
-                                                                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                                                                    ) : (
-                                                                        <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
-                                                                    )}
-
-                                                                    <span className="font-bold">{cleanSvc}</span>
-
-                                                                    {!isAssigned && (
-                                                                        <span className="text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase shrink-0 bg-rose-500/20 text-rose-700 dark:text-rose-200">
-                                                                            Unassigned
-                                                                        </span>
-                                                                    )}
-                                                                </span>
-                                                            );
-                                                        })}
+                                                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setDeleteCenterTarget(center)}
+                                                            className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                                                        </Button>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </CardContent>
-
-                                        {/* Action Buttons Footer */}
-                                        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-                                            <a
-                                                href={center.latitude && center.longitude ? `https://www.google.com/maps?q=${center.latitude},${center.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${center.name}, ${center.location}`)}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-bold rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"
-                                            >
-                                                <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                                Google Maps
-                                            </a>
-
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleOpenEditCenterModal(center)}
-                                                    className="h-8 px-3 text-xs font-semibold rounded-lg hover:border-rose-400 hover:text-rose-600"
-                                                >
-                                                    <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setDeleteCenterTarget(center)}
-                                                    className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <Card className="rounded-2xl border-slate-200 dark:border-white/10 p-12 text-center bg-white dark:bg-slate-900">
-                            <Hospital className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-                            <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">No Health Centers Found</h3>
-                            <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                                No health center matches your search criteria.
-                            </p>
-                            <Button
-                                onClick={handleOpenCreateCenterModal}
-                                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-10 px-4"
-                            >
-                                <Plus className="w-4 h-4 mr-1.5" /> Add Health Center
-                            </Button>
-                        </Card>
-                    )}
-                    </>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <Card className="rounded-2xl border-slate-200 dark:border-white/10 p-12 text-center bg-white dark:bg-slate-900">
+                                    <Hospital className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                                    <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">No Health Centers Found</h3>
+                                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                                        No health center matches your search criteria.
+                                    </p>
+                                    <Button
+                                        onClick={handleOpenCreateCenterModal}
+                                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-10 px-4"
+                                    >
+                                        <Plus className="w-4 h-4 mr-1.5" /> Add Health Center
+                                    </Button>
+                                </Card>
+                            )}
+                        </>
                     )}
                 </div>
             )}
@@ -1414,7 +1414,7 @@ export default function RHUCentersClient({
                                                         {p.assignedServices.split(",").map((svc: string, i: number) => (
                                                             <span
                                                                 key={i}
-                                                                className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                                                                className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50"
                                                             >
                                                                 {svc.trim()}
                                                             </span>
@@ -1467,7 +1467,7 @@ export default function RHUCentersClient({
 
             {/* MODAL 1: ADD / EDIT HEALTH CENTER */}
             <Dialog open={isFormModalOpen} onOpenChange={setIsFormModalOpen}>
-                <DialogContent className="sm:max-w-[840px] max-h-[92vh] overflow-y-auto rounded-3xl p-6">
+                <DialogContent className="sm:max-w-[1100px] max-w-[1100px] w-full max-h-[92vh] overflow-y-auto rounded-3xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                             <Building2 className="w-5 h-5 text-rose-500" />
@@ -1643,12 +1643,22 @@ export default function RHUCentersClient({
 
                                 <div className="space-y-2">
                                     <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Services Offered (Comma Separated)</Label>
-                                    <Input
-                                        type="text"
+                                    <textarea
                                         placeholder="e.g., General Consultation, Vaccination, Prenatal Care"
                                         value={formData.servicesOffered}
-                                        onChange={(e) => setFormData({ ...formData, servicesOffered: e.target.value })}
-                                        className="h-10 text-xs rounded-xl"
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, servicesOffered: e.target.value });
+                                            e.target.style.height = "auto";
+                                            e.target.style.height = `${e.target.scrollHeight}px`;
+                                        }}
+                                        ref={(el) => {
+                                            if (el) {
+                                                el.style.height = "auto";
+                                                el.style.height = `${el.scrollHeight}px`;
+                                            }
+                                        }}
+                                        rows={2}
+                                        className="w-full text-xs rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700/60 p-3 text-slate-900 dark:text-slate-100 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 resize-none min-h-[52px] transition-all"
                                     />
 
                                     {/* LIVE SERVICES PREVIEW & PRESET CHIPS */}

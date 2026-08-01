@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, Building2, DollarSign
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -145,8 +145,10 @@ export function Sidebar({
             if (res && res.success && res.data) {
                 setLiveLcrCounts(res.data);
             }
-        } catch (err) {
-            console.error("[LCR Sidebar] Error fetching LCR count:", err);
+        } catch (err: any) {
+            if (err?.name !== "AbortError" && !err?.message?.includes("Failed to fetch")) {
+                console.error("[LCR Sidebar] Error fetching LCR count:", err);
+            }
         }
     }, []);
 
@@ -450,8 +452,8 @@ export function Sidebar({
         },
         {
             href: "/admin/rhu/centers",
-            label: "Health Centers",
-            icon: Building2,
+            label: "Health Center & Staff",
+            icon: Users,
             category: "Rural Health Unit"
         },
         {
@@ -644,8 +646,12 @@ export function Sidebar({
         } else if (role === "POSO_OFFICER") {
             menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist"].includes(item.label));
         } else if (role === "RHU_PHARMACY" || (department && department.toUpperCase().includes("PHARMACY"))) {
-            menuItems = allMenuItems.filter(item => item.href === "/admin/rhu/inventory" || item.label === "Medicine & Supplies");
-        } else if (role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF") {
+            menuItems = allMenuItems.filter(item =>
+                item.label === "Rural Health Unit" ||
+                item.label === "Medicine & Supplies" ||
+                item.href === "/admin/rhu/inventory"
+            );
+        } else if (role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || (department && (department.toUpperCase().includes("RHU") || department.toUpperCase().includes("HEALTH")))) {
             menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
         }
     }

@@ -4,6 +4,7 @@ import { getRHUInventoryItems } from "./actions";
 import { getRHUHealthCenters } from "../centers/actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getMatchedCenterForUser } from "../actions";
 
 export const metadata = {
     title: "RHU Inventory & Pharmacy | EMapandan Admin",
@@ -13,9 +14,10 @@ export const metadata = {
 export default async function RHUInventoryPage() {
     const session = await getServerSession(authOptions);
     const currentUser = session?.user as any;
+    const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
 
     const [itemsRes, centersRes] = await Promise.all([
-        getRHUInventoryItems(),
+        getRHUInventoryItems(matchedCenter ? { healthCenterId: matchedCenter.id } : undefined),
         getRHUHealthCenters()
     ]);
 
@@ -27,6 +29,7 @@ export default async function RHUInventoryPage() {
             initialItems={initialItems as any}
             initialCenters={initialCenters as any}
             currentUser={currentUser}
+            matchedCenter={matchedCenter}
         />
     );
 }

@@ -68,7 +68,8 @@ export default async function RHUBookingPage({ params }: PageProps) {
         },
         select: {
             appointmentDate: true,
-            appointmentSlot: true
+            appointmentSlot: true,
+            additionalData: true
         }
     });
 

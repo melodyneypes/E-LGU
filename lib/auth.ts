@@ -35,17 +35,20 @@ export const authOptions: NextAuthOptions = {
 
                 let user: any = null;
                 try {
-                    user = await prisma.user.findUnique({
-                        where: { email: emailClean },
-                        include: { residentProfile: true }
-                    });
-                } catch (pErr) {
-                    console.warn("Prisma findUnique failed in authorize, using raw SQL fallback:", pErr);
                     const rawUsers: any[] = await prisma.$queryRaw`
                         SELECT "id", "name", "email", "password", "role"::text as "role", "isEmailVerified", "isPasswordChanged", "rejectionCount", "managedBarangay", "department", "accessiblePages"
-                        FROM "User" WHERE "email" = ${emailClean}
+                        FROM "User" WHERE LOWER("email") = ${emailClean}
                     `;
                     user = rawUsers[0] || null;
+                } catch {
+                    try {
+                        user = await prisma.user.findUnique({
+                            where: { email: emailClean },
+                            include: { residentProfile: true }
+                        });
+                    } catch {
+                        user = null;
+                    }
                 }
 
                 if (!user || !user.password) {
@@ -165,22 +168,26 @@ export const authOptions: NextAuthOptions = {
             if (token.id && token.role !== "USER") {
                 let dbUser: any = null;
                 try {
-                    dbUser = await prisma.user.findUnique({
-                        where: { id: token.id as string },
-                        select: {
-                            role: true,
-                            department: true,
-                            accessiblePages: true,
-                            isPasswordChanged: true,
-                            isEmailVerified: true
-                        }
-                    });
-                } catch {
                     const rawUsers: any[] = await prisma.$queryRaw`
                         SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified"
                         FROM "User" WHERE "id" = ${token.id as string}
                     `;
                     dbUser = rawUsers[0] || null;
+                } catch {
+                    try {
+                        dbUser = await prisma.user.findUnique({
+                            where: { id: token.id as string },
+                            select: {
+                                role: true,
+                                department: true,
+                                accessiblePages: true,
+                                isPasswordChanged: true,
+                                isEmailVerified: true
+                            }
+                        });
+                    } catch {
+                        dbUser = null;
+                    }
                 }
 
                 if (dbUser) {

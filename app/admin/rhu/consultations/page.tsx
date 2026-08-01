@@ -19,7 +19,7 @@ export default async function RHUConsultationsPage() {
     const role = (session.user as any)?.role;
     const department = ((session.user as any)?.department || "").toUpperCase();
 
-    const allowedRoles = ["ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
+    const allowedRoles = ["ADMIN", "RHU_ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
     const allowedDepts = ["RHU", "HEALTH", "RURAL_HEALTH_UNIT", "MEDICAL"];
 
     const isAuthorized = allowedRoles.includes(role) || allowedDepts.some(d => department.includes(d)) || (role && role.startsWith("RHU_"));
