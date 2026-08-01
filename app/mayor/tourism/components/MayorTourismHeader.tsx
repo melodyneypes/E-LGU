@@ -3,23 +3,23 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Utensils, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
+import { Compass, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
 import { useTheme } from "next-themes";
 import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
 
-interface MayorKainanHeaderProps {
+interface MayorTourismHeaderProps {
     session: any;
     themeColor: string;
     activeBarangays: string[];
     selectedBarangay: string;
 }
 
-export function MayorKainanHeader({
+export function MayorTourismHeader({
     session,
     themeColor,
     activeBarangays,
     selectedBarangay,
-}: MayorKainanHeaderProps) {
+}: MayorTourismHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,7 +46,6 @@ export function MayorKainanHeader({
     return (
         <header className="sticky top-0 z-50 bg-white/90 dark:bg-[#151b2b]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#2a3040] px-6 py-4 transition-colors">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-                {/* Left: Brand Badge & Back Link */}
                 <div className="flex items-center gap-4">
                     <Link
                         href="/mayor/dashboard"
@@ -62,20 +61,19 @@ export function MayorKainanHeader({
                             className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0"
                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}44` }}
                         >
-                            <Utensils className="w-5 h-5" />
+                            <Compass className="w-5 h-5" />
                         </div>
                         <div>
                             <h1 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
-                                Kainan & Culinary Hub
+                                Tourism & Gallery Hub
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Food Directory
+                                Mapandan Executive Oversight & Tourism Directory
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Right: Controls & User Menu */}
                 <div className="flex items-center gap-4">
                     <BarangaySwitcher
                         availableBarangays={activeBarangays}
@@ -83,7 +81,6 @@ export function MayorKainanHeader({
                         themeColor={themeColor}
                     />
 
-                    {/* Profile Dropdown */}
                     <div className="relative shrink-0" ref={dropdownRef}>
                         <button
                             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -106,7 +103,6 @@ export function MayorKainanHeader({
                             <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`} />
                         </button>
 
-                        {/* Profile Dropdown Menu */}
                         {dropdownOpen && (
                             <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl overflow-hidden z-[100]">
                                 <div className="px-4 py-3 border-b border-slate-100 dark:border-[#2a3040]">

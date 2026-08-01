@@ -3,23 +3,23 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Utensils, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
+import { BedDouble, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
 import { useTheme } from "next-themes";
 import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
 
-interface MayorKainanHeaderProps {
+interface MayorTuluyanHeaderProps {
     session: any;
     themeColor: string;
     activeBarangays: string[];
     selectedBarangay: string;
 }
 
-export function MayorKainanHeader({
+export function MayorTuluyanHeader({
     session,
     themeColor,
     activeBarangays,
     selectedBarangay,
-}: MayorKainanHeaderProps) {
+}: MayorTuluyanHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -62,14 +62,14 @@ export function MayorKainanHeader({
                             className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0"
                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}44` }}
                         >
-                            <Utensils className="w-5 h-5" />
+                            <BedDouble className="w-5 h-5" />
                         </div>
                         <div>
                             <h1 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
-                                Kainan & Culinary Hub
+                                Tuluyan & Lodging Hub
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Mapandan Executive Oversight & Food Directory
+                                Mapandan Executive Oversight & Accommodation Directory
                             </p>
                         </div>
                     </div>

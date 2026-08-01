@@ -299,14 +299,15 @@ export function ConfigurableStrategicOpsSection({
                             <div className="overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between">
                                 {[
                                     { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "View", path: "/mayor/kainan" },
-                                    { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/admin/accommodation" },
-                                    { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/admin/tourism" },
+                                    { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/mayor/tuluyan" },
+                                    { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/mayor/tourism" },
                                     { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/admin/reports" },
                                     { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/admin/hotlines" }
                                 ].map((item, idx) => (
                                     <Link
                                         key={idx}
                                         href={item.path}
+                                        prefetch={false}
                                         className="py-3 flex-1 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer rounded-2xl group"
                                     >
                                         <div className="flex items-center space-x-3 min-w-0">
