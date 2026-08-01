@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Flag, FileText, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
+import { Flag, FileText, Newspaper, ChevronDown, Moon, Sun, LogOut, ArrowLeft } from "lucide-react";
 import { useTheme } from "next-themes";
 import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
 
@@ -15,7 +15,7 @@ interface MayorReportsHeaderProps {
     title?: string;
     subtitle?: string;
     badge?: string;
-    iconName?: "flag" | "file-text";
+    iconName?: "flag" | "file-text" | "newspaper";
     hideBarangaySwitcher?: boolean;
 }
 
@@ -30,7 +30,7 @@ export function MayorReportsHeader({
     iconName = "flag",
     hideBarangaySwitcher = false,
 }: MayorReportsHeaderProps) {
-    const Icon = iconName === "file-text" ? FileText : Flag;
+    const Icon = iconName === "file-text" ? FileText : iconName === "newspaper" ? Newspaper : Flag;
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
