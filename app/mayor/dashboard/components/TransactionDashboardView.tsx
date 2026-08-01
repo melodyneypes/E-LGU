@@ -70,7 +70,6 @@ export function TransactionDashboardView({
   data,
   initialFrom,
   initialTo,
-  categories: _categories,
   activeCategory,
   rowSpan = 1,
 }: TransactionDashboardViewProps) {
