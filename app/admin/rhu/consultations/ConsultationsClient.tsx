@@ -334,9 +334,16 @@ export default function ConsultationsClient() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                                    {checkupDisplay}
-                                                </span>
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                        {checkupDisplay}
+                                                    </span>
+                                                    {addData.healthCenterName && (
+                                                        <span className="inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40">
+                                                            {addData.healthCenterName}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">

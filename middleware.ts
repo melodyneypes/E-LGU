@@ -77,7 +77,8 @@ export default withAuth(
       token?.role === "RHU_CENTER_ADMIN" ||
       token?.role === "RHU_DOCTOR" ||
       token?.role === "RHU_STAFF" ||
-      (token?.department && (token.department.includes("RHU") || token.department.includes("Medical Admin")));
+      token?.role === "RHU_PHARMACY" ||
+      (token?.department && (token.department.includes("RHU") || token.department.includes("Medical Admin") || token.department.includes("Pharmacy")));
 
     if (isRHURole && url.pathname.startsWith("/admin")) {
       if (!url.pathname.startsWith("/admin/rhu")) {

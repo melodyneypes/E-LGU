@@ -25,10 +25,12 @@ interface RHUAppointmentSettingsClientProps {
         amTimeLabel?: string;
         pmTimeLabel?: string;
     };
+    isCenterAdmin?: boolean;
 }
 
 export default function RHUAppointmentSettingsClient({ 
-    appointmentConfig
+    appointmentConfig,
+    isCenterAdmin = true
 }: RHUAppointmentSettingsClientProps) {
     const [isAMEnabled, setIsAMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsAM ?? 25) > 0);
     const [isPMEnabled, setIsPMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsPM ?? 25) > 0);
@@ -44,6 +46,7 @@ export default function RHUAppointmentSettingsClient({
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
     const toggleDay = (dayNum: number) => {
+        if (!isCenterAdmin) return;
         setActiveDays(prev => 
             prev.includes(dayNum) 
                 ? prev.filter(d => d !== dayNum) 
@@ -52,6 +55,7 @@ export default function RHUAppointmentSettingsClient({
     };
 
     const addBlockedDate = () => {
+        if (!isCenterAdmin) return;
         if (!newBlockedDate) return;
         if (blockedDates.includes(newBlockedDate)) {
             toast.error("Date is already blocked!");
@@ -62,10 +66,16 @@ export default function RHUAppointmentSettingsClient({
     };
 
     const removeBlockedDate = (dateStr: string) => {
+        if (!isCenterAdmin) return;
         setBlockedDates(prev => prev.filter(d => d !== dateStr));
     };
 
     const handleSaveAppointmentConfig = async () => {
+        if (!isCenterAdmin) {
+            toast.error("Only Health Centers can modify the appointment schedule.");
+            return;
+        }
+
         if (!isAMEnabled && !isPMEnabled) {
             toast.error("At least one session (AM or PM) must be active!");
             return;
@@ -140,6 +150,16 @@ export default function RHUAppointmentSettingsClient({
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 md:p-6 lg:p-8 px-4 md:px-8 space-y-6">
+                    {!isCenterAdmin && (
+                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center gap-3 text-xs font-semibold">
+                            <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                            <div>
+                                <p className="font-bold text-amber-800 dark:text-amber-200">Read-Only Mode (Main Admin View)</p>
+                                <p className="text-[11px] opacity-90">Schedule settings, session hours, active days, and slot capacities are managed directly by Health Centers. Main Admins can view configurations but cannot alter center schedules.</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         {/* Left Side: General Limits & Active Days */}
                         <div className="space-y-6">
@@ -169,8 +189,10 @@ export default function RHUAppointmentSettingsClient({
                                                 {isAMEnabled ? "Active" : "Disabled"}
                                             </span>
                                             <Switch
+                                                disabled={!isCenterAdmin}
                                                 checked={isAMEnabled}
                                                 onCheckedChange={(checked) => {
+                                                    if (!isCenterAdmin) return;
                                                     setIsAMEnabled(checked);
                                                     if (checked && maxSlotsAM <= 0) setMaxSlotsAM(25);
                                                     if (checked && amTimeLabel === "Disabled") setAmTimeLabel("08:00 AM - 11:00 AM");
@@ -187,8 +209,8 @@ export default function RHUAppointmentSettingsClient({
                                                     <input
                                                         type="checkbox"
                                                         checked={isAMUnlimited}
-                                                        disabled={!isAMEnabled}
-                                                        onChange={(e) => setIsAMUnlimited(e.target.checked)}
+                                                        disabled={!isAMEnabled || !isCenterAdmin}
+                                                        onChange={(e) => isCenterAdmin && setIsAMUnlimited(e.target.checked)}
                                                         className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3 h-3"
                                                     />
                                                     Unlimited
@@ -202,9 +224,9 @@ export default function RHUAppointmentSettingsClient({
                                             ) : (
                                                 <Input 
                                                     type="number" 
-                                                    disabled={!isAMEnabled}
+                                                    disabled={!isAMEnabled || !isCenterAdmin}
                                                     value={isAMEnabled ? maxSlotsAM : 0} 
-                                                    onChange={(e) => setMaxSlotsAM(Math.max(1, parseInt(e.target.value) || 1))}
+                                                    onChange={(e) => isCenterAdmin && setMaxSlotsAM(Math.max(1, parseInt(e.target.value) || 1))}
                                                     className="h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
                                                 />
                                             )}
@@ -213,9 +235,9 @@ export default function RHUAppointmentSettingsClient({
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Session Hours *</Label>
                                             <Input 
                                                 type="text" 
-                                                disabled={!isAMEnabled}
+                                                disabled={!isAMEnabled || !isCenterAdmin}
                                                 value={isAMEnabled ? amTimeLabel : "Disabled"} 
-                                                onChange={(e) => setAmTimeLabel(e.target.value)}
+                                                onChange={(e) => isCenterAdmin && setAmTimeLabel(e.target.value)}
                                                 placeholder="08:00 AM - 11:00 AM"
                                                 className={cn(
                                                     "h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs",
@@ -250,8 +272,10 @@ export default function RHUAppointmentSettingsClient({
                                                 {isPMEnabled ? "Active" : "Disabled"}
                                             </span>
                                             <Switch
+                                                disabled={!isCenterAdmin}
                                                 checked={isPMEnabled}
                                                 onCheckedChange={(checked) => {
+                                                    if (!isCenterAdmin) return;
                                                     setIsPMEnabled(checked);
                                                     if (checked && maxSlotsPM <= 0) setMaxSlotsPM(25);
                                                     if (checked && pmTimeLabel === "Disabled") setPmTimeLabel("01:00 PM - 04:00 PM");
@@ -268,8 +292,8 @@ export default function RHUAppointmentSettingsClient({
                                                     <input
                                                         type="checkbox"
                                                         checked={isPMUnlimited}
-                                                        disabled={!isPMEnabled}
-                                                        onChange={(e) => setIsPMUnlimited(e.target.checked)}
+                                                        disabled={!isPMEnabled || !isCenterAdmin}
+                                                        onChange={(e) => isCenterAdmin && setIsPMUnlimited(e.target.checked)}
                                                         className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3 h-3"
                                                     />
                                                     Unlimited
@@ -283,9 +307,9 @@ export default function RHUAppointmentSettingsClient({
                                             ) : (
                                                 <Input 
                                                     type="number" 
-                                                    disabled={!isPMEnabled}
+                                                    disabled={!isPMEnabled || !isCenterAdmin}
                                                     value={isPMEnabled ? maxSlotsPM : 0} 
-                                                    onChange={(e) => setMaxSlotsPM(Math.max(1, parseInt(e.target.value) || 1))}
+                                                    onChange={(e) => isCenterAdmin && setMaxSlotsPM(Math.max(1, parseInt(e.target.value) || 1))}
                                                     className="h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
                                                 />
                                             )}
@@ -294,9 +318,9 @@ export default function RHUAppointmentSettingsClient({
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Session Hours *</Label>
                                             <Input 
                                                 type="text" 
-                                                disabled={!isPMEnabled}
+                                                disabled={!isPMEnabled || !isCenterAdmin}
                                                 value={isPMEnabled ? pmTimeLabel : "Disabled"} 
-                                                onChange={(e) => setPmTimeLabel(e.target.value)}
+                                                onChange={(e) => isCenterAdmin && setPmTimeLabel(e.target.value)}
                                                 placeholder="01:00 PM - 04:00 PM"
                                                 className={cn(
                                                     "h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs",
@@ -325,12 +349,14 @@ export default function RHUAppointmentSettingsClient({
                                             <button
                                                 key={d.dayNum}
                                                 type="button"
+                                                disabled={!isCenterAdmin}
                                                 onClick={() => toggleDay(d.dayNum)}
                                                 className={cn(
                                                     "px-4 py-2 text-xs font-black uppercase rounded-full border transition-all duration-200 active:scale-95",
                                                     isActive 
                                                         ? "bg-rose-600 text-white border-transparent shadow-md"
-                                                        : "bg-slate-50 dark:bg-black/20 text-slate-500 border-slate-200 dark:border-white/5 hover:border-slate-350"
+                                                        : "bg-slate-50 dark:bg-black/20 text-slate-500 border-slate-200 dark:border-white/5 hover:border-slate-350",
+                                                    !isCenterAdmin && "opacity-60 cursor-not-allowed"
                                                 )}
                                             >
                                                 {d.label}
@@ -347,14 +373,16 @@ export default function RHUAppointmentSettingsClient({
                             <div className="flex gap-2">
                                 <Input 
                                     type="date"
+                                    disabled={!isCenterAdmin}
                                     value={newBlockedDate}
-                                    onChange={(e) => setNewBlockedDate(e.target.value)}
+                                    onChange={(e) => isCenterAdmin && setNewBlockedDate(e.target.value)}
                                     className="h-12 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
                                 />
                                 <Button 
                                     type="button"
+                                    disabled={!isCenterAdmin}
                                     onClick={addBlockedDate}
-                                    className="h-12 px-5 font-black uppercase text-xs rounded-xl flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white"
+                                    className="h-12 px-5 font-black uppercase text-xs rounded-xl flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50"
                                 >
                                     <Plus className="w-4 h-4" /> Block
                                 </Button>
@@ -369,13 +397,15 @@ export default function RHUAppointmentSettingsClient({
                                             <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
                                                 {new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                                             </span>
-                                            <button 
-                                                type="button"
-                                                onClick={() => removeBlockedDate(dateStr)}
-                                                className="text-red-500 hover:text-red-650 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                            {isCenterAdmin && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => removeBlockedDate(dateStr)}
+                                                    className="text-red-500 hover:text-red-650 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                     ))
                                 )}
@@ -389,10 +419,15 @@ export default function RHUAppointmentSettingsClient({
                         <Button 
                             type="button"
                             onClick={handleSaveAppointmentConfig}
-                            disabled={isSavingConfig}
-                            className="h-12 px-10 font-black uppercase text-xs rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition-all bg-rose-600 hover:bg-rose-700 text-white"
+                            disabled={isSavingConfig || !isCenterAdmin}
+                            className={cn(
+                                "h-12 px-10 font-black uppercase text-xs rounded-xl shadow-lg transition-all",
+                                isCenterAdmin 
+                                    ? "bg-rose-600 hover:bg-rose-700 text-white hover:opacity-90 active:scale-95" 
+                                    : "bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
+                            )}
                         >
-                            Save Settings
+                            {isCenterAdmin ? "Save Settings" : "Read-Only Mode (Managed by Health Centers)"}
                         </Button>
                     </div>
                 </CardContent>

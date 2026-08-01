@@ -33,6 +33,9 @@ export function getPostLoginDestination(
     if (department === "REGISTRAR" || department === "CIVIL_REGISTRY") {
         return "/admin/registrar";
     }
+    if (role === "RHU_PHARMACY" || department.includes("PHARMACY")) {
+        return "/admin/rhu/inventory";
+    }
     if (
         role === "RHU_CENTER_ADMIN" ||
         role === "RHU_DOCTOR" ||
