@@ -3543,37 +3543,25 @@ export async function getTransactionReportData(params: {
             whereClause.status = params.status;
         }
 
-        const targetBarangay = selectedBarangay || (params.barangay && params.barangay !== "ALL" ? params.barangay : null);
+        const targetBarangay = selectedBarangay || (params.barangay && params.barangay !== "ALL" && params.barangay !== "Mapandan" ? params.barangay : null);
         if (targetBarangay) {
-            whereClause.user = {
-                residentProfile: {
-                    barangay: targetBarangay
-                }
-            };
-        }
-
-        if (params.search) {
             whereClause.OR = [
                 {
-                    id: {
-                        contains: params.search,
-                        mode: "insensitive"
-                    }
-                },
-                {
                     user: {
-                        name: {
-                            contains: params.search,
-                            mode: "insensitive"
+                        residentProfile: {
+                            barangay: targetBarangay
                         }
                     }
                 },
                 {
-                    type: {
-                        name: {
-                            contains: params.search,
-                            mode: "insensitive"
-                        }
+                    residentSnapshot: {
+                        path: ["barangay"],
+                        string_contains: targetBarangay
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        string_contains: targetBarangay
                     }
                 }
             ];
@@ -3641,6 +3629,8 @@ export async function getTransactionReportData(params: {
             id: true,
             createdAt: true,
             status: true,
+            residentSnapshot: true,
+            additionalData: true,
             type: {
                 select: {
                     name: true,
@@ -3650,6 +3640,7 @@ export async function getTransactionReportData(params: {
             user: {
                 select: {
                     name: true,
+                    email: true,
                     residentProfile: {
                         select: {
                             barangay: true
@@ -3658,20 +3649,54 @@ export async function getTransactionReportData(params: {
                 }
             },
             payment: {
-                select: { amount: true, status: true }
+                select: { amount: true, status: true, method: true }
             }
         };
 
-        if (params.exportAll) {
-            transactions = await prisma.transaction.findMany({
+        const searchPattern = params.search ? params.search.trim().toLowerCase() : "";
+
+        if (searchPattern) {
+            // Fetch all base matching candidates (by date, status, category, barangay)
+            const allCandidates = await (prisma as any).transaction.findMany({
+                where: whereClause,
+                select: selectFields,
+                orderBy: { createdAt: "desc" }
+            });
+
+            const filtered = allCandidates.filter((tx: any) => {
+                const txIdMatch = tx.id?.toLowerCase().includes(searchPattern);
+                const typeNameMatch = tx.type?.name?.toLowerCase().includes(searchPattern);
+                const userNameMatch = tx.user?.name?.toLowerCase().includes(searchPattern);
+                const userEmailMatch = tx.user?.email?.toLowerCase().includes(searchPattern);
+
+                const snapshotStr = typeof tx.residentSnapshot === "string"
+                    ? tx.residentSnapshot.toLowerCase()
+                    : JSON.stringify(tx.residentSnapshot || {}).toLowerCase();
+
+                const additionalStr = typeof tx.additionalData === "string"
+                    ? tx.additionalData.toLowerCase()
+                    : JSON.stringify(tx.additionalData || {}).toLowerCase();
+
+                const snapshotMatch = snapshotStr.includes(searchPattern);
+                const additionalMatch = additionalStr.includes(searchPattern);
+
+                return txIdMatch || typeNameMatch || userNameMatch || userEmailMatch || snapshotMatch || additionalMatch;
+            });
+
+            totalCount = filtered.length;
+            transactions = params.exportAll
+                ? filtered
+                : filtered.slice(skip, skip + limit);
+        } else if (params.exportAll) {
+            transactions = await (prisma as any).transaction.findMany({
                 where: whereClause,
                 select: selectFields,
                 orderBy: { createdAt: "desc" }
             });
             totalCount = transactions.length;
         } else {
-            totalCount = await prisma.transaction.count({ where: whereClause });
-            transactions = await prisma.transaction.findMany({
+            totalCount = await (prisma as any).transaction.count({ where: whereClause });
+            transactions = await (prisma as any).transaction.findMany({
                 where: whereClause,
                 select: selectFields,
                 orderBy: { createdAt: "desc" },
