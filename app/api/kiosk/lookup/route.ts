@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
-import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
 export async function POST(request: Request) {
@@ -19,7 +18,7 @@ export async function POST(request: Request) {
         try {
             const decoded = JSON.parse(Buffer.from(token, "base64").toString("ascii"));
             const { payload, signature } = decoded;
-            
+
             if (!payload || !signature) {
                 return NextResponse.json(
                     { success: false, error: "Unauthorized: Invalid authorization token format" },
@@ -59,8 +58,8 @@ export async function POST(request: Request) {
             );
         }
 
-        // 2. Validate Transaction & Appointment Date
-        const { transactionId, isPriority } = await request.json();
+        // 2. Lookup Transaction
+        const { transactionId } = await request.json();
         if (!transactionId) {
             return NextResponse.json(
                 { success: false, error: "Transaction ID is required" },
@@ -70,10 +69,10 @@ export async function POST(request: Request) {
 
         let transaction = await prisma.transaction.findUnique({
             where: { id: transactionId },
-            include: { type: true }
+            include: { type: true, user: true }
         });
 
-        // Fallback: If not found by ID CUID, search by queueNumber or ticketNo
+        // Fallback: If not found by CUID, search by queueNumber or ticketNo
         if (!transaction) {
             const txs = await prisma.transaction.findMany({
                 where: {
@@ -87,15 +86,13 @@ export async function POST(request: Request) {
                         }
                     ]
                 },
-                include: { type: true },
+                include: { type: true, user: true },
                 orderBy: { createdAt: "desc" }
             });
             if (txs.length > 0) {
-                // Prioritize active (non-cancelled, non-rejected) transactions first
                 const activeTxs = txs.filter(t => !t.isCancelled && t.status !== "REJECTED");
                 const candidatePool = activeTxs.length > 0 ? activeTxs : txs;
 
-                // Find the first transaction that is NOT yet checked in for its current status
                 transaction = candidatePool.find(t => {
                     const ad = (t.additionalData as any) || {};
                     return ad.checkedIn !== true || ad.lastCheckedInStatus !== t.status;
@@ -136,7 +133,6 @@ export async function POST(request: Request) {
         }
 
         if (!isPaymentOrClaiming) {
-            // Compare dates in Philippine Time (UTC+8) to avoid timezone mismatch
             const PH_OFFSET = 8 * 60; // minutes
             const toPhDate = (d: Date) => {
                 const phMs = d.getTime() + PH_OFFSET * 60 * 1000;
@@ -147,8 +143,8 @@ export async function POST(request: Request) {
             const todayPh = toPhDate(today);
 
             const isToday = appDatePh.getUTCFullYear() === todayPh.getUTCFullYear() &&
-                            appDatePh.getUTCMonth() === todayPh.getUTCMonth() &&
-                            appDatePh.getUTCDate() === todayPh.getUTCDate();
+                appDatePh.getUTCMonth() === todayPh.getUTCMonth() &&
+                appDatePh.getUTCDate() === todayPh.getUTCDate();
 
             if (!isToday) {
                 const formattedDate = appDatePh.toLocaleDateString("en-US", {
@@ -158,87 +154,43 @@ export async function POST(request: Request) {
                     timeZone: "Asia/Manila"
                 });
                 return NextResponse.json(
-                    { 
-                        success: false, 
-                        error: `Wrong Date! Your appointment is scheduled on ${formattedDate}. Please return on that exact date.` 
+                    {
+                        success: false,
+                        error: `Wrong Date! Your appointment is scheduled on ${formattedDate}. Please return on that exact date.`
                     },
                     { status: 400 }
                 );
             }
         }
 
-        // 3. Mark as checked-in in additionalData metadata
-        const currentAdditionalData = (transaction.additionalData as any) || {};
-        if (currentAdditionalData.checkedIn === true && currentAdditionalData.lastCheckedInStatus === transaction.status) {
-            const lastCheckIn = currentAdditionalData.checkedInAt ? new Date(currentAdditionalData.checkedInAt) : null;
-            const checkedInToday = lastCheckIn &&
-                lastCheckIn.getFullYear() === today.getFullYear() &&
-                lastCheckIn.getMonth() === today.getMonth() &&
-                lastCheckIn.getDate() === today.getDate();
+        const addData = (transaction.additionalData as any) || {};
+        const isAlreadyCheckedIn = addData.checkedIn === true && addData.lastCheckedInStatus === transaction.status;
 
-            if (checkedInToday) {
-                return NextResponse.json(
-                    { success: false, error: "This ticket has already been checked in for this phase today!" },
-                    { status: 400 }
-                );
-            }
+        if (isAlreadyCheckedIn) {
+            return NextResponse.json(
+                { success: false, error: "This ticket has already been checked in for this phase today!" },
+                { status: 400 }
+            );
         }
 
-        const effectiveIsPriority = typeof isPriority === "boolean" ? isPriority : (transaction.isPriority || false);
-
-        let queueNumber = transaction.queueNumber;
-        if (!queueNumber) {
-            let category: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | undefined = undefined;
-            const categoryStr = (transaction.type?.category || "").toUpperCase();
-            const codeStr = (transaction.type?.code || "").toUpperCase();
-
-            if (categoryStr === "CIVIL REGISTRY" || codeStr.includes("PSA_") || codeStr.includes("APPOINTMENT") || codeStr.startsWith("LCR_")) {
-                category = "CIVIL_REGISTRY";
-            }
-
-            const { generateQueueNumber } = await import("@/lib/queue");
-            queueNumber = await generateQueueNumber({
-                source: "kiosk",
-                isPriority: effectiveIsPriority,
-                appointmentDate: today,
-                appointmentSlot: today.getHours() < 12 ? "AM" : "PM",
-                category
-            });
-        }
-
-        const updatedAdditionalData = {
-            ...currentAdditionalData,
-            checkedIn: true,
-            checkedInAt: today.toISOString(),
-            lastCheckedInStatus: transaction.status,
-            isPriorityLane: effectiveIsPriority
-        };
-
-        const updated = await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: {
-                appointmentDate: isPaymentOrClaiming ? today : undefined,
-                queueNumber: queueNumber,
-                isPriority: effectiveIsPriority,
-                additionalData: updatedAdditionalData,
-                updatedAt: today
-            }
-        });
-
-        revalidatePath("/admin/treasury");
-        revalidatePath("/admin/treasury/queue");
-        revalidatePath("/admin/treasury/payments");
-        revalidatePath("/queue");
+        const resident = (transaction.residentSnapshot as any) || (transaction.user as any)?.residentProfile || {};
+        const citizenName = `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || transaction.user?.name || "Resident Applicant";
 
         return NextResponse.json({
             success: true,
-            queueNumber: updated.queueNumber || "T-N/A",
-            serviceName: transaction.type?.name || "Service Request"
+            transactionId: transaction.id,
+            queueNumber: transaction.queueNumber || "N/A",
+            serviceName: transaction.type?.name || "Service Appointment",
+            citizenName,
+            isPriority: transaction.isPriority === true || addData.isPriorityLane === true,
+            status: transaction.status,
+            appointmentSlot: transaction.appointmentSlot || "Standard Queue"
         });
-    } catch (error) {
-        console.error("Kiosk check-in API error:", error);
+
+    } catch (error: any) {
+        console.error("Kiosk Lookup Endpoint Error:", error);
         return NextResponse.json(
-            { success: false, error: "Internal server error" },
+            { success: false, error: error.message || "Failed to lookup transaction" },
             { status: 500 }
         );
     }
