@@ -118,17 +118,52 @@ export default function UserAppointmentsPage() {
         if (req.isCancelled) {
             return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "CANCELLED" };
         }
+        
+        const isRHU = ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"].includes(req.type?.category) || req.type?.code?.startsWith("RHU_");
         const status = req.status;
+
+        if (isRHU) {
+            let addData: any = {};
+            if (req.additionalData) {
+                try {
+                    addData = typeof req.additionalData === "string"
+                        ? JSON.parse(req.additionalData)
+                        : req.additionalData;
+                } catch {
+                    addData = {};
+                }
+            }
+            const rhuStatus = addData.rhuStatus || null;
+
+            if (rhuStatus === "CHECK_IN" || status === "EVALUATED") {
+                return { color: "text-indigo-500", bg: "bg-indigo-500/10", border: "border-indigo-500/20", icon: CheckCircle2, label: "CHECKED IN", opacity: 1 };
+            }
+            if (rhuStatus === "IN_CONSULTATION" || status === "FOR_PROCESSING" || status === "FOR_REINSPECTION") {
+                return { color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20", icon: Activity, label: "IN CONSULTATION", opacity: 1 };
+            }
+            if (rhuStatus === "PRESCRIBED" || status === "FOR_CLAIM") {
+                return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: UserCheck, label: "PRESCRIBED", opacity: 1 };
+            }
+            if (rhuStatus === "REFERRED" || (status === "RELEASED" && rhuStatus === "REFERRED")) {
+                return { color: "text-fuchsia-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20", icon: AlertCircle, label: "REFERRED", opacity: 1 };
+            }
+            if (rhuStatus === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
+                return { color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: CheckCircle2, label: "COMPLETED", opacity: 1 };
+            }
+            if (rhuStatus === "APPOINTMENT_BOOKED" || status === "FOR_REQUESTING" || status === "FOR_INSPECTION") {
+                return { color: "text-rose-600", bg: "bg-rose-500/10", border: "border-rose-500/20", icon: Clock, label: "APPOINTMENT BOOKED", opacity: 1 };
+            }
+        }
+
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: AlertCircle, label: "NEEDS REVISION", opacity: 1 };
             case "FOR_REQUESTING": {
-                const isRHU = ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"].includes(req.type?.category) || req.type?.code?.startsWith("RHU_");
                 return {
                     color: "text-white",
                     bg: "bg-rose-600",
                     border: "border-transparent",
                     icon: Clock,
-                    label: isRHU ? "PROCEED TO RHU TO CHECK-IN" : "PROCEED TO MUNICIPAL HALL TO CHECK-IN",
+                    label: "PROCEED TO MUNICIPAL HALL TO CHECK-IN",
                     opacity: 0.9
                 };
             }
