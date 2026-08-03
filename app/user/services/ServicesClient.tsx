@@ -133,7 +133,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             borderColor = "border-blue-500/10 dark:border-blue-500/5";
             buttonShadow = "shadow-blue-500/10";
         } else if (categoryName === "BPLO" || categoryName === "BUSINESS PERMIT" || categoryName === "BUSINESS-PERMIT") {
-            title = "BPLO SERVICES";
+            title = "Business Permit";
             department = "BPLO Office";
             description = "Apply for a new municipal business permit or renew your existing enterprise operation license online with digital checklist validation.";
             link = "/user/services/business-permit-appointment";
