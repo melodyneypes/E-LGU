@@ -68,8 +68,7 @@ async function runCleanup() {
 
                 const updatedUser = await recordTransactionRejection(
                     missedTx.userId,
-                    categoryKey || "General",
-                    "Appointment slot expired / missed"
+                    categoryKey || "General"
                 );
 
                 // Send rejection email if account is still active (less than 3 strikes)

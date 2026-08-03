@@ -19,7 +19,7 @@ import {
     ENGINEERING_PERMIT_CODES,
     isEngineeringPermitCode,
 } from "@/lib/transactions/engineering-permit";
-import { recordTransactionRejection, clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
+import { recordTransactionRejection } from "@/lib/transactions/rejection-tracker";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 const engineeringPermitTypeWhere = {
@@ -2627,8 +2627,7 @@ export async function rejectTransaction(id: string, remarks: string) {
 
             const updatedUser = await recordTransactionRejection(
                 tx.userId,
-                categoryKey || "General",
-                remarks
+                categoryKey || "General"
             );
 
             // Send rejection email if account is still active (less than 3 strikes)

@@ -8,8 +8,7 @@ import { sendEmail } from "@/lib/mail";
  */
 export async function recordTransactionRejection(
     userId: string,
-    categoryOrCode: string,
-    remarks?: string
+    categoryOrCode: string
 ) {
     if (!userId) return null;
 
