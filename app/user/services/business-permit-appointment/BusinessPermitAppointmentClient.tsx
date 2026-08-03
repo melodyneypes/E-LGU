@@ -1501,33 +1501,7 @@ export function BusinessPermitAppointmentClient({
                                     </div>
                                 </div>
 
-                                {/* Priority Lane Option */}
-                                <div
-                                    onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                    className={cn(
-                                        "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                                        isPriorityLane ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
-                                    )}
-                                    style={isPriorityLane ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
-                                >
-                                    <div className={cn(
-                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                        isPriorityLane ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
-                                    )} style={isPriorityLane ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
-                                        {isPriorityLane && <Check className="w-3.5 h-3.5" />}
-                                    </div>
-                                    <div className="space-y-1 text-left">
-                                        <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                            ♿ REQUEST PRIORITY LANE SERVICE
-                                        </p>
-                                        <p className="text-[8px] md:text-[10px] text-slate-400 font-bold leading-relaxed italic uppercase tracking-widest">
-                                            CHECK THIS IF YOU ARE A SENIOR CITIZEN, PWD, OR PREGNANT APPLICANT.
-                                        </p>
-                                        <p className="text-[9px] font-bold text-amber-500 dark:text-amber-500/90 leading-relaxed uppercase tracking-wider mt-2">
-                                            ⚠️ WARNING: YOU MUST PRESENT A VALID PRIORITY ID OR PROOF OF ENTITLEMENT AT THE COUNTER. FAILURE TO PRODUCE VALID VERIFICATION WILL RESULT IN THE IMMEDIATE DISAPPROVAL OF YOUR PRIORITY QUEUE STATUS, AND YOU WILL BE REQUIRED TO BOOK A NEW APPOINTMENT ON ANOTHER DAY.
-                                        </p>
-                                    </div>
-                                </div>
+
 
                                 {/* Privacy Policy Checklist */}
                                 <div
