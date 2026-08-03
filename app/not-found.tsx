@@ -2,7 +2,6 @@
  
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
  
@@ -42,17 +41,8 @@ export default function NotFound() {
                 <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <Button 
                         asChild
-                        variant="outline"
-                        className="w-full sm:w-auto h-12 px-6 rounded-2xl font-black uppercase tracking-widest text-[9px] border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                    >
-                        <Link href="/user/services" className="flex items-center gap-2">
-                            <ArrowLeft className="w-4 h-4" />
-                            Back to Services
-                        </Link>
-                    </Button>
-                    <Button 
-                        asChild
                         className="w-full sm:w-auto h-12 px-6 rounded-2xl font-black uppercase tracking-widest text-[9px]"
+                        style={{ backgroundColor: themeColor }}
                     >
                         <Link href="/">
                             Go to Homepage

@@ -87,14 +87,19 @@ export async function POST(request: Request) {
                         }
                     ]
                 },
-                include: { type: true }
+                include: { type: true },
+                orderBy: { createdAt: "desc" }
             });
             if (txs.length > 0) {
+                // Prioritize active (non-cancelled, non-rejected) transactions first
+                const activeTxs = txs.filter(t => !t.isCancelled && t.status !== "REJECTED");
+                const candidatePool = activeTxs.length > 0 ? activeTxs : txs;
+
                 // Find the first transaction that is NOT yet checked in for its current status
-                transaction = txs.find(t => {
+                transaction = candidatePool.find(t => {
                     const ad = (t.additionalData as any) || {};
                     return ad.checkedIn !== true || ad.lastCheckedInStatus !== t.status;
-                }) || txs[0];
+                }) || candidatePool[0];
             }
         }
 

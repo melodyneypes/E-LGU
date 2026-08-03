@@ -132,8 +132,8 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             accentBg = "bg-blue-500/10 dark:bg-blue-500/5";
             borderColor = "border-blue-500/10 dark:border-blue-500/5";
             buttonShadow = "shadow-blue-500/10";
-        } else if (categoryName === "BPLO") {
-            title = "BPLO SERVICES";
+        } else if (categoryName === "BPLO" || categoryName === "BUSINESS PERMIT" || categoryName === "BUSINESS-PERMIT") {
+            title = "Business Permit";
             department = "BPLO Office";
             description = "Apply for a new municipal business permit or renew your existing enterprise operation license online with digital checklist validation.";
             link = "/user/services/business-permit-appointment";
@@ -430,7 +430,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
                                                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">verified digital gateway</span>
                                                         </div>
 
-                                                        {service.code === "BPLO" ? (
+                                                        {service.code === "BPLO" || service.code === "BUSINESS PERMIT" || service.code === "BUSINESS-PERMIT" ? (
                                                             <div className="flex items-center gap-2">
                                                                 <Button asChild className="h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md gap-2" style={{ backgroundColor: themeColor }}>
                                                                     <Link href="/user/services/business-permit-appointment">

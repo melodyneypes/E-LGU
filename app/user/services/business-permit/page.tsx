@@ -691,6 +691,15 @@ export default function BusinessPermitWizardPage() {
     const handleInputChange = (field: keyof FormState, value: any) => {
         setFormData(prev => {
             const updated = { ...prev, [field]: value };
+            if (field === "orgType") {
+                if (value === "SOLE_PROPRIETORSHIP") {
+                    updated.registrationType = "DTI";
+                } else if (value === "CORPORATION" || value === "PARTNERSHIP") {
+                    updated.registrationType = "SEC";
+                } else if (value === "COOPERATIVE") {
+                    updated.registrationType = "COA";
+                }
+            }
             persistDraftLocal(updated);
             return updated;
         });
@@ -724,9 +733,12 @@ export default function BusinessPermitWizardPage() {
                 const r = formData.residentData;
                 return !!(r?.firstName && r?.lastName && r?.dateOfBirth && r?.occupation && r?.contactNumber);
             case "PROFILE":
-                if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch) return false;
+                if (!formData.businessName || !formData.lineOfBusiness || !formData.barangay || !formData.orgType || !formData.tinNumber || !formData.businessBranch || !formData.building || !formData.street) return false;
+                if (parseFloat(formData.businessArea) <= 0 || !formData.businessArea) return false;
                 if (formData.businessType === "NEW") {
-                    return parseFloat(formData.capitalInvestment.replace(/,/g, "")) > 0 && !!formData.dtiSecNumber && !!formData.dtiSecDate;
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const isFutureDate = formData.dtiSecDate ? formData.dtiSecDate > todayStr : false;
+                    return parseFloat(formData.capitalInvestment.replace(/,/g, "")) > 0 && !!formData.dtiSecNumber && !!formData.dtiSecDate && !isFutureDate;
                 } else {
                     return parseFloat(formData.grossSales.replace(/,/g, "")) > 0 && !!formData.permitNumber;
                 }
@@ -820,6 +832,10 @@ export default function BusinessPermitWizardPage() {
                     elementToFocus = document.getElementById("profile-orgType");
                 } else if (!formData.barangay) {
                     elementToFocus = document.getElementById("profile-barangay");
+                } else if (!formData.building) {
+                    elementToFocus = document.getElementById("profile-building");
+                } else if (!formData.street) {
+                    elementToFocus = document.getElementById("profile-street");
                 } else if (!formData.lineOfBusiness) {
                     if (isOtherLine) {
                         elementToFocus = document.getElementById("profile-lineOfBusiness");
@@ -1599,6 +1615,7 @@ export default function BusinessPermitWizardPage() {
                                                     <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
                                                     <option value="PARTNERSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Partnership</option>
                                                     <option value="CORPORATION" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Corporation</option>
+                                                    <option value="COOPERATIVE" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Cooperatives</option>
                                                 </select>
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                     <ChevronDown className="w-4 h-4" />
@@ -1632,36 +1649,46 @@ export default function BusinessPermitWizardPage() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-building"
                                                     type="text"
                                                     value={formData.building}
                                                     onChange={e => handleInputChange("building", e.target.value)}
-                                                    placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
+                                                    placeholder="e.g. Bldg 4A, Green Meadows"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && !formData.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.building && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-street"
                                                     type="text"
                                                     value={formData.street}
                                                     onChange={e => handleInputChange("street", e.target.value)}
-                                                    placeholder="e.g. Rizal Avenue (Optional)"
+                                                    placeholder="e.g. Rizal Avenue"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && !formData.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.street && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1743,19 +1770,33 @@ export default function BusinessPermitWizardPage() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm)</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
                                             <div className="relative">
                                                 <Input
+                                                    id="profile-businessArea"
                                                     type="number"
+                                                    min="0.01"
+                                                    step="any"
                                                     value={formData.businessArea}
                                                     onChange={e => handleInputChange("businessArea", e.target.value)}
+                                                    onKeyDown={e => {
+                                                        const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
+                                                        if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                                                    }}
                                                     placeholder="e.g. 120"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && (!formData.businessArea || parseFloat(formData.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
+                                                {showValidationErrors && !formData.businessArea && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
+                                                )}
+                                                {showValidationErrors && formData.businessArea && parseFloat(formData.businessArea) <= 0 && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1898,7 +1939,7 @@ export default function BusinessPermitWizardPage() {
                                                         >
                                                             <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
                                                             <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
-                                                            <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">COA</option>
+                                                            <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">CDA</option>
                                                         </select>
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                             <ChevronDown className="w-4 h-4" />
@@ -1908,7 +1949,7 @@ export default function BusinessPermitWizardPage() {
 
                                                 <div className="space-y-2">
                                                     <div className="flex items-center gap-1.5">
-                                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
                                                         <button
                                                             type="button"
                                                             onClick={() => setIsDtiGuideOpen(true)}
@@ -1923,7 +1964,7 @@ export default function BusinessPermitWizardPage() {
                                                         type="text"
                                                         value={formData.dtiSecNumber}
                                                         onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
-                                                        placeholder={`e.g. ${formData.registrationType === "DTI" ? "DTI-123456789" : formData.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
+                                                        placeholder={`e.g. ${formData.registrationType === "DTI" ? "DTI-123456789" : formData.registrationType === "SEC" ? "SEC-CS202012345" : "CDA-987654"}`}
                                                         className={cn(
                                                          "rounded-xl h-12 border-slate-200 font-bold",
                                                          showValidationErrors && !formData.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
@@ -1932,18 +1973,25 @@ export default function BusinessPermitWizardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
-                                                    <Input
-                                                        id="profile-dtiSecDate"
-                                                        type="date"
-                                                        value={formData.dtiSecDate}
-                                                        onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                        className={cn(
-                                                         "rounded-xl h-12 border-slate-200 font-bold",
-                                                         showValidationErrors && !formData.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formData.registrationType === "COA" ? "CDA" : formData.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                     <Input
+                                                         id="profile-dtiSecDate"
+                                                         type="date"
+                                                         max={new Date().toISOString().split("T")[0]}
+                                                         value={formData.dtiSecDate}
+                                                         onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                         className={cn(
+                                                          "rounded-xl h-12 border-slate-200 font-bold",
+                                                          showValidationErrors && (!formData.dtiSecDate || (formData.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                      )}
+                                                     />
+                                                     {showValidationErrors && !formData.dtiSecDate && (
+                                                         <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
                                                      )}
-                                                    />
-                                                </div>
+                                                     {showValidationErrors && formData.dtiSecDate && formData.dtiSecDate > new Date().toISOString().split("T")[0] && (
+                                                         <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
+                                                     )}
+                                                 </div>
                                             </div>
                                         ) : (
                                             <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">
