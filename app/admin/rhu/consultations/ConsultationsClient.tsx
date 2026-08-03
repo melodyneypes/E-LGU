@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw, Activity, CheckCircle2,
-    Clock, XCircle, Volume2
+    Clock, XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -111,6 +111,7 @@ export default function ConsultationsClient() {
         loadData();
     }, [loadData]);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handleCallNextTicket = async () => {
         try {
             const result = await fetchAndCallNextTicket("Rural Health Unit");
@@ -126,35 +127,76 @@ export default function ConsultationsClient() {
         }
     };
 
+    const getEffectiveRHUStatus = (tx: any): string => {
+        const addData = typeof tx?.additionalData === 'string'
+            ? (JSON.parse(tx.additionalData || '{}'))
+            : (tx?.additionalData || {});
+        if (addData?.rhuStatus) return addData.rhuStatus;
+        if (tx?.isCancelled || tx?.status === "REJECTED") return "CANCELLED";
+        if (tx?.status === "FOR_CLAIM") return "PRESCRIBED";
+        if (tx?.status === "FOR_PROCESSING") return "IN_CONSULTATION";
+        if (tx?.status === "EVALUATED") return "CHECK_IN";
+        if (tx?.status === "RELEASED" || tx?.status === "DELIVERED") return "COMPLETED";
+        return tx?.status || "APPOINTMENT_BOOKED";
+    };
+
     const getStatusBadge = (tx: any) => {
-        if (tx.isCancelled) {
+        const rhuStatus = getEffectiveRHUStatus(tx);
+        if (tx.isCancelled || rhuStatus === "CANCELLED" || tx.status === "REJECTED") {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-100 dark:bg-red-950/40 text-red-600 border border-red-200 dark:border-red-800">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                     <XCircle className="w-3 h-3" /> Cancelled
                 </span>
             );
         }
 
-        switch (tx.status) {
-            case "COMPLETED":
-            case "RELEASED":
+        switch (rhuStatus) {
+            case "APPOINTMENT_BOOKED":
+            case "FOR_REQUESTING":
+            case "FOR_INSPECTION":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-3 h-3" /> Completed
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        <Clock className="w-3 h-3" /> Booked
                     </span>
                 );
+            case "CHECK_IN":
             case "EVALUATED":
-            case "APPROVED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> Checked In
+                    </span>
+                );
+            case "IN_CONSULTATION":
             case "FOR_PROCESSING":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-950/40 text-blue-600 border border-blue-200 dark:border-blue-800">
-                        <CheckCircle2 className="w-3 h-3" /> Confirmed
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                        <Activity className="w-3 h-3" /> In Consultation
+                    </span>
+                );
+            case "PRESCRIBED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> Prescribed
+                    </span>
+                );
+            case "REFERRED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-500/20">
+                        <XCircle className="w-3 h-3" /> Referred
+                    </span>
+                );
+            case "COMPLETED":
+            case "RELEASED":
+            case "DELIVERED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> Completed
                     </span>
                 );
             default:
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-800">
-                        <Clock className="w-3 h-3" /> Pending Review
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                        <Clock className="w-3 h-3" /> {tx.status.replace("_", " ")}
                     </span>
                 );
         }
@@ -175,15 +217,7 @@ export default function ConsultationsClient() {
                         View, evaluate, and manage all clinical check-ups and patient bookings.
                     </p>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <Button
-                        onClick={handleCallNextTicket}
-                        className="h-10 px-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md active:scale-95 transition-all"
-                    >
-                        <Volume2 className="w-4 h-4" />
-                        Call Next Ticket
-                    </Button>
-                </div>
+
             </div>
 
             {/* Sub-Category Filter Tabs */}
@@ -229,14 +263,18 @@ export default function ConsultationsClient() {
                     </div>
 
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+
                         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
                             <SelectTrigger className="h-10 w-44 rounded-2xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-xs font-bold">
                                 <SelectValue placeholder="Filter Status" />
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl">
                                 <SelectItem value="ALL" className="text-xs font-bold uppercase">All Statuses</SelectItem>
-                                <SelectItem value="FOR_INSPECTION" className="text-xs font-bold uppercase">Pending</SelectItem>
-                                <SelectItem value="EVALUATED" className="text-xs font-bold uppercase">Confirmed</SelectItem>
+                                <SelectItem value="APPOINTMENT_BOOKED" className="text-xs font-bold uppercase">Booked</SelectItem>
+                                <SelectItem value="CHECK_IN" className="text-xs font-bold uppercase">Checked In</SelectItem>
+                                <SelectItem value="IN_CONSULTATION" className="text-xs font-bold uppercase">In Consultation</SelectItem>
+                                <SelectItem value="PRESCRIBED" className="text-xs font-bold uppercase">Prescribed</SelectItem>
+                                <SelectItem value="REFERRED" className="text-xs font-bold uppercase">Referred</SelectItem>
                                 <SelectItem value="COMPLETED" className="text-xs font-bold uppercase">Completed</SelectItem>
                                 <SelectItem value="CANCELLED" className="text-xs font-bold uppercase">Cancelled</SelectItem>
                             </SelectContent>

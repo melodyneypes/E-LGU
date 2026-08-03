@@ -2,6 +2,13 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
+export interface CurrentUserSession {
+    id?: string;
+    email?: string;
+    role?: string;
+    matchedCenterId?: string;
+}
+
 export interface Announcement {
     id: string;
     title: string;
@@ -15,6 +22,9 @@ export interface Announcement {
     expiryDate: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    authorId?: string | null;
+    authorEmail?: string | null;
+    healthCenterId?: string | null;
 }
 
 interface AnnouncementContextType {
@@ -39,6 +49,7 @@ interface AnnouncementContextType {
     totalCount: number;
     isPending: boolean;
     setIsPending: (pending: boolean) => void;
+    currentUser?: CurrentUserSession;
 }
 
 const AnnouncementContext = createContext<AnnouncementContextType | undefined>(undefined);
@@ -55,6 +66,7 @@ export function AnnouncementProvider({
     currentBarangay,
     activeBarangays = [],
     hideCategory = false,
+    currentUser,
 }: {
     children: ReactNode;
     initialData: Announcement[];
@@ -67,6 +79,7 @@ export function AnnouncementProvider({
     currentBarangay?: string;
     activeBarangays?: string[];
     hideCategory?: boolean;
+    currentUser?: CurrentUserSession;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -133,6 +146,7 @@ export function AnnouncementProvider({
                 totalCount,
                 isPending,
                 setIsPending,
+                currentUser,
             }}
         >
             {children}

@@ -72,8 +72,9 @@ export default withAuth(
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Guard: RHU roles (RHU_CENTER_ADMIN, RHU_DOCTOR, RHU_STAFF)
+    // Guard: RHU roles (RHU_ADMIN, RHU_CENTER_ADMIN, RHU_DOCTOR, RHU_STAFF, RHU_PHARMACY)
     const isRHURole =
+      token?.role === "RHU_ADMIN" ||
       token?.role === "RHU_CENTER_ADMIN" ||
       token?.role === "RHU_DOCTOR" ||
       token?.role === "RHU_STAFF" ||

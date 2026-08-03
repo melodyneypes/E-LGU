@@ -168,18 +168,21 @@ model News {
 }
 
 model Announcement {
-  id         String    @id @default(cuid())
-  title      String
-  content    String
-  priority   String    @default("Normal")
-  category   String    @default("General")
-  isPinned   Boolean   @default(false)
-  isActive   Boolean   @default(true)
-  expiryDate DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  barangay   String?
-  imageUrl   String?
+  id             String    @id @default(cuid())
+  title          String
+  content        String
+  priority       String    @default("Normal")
+  category       String    @default("General")
+  isPinned       Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  expiryDate     DateTime?
+  authorId       String?
+  authorEmail    String?
+  healthCenterId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  barangay       String?
+  imageUrl       String?
 }
 
 model Job {
@@ -1051,6 +1054,7 @@ model RHUInventoryBatch {
   quantity        Int               @default(0)
   initialQuantity Int               @default(0)
   receivedDate    DateTime          @default(now())
+  healthCenterId  String?
   remarks         String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -1060,6 +1064,7 @@ model RHUInventoryBatch {
   @@index([itemId])
   @@index([batchNumber])
   @@index([expirationDate])
+  @@index([healthCenterId])
 }
 
 model RHUHealthCenter {
@@ -1237,6 +1242,8 @@ enum UserRole {
   RHU_DOCTOR
   RHU_CENTER_ADMIN
   MAYOR
+  RHU_PHARMACY
+  RHU_ADMIN
 }
 
 enum ResidentStatus {
@@ -1302,5 +1309,6 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 
 

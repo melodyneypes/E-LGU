@@ -37,6 +37,7 @@ export function getPostLoginDestination(
         return "/admin/rhu/inventory";
     }
     if (
+        role === "RHU_ADMIN" ||
         role === "RHU_CENTER_ADMIN" ||
         role === "RHU_DOCTOR" ||
         role === "RHU_STAFF" ||

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-    Activity, Clock, CheckCircle2, XCircle, Volume2, Calendar,
+    Activity, Clock, CheckCircle2, Calendar,
     ArrowRight, ArrowUpRight, Building2
 } from "lucide-react";
 import { toast } from "sonner";
@@ -73,6 +73,7 @@ export default function RHUDashboard() {
         loadData();
     }, [loadData]);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handleCallNextTicket = async () => {
         try {
             const result = await fetchAndCallNextTicket("Rural Health Unit");
@@ -105,51 +106,51 @@ export default function RHUDashboard() {
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <CounterSelectorHeader />
-                    <Button
-                        onClick={handleCallNextTicket}
-                        className="h-10 px-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md active:scale-95 transition-all"
-                    >
-                        <Volume2 className="w-4 h-4" />
-                        Call Next Ticket
-                    </Button>
                 </div>
             </div>
 
             {/* Metrics Overview */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Bookings</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-3xl font-black text-slate-900 dark:text-white font-mono">{stats.total}</span>
-                        <Activity className="w-5 h-5 text-rose-500 opacity-60" />
+                        <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{stats.total || 0}</span>
+                        <Activity className="w-4 h-4 text-rose-500 opacity-60" />
                     </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Pending Review</span>
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-sky-500">Booked</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-3xl font-black text-amber-600 font-mono">{stats.pending}</span>
-                        <Clock className="w-5 h-5 text-amber-500 opacity-60" />
+                        <span className="text-2xl font-black text-sky-600 font-mono">{stats.booked || 0}</span>
+                        <Clock className="w-4 h-4 text-sky-500 opacity-60" />
                     </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Confirmed</span>
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Checked In</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-3xl font-black text-blue-600 font-mono">{stats.confirmed}</span>
-                        <CheckCircle2 className="w-5 h-5 text-blue-500 opacity-60" />
+                        <span className="text-2xl font-black text-indigo-600 font-mono">{stats.checkedIn || 0}</span>
+                        <CheckCircle2 className="w-4 h-4 text-indigo-500 opacity-60" />
                     </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Consultation</span>
+                    <div className="flex items-baseline justify-between mt-3">
+                        <span className="text-2xl font-black text-amber-600 font-mono">{(stats.inConsultation || 0) + (stats.prescribed || 0)}</span>
+                        <Activity className="w-4 h-4 text-amber-500 opacity-60" />
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-500">Referred</span>
+                    <div className="flex items-baseline justify-between mt-3">
+                        <span className="text-2xl font-black text-fuchsia-600 font-mono">{stats.referred || 0}</span>
+                        <Activity className="w-4 h-4 text-fuchsia-500 opacity-60" />
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Completed</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-3xl font-black text-emerald-600 font-mono">{stats.completed}</span>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500 opacity-60" />
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Cancelled</span>
-                    <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-3xl font-black text-red-600 font-mono">{stats.cancelled}</span>
-                        <XCircle className="w-5 h-5 text-red-500 opacity-60" />
+                        <span className="text-2xl font-black text-emerald-600 font-mono">{stats.completed || 0}</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-60" />
                     </div>
                 </div>
             </div>
@@ -244,9 +245,9 @@ export default function RHUDashboard() {
                             <Building2 className="w-6 h-6 text-rose-500" />
                         </div>
                         <div>
-                            <h4 className="text-lg font-black uppercase italic tracking-tight">Health Centers & Stations</h4>
+                            <h4 className="text-lg font-black uppercase italic tracking-tight">Staff & Health Centers</h4>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                                Manage municipal health centers and barangay stations
+                                Manage health centers, stations, and medical staff roster
                             </p>
                         </div>
                     </div>
