@@ -148,6 +148,14 @@ export async function submitBusinessAppointment(formData: FormData) {
         const residentSnapshot = sanitizeObject(JSON.parse(formData.get("residentSnapshot") as string));
         const additionalData = sanitizeObject(JSON.parse(formData.get("additionalData") as string));
 
+        // Backend validation for mandatory street address
+        if (!additionalData.building || !additionalData.building.trim()) {
+            return { success: false, error: "Building / House No. / Unit is required." };
+        }
+        if (!additionalData.street || !additionalData.street.trim()) {
+            return { success: false, error: "Street Address is required." };
+        }
+
         // Files
         const idFile = formData.get("idFile") as File;
         const brgyClearanceFile = formData.get("brgyClearanceFile") as File;
