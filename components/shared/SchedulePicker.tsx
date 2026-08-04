@@ -164,6 +164,17 @@ export default function SchedulePicker({
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .calendar-day-hover:hover {
+                    background-color: ${themeColor}1a !important;
+                    color: ${themeColor} !important;
+                }
+                .group:hover .calendar-dot-hover {
+                    background-color: ${themeColor} !important;
+                }
+                `
+            }} />
             {/* Ambient background blur accent */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-10 dark:opacity-5 pointer-events-none" style={{ backgroundColor: themeColor }} />
 
@@ -233,13 +244,13 @@ export default function SchedulePicker({
                                                 ? "text-white font-black shadow-lg scale-110 active:scale-95"
                                                 : disabled
                                                     ? "text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-35"
-                                                    : "text-slate-700 dark:text-slate-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-white/5 dark:hover:text-white"
+                                                    : "text-slate-700 dark:text-slate-300 calendar-day-hover dark:hover:bg-white/5 dark:hover:text-white"
                                         )}
                                         style={isSelected ? { backgroundColor: themeColor } : {}}
                                     >
                                         <span>{day.getDate()}</span>
                                         {!disabled && !isSelected && (
-                                            <div className="absolute bottom-1 w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20 group-hover:bg-primary" />
+                                            <div className="absolute bottom-1 w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20 calendar-dot-hover" />
                                         )}
                                         {!disabled && (
                                             <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-44 bg-slate-950/95 text-white text-[9px] p-2 rounded-xl shadow-xl hidden group-hover:flex flex-col gap-1 border border-white/10 z-50 backdrop-blur-sm select-none font-sans tracking-normal text-left">
@@ -303,9 +314,14 @@ export default function SchedulePicker({
                                             !available
                                                 ? "opacity-35 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5"
                                                 : active
-                                                    ? "border-primary bg-primary/[0.04] dark:bg-primary/[0.08] scale-[1.01] ring-2 ring-primary/20"
+                                                    ? "scale-[1.01]"
                                                     : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-slate-350 dark:hover:border-white/20 hover:scale-[1.01]"
                                         )}
+                                        style={active ? {
+                                            borderColor: themeColor,
+                                            backgroundColor: themeColor === "var(--primary-theme)" ? undefined : `${themeColor}0d`,
+                                            boxShadow: `0 0 0 2px ${themeColor}33`
+                                        } : {}}
                                     >
                                         <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                                             {/* Circular selector */}
