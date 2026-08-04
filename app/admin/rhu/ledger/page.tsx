@@ -91,7 +91,7 @@ export default function RHULedgerPage() {
         setLoading(true);
         try {
             const res = await getRHUAdminTransactions({
-                status: "ALL",
+                status: "COMPLETED",
                 page: currentPage,
                 limit: itemsPerPage,
                 search: debouncedSearch,
@@ -99,9 +99,23 @@ export default function RHULedgerPage() {
             });
 
             if (res.success && res.data) {
-                setTransactions(res.data);
+                // Safeguard filter to guarantee only completed consultation records display in ledger
+                const completedRecords = (res.data || []).filter((tx: any) => {
+                    if (tx.isCancelled) return false;
+                    const statusUpper = (tx.status || "").toUpperCase();
+                    const rhuStatus = (getAdditionalData(tx).rhuStatus || "").toUpperCase();
+                    return (
+                        statusUpper === "COMPLETED" ||
+                        statusUpper === "RELEASED" ||
+                        statusUpper === "DELIVERED" ||
+                        rhuStatus === "COMPLETED" ||
+                        rhuStatus === "DISPENSED" ||
+                        rhuStatus === "RELEASED"
+                    );
+                });
+                setTransactions(completedRecords);
                 if (res.pagination) {
-                    setTotalCount(res.pagination.total || 0);
+                    setTotalCount(res.pagination.total || completedRecords.length);
                 }
             } else {
                 toast.error(res.error || "Failed to load RHU ledger transactions.");
@@ -215,7 +229,7 @@ export default function RHULedgerPage() {
                         </h1>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium text-xs md:text-sm">
-                        View, search, and manage all Rural Health Unit patient consultation records.
+                        Official historical records of completed Rural Health Unit patient consultations.
                     </p>
                 </div>
             </div>

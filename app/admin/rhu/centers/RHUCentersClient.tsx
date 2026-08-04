@@ -23,6 +23,7 @@ import {
     BadgeCheck,
     ShieldCheck,
     Activity,
+    Eye,
     X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -107,13 +108,15 @@ interface RHUCentersClientProps {
     initialPersonnel: any[];
     currentUser?: any;
     isCenterAdmin?: boolean;
+    matchedCenter?: any;
 }
 
 export default function RHUCentersClient({
     initialCenters,
     initialPersonnel,
     currentUser,
-    isCenterAdmin = false
+    isCenterAdmin = false,
+    matchedCenter
 }: RHUCentersClientProps) {
     const [activeTab, setActiveTab] = useState<"centers" | "personnel">("centers");
     const [centers, setCenters] = useState<any[]>(initialCenters);
@@ -148,7 +151,13 @@ export default function RHUCentersClient({
         headPersonnel: "",
         servicesOffered: "",
         status: "ACTIVE",
-        remarks: ""
+        remarks: "",
+        accountEmail: "",
+        accountPassword: "",
+        userId: null,
+        pharmacyEmail: "",
+        pharmacyPassword: "",
+        pharmacyUserId: null
     });
 
     const [centerErrors, setCenterErrors] = useState<Record<string, string>>({});
@@ -191,23 +200,20 @@ export default function RHUCentersClient({
         let fetchedCenters = cRes.success && cRes.data ? cRes.data : [];
         let fetchedPersonnel = pRes.success && pRes.data ? pRes.data : [];
 
-        if (isCenterAdmin && currentUser) {
-            const matchedCenter = fetchedCenters.find((c: any) =>
+        if ((isCenterAdmin || matchedCenter) && currentUser) {
+            const activeMatchedCenter = matchedCenter || fetchedCenters.find((c: any) =>
                 (c.userId && String(c.userId) === String(currentUser.id)) ||
                 (c.accountEmail && currentUser.email && String(c.accountEmail).toLowerCase() === String(currentUser.email).toLowerCase()) ||
                 (currentUser.email && String(currentUser.email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
                 (currentUser.email && String(currentUser.email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
             );
-            if (matchedCenter) {
-                fetchedCenters = [matchedCenter];
-                fetchedPersonnel = fetchedPersonnel.filter((p: any) => p.healthCenterId === matchedCenter.id);
+            if (activeMatchedCenter) {
+                fetchedCenters = fetchedCenters.filter((c: any) => c.id === activeMatchedCenter.id);
+                fetchedPersonnel = fetchedPersonnel.filter((p: any) => p.healthCenterId === activeMatchedCenter.id);
             } else if (currentUser.managedBarangay) {
                 fetchedCenters = fetchedCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
                 const validCenterIds = new Set(fetchedCenters.map((c: any) => c.id));
                 fetchedPersonnel = fetchedPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId));
-            } else {
-                fetchedCenters = [];
-                fetchedPersonnel = [];
             }
         }
 
@@ -256,6 +262,10 @@ export default function RHUCentersClient({
     const totalDentistsCount = personnelList.filter(p => p.role === "DENTIST").length;
     const totalPersonnelCount = personnelList.length;
 
+    // Center Management Authorization (Only RHU_CENTER_ADMIN and RHU/Global ADMIN can modify, RHU_STAFF can only view)
+    const userRole = (currentUser?.role || "").toUpperCase();
+    const canManageCenter = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN";
+
     // Center Modal Controls
     const handleOpenCreateCenterModal = () => {
         setEditingCenter(null);
@@ -273,7 +283,11 @@ export default function RHUCentersClient({
             status: "ACTIVE",
             remarks: "",
             accountEmail: "",
-            accountPassword: ""
+            accountPassword: "",
+            userId: null,
+            pharmacyEmail: "",
+            pharmacyPassword: "",
+            pharmacyUserId: null
         });
         setCenterErrors({});
         setIsFormModalOpen(true);
@@ -295,7 +309,11 @@ export default function RHUCentersClient({
             status: center.status || "ACTIVE",
             remarks: center.remarks || "",
             accountEmail: center.accountEmail || "",
-            accountPassword: ""
+            accountPassword: "",
+            userId: center.userId || null,
+            pharmacyEmail: center.pharmacyEmail || "",
+            pharmacyPassword: "",
+            pharmacyUserId: center.pharmacyUserId || null
         });
         setCenterErrors({});
         setIsFormModalOpen(true);
@@ -547,6 +565,18 @@ export default function RHUCentersClient({
                     badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
                     icon: ShieldCheck
                 };
+            case "ADMIN" as any:
+                return {
+                    label: "Center Medical Admin",
+                    badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+                    icon: ShieldCheck
+                };
+            case "PHARMACY" as any:
+                return {
+                    label: "Center Pharmacy Staff",
+                    badgeClass: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
+                    icon: Briefcase
+                };
             default:
                 return {
                     label: role,
@@ -581,31 +611,37 @@ export default function RHUCentersClient({
                     </div>
                 </div>
 
-                <div className="flex flex-row items-center gap-2.5 shrink-0 flex-nowrap">
-                    {isCenterAdmin && myCenter && (
+                {canManageCenter ? (
+                    <div className="flex flex-row items-center gap-2.5 shrink-0 flex-nowrap">
+                        {isCenterAdmin && myCenter && (
+                            <Button
+                                onClick={() => handleOpenEditCenterModal(myCenter)}
+                                variant="outline"
+                                className="border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl h-11 px-4 flex items-center gap-2 whitespace-nowrap shrink-0"
+                            >
+                                <Edit className="w-4 h-4" /> Edit Center Info
+                            </Button>
+                        )}
                         <Button
-                            onClick={() => handleOpenEditCenterModal(myCenter)}
-                            variant="outline"
-                            className="border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl h-11 px-4 flex items-center gap-2 whitespace-nowrap shrink-0"
+                            onClick={() => handleOpenCreatePersonnelModal(myCenter?.id)}
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-11 px-5 shadow-lg shadow-rose-600/20 shrink-0 flex items-center gap-2 whitespace-nowrap"
                         >
-                            <Edit className="w-4 h-4" /> Edit Center Info
+                            <Stethoscope className="w-4 h-4" /> Assign Medical Personnel
                         </Button>
-                    )}
-                    <Button
-                        onClick={() => handleOpenCreatePersonnelModal(myCenter?.id)}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-11 px-5 shadow-lg shadow-rose-600/20 shrink-0 flex items-center gap-2 whitespace-nowrap"
-                    >
-                        <Stethoscope className="w-4 h-4" /> Assign Medical Personnel
-                    </Button>
-                    {!isCenterAdmin && (
-                        <Button
-                            onClick={handleOpenCreateCenterModal}
-                            className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl h-11 px-5 shrink-0 flex items-center gap-2 whitespace-nowrap"
-                        >
-                            <Plus className="w-4 h-4" /> Add Health Center
-                        </Button>
-                    )}
-                </div>
+                        {!isCenterAdmin && (
+                            <Button
+                                onClick={handleOpenCreateCenterModal}
+                                className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl h-11 px-5 shrink-0 flex items-center gap-2 whitespace-nowrap"
+                            >
+                                <Plus className="w-4 h-4" /> Add Health Center
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-2 shrink-0">
+                        <Eye className="w-4 h-4 text-slate-400" /> Read-Only Staff Access
+                    </div>
+                )}
             </div>
 
             {/* Navigation Tabs */}
@@ -781,12 +817,14 @@ export default function RHUCentersClient({
                                             </div>
                                         </div>
 
-                                        <Button
-                                            onClick={() => handleOpenEditCenterModal(myCenter)}
-                                            className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-700 text-white text-xs font-bold rounded-2xl h-11 flex items-center justify-center gap-2 shadow-sm"
-                                        >
-                                            <Edit className="w-4 h-4" /> Edit Center Details & Services
-                                        </Button>
+                                        {canManageCenter && (
+                                            <Button
+                                                onClick={() => handleOpenEditCenterModal(myCenter)}
+                                                className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-700 text-white text-xs font-bold rounded-2xl h-11 flex items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                <Edit className="w-4 h-4" /> Edit Center Details & Services
+                                            </Button>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </div>
@@ -803,14 +841,16 @@ export default function RHUCentersClient({
                                                 Medical services registered for {myCenter.name} and current assigned staff.
                                             </p>
                                         </div>
-                                        <Button
-                                            onClick={() => handleOpenEditCenterModal(myCenter)}
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs font-bold rounded-xl h-9 text-rose-600 border-rose-200 hover:bg-rose-50"
-                                        >
-                                            Manage Offered Services
-                                        </Button>
+                                        {canManageCenter && (
+                                            <Button
+                                                onClick={() => handleOpenEditCenterModal(myCenter)}
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs font-bold rounded-xl h-9 text-rose-600 border-rose-200 hover:bg-rose-50"
+                                            >
+                                                Manage Offered Services
+                                            </Button>
+                                        )}
                                     </div>
 
                                     {/* Services Grid */}
@@ -854,13 +894,15 @@ export default function RHUCentersClient({
                                                     ) : (
                                                         <div className="flex items-center justify-between gap-2 pt-2">
                                                             <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">⚠️ No doctor/staff assigned</span>
-                                                            <Button
-                                                                onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
-                                                                size="sm"
-                                                                className="h-7 text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg px-2.5 shrink-0"
-                                                            >
-                                                                + Assign
-                                                            </Button>
+                                                            {canManageCenter && (
+                                                                <Button
+                                                                    onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
+                                                                    size="sm"
+                                                                    className="h-7 text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg px-2.5 shrink-0"
+                                                                >
+                                                                    + Assign
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -877,16 +919,18 @@ export default function RHUCentersClient({
                                                 Assigned Medical Staff ({personnelList.filter(p => p.healthCenterId === myCenter.id).length})
                                             </h3>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Doctors, Nurses, Midwives & Dentists actively stationed at {myCenter.name}.
+                                                Medical, pharmacy, and administrative staff actively stationed at {myCenter.name}.
                                             </p>
                                         </div>
 
-                                        <Button
-                                            onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
-                                            className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl h-9 px-4 flex items-center gap-1.5 shrink-0"
-                                        >
-                                            <Plus className="w-3.5 h-3.5" /> Assign Personnel
-                                        </Button>
+                                        {canManageCenter && (
+                                            <Button
+                                                onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
+                                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl h-9 px-4 flex items-center gap-1.5 shrink-0"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Assign Personnel
+                                            </Button>
+                                        )}
                                     </div>
 
                                     {personnelList.filter(p => p.healthCenterId === myCenter.id).length > 0 ? (
@@ -915,24 +959,26 @@ export default function RHUCentersClient({
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex items-center gap-2 self-end sm:self-center">
-                                                            <Button
-                                                                onClick={() => handleOpenEditPersonnelModal(personnel)}
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                            >
-                                                                <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                                                            </Button>
-                                                            <Button
-                                                                onClick={() => setDeletePersonnelTarget(personnel)}
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                                                            </Button>
-                                                        </div>
+                                                        {canManageCenter && (
+                                                            <div className="flex items-center gap-2 self-end sm:self-center">
+                                                                <Button
+                                                                    onClick={() => handleOpenEditPersonnelModal(personnel)}
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                >
+                                                                    <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                                                                </Button>
+                                                                <Button
+                                                                    onClick={() => setDeletePersonnelTarget(personnel)}
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                                                                </Button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -946,12 +992,14 @@ export default function RHUCentersClient({
                                                 <h4 className="font-bold text-sm text-slate-900 dark:text-white">No Personnel Assigned to {myCenter.name}</h4>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">Assign doctors, nurses, midwives or dentists to operate services at this center.</p>
                                             </div>
-                                            <Button
-                                                onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
-                                                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-10 px-5"
-                                            >
-                                                + Assign Personnel to {myCenter.name}
-                                            </Button>
+                                            {canManageCenter && (
+                                                <Button
+                                                    onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
+                                                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-10 px-5"
+                                                >
+                                                    + Assign Personnel to {myCenter.name}
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </Card>
@@ -1086,6 +1134,12 @@ export default function RHUCentersClient({
                                                             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                                                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                                                                 <span>Medical Admin Account: <strong className="font-bold">{center.accountEmail}</strong></span>
+                                                            </div>
+                                                        )}
+                                                        {center.pharmacyEmail && (
+                                                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                                <span>Pharmacy Account: <strong className="font-bold">{center.pharmacyEmail}</strong></span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1302,6 +1356,8 @@ export default function RHUCentersClient({
                                     <SelectItem value="NURSE">Nurses</SelectItem>
                                     <SelectItem value="MIDWIFE">Midwives</SelectItem>
                                     <SelectItem value="DENTIST">Dentists</SelectItem>
+                                    <SelectItem value="ADMIN">Center Medical Admins</SelectItem>
+                                    <SelectItem value="PHARMACY">Pharmacy Staff</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -1425,24 +1481,26 @@ export default function RHUCentersClient({
                                         </CardContent>
 
                                         {/* Action buttons */}
-                                        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleOpenEditPersonnelModal(p)}
-                                                className="h-8 px-3 text-xs font-semibold rounded-lg hover:border-rose-400 hover:text-rose-600"
-                                            >
-                                                <Edit className="w-3.5 h-3.5 mr-1" /> Edit / Reassign
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setDeletePersonnelTarget(p)}
-                                                className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                                            </Button>
-                                        </div>
+                                        {canManageCenter && (
+                                            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleOpenEditPersonnelModal(p)}
+                                                    className="h-8 px-3 text-xs font-semibold rounded-lg hover:border-rose-400 hover:text-rose-600"
+                                                >
+                                                    <Edit className="w-3.5 h-3.5 mr-1" /> Edit / Reassign
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setDeletePersonnelTarget(p)}
+                                                    className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                                                </Button>
+                                            </div>
+                                        )}
                                     </Card>
                                 );
                             })}
@@ -1467,7 +1525,7 @@ export default function RHUCentersClient({
 
             {/* MODAL 1: ADD / EDIT HEALTH CENTER */}
             <Dialog open={isFormModalOpen} onOpenChange={setIsFormModalOpen}>
-                <DialogContent className="sm:max-w-[1100px] max-w-[1100px] w-full max-h-[92vh] overflow-y-auto rounded-3xl p-6">
+                <DialogContent className="sm:max-w-[1100px] max-w-[1100px] w-full max-h-[92vh] overflow-y-auto scrollbar-none rounded-3xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                             <Building2 className="w-5 h-5 text-rose-500" />
@@ -1735,20 +1793,12 @@ export default function RHUCentersClient({
                                             </span>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <div className="w-full">
                                         <Input
                                             type="email"
-                                            placeholder="Medical Admin Email (bhs.coral.admin@mapandan.gov.ph)"
-                                            value={formData.accountEmail || ""}
-                                            onChange={(e) => setFormData({ ...formData, accountEmail: e.target.value })}
-                                            className="h-10 text-xs rounded-xl"
-                                        />
-                                        <Input
-                                            type="password"
-                                            placeholder={editingCenter ? "Password (leave blank to keep)" : "Medical Admin Password (min 6 chars)"}
-                                            value={formData.accountPassword || ""}
-                                            onChange={(e) => setFormData({ ...formData, accountPassword: e.target.value })}
-                                            className="h-10 text-xs rounded-xl"
+                                            value={formData.accountEmail || "None Configured"}
+                                            disabled
+                                            className="h-10 text-xs rounded-xl bg-slate-100 dark:bg-slate-800/60 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700/60"
                                         />
                                     </div>
                                 </div>
@@ -1804,7 +1854,7 @@ export default function RHUCentersClient({
 
             {/* MODAL 2: ASSIGN / EDIT MEDICAL PERSONNEL */}
             <Dialog open={isPersonnelModalOpen} onOpenChange={setIsPersonnelModalOpen}>
-                <DialogContent className="sm:max-w-[720px] max-h-[92vh] overflow-y-auto rounded-3xl p-6">
+                <DialogContent className="sm:max-w-[720px] max-h-[92vh] overflow-y-auto scrollbar-none rounded-3xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                             <Stethoscope className="w-5 h-5 text-rose-500" />
@@ -1856,6 +1906,8 @@ export default function RHUCentersClient({
                                         <SelectItem value="NURSE">Public Health Nurse</SelectItem>
                                         <SelectItem value="MIDWIFE">Rural Midwife</SelectItem>
                                         <SelectItem value="DENTIST">Dentist</SelectItem>
+                                        <SelectItem value="ADMIN">Center Medical Admin</SelectItem>
+                                        <SelectItem value="PHARMACY">Center Pharmacy Staff</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 {personnelErrors.role && (

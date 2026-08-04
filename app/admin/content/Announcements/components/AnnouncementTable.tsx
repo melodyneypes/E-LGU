@@ -192,12 +192,15 @@ export function AnnouncementTable() {
                     <TableBody>
                         {announcements.map((item) => {
                             const itemAuthorEmail = (item.authorEmail || "").toLowerCase();
+                            const isStaff = userRole === "RHU_STAFF";
                             const canEdit =
-                                isSuperAdmin ||
-                                userRole === "RHU_ADMIN" ||
-                                (item.authorId && userId && String(item.authorId) === String(userId)) ||
-                                (itemAuthorEmail && userEmail && itemAuthorEmail === userEmail) ||
-                                (userCenterId && item.healthCenterId && String(item.healthCenterId) === String(userCenterId));
+                                !isStaff && (
+                                    isSuperAdmin ||
+                                    userRole === "RHU_ADMIN" ||
+                                    (item.authorId && userId && String(item.authorId) === String(userId)) ||
+                                    (itemAuthorEmail && userEmail && itemAuthorEmail === userEmail) ||
+                                    (userCenterId && item.healthCenterId && String(item.healthCenterId) === String(userCenterId))
+                                );
 
                             return (
                                 <TableRow key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]">

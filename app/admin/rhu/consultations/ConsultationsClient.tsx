@@ -75,6 +75,7 @@ export default function ConsultationsClient() {
     const [checkupFilter, setCheckupFilter] = useState(urlCheckup);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [centerName, setCenterName] = useState<string | null>(null);
 
     useEffect(() => {
         setCheckupFilter(urlCheckup);
@@ -94,6 +95,7 @@ export default function ConsultationsClient() {
 
             if (txRes.success && txRes.data) {
                 setTransactions(txRes.data);
+                setCenterName(txRes.centerName || null);
                 if (txRes.pagination) {
                     setTotalPages(txRes.pagination.totalPages || 1);
                 }
@@ -213,6 +215,11 @@ export default function ConsultationsClient() {
                             Medical <span className="text-rose-500">Consultations</span>
                         </h1>
                     </div>
+                    {centerName && (
+                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1.5 opacity-90 pl-1 mb-1 mt-0.5">
+                            📍 {centerName}
+                        </p>
+                    )}
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                         View, evaluate, and manage all clinical check-ups and patient bookings.
                     </p>

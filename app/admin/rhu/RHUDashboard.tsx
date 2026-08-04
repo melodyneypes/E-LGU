@@ -46,6 +46,7 @@ export default function RHUDashboard() {
     const router = useRouter();
     const [stats, setStats] = useState<any>({ total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
     const [recentBookings, setRecentBookings] = useState<any[]>([]);
+    const [centerName, setCenterName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     const loadData = useCallback(async () => {
@@ -58,6 +59,7 @@ export default function RHUDashboard() {
 
             if (statsRes.success && statsRes.stats) {
                 setStats(statsRes.stats);
+                setCenterName(statsRes.centerName || null);
             }
             if (recentRes.success && recentRes.data) {
                 setRecentBookings(recentRes.data);
@@ -100,6 +102,11 @@ export default function RHUDashboard() {
                             Rural Health Unit <span className="text-rose-500">Dashboard</span>
                         </h1>
                     </div>
+                    {centerName && (
+                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1.5 opacity-90 pl-1 mb-1 mt-0.5">
+                            📍 {centerName}
+                        </p>
+                    )}
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                         Overview analytics, appointment summary metrics, and operational counter controls.
                     </p>
