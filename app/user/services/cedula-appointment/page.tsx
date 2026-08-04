@@ -75,7 +75,7 @@ export default async function CedulaAppointmentPage() {
     }
 
     // Fetch all existing appointments to calculate booked slots
-    const bookedSlots = await prisma.transaction.findMany({
+    const bookedSlotsRaw = await prisma.transaction.findMany({
         where: {
             appointmentDate: { not: null },
             isCancelled: false,
@@ -86,6 +86,11 @@ export default async function CedulaAppointmentPage() {
             appointmentSlot: true
         }
     });
+
+    const bookedSlots = bookedSlotsRaw.map(slot => ({
+        appointmentDate: slot.appointmentDate ? slot.appointmentDate.toISOString() : null,
+        appointmentSlot: slot.appointmentSlot || ""
+    }));
 
     // Check for ongoing active Individual and Juridical Cedula transactions
     const activeIndividual = await prisma.transaction.findFirst({
@@ -108,11 +113,11 @@ export default async function CedulaAppointmentPage() {
 
     return (
         <CedulaAppointmentClient
-            resident={userWithResident?.residentProfile || null}
-            cedulaTypes={cedulaTypes}
+            resident={userWithResident?.residentProfile ? JSON.parse(JSON.stringify(userWithResident.residentProfile)) : null}
+            cedulaTypes={JSON.parse(JSON.stringify(cedulaTypes))}
             themeColor={themeColor}
             branding={branding}
-            config={treasuryConfig as any}
+            config={JSON.parse(JSON.stringify(treasuryConfig))}
             bookedSlots={bookedSlots as any[]}
             hasActiveIndividual={!!activeIndividual}
             hasActiveJuridical={!!activeJuridical}
