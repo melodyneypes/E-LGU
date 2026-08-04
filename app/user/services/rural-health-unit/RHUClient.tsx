@@ -8,7 +8,12 @@ import {
     User,
     FileText,
     Calendar,
-    CheckCircle2
+    CheckCircle2,
+    Smartphone,
+    Info,
+    Loader2,
+    CheckCircle,
+    AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +27,12 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface RHUClientProps {
     transactionTypes: any[];
@@ -41,6 +52,61 @@ export function RHUClient({
     themeColor
 }: RHUClientProps) {
     const router = useRouter();
+    const [downloadState, setDownloadState] = React.useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
+    const [progress, setProgress] = React.useState(0);
+    const [showInstructions, setShowInstructions] = React.useState(false);
+
+    const handleDownload = async () => {
+        if (downloadState === 'downloading') return;
+        
+        setDownloadState('downloading');
+        setProgress(0);
+        
+        try {
+            const response = await fetch('/rhu-app/app-release.apk');
+            if (!response.ok) throw new Error('Download failed');
+            
+            const contentLength = response.headers.get('content-length');
+            const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+            
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('Could not read response body');
+            
+            const chunks: Uint8Array[] = [];
+            let receivedBytes = 0;
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) {
+                    chunks.push(value);
+                    receivedBytes += value.length;
+                }
+                
+                if (totalBytes > 0) {
+                    const pct = Math.min(Math.round((receivedBytes / totalBytes) * 100), 100);
+                    setProgress(pct);
+                }
+            }
+            
+            const blob = new Blob(chunks as unknown as BlobPart[], { type: 'application/vnd.android.package-archive' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rhu-app-release.apk';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            setDownloadState('completed');
+            setShowInstructions(true);
+        } catch (error) {
+            console.error('Error downloading APK:', error);
+            setDownloadState('error');
+            setTimeout(() => setDownloadState('idle'), 3000);
+        }
+    };
 
     const medicalCertType = transactionTypes.find((t) => t.code === "RHU_MEDICAL_CERT");
     const fallbackType = medicalCertType || {
@@ -121,6 +187,64 @@ export function RHUClient({
                             RURAL HEALTH <span className="text-primary underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ textDecorationColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }}>UNIT</span>
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">Municipal Health Office (MHO) Services</p>
+                    </div>
+
+                    {/* Download Button and Info */}
+                    <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
+                        <Button
+                            onClick={handleDownload}
+                            disabled={downloadState === 'downloading'}
+                            style={{
+                                backgroundColor: downloadState === 'downloading' ? 'transparent' : themeColor,
+                                borderColor: themeColor,
+                            }}
+                            className={cn(
+                                "h-11 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all flex items-center gap-2 border min-w-[200px] justify-center relative overflow-hidden",
+                                downloadState === 'downloading' && "text-slate-800 dark:text-white border-dashed bg-slate-100 dark:bg-white/5"
+                            )}
+                        >
+                            {/* Download progress bar overlay for downloading state */}
+                            {downloadState === 'downloading' && (
+                                <div 
+                                    className="absolute inset-y-0 left-0 transition-all duration-300"
+                                    style={{ 
+                                        width: `${progress}%`,
+                                        backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 15%, transparent)" : `${themeColor}26`
+                                    }}
+                                />
+                            )}
+
+                            <span className="relative z-10 flex items-center gap-2">
+                                {downloadState === 'idle' && (
+                                    <>
+                                        <Smartphone className="w-4 h-4" />
+                                        <span>Download App</span>
+                                    </>
+                                )}
+                                {downloadState === 'downloading' && (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: themeColor }} />
+                                        <span>Downloading {progress}%</span>
+                                    </>
+                                )}
+                                {downloadState === 'completed' && (
+                                    <>
+                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                        <span>Downloaded!</span>
+                                    </>
+                                )}
+                                {downloadState === 'error' && (
+                                    <>
+                                        <AlertTriangle className="w-4 h-4 text-rose-500" />
+                                        <span>Failed. Retry?</span>
+                                    </>
+                                )}
+                            </span>
+                        </Button>
+                        <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider italic">
+                            <Info className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                            <span>Download to notify announcement</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -258,6 +382,81 @@ export function RHUClient({
                     </div>
                 </div>
             </div>
+
+            {/* Installation Instructions Modal */}
+            <Dialog open={showInstructions} onOpenChange={setShowInstructions}>
+                <DialogContent className="max-w-md w-[90%] mx-auto bg-white dark:bg-[#11131a] border border-slate-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl p-6 md:p-8 outline-none text-slate-900 dark:text-white">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2" style={{ backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a` }}>
+                            <Smartphone className="w-6 h-6" style={{ color: themeColor }} />
+                        </div>
+                        <DialogTitle className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-center leading-none">
+                            How to Install the <span style={{ color: themeColor }}>RHU App</span>
+                        </DialogTitle>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
+                            Follow these simple steps to install the app on your device
+                        </p>
+                    </DialogHeader>
+
+                    {/* Steps visual flow */}
+                    <div className="mt-6 space-y-6">
+                        {/* Step 1 */}
+                        <div className="flex gap-4 items-start">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center font-black italic shrink-0 text-sm border border-slate-200 dark:border-white/10" style={{ color: themeColor }}>
+                                01
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-700 dark:text-slate-200">
+                                    Locate the Downloaded File
+                                </h4>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed">
+                                    Tap the completed download notification or search for <code className="bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-primary" style={{ color: themeColor }}>rhu-app-release.apk</code> in your browser&apos;s Downloads or File Manager app.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="flex gap-4 items-start">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center font-black italic shrink-0 text-sm border border-slate-200 dark:border-white/10" style={{ color: themeColor }}>
+                                02
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-700 dark:text-slate-200">
+                                    Enable Installation Settings
+                                </h4>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed">
+                                    If your device flags the app as blocked, tap <strong>Settings</strong> in the prompt and turn on <strong>&quot;Allow from this source&quot;</strong> (enable install from unknown sources for your browser).
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="flex gap-4 items-start">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center font-black italic shrink-0 text-sm border border-slate-200 dark:border-white/10" style={{ color: themeColor }}>
+                                03
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-700 dark:text-slate-200">
+                                    Install and Launch
+                                </h4>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed">
+                                    Return to the installer, tap <strong>Install</strong>, and open the app. Grant notification permissions to receive real-time updates and announcements.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-center">
+                        <Button
+                            onClick={() => setShowInstructions(false)}
+                            style={{ backgroundColor: themeColor }}
+                            className="w-full h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
+                        >
+                            Got It, Start Using App
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

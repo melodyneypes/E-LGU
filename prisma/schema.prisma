@@ -20,6 +20,7 @@ model User {
   isEmailVerified      Boolean       @default(false)
   isPasswordChanged    Boolean       @default(false)
   rejectionCount       Int           @default(0)
+  consecutiveRejections Json?        @default("{}")
   rejectionResetAt     DateTime?
   managedBarangay      String?
   department           String?
@@ -28,6 +29,7 @@ model User {
   accessibleStatuses   String[]      @default([])
   isSynced             Boolean       @default(false)
   rfid                 String?       @unique
+  fcmToken             String?
   accounts             Account[]
   reports              Report[]
   residentProfile      Resident?
@@ -1308,6 +1310,7 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 
 
 

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         }
 
         // 2. Validate Transaction & Appointment Date
-        const { transactionId } = await request.json();
+        const { transactionId, isPriority } = await request.json();
         if (!transactionId) {
             return NextResponse.json(
                 { success: false, error: "Transaction ID is required" },
@@ -87,14 +87,19 @@ export async function POST(request: Request) {
                         }
                     ]
                 },
-                include: { type: true }
+                include: { type: true },
+                orderBy: { createdAt: "desc" }
             });
             if (txs.length > 0) {
+                // Prioritize active (non-cancelled, non-rejected) transactions first
+                const activeTxs = txs.filter(t => !t.isCancelled && t.status !== "REJECTED");
+                const candidatePool = activeTxs.length > 0 ? activeTxs : txs;
+
                 // Find the first transaction that is NOT yet checked in for its current status
-                transaction = txs.find(t => {
+                transaction = candidatePool.find(t => {
                     const ad = (t.additionalData as any) || {};
                     return ad.checkedIn !== true || ad.lastCheckedInStatus !== t.status;
-                }) || txs[0];
+                }) || candidatePool[0];
             }
         }
 
@@ -179,6 +184,8 @@ export async function POST(request: Request) {
             }
         }
 
+        const effectiveIsPriority = typeof isPriority === "boolean" ? isPriority : (transaction.isPriority || false);
+
         let queueNumber = transaction.queueNumber;
         if (!queueNumber) {
             let category: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | undefined = undefined;
@@ -192,7 +199,7 @@ export async function POST(request: Request) {
             const { generateQueueNumber } = await import("@/lib/queue");
             queueNumber = await generateQueueNumber({
                 source: "kiosk",
-                isPriority: transaction.isPriority || false,
+                isPriority: effectiveIsPriority,
                 appointmentDate: today,
                 appointmentSlot: today.getHours() < 12 ? "AM" : "PM",
                 category
@@ -203,14 +210,16 @@ export async function POST(request: Request) {
             ...currentAdditionalData,
             checkedIn: true,
             checkedInAt: today.toISOString(),
-            lastCheckedInStatus: transaction.status
+            lastCheckedInStatus: transaction.status,
+            isPriorityLane: effectiveIsPriority
         };
 
         const updated = await prisma.transaction.update({
             where: { id: transaction.id },
             data: {
-                appointmentDate: isPaymentOrClaiming ? today : undefined, // Update appointmentDate to today for payment/claim queue fetching
+                appointmentDate: isPaymentOrClaiming ? today : undefined,
                 queueNumber: queueNumber,
+                isPriority: effectiveIsPriority,
                 additionalData: updatedAdditionalData,
                 updatedAt: today
             }

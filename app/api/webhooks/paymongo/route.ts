@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
 
 async function verifySignature(header: string | null, secret: string, payload: string) {
   if (!header) return false;
@@ -240,7 +241,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true });
       }
 
-      const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
+      const tx = await prisma.transaction.findUnique({
+        where: { id: transactionId },
+        include: { type: true }
+      });
       if (!tx) {
         console.warn(`[PayMongo Webhook] Transaction not found: ${transactionId}`);
         return NextResponse.json({ received: true });
@@ -278,6 +282,10 @@ export async function POST(request: Request) {
         txUpdate.status = "PAID";
         txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
+        if (tx.userId) {
+          const categoryKey = (tx as any).type?.category || (tx as any).type?.code;
+          clearCategoryRejection(tx.userId, categoryKey).catch(e => console.error("[PayMongo Webhook] Rejection reset error:", e));
+        }
         try {
           await prisma.ticketHeader.updateMany({
             where: { transactionId },

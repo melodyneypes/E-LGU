@@ -19,6 +19,7 @@ import {
     ENGINEERING_PERMIT_CODES,
     isEngineeringPermitCode,
 } from "@/lib/transactions/engineering-permit";
+import { recordTransactionRejection } from "@/lib/transactions/rejection-tracker";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 const engineeringPermitTypeWhere = {
@@ -2618,69 +2619,28 @@ export async function rejectTransaction(id: string, remarks: string) {
             }
         });
 
-        // 3. Anti-Spam Protocol: Increment rejectionCount based on per-category limits for citizen accounts
+        // 3. Anti-Spam Protocol: Record category consecutive rejection
         if (tx.userId && tx.user?.role === "USER") {
-            // Count all rejected transactions for this user
-            const rejectedTransactions = await prisma.transaction.findMany({
-                where: {
-                    userId: tx.userId,
-                    status: "REJECTED",
-                    createdAt: (tx.user as any).rejectionResetAt ? { gt: (tx.user as any).rejectionResetAt } : undefined
-                },
-                include: {
-                    type: true
-                }
-            });
+            const categoryKey = isEngineeringPermitCode(tx.type?.code)
+                ? tx.type?.code
+                : (tx.type?.category || "General");
 
-            const activeRejectedTransactions = rejectedTransactions;
+            const updatedUser = await recordTransactionRejection(
+                tx.userId,
+                categoryKey || "General"
+            );
 
-            let maxCategoryRejections;
-            if (isEngineeringPermitCode(tx.type?.code)) {
-                maxCategoryRejections = activeRejectedTransactions.filter((rTx: any) => rTx.type?.code === tx.type?.code).length;
-            } else {
-                // Group and find the maximum rejection count in any single category
-                const categoryCounts: Record<string, number> = {};
-                for (const rTx of activeRejectedTransactions) {
-                    const category = rTx.type.category || "General";
-                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-                }
-                maxCategoryRejections = Math.max(0, ...Object.values(categoryCounts));
-            }
-
-            const updatedUser = await prisma.user.update({
-                where: { id: tx.userId },
-                data: { rejectionCount: maxCategoryRejections } as any
-            }) as any;
-
-            // Check if deactivation threshold reached (3 rejections in any single category)
-            if (updatedUser.rejectionCount >= 3) {
-                // LOCK ACCOUNT: Set isEmailVerified to false
-                await prisma.user.update({
-                    where: { id: tx.userId },
-                    data: { isEmailVerified: false }
-                });
-
-                // Trigger URGENT Deactivation Email
-                if (updatedUser.email) {
-                    sendEmail({
-                        type: "DEACTIVATED",
-                        to: updatedUser.email,
-                        name: updatedUser.name || "Resident",
-                    }).catch(err => console.error("Deactivation email error:", err));
-                }
-            } else {
-                // Trigger standard Rejection Email
-                if (updatedUser.email) {
-                    const resident = tx.residentSnapshot as any;
-                    sendEmail({
-                        type: "REJECTED",
-                        to: updatedUser.email,
-                        name: resident?.firstName || updatedUser.name || "Resident",
-                        remarks: remarks,
-                        transactionId: tx.id.slice(-8).toUpperCase(),
-                        serviceName: tx.type?.name
-                    }).catch(err => console.error("Rejection email error:", err));
-                }
+            // Send rejection email if account is still active (less than 3 strikes)
+            if (updatedUser && updatedUser.email && (updatedUser.rejectionCount ?? 0) < 3) {
+                const resident = tx.residentSnapshot as any;
+                sendEmail({
+                    type: "REJECTED",
+                    to: updatedUser.email,
+                    name: resident?.firstName || updatedUser.name || "Resident",
+                    remarks: remarks,
+                    transactionId: tx.id.slice(-8).toUpperCase(),
+                    serviceName: tx.type?.name
+                }).catch(err => console.error("Rejection email error:", err));
             }
         }
 

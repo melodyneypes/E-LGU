@@ -20,7 +20,8 @@ import {
     Loader2,
     MapPin,
     Building2,
-    ExternalLink
+    ExternalLink,
+    ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
@@ -191,22 +192,54 @@ export default function AppointmentDetailsPage() {
         if (request.isCancelled) {
             return { color: "text-red-500 bg-red-500/10 border-red-500/20", label: "CANCELLED", icon: X };
         }
+        
+        const isRHU = request.type?.category === "Rural Health Unit" || request.type?.category === "RHU" || request.type?.code?.startsWith("RHU_");
+        let addData: any = {};
+        if (request.additionalData) {
+            try {
+                addData = typeof request.additionalData === "string"
+                    ? JSON.parse(request.additionalData)
+                    : request.additionalData;
+            } catch {
+                addData = {};
+            }
+        }
+        const rhuStatus = addData.rhuStatus || null;
         const status = request.status;
+
+        if (isRHU) {
+            if (rhuStatus === "CHECK_IN" || status === "EVALUATED") {
+                return { color: "text-white bg-indigo-500 border-transparent", label: "CHECKED IN", icon: CheckCircle2 };
+            }
+            if (rhuStatus === "IN_CONSULTATION" || status === "FOR_PROCESSING" || status === "FOR_REINSPECTION") {
+                return { color: "text-white bg-blue-500 border-transparent", label: "IN CONSULTATION", icon: Activity };
+            }
+            if (rhuStatus === "PRESCRIBED" || status === "FOR_CLAIM") {
+                return { color: "text-white bg-amber-500 border-transparent", label: "PRESCRIBED", icon: UserCheck };
+            }
+            if (rhuStatus === "REFERRED" || (status === "RELEASED" && rhuStatus === "REFERRED")) {
+                return { color: "text-white bg-fuchsia-500 border-transparent", label: "REFERRED TO SPECIALIST", icon: AlertCircle };
+            }
+            if (rhuStatus === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
+                return { color: "text-white bg-emerald-600 border-transparent", label: "COMPLETED", icon: CheckCircle2 };
+            }
+            if (rhuStatus === "APPOINTMENT_BOOKED" || status === "FOR_REQUESTING" || status === "FOR_INSPECTION") {
+                return { color: "text-white bg-rose-600 border-transparent", label: "APPOINTMENT BOOKED", icon: Clock };
+            }
+        }
+
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500 bg-amber-500/10 border-amber-500/20", label: "REVISION REQUIRED", icon: AlertCircle };
             case "FOR_REQUESTING": {
-                const addData = (request.additionalData as any) || {};
-                const isRHU = request.type?.category === "Rural Health Unit" || request.type?.code?.startsWith("RHU_");
                 return {
                     color: "text-white bg-rose-600 border-transparent",
                     label: addData.checkedIn
                         ? "AWAITING EVALUATION"
-                        : (isRHU ? "PROCEED TO RHU TO CHECK-IN" : "PROCEED TO MUNICIPAL HALL TO CHECK-IN"),
+                        : "PROCEED TO MUNICIPAL HALL TO CHECK-IN",
                     icon: Clock
                 };
             }
             case "FOR_INSPECTION": {
-                const addData = (request.additionalData as any) || {};
                 return {
                     color: "text-white bg-blue-600 border-transparent",
                     label: addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN",
@@ -408,28 +441,132 @@ export default function AppointmentDetailsPage() {
                         )}
 
                         {/* Status Alert Banner */}
-                        {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && request.status !== "REJECTED" && (
+                        {statusConfig && !isCedula && (request.status !== "FOR_INSPECTION" || isRHU) && request.status !== "REJECTED" && (
                             <div className={cn("p-5 border rounded-2xl", statusConfig.color)}>
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">{statusConfig.label}</h4>
                                     <p className="text-xs leading-relaxed font-medium opacity-85">
                                         {request.isCancelled
                                             ? `This appointment was cancelled on ${request.updatedAt ? formatPHDate(request.updatedAt) : "N/A"}.`
-                                            : request.status === "FOR_REQUESTING"
-                                                ? ((request.type?.category === "Rural Health Unit" || request.type?.code?.startsWith("RHU_"))
-                                                    ? "Your medical consultation is booked. Please proceed to the Rural Health Unit (RHU) on your scheduled date and time to check in at the counter."
-                                                    : isAppointmentPsa
+                                            : isRHU
+                                                ? (
+                                                    additionalData?.rhuStatus === "CHECK_IN" || request.status === "EVALUATED"
+                                                        ? "You have successfully checked in! Please wait in the lobby. A nurse or doctor will call your queue number shortly for your consultation."
+                                                        : additionalData?.rhuStatus === "IN_CONSULTATION" || request.status === "FOR_PROCESSING"
+                                                            ? "You are currently in consultation with the medical team. They are conducting your check-up and updating your vitals and diagnosis."
+                                                            : additionalData?.rhuStatus === "PRESCRIBED" || request.status === "FOR_CLAIM"
+                                                                ? "Your consultation is complete and your prescriptions have been logged. Please proceed to the RHU pharmacy counter to receive your medicine."
+                                                                : additionalData?.rhuStatus === "REFERRED"
+                                                                    ? "Your consultation is complete. The medical officer has referred you to an external facility. Please claim your referral form at the counter."
+                                                                    : additionalData?.rhuStatus === "COMPLETED" || request.status === "RELEASED" || request.status === "DELIVERED"
+                                                                        ? "Your clinical check-up is fully completed. Thank you for using the Rural Health Unit digital check-in portal."
+                                                                        : "Your medical consultation is booked. Please proceed to the Rural Health Unit (RHU) on your scheduled date and time to check in at the counter."
+                                                )
+                                                : request.status === "FOR_REQUESTING"
+                                                    ? (isAppointmentPsa
                                                         ? "Please proceed to the Civil Registrar's office at the Municipal Hall on your scheduled date and time for document verification."
                                                         : "Your appointment is confirmed. Please proceed to the designated counter window at the Municipal Hall to check in.")
-                                                : request.status === "PAID"
-                                                    ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
-                                                    : request.status === "UNPAID"
-                                                    ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
-                                                    : (request.status === "RELEASED" || request.status === "DELIVERED")
-                                                        ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
-                                                        : "Your booking status has changed. Please read any evaluation comments below."
+                                                    : request.status === "PAID"
+                                                        ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
+                                                        : request.status === "UNPAID"
+                                                        ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
+                                                        : (request.status === "RELEASED" || request.status === "DELIVERED")
+                                                            ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                            : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Real-time RHU Stepper Tracker */}
+                        {isRHU && !request.isCancelled && request.status !== "REJECTED" && (
+                            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-6 space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
+                                        <h3 className="text-xs font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Consultation Real-time Tracker</h3>
+                                    </div>
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 animate-pulse">Live Tracking</Badge>
+                                </div>
+                                <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6 md:gap-4 pt-2">
+                                    {/* Line connector for stepper (desktop) */}
+                                    <div className="absolute top-[21px] left-[24px] right-[24px] h-[3px] bg-slate-200 dark:bg-white/10 hidden md:block z-0" />
+                                    {/* Active fill line for stepper (desktop) */}
+                                    <div 
+                                        className="absolute top-[21px] left-[24px] h-[3px] bg-primary transition-all duration-500 hidden md:block z-0" 
+                                        style={{ 
+                                            width: `${
+                                                (request.status === "RELEASED" || request.status === "DELIVERED" || additionalData?.rhuStatus === "COMPLETED") ? 100 :
+                                                (request.status === "FOR_CLAIM" || additionalData?.rhuStatus === "PRESCRIBED" || additionalData?.rhuStatus === "REFERRED") ? 75 :
+                                                (request.status === "FOR_PROCESSING" || additionalData?.rhuStatus === "IN_CONSULTATION") ? 50 :
+                                                (request.status === "EVALUATED" || additionalData?.rhuStatus === "CHECK_IN") ? 25 : 0
+                                            }%` 
+                                        }} 
+                                    />
+                                    
+                                    {/* Line connector for stepper (mobile) */}
+                                    <div className="absolute left-[20px] top-[24px] bottom-[24px] w-[3px] bg-slate-200 dark:bg-white/10 md:hidden z-0" />
+                                    
+                                    {[
+                                        { key: "BOOKED", label: "Booked", desc: "Awaiting Check-in" },
+                                        { key: "CHECKED_IN", label: "Checked In", desc: "In Waiting Area" },
+                                        { key: "CONSULTATION", label: "Consultation", desc: "With Doctor/Staff" },
+                                        { key: "DISPOSITION", label: additionalData?.rhuStatus === "REFERRED" ? "Referred" : "Prescribed", desc: additionalData?.rhuStatus === "REFERRED" ? "Referred to Hospital" : "Prescriptions Logged" },
+                                        { key: "COMPLETED", label: "Completed", desc: "Done" }
+                                    ].map((step, idx) => {
+                                        const rhuStatus = additionalData?.rhuStatus || null;
+                                        const status = request.status;
+                                        
+                                        let currentIdx = 0;
+                                        if (rhuStatus === "CHECK_IN" || status === "EVALUATED") {
+                                            currentIdx = 1;
+                                        } else if (rhuStatus === "IN_CONSULTATION" || status === "FOR_PROCESSING" || status === "FOR_REINSPECTION") {
+                                            currentIdx = 2;
+                                        } else if (rhuStatus === "PRESCRIBED" || status === "FOR_CLAIM" || rhuStatus === "REFERRED") {
+                                            currentIdx = 3;
+                                        } else if (rhuStatus === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
+                                            currentIdx = 4;
+                                        }
+                                        
+                                        const isCompleted = idx < currentIdx;
+                                        const isActive = idx === currentIdx;
+                                        
+                                        return (
+                                            <div key={step.key} className="flex md:flex-col items-center gap-4 md:gap-2 relative z-10 w-full md:w-auto">
+                                                {/* Step Circle */}
+                                                <div 
+                                                    className={cn(
+                                                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 shadow-md",
+                                                        isCompleted ? "bg-primary text-white" : 
+                                                        isActive ? "bg-indigo-500 text-white ring-4 ring-indigo-500/20" : 
+                                                        "bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-600"
+                                                    )}
+                                                >
+                                                    {isCompleted ? (
+                                                        <CheckCircle2 className="w-5 h-5 text-white" />
+                                                    ) : (
+                                                        <span>{idx + 1}</span>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Text Info */}
+                                                <div className="text-left md:text-center">
+                                                    <p className={cn(
+                                                        "font-black uppercase tracking-tight text-xs",
+                                                        isActive ? "text-indigo-500 dark:text-indigo-400" :
+                                                        isCompleted ? "text-slate-800 dark:text-white" :
+                                                        "text-slate-400 dark:text-slate-600"
+                                                    )}>
+                                                        {step.label}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap hidden md:block">
+                                                        {step.desc}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -551,6 +688,73 @@ export default function AppointmentDetailsPage() {
                                 </div>
                             )}
                         </Card>
+
+                        {/* Doctor's Clinical Notes Card */}
+                        {isRHU && additionalData.deos && (
+                            <Card className="rounded-3xl border border-teal-500/20 dark:border-teal-500/10 bg-gradient-to-b from-slate-900/40 via-white dark:via-[#151922] to-slate-50 dark:to-[#0e1219] shadow-xl overflow-hidden backdrop-blur-md">
+                                <div className="relative border-b border-teal-500/20 px-6 py-5 flex items-center gap-4 bg-teal-500/5">
+                                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-teal-500/50 via-teal-500/10 to-transparent" />
+                                    <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 shadow-inner">
+                                        <ClipboardList className="w-5 h-5 text-teal-500" />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-teal-500/80">Clinical Notes & Orders</p>
+                                        <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight italic">Doctor&apos;s Consultation Record (DEOS)</p>
+                                    </div>
+                                    {additionalData.prescribedAt && (
+                                        <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-full px-3 py-1 shadow-sm">
+                                            {new Date(additionalData.prescribedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    {additionalData.deos.diagnosis && (
+                                        <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                            <div className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 font-mono font-black text-sm">
+                                                D
+                                            </div>
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Diagnosis</p>
+                                                <p className="text-sm font-black text-slate-900 dark:text-white whitespace-pre-wrap leading-relaxed tracking-tight">{additionalData.deos.diagnosis}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {additionalData.deos.examinationFindings && (
+                                        <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shrink-0 font-mono font-black text-sm">
+                                                E
+                                            </div>
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Examination Findings</p>
+                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{additionalData.deos.examinationFindings}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {additionalData.deos.orders && (
+                                        <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                            <div className="w-9 h-9 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0 font-mono font-black text-sm">
+                                                O
+                                            </div>
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Orders / Prescription</p>
+                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{additionalData.deos.orders}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {additionalData.deos.status && (
+                                        <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                            <div className="w-9 h-9 rounded-xl bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 shrink-0 font-mono font-black text-sm">
+                                                S
+                                            </div>
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Status / Notes</p>
+                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{additionalData.deos.status}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        )}
 
                         {/* Reminders Panel */}
                         {["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(request.status) && (
