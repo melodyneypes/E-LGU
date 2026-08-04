@@ -1032,35 +1032,37 @@ export function CedulaAppointmentClient({
                                         </div>
                                     )}
 
-                                    {/* ♿ Minimalist Priority Lane Row Checkbox (No big card borders) */}
-                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                                        <div
-                                            onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                            className="flex items-start gap-3 md:gap-4 cursor-pointer select-none p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors"
-                                        >
-                                            <div className={cn(
-                                                "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                                isPriorityLane
-                                                    ? "bg-primary border-primary text-white"
-                                                    : "border-slate-300 dark:border-white/10"
-                                            )}
-                                                style={isPriorityLane ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
-                                            >
-                                                {isPriorityLane && <Check className="w-3.5 h-3.5" />}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs md:text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                                    ♿ Request Priority lane service
-                                                </p>
-                                                <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                                    Check this if you are a Senior Citizen, PWD, or Pregnant applicant.
-                                                </p>
-                                                <p className="text-[8px] md:text-[9px] text-amber-600 dark:text-amber-500 font-bold leading-relaxed uppercase tracking-wider mt-1">
-                                                    ⚠️ WARNING: You must present a valid Priority ID or proof of entitlement at the counter. Failure to produce valid verification will result in the immediate disapproval of your priority queue status, and you will be required to book a new appointment on another day.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    {/* ♿ Minimalist Priority Lane Row Checkbox (Hidden for now) */}
+                                     {false && (
+                                         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                                             <div
+                                                 onClick={() => setIsPriorityLane(!isPriorityLane)}
+                                                 className="flex items-start gap-3 md:gap-4 cursor-pointer select-none p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors"
+                                             >
+                                                 <div className={cn(
+                                                     "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                                     isPriorityLane
+                                                         ? "bg-primary border-primary text-white"
+                                                         : "border-slate-300 dark:border-white/10"
+                                                 )}
+                                                     style={isPriorityLane ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
+                                                 >
+                                                     {isPriorityLane && <Check className="w-3.5 h-3.5" />}
+                                                 </div>
+                                                 <div className="space-y-1">
+                                                     <p className="text-xs md:text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                         ♿ Request Priority lane service
+                                                     </p>
+                                                     <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
+                                                         Check this if you are a Senior Citizen, PWD, or Pregnant applicant.
+                                                     </p>
+                                                     <p className="text-[8px] md:text-[9px] text-amber-600 dark:text-amber-500 font-bold leading-relaxed uppercase tracking-wider mt-1">
+                                                         ⚠️ WARNING: You must present a valid Priority ID or proof of entitlement at the counter. Failure to produce valid verification will result in the immediate disapproval of your priority queue status, and you will be required to book a new appointment on another day.
+                                                     </p>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     )}
 
                                     {/* Privacy — full width, below upload grid */}
                                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5" ref={privacySectionRef}>

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect, use, useCallback } from "react";
+import React, { useState, useEffect, use, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -15,7 +15,9 @@ import {
     RefreshCcw,
     Camera,
     BadgeCheck,
-    FileText
+    FileText,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -31,15 +33,30 @@ import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle,
-    DialogTrigger
+    DialogTitle
 } from "@/components/ui/dialog";
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
+function LightboxView({ 
+    src, 
+    alt, 
+    label,
+    onPrev,
+    onNext,
+    currentIndex,
+    totalDocs
+}: { 
+    src: string; 
+    alt: string; 
+    label: string;
+    onPrev?: () => void;
+    onNext?: () => void;
+    currentIndex?: number;
+    totalDocs?: number;
+}) {
     const [scale, setScale] = useState(1);
     const [rotate, setRotate] = useState(0);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -79,6 +96,24 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         setPosition({ x: 0, y: 0 });
     };
 
+    // Bind Keyboard Navigation (ArrowLeft, ArrowRight)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft" && onPrev) {
+                e.preventDefault();
+                onPrev();
+                reset();
+            } else if (e.key === "ArrowRight" && onNext) {
+                e.preventDefault();
+                onNext();
+                reset();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onPrev, onNext]);
+
     return (
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
             <DialogHeader className="sr-only">
@@ -93,6 +128,36 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             >
+                {/* Directional Controls: Left Chevron */}
+                {onPrev && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPrev();
+                            reset();
+                        }}
+                        className="absolute left-6 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/20 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                        title="Previous Document (Left Arrow)"
+                    >
+                        <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+                    </button>
+                )}
+
+                {/* Directional Controls: Right Chevron */}
+                {onNext && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNext();
+                            reset();
+                        }}
+                        className="absolute right-6 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/20 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                        title="Next Document (Right Arrow)"
+                    >
+                        <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                )}
+
                 <div
                     className="relative w-full h-full flex items-center justify-center"
                     style={{
@@ -120,6 +185,13 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
             </div>
 
             <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
+                {typeof currentIndex === "number" && typeof totalDocs === "number" && totalDocs > 0 && (
+                    <div className="flex items-center gap-1.5 pr-4 border-r border-white/15">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400 italic whitespace-nowrap">
+                            Document {currentIndex + 1} of {totalDocs}
+                        </span>
+                    </div>
+                )}
                 <div className="flex items-center gap-1 pr-4 border-r border-white/10">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
                 </div>
@@ -168,7 +240,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                     <RefreshCcw className="w-4 h-4" />
                 </Button>
             </div>
-            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active</p>
+            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active • Arrow Keys to Navigate</p>
         </DialogContent>
     );
 }
@@ -186,16 +258,17 @@ export default function BFPEvaluationPage({ params }: PageProps) {
     const addData = (transaction?.additionalData as any) || {};
     const isBfpAcknowledged = addData.bfpStatus === "ACKNOWLEDGED";
     const isBfpCompleted = addData.bfpStatus === "COMPLETED" || Boolean(addData.bfpClearanceUrl);
-    
+
     // BFP read-only only for non-BFP roles.
     const isBfpReadonly = userRole !== "BFP";
     const isViewOnly = isForcedView || transaction?.isCancelled || isBfpReadonly;
-    
+
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [bfpClearanceUrl, setBfpClearanceUrl] = useState<string>(addData.bfpClearanceUrl || "");
     const [themeColor, setThemeColor] = useState<string>("#ef4444");
+    const [activeDocIndex, setActiveDocIndex] = useState<number | null>(null);
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -284,27 +357,16 @@ export default function BFPEvaluationPage({ params }: PageProps) {
             setActionLoading(false);
         }
     };
+    const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
+    const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
+    const bfpVisibleDocKeys = useMemo(() => (additional?.feeAssessment?.bfpVisibleDocs || additional?.bfpVisibleDocs || []) as string[], [additional]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] flex flex-col items-center justify-center gap-4">
-                <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin" />
-            </div>
-        );
-    }
-
-    if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
-
-    const additional = transaction.additionalData || {};
-    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
-    const bfpVisibleDocKeys = (additional?.feeAssessment?.bfpVisibleDocs || additional?.bfpVisibleDocs || []) as string[];
-
-    const renderRequirementsGrid = () => (
-        <div className="grid grid-cols-2 gap-4">
-            {[
-                { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
-                { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
-                { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+    const vaultDocs = useMemo(() => {
+        if (!transaction) return [];
+        return [
+            { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+            { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
+            { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
             ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [
                 "Duly Notarized Certificate of Completion",
                 "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
@@ -326,8 +388,8 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                 "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
                 "Cedula of Lot Owner",
                 "ID of Lot Owner",
-                "Death Certificate of Lot Owner (Optional)",
-                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Death Certificate of Lot Owner",
+                "Birth Certificate of Heirs of Deceased Owner",
                 "Valid Licenses (PRC I.D.) of Involved Professionals",
                 "Duly Notarized Estimated Value of Building/Structure",
                 "Duly Notarized Technical Specification",
@@ -339,14 +401,17 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                 "Structural Analysis and Design",
                 "Soil Boring Test"
             ]
-              .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
-              .filter(({ idx }) => {
-                  if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                  if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                  const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                  if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                  return true;
-              })),
+                .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
+                .filter(({ idx }) => {
+                    const isOwnerDeceased = additional?.isOwnerDeceased === true;
+                    const isAffidavitRequired = additional?.isLotOwner === "No" && !isOwnerDeceased;
+                    if (!isOwnerDeceased && [13, 14].includes(idx)) return false;
+                    if (!isAffidavitRequired && [7, 10, 11, 12].includes(idx)) return false;
+                    if (isAffidavitRequired && [21, 22].includes(idx)) return false;
+                    const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                    return true;
+                })),
             ...Object.keys(additional?.documents || {})
                 .filter(key => key.startsWith("req_"))
                 .map(key => {
@@ -384,32 +449,46 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                     return null;
                 })
                 .filter(Boolean) as { key: string; url: string; label: string }[]
-            ].filter(doc => doc.url && (bfpVisibleDocKeys.length === 0 || bfpVisibleDocKeys.includes(doc.key))).map((doc, i) => (
-                <Dialog key={i}>
-                    <DialogTrigger asChild>
-                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
-                            {doc.url?.toLowerCase().includes('.pdf') ? (
-                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-red-500 transition-colors">
-                                    <FileText className="w-8 h-8 mb-1" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
-                                </div>
-                            ) : (
-                                <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                    <ZoomIn className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="absolute bottom-2 left-2 right-2 z-10">
-                                <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
-                                    {doc.label}
-                                </span>
-                            </div>
+        ].filter(doc => doc.url && (bfpVisibleDocKeys.length === 0 || bfpVisibleDocKeys.includes(doc.key)));
+    }, [transaction, additional, resident, bfpVisibleDocKeys]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] flex flex-col items-center justify-center gap-4">
+                <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
+
+    const renderRequirementsGrid = () => (
+        <div className="grid grid-cols-2 gap-4">
+            {vaultDocs.map((doc: any, i: number) => (
+                <div 
+                    key={i}
+                    onClick={() => setActiveDocIndex(i)}
+                    className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in"
+                >
+                    {doc.url?.toLowerCase().includes('.pdf') ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-red-500 transition-colors">
+                            <FileText className="w-8 h-8 mb-1" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                         </div>
-                    </DialogTrigger>
-                    <LightboxView src={doc.url} alt={doc.label} label={doc.label} />
-                </Dialog>
+                    ) : (
+                        <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                            <ZoomIn className="w-5 h-5 text-white" />
+                        </div>
+                    </div>
+                    <div className="absolute bottom-2 left-2 right-2 z-10">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
+                            {doc.label}
+                        </span>
+                    </div>
+                </div>
             ))}
         </div>
     );
@@ -525,19 +604,20 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                                 <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
                                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
                                     <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                            <ZoomIn className="w-4 h-4 text-white" />
-                                                        </div>
-                                                    </div>
+                                        <div 
+                                            onClick={() => {
+                                                const idx = vaultDocs.findIndex((d: any) => d.url === additional.signature);
+                                                if (idx !== -1) setActiveDocIndex(idx);
+                                            }}
+                                            className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5"
+                                        >
+                                            <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                    <ZoomIn className="w-4 h-4 text-white" />
                                                 </div>
-                                            </DialogTrigger>
-                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
-                                        </Dialog>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -601,11 +681,10 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                                 return (
                                     <div key={step.id} className="relative flex items-center justify-between group">
                                         <div className="flex items-center gap-4">
-                                            <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                                                isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
+                                            <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
                                                 isActive ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 scale-110" :
-                                                "bg-slate-900 border-white/10 text-slate-500"
-                                            }`}>
+                                                    "bg-slate-900 border-white/10 text-slate-500"
+                                                }`}>
                                                 {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
                                             </div>
                                             <div>
@@ -621,9 +700,9 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                     {/* Executive Actions */}
                     <div className="space-y-4">
                         {!isViewOnly && userRole === "BFP" && !isBfpAcknowledged && !isBfpCompleted && (
-                            <Button 
-                                onClick={handleApprove} 
-                                disabled={actionLoading} 
+                            <Button
+                                onClick={handleApprove}
+                                disabled={actionLoading}
                                 className="w-full h-16 rounded-2xl bg-red-600 text-white font-black italic uppercase tracking-widest text-xs hover:bg-red-700 transition-all shadow-xl shadow-red-900/20 active:scale-95"
                             >
                                 {actionLoading ? "Acknowledging..." : "Acknowledge BFP Clearance"}
@@ -650,15 +729,17 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                                             ) : (
                                                 <img src={String(addData.bfpClearanceUrl || bfpClearanceUrl)} alt="BFP Clearance" className="object-cover w-full h-full" />
                                             )}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <Button size="icon" variant="ghost" className="rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm">
-                                                            <ZoomIn className="w-4 h-4" />
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={String(addData.bfpClearanceUrl || bfpClearanceUrl)} alt="BFP Clearance" label="BFP Clearance" />
-                                                </Dialog>
+                                            <div 
+                                                onClick={() => {
+                                                    const targetUrl = addData.bfpClearanceUrl || bfpClearanceUrl;
+                                                    const idx = vaultDocs.findIndex((d: any) => d.url === targetUrl);
+                                                    if (idx !== -1) setActiveDocIndex(idx);
+                                                }}
+                                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                                            >
+                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center">
@@ -712,6 +793,20 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                     </div>
                 </div>
             </main>
+
+            {activeDocIndex !== null && vaultDocs[activeDocIndex] && (
+                <Dialog open={true} onOpenChange={(open) => { if (!open) setActiveDocIndex(null); }}>
+                    <LightboxView
+                        src={vaultDocs[activeDocIndex].url as string}
+                        alt={vaultDocs[activeDocIndex].label}
+                        label={vaultDocs[activeDocIndex].label}
+                        currentIndex={activeDocIndex}
+                        totalDocs={vaultDocs.length}
+                        onPrev={vaultDocs.length > 1 ? () => setActiveDocIndex(prev => (prev !== null ? (prev - 1 + vaultDocs.length) % vaultDocs.length : 0)) : undefined}
+                        onNext={vaultDocs.length > 1 ? () => setActiveDocIndex(prev => (prev !== null ? (prev + 1) % vaultDocs.length : 0)) : undefined}
+                    />
+                </Dialog>
+            )}
         </div>
     );
 }

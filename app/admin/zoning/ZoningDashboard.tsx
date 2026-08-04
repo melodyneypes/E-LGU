@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-
+import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
     { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
@@ -55,24 +55,38 @@ function formatDateTime(date: string | Date): { date: string; time: string } {
 
 // Helper: Safely parse residentSnapshot which might be stringified JSON
 function getResidentSnapshot(tx: any): any {
-    if (!tx.residentSnapshot) return {};
-    if (typeof tx.residentSnapshot === 'string') {
+    if (!tx) return {};
+    const raw = tx.residentSnapshot || tx.user?.residentProfile;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
         try {
-            return JSON.parse(tx.residentSnapshot);
+            return JSON.parse(raw) || {};
         } catch {
             return {};
         }
     }
-    return tx.residentSnapshot;
+    return (typeof raw === 'object' && raw !== null) ? raw : {};
 }
 
 function isPendingEngineeringTransaction(tx: any): boolean {
     return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 
+function getZoningTransactionUrl(tx: any): string {
+    if (tx.isCancelled || tx.status === "CANCELLED") {
+        return `/admin/zoning/${tx.id}/evaluation?view=true`;
+    }
+    if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_REVISION" || tx.status === "REJECTED") {
+        return `/admin/zoning/${tx.id}/evaluation`;
+    }
+    if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(tx.status)) {
+        return `/admin/zoning/${tx.id}/fees`;
+    }
+    return `/admin/zoning/${tx.id}`;
+}
+
 export default function ZoningDashboard() {
     const router = useRouter();
-
 
     const [status, setStatus] = useState("ALL");
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -84,23 +98,25 @@ export default function ZoningDashboard() {
     const [sortBy, setSortBy] = useState<"date" | "service">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             const res = await getEngineerTransactions(status);
             if (res.success) {
                 setTransactions(res.data || []);
-            } else {
+            } else if (!isSilent) {
                 console.error("[ZoningDashboard] getEngineerTransactions failed:", res.error);
                 setTransactions([]);
                 toast.error(res.error || "Failed to load transactions. Check your permissions.");
             }
             await getEngineerPendingCount();
         } catch (err) {
-            console.error("[ZoningDashboard] Unexpected error:", err);
-            toast.error("Failed to load transactions");
+            if (!isSilent) {
+                console.error("[ZoningDashboard] Unexpected error:", err);
+                toast.error("Failed to load transactions");
+            }
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, [status]);
 
@@ -129,6 +145,58 @@ export default function ZoningDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading]);
+
+    // Native SSE (Server-Sent Events) Stream Listener for MPDC Zoning Admin Hub
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+        try {
+            eventSource = new EventSource("/api/realtime/stream");
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("[SSE ZoningDashboard] Realtime stream payload:", data);
+                    toast.info("⚡ Live Stream Update: Permit applications updated.", { id: "sse-zoning-toast" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                } catch {}
+            };
+        } catch {}
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
+
+    // Event-driven Supabase Realtime Subscription for MPDC Zoning Admin Hub
+    useEffect(() => {
+        if (!supabase) return;
+
+        const channel = supabase
+            .channel("realtime-zoning-dashboard")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                },
+                (payload: any) => {
+                    console.log("[ZoningDashboard] Realtime change detected:", payload);
+                    toast.info("⚡ Realtime Update: Applications updated live.", { id: "realtime-update-zoning" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
 
     // Reset to page 1 when filters change
     useEffect(() => {
@@ -232,7 +300,7 @@ export default function ZoningDashboard() {
                                 </div>
                             </div>
                             <Button 
-                                onClick={fetchTransactions} 
+                                onClick={() => fetchTransactions()} 
                                 variant="outline" 
                                 className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
                             >
@@ -247,6 +315,7 @@ export default function ZoningDashboard() {
                             <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">#</TableHead>
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Reference ID</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300">Applicant</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">Service</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
@@ -276,25 +345,30 @@ export default function ZoningDashboard() {
                                 {loading ? (
                                     Array(5).fill(0).map((_, i) => (
                                         <TableRow key={i} className="animate-pulse">
-                                            <TableCell colSpan={6} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
+                                            <TableCell colSpan={7} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
                                         </TableRow>
                                     ))
                                 ) : paginatedTransactions.length > 0 ? (
-                                    paginatedTransactions.map((tx, index) => (
+                                    paginatedTransactions.map((tx: any, index: number) => (
                                         <TableRow 
                                             key={tx.id} 
-                                            onClick={() => router.push(`/admin/zoning/${tx.id}`)}
+                                            onClick={() => router.push(getZoningTransactionUrl(tx))}
                                             className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none"
                                         >
                                             <TableCell className="py-4">
                                                 <span className="text-xs font-black font-mono tracking-widest text-primary">{(currentPage - 1) * itemsPerPage + index + 1}</span>
                                             </TableCell>
                                             <TableCell>
+                                                <span className="text-[11px] font-mono font-bold text-[#0c4a6e] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-lg border border-blue-100 dark:border-blue-800/30 select-all tracking-wider">
+                                                    {tx.id}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
                                                         {(() => {
                                                             const rs = getResidentSnapshot(tx);
-                                                            return `${rs.firstName || 'Unknown'} ${rs.lastName || 'Applicant'}`;
+                                                            return `${rs?.firstName || 'Unknown'} ${rs?.lastName || 'Applicant'}`;
                                                         })()}
                                                     </span>
                                                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
@@ -314,74 +388,49 @@ export default function ZoningDashboard() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {(() => {
-                                                    const isPendingEngineering = !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
-                                                    
-                                                    let displayStatus = "";
-                                                    let colorClass = "text-slate-500";
-                                                    
-                                                    if (tx.isCancelled) {
-                                                        displayStatus = "CANCELLED";
-                                                        colorClass = "text-red-600";
-                                                    } else if (tx.status === "REJECTED") {
-                                                        displayStatus = "ENG. REJECTED";
-                                                        colorClass = "text-red-600";
-                                                    } else if (tx.status === "RELEASED") {
-                                                        displayStatus = "RELEASED";
-                                                        colorClass = "text-blue-600";
-                                                    } else if (isPendingEngineering) {
-                                                        displayStatus = "PENDING ENGINEERING";
-                                                        colorClass = "text-amber-600 opacity-70";
-                                                    } else {
-                                                        let zStatus = tx.additionalData?.zoningStatus || "FOR_REQUESTING";
-                                                        if (zStatus === "EVALUATED") {
-                                                            zStatus = tx.status || "EVALUATED";
-                                                        }
-                                                        displayStatus = zStatus.replace(/_/g, " ");
-                                                        colorClass = ({
-                                                            "FOR_REQUESTING": "text-amber-600",
-                                                            "FOR_REVISION": "text-amber-600",
-                                                            "FOR_INSPECTION": "text-indigo-600",
-                                                            "FOR_REINSPECTION": "text-purple-600",
-                                                            "EVALUATED": "text-emerald-600",
-                                                            "UNPAID": "text-orange-600",
-                                                            "PAID": "text-emerald-600",
-                                                            "FOR_PROCESSING": "text-sky-600",
-                                                            "FOR_CLAIM": "text-indigo-600",
-                                                            "RELEASED": "text-blue-600",
-                                                            "REJECTED": "text-red-600",
-                                                        } as Record<string, string>)[zStatus] || "text-slate-500";
-                                                    }
-
-                                                    return (
-                                                        <span className={cn("text-[10px] font-black uppercase italic tracking-wider", colorClass)}>
-                                                            {displayStatus}
-                                                        </span>
-                                                    );
-                                                })()}
+                                                <span className={cn(
+                                                     "text-[10px] font-black uppercase italic tracking-wider",
+                                                     tx.isCancelled ? "text-red-600" : ({
+                                                         "FOR_REQUESTING": "text-amber-600",
+                                                         "FOR_REVISION": "text-amber-600",
+                                                         "EVALUATED": tx.additionalData?.zoningStatus ? "text-purple-600" : "text-blue-600",
+                                                         "FOR_CLAIM": "text-indigo-600",
+                                                         "FOR_PROCESSING": "text-sky-600",
+                                                         "PAID": "text-emerald-600",
+                                                         "RELEASED": "text-slate-600",
+                                                         "REJECTED": "text-red-600",
+                                                     } as Record<string, string>)[tx.status] || "text-slate-500"
+                                                 )}>
+                                                     {tx.isCancelled ? "CANCELLED" : (() => {
+                                                         if (tx.status === "EVALUATED" && tx.additionalData?.zoningStatus) {
+                                                             return `ZONING: ${tx.additionalData.zoningStatus.replace(/_/g, " ")}`;
+                                                         }
+                                                         return tx.status?.replace(/_/g, " ");
+                                                     })()}
+                                                 </span>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                            {(() => {
-                                                                const source = tx.updatedAt;
-                                                                const f = formatDateTime(source);
-                                                                return (
-                                                                    <>
-                                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
-                                                                        <span className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{f.time}</span>
-                                                                    </>
-                                                                );
-                                                            })()}
+                                                    {(() => {
+                                                        const source = tx.updatedAt;
+                                                        const f = formatDateTime(source);
+                                                        return (
+                                                            <>
+                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{f.time}</span>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-[400px] text-center">
+                                        <TableCell colSpan={7} className="h-[400px] text-center">
                                             <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                                                 <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
-                                                <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No zoning permit applications found</p>
+                                                <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No building permit applications found</p>
                                                 <p className="mt-2">Try adjusting your filters or search term.</p>
                                             </div>
                                         </TableCell>

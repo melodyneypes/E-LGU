@@ -281,8 +281,9 @@ export function Navbar({
     // Dropdown-specific links (only shown when authenticated)
     const userDropdownLinks = [
         { name: "My Profile", href: "/user/resident-profile", icon: User },
-        { name: "My Reports", href: "/user/reports", icon: Archive },
+        { name: "My Applications", href: "/user/services/requests", icon: FileText },
         { name: "My Appointments", href: "/user/appointment", icon: Activity },
+        { name: "My Reports", href: "/user/reports", icon: Archive },
     ];
 
     const activeTheme = mounted ? resolvedTheme : "light";
@@ -604,6 +605,30 @@ export function Navbar({
                                                 )}
                                             </Link>
 
+                                            {/* My Applications */}
+                                            <Link
+                                                href="/user/services/requests"
+                                                onClick={() => setIsDropdownOpen(false)}
+                                                className={cn(
+                                                    "flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group",
+                                                    isLinkActive("/user/services/requests") && "bg-slate-50 dark:bg-white/5"
+                                                )}
+                                            >
+                                                <FileText
+                                                    className="w-4 h-4 transition-colors"
+                                                    style={{ color: isLinkActive("/user/services/requests") ? themeColor : undefined }}
+                                                />
+                                                <span
+                                                    className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                                                    style={{ color: isLinkActive("/user/services/requests") ? themeColor : undefined }}
+                                                >
+                                                    My Applications
+                                                </span>
+                                                {isLinkActive("/user/services/requests") && (
+                                                    <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
+                                                )}
+                                            </Link>
+
                                             {/* My Appointments */}
                                             <Link
                                                 href="/user/appointment"
@@ -628,7 +653,7 @@ export function Navbar({
                                                 )}
                                             </Link>
 
-                                            {/* My Archive */}
+                                            {/* My Reports */}
                                             <Link
                                                 href="/user/reports"
                                                 onClick={() => setIsDropdownOpen(false)}
@@ -651,30 +676,6 @@ export function Navbar({
                                                     <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
                                                 )}
                                             </Link>
-
-                                            {/* My Requests mobile link hidden */}
-                                            {false && <Link
-                                                href="/user/services/requests"
-                                                onClick={() => setIsDropdownOpen(false)}
-                                                className={cn(
-                                                    "flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group",
-                                                    isLinkActive("/user/services/requests") && "bg-slate-50 dark:bg-white/5"
-                                                )}
-                                            >
-                                                <Activity
-                                                    className="w-4 h-4 transition-colors"
-                                                    style={{ color: isLinkActive("/user/services/requests") ? themeColor : undefined }}
-                                                />
-                                                <span
-                                                    className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
-                                                    style={{ color: isLinkActive("/user/services/requests") ? themeColor : undefined }}
-                                                >
-                                                    My Requests
-                                                </span>
-                                                {isLinkActive("/user/services/requests") && (
-                                                    <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
-                                                )}
-                                            </Link>}
 
                                             <div className="h-px bg-slate-100 dark:bg-white/5 mx-3 my-1" />
 
@@ -769,7 +770,7 @@ export function Navbar({
                                             </div>
                                         </div>
                                         {/* User Quick Links */}
-                                        <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
+                                        <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-white/5">
                                             {userDropdownLinks.map((link) => {
                                                 const isActive = isLinkActive(link.href);
                                                 return (
