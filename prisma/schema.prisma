@@ -20,6 +20,7 @@ model User {
   isEmailVerified      Boolean       @default(false)
   isPasswordChanged    Boolean       @default(false)
   rejectionCount       Int           @default(0)
+  consecutiveRejections Json?        @default("{}")
   rejectionResetAt     DateTime?
   managedBarangay      String?
   department           String?

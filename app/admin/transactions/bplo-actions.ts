@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { sendEmail } from "@/lib/mail";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { sanitizeString, sanitizeUrl } from "@/lib/validation";
+import { clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE";
 
@@ -394,6 +395,13 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
                 updatedAt: new Date()
             }
         });
+
+        // Reset consecutive rejection strikes specifically for Business Permit category on release
+        if (transaction.userId) {
+            clearCategoryRejection(transaction.userId, "Business Permit").catch(err =>
+                console.error("Failed to clear Business Permit rejection strike:", err)
+            );
+        }
 
         // Trigger email notification for the NEW status
         if (transaction.user?.email) {

@@ -129,6 +129,11 @@ const LINE_OF_BUSINESS_OPTIONS = [
     "Others / General Services"
 ];
 
+// Categories that legally require health card applications (food, hospitality, medical)
+const HEALTH_CARD_REQUIRED_LINES = [
+    "Eatery / Restaurant / Food Service",
+];
+
 type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
@@ -242,10 +247,19 @@ export function BusinessPermitAppointmentClient({
     });
 
     const handleInputChange = (field: string, value: any) => {
-        setFormState(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        setFormState(prev => {
+            const updated = { ...prev, [field]: value };
+            if (field === "orgType") {
+                if (value === "SOLE_PROPRIETORSHIP") {
+                    updated.registrationType = "DTI";
+                } else if (value === "CORPORATION" || value === "PARTNERSHIP") {
+                    updated.registrationType = "SEC";
+                } else if (value === "COOPERATIVE") {
+                    updated.registrationType = "COA";
+                }
+            }
+            return updated;
+        });
     };
 
 
@@ -429,8 +443,13 @@ export function BusinessPermitAppointmentClient({
         }
         if (step === "PROFILE") {
             const hasCapital = businessType === "NEW" ? !!formState.capitalInvestment : !!formState.grossSales;
-            const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate) : !!formState.permitNumber;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && !!formState.businessArea;
+            const todayStr = new Date().toISOString().split("T")[0];
+            const isFutureDate = formState.dtiSecDate ? formState.dtiSecDate > todayStr : false;
+            const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate && !isFutureDate) : !!formState.permitNumber;
+            const hasValidArea = !!formState.businessArea && parseFloat(formState.businessArea) > 0;
+            const requiresHealthCard = HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness);
+            const hasValidHealthCard = requiresHealthCard ? parseInt(formState.healthCardCount, 10) >= 1 : true;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && !!formState.building && !!formState.street && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets && hasValidArea && hasValidHealthCard;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -778,6 +797,7 @@ export function BusinessPermitAppointmentClient({
                                                 <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
                                                 <option value="PARTNERSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Partnership</option>
                                                 <option value="CORPORATION" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Corporation</option>
+                                                <option value="COOPERATIVE" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Cooperatives</option>
                                             </select>
                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                 <ChevronDown className="w-4 h-4" />
@@ -807,27 +827,41 @@ export function BusinessPermitAppointmentClient({
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit</Label>
-                                        <Input
-                                            type="text"
-                                            value={formState.building}
-                                            onChange={e => handleInputChange("building", e.target.value)}
-                                            placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-building"
+                                             type="text"
+                                             value={formState.building}
+                                             onChange={e => handleInputChange("building", e.target.value)}
+                                             placeholder="e.g. Bldg 4A, Green Meadows"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && !formState.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.building && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
+                                         )}
+                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address</Label>
-                                        <Input
-                                            type="text"
-                                            value={formState.street}
-                                            onChange={e => handleInputChange("street", e.target.value)}
-                                            placeholder="e.g. Rizal Avenue (Optional)"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-street"
+                                             type="text"
+                                             value={formState.street}
+                                             onChange={e => handleInputChange("street", e.target.value)}
+                                             placeholder="e.g. Rizal Avenue"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && !formState.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.street && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
+                                         )}
+                                     </div>
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Line of Business / Classification <span className="text-rose-500 ml-0.5">*</span></Label>
@@ -888,34 +922,59 @@ export function BusinessPermitAppointmentClient({
                                         />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Number of Health Card Applications</Label>
-                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
-                                            Required for all food-handling, hospitality, and medical personnel.
-                                        </p>
-                                        <Input
-                                            type="number"
-                                            value={formState.healthCardCount}
-                                            onChange={e => handleInputChange("healthCardCount", e.target.value)}
-                                            min="0"
-                                            placeholder="e.g. 5"
-                                            className="rounded-xl h-12 border-slate-200"
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">
+                                             Number of Health Card Applications
+                                             {HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && (
+                                                 <span className="text-rose-500 ml-0.5">*</span>
+                                             )}
+                                         </Label>
+                                         <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
+                                             Required for all food-handling, hospitality, and medical personnel.
+                                         </p>
+                                         <Input
+                                             id="appointment-healthCardCount"
+                                             type="number"
+                                             value={formState.healthCardCount}
+                                             onChange={e => handleInputChange("healthCardCount", e.target.value)}
+                                             min={HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) ? "1" : "0"}
+                                             placeholder="e.g. 5"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">At least 1 health card application is required for food-handling businesses.</p>
+                                         )}
+                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
-                                        <Input
-                                            type="number"
-                                            value={formState.businessArea}
-                                            onChange={e => handleInputChange("businessArea", e.target.value)}
-                                            placeholder="e.g. 120"
-                                            className={cn(
-                                                "rounded-xl h-12 border-slate-200",
-                                                showValidationErrors && !formState.businessArea && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                            )}
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                         <Input
+                                             id="appointment-businessArea"
+                                             type="number"
+                                             min="0.01"
+                                             step="any"
+                                             value={formState.businessArea}
+                                             onChange={e => handleInputChange("businessArea", e.target.value)}
+                                             onKeyDown={e => {
+                                                 const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
+                                                 if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                                             }}
+                                             placeholder="e.g. 120"
+                                             className={cn(
+                                                 "rounded-xl h-12 border-slate-200",
+                                                 showValidationErrors && (!formState.businessArea || parseFloat(formState.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                             )}
+                                         />
+                                         {showValidationErrors && !formState.businessArea && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
+                                         )}
+                                         {showValidationErrors && formState.businessArea && parseFloat(formState.businessArea) <= 0 && (
+                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
+                                         )}
+                                     </div>
 
                                     <div className="space-y-2 relative">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Total Business Assets (₱) <span className="text-rose-500 ml-0.5">*</span></Label>
@@ -1053,7 +1112,7 @@ export function BusinessPermitAppointmentClient({
                                                     >
                                                         <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
                                                         <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
-                                                        <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">COA</option>
+                                                        <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">CDA</option>
                                                     </select>
                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                         <ChevronDown className="w-4 h-4" />
@@ -1062,12 +1121,12 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
                                                 <Input
                                                     type="text"
                                                     value={formState.dtiSecNumber}
                                                     onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
-                                                    placeholder={`e.g. ${formState.registrationType === "DTI" ? "DTI-123456789" : formState.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
+                                                    placeholder={`e.g. ${formState.registrationType === "DTI" ? "DTI-123456789" : formState.registrationType === "SEC" ? "SEC-CS202012345" : "CDA-987654"}`}
                                                     className={cn(
                                                         "rounded-xl h-12 border-slate-200 font-bold",
                                                         showValidationErrors && !formState.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
@@ -1076,17 +1135,24 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
-                                                <Input
-                                                    type="date"
-                                                    value={formState.dtiSecDate}
-                                                    onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                    className={cn(
-                                                        "rounded-xl h-12 border-slate-200 font-bold",
-                                                        showValidationErrors && !formState.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                                    )}
-                                                />
-                                            </div>
+                                                 <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                 <Input
+                                                     type="date"
+                                                     max={new Date().toISOString().split("T")[0]}
+                                                     value={formState.dtiSecDate}
+                                                     onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                     className={cn(
+                                                         "rounded-xl h-12 border-slate-200 font-bold",
+                                                         showValidationErrors && (!formState.dtiSecDate || (formState.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     )}
+                                                 />
+                                                 {showValidationErrors && !formState.dtiSecDate && (
+                                                     <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
+                                                 )}
+                                                 {showValidationErrors && formState.dtiSecDate && formState.dtiSecDate > new Date().toISOString().split("T")[0] && (
+                                                     <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
+                                                 )}
+                                             </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">
@@ -1435,33 +1501,7 @@ export function BusinessPermitAppointmentClient({
                                     </div>
                                 </div>
 
-                                {/* Priority Lane Option */}
-                                <div
-                                    onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                    className={cn(
-                                        "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                                        isPriorityLane ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
-                                    )}
-                                    style={isPriorityLane ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
-                                >
-                                    <div className={cn(
-                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                        isPriorityLane ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
-                                    )} style={isPriorityLane ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
-                                        {isPriorityLane && <Check className="w-3.5 h-3.5" />}
-                                    </div>
-                                    <div className="space-y-1 text-left">
-                                        <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                            ♿ REQUEST PRIORITY LANE SERVICE
-                                        </p>
-                                        <p className="text-[8px] md:text-[10px] text-slate-400 font-bold leading-relaxed italic uppercase tracking-widest">
-                                            CHECK THIS IF YOU ARE A SENIOR CITIZEN, PWD, OR PREGNANT APPLICANT.
-                                        </p>
-                                        <p className="text-[9px] font-bold text-amber-500 dark:text-amber-500/90 leading-relaxed uppercase tracking-wider mt-2">
-                                            ⚠️ WARNING: YOU MUST PRESENT A VALID PRIORITY ID OR PROOF OF ENTITLEMENT AT THE COUNTER. FAILURE TO PRODUCE VALID VERIFICATION WILL RESULT IN THE IMMEDIATE DISAPPROVAL OF YOUR PRIORITY QUEUE STATUS, AND YOU WILL BE REQUIRED TO BOOK A NEW APPOINTMENT ON ANOTHER DAY.
-                                        </p>
-                                    </div>
-                                </div>
+
 
                                 {/* Privacy Policy Checklist */}
                                 <div
