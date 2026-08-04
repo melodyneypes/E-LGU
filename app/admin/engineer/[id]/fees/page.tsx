@@ -16,7 +16,8 @@ import {
     X,
     FileWarning,
     RefreshCw,
-    ZoomIn
+    ZoomIn,
+    XCircle
 } from "lucide-react";
 import { isValidUrl } from "@/utils/image";
 import { toast } from "sonner";
@@ -157,8 +158,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
                 "Cedula of Lot Owner",
                 "ID of Lot Owner",
-                "Death Certificate of Lot Owner (Optional)",
-                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Death Certificate of Lot Owner",
+                "Birth Certificate of Heirs of Deceased Owner",
                 "Valid Licenses (PRC I.D.) of Involved Professionals",
                 "Duly Notarized Estimated Value of Building/Structure",
                 "Duly Notarized Technical Specification",
@@ -172,8 +173,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             ]
                 .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx, type: "REQUIREMENTS" }))
                 .filter(({ idx }) => {
-                    if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                    if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
+                    const isOwnerDeceased = additional?.isOwnerDeceased === true;
+                    const isAffidavitRequired = additional?.isLotOwner === "No" && !isOwnerDeceased;
+                    if (!isOwnerDeceased && [13, 14].includes(idx)) return false;
+                    if (!isAffidavitRequired && [7, 10, 11, 12].includes(idx)) return false;
+                    if (isAffidavitRequired && [21, 22].includes(idx)) return false;
                     const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
                     if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
                     return true;
@@ -299,7 +303,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await approveBuildingPermit(id);
             if (res.success) {
-            toast.success(`${permitLabel} approved & moved to processing successfully!`);
+                toast.success(`${permitLabel} approved & moved to processing successfully!`);
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to approve permit");
@@ -462,15 +466,26 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         { id: "EVALUATED", label: "FEE ASSESSMENT" },
         { id: "FOR_PROCESSING", label: "SUBMIT" }
     ];
+    const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
     const getStepIndex = (status: string) => {
         if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
         if (status === "FOR_PROCESSING" || status === "FOR_CLAIM" || status === "FOR_PICKING" || status === "RELEASED") return 4;
-        return 4; // SUBMIT phase fallback
+        return -1;
     };
-    const currentStepIdx = getStepIndex(transaction.status);
+    const currentStepIdx = isRejected ? -1 : getStepIndex(transaction.status);
+
+    const getRejectedStepIndex = () => {
+        const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
+        if (rejectedPhase === "FOR_INSPECTION") return 1;
+        if (rejectedPhase === "FOR_REINSPECTION") return 2;
+        if (rejectedPhase === "EVALUATED" || rejectedPhase === "FEE_ASSESSMENT") return 3;
+        if (rejectedPhase === "FOR_REQUESTING" || rejectedPhase === "EVALUATION") return 0;
+        return 3;
+    };
+    const rejectedStepIdx = isRejected ? getRejectedStepIndex() : -1;
 
     return (
         <div
@@ -1138,8 +1153,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     }
                                 };
                                 return steps.map((step, idx) => {
-                                    const isCompleted = idx < currentStepIdx;
-                                    const isActive = idx === currentStepIdx;
+                                    const isRejectedStep = isRejected && idx === rejectedStepIdx;
+                                    const isCompleted = !isRejected ? (idx < currentStepIdx) : (idx < rejectedStepIdx);
+                                    const isActive = !isRejected && (idx === currentStepIdx);
                                     return (
                                         <div
                                             key={step.id}
@@ -1148,14 +1164,33 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 }`}
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
-                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
-                                                        "bg-slate-900 border-white/10 text-slate-500"
-                                                    }`}>
-                                                    {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isRejectedStep
+                                                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20 scale-110"
+                                                        : isCompleted
+                                                        ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20"
+                                                        : isActive
+                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110"
+                                                        : "bg-slate-900 border-white/10 text-slate-500"
+                                                }`}>
+                                                    {isRejectedStep ? (
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                    ) : isCompleted ? (
+                                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                        <span className="text-[10px] font-black">{idx + 1}</span>
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{step.label}</p>
+                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${
+                                                        isRejectedStep
+                                                            ? "text-red-400 font-bold"
+                                                            : isActive
+                                                            ? "text-white"
+                                                            : "text-slate-400"
+                                                    }`}>
+                                                        {step.label} {isRejectedStep ? "(REJECTED)" : ""}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1296,7 +1331,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         )}
                                         {!paymentEndorsementReady && (
                                             <p className="text-[10px] font-medium text-amber-200/80">
-                                Set the {permitLabel} Fee and make sure the Zoning payment is already present before endorsing to Resident.
+                                                Set the {permitLabel} Fee and make sure the Zoning payment is already present before endorsing to Resident.
                                             </p>
                                         )}
                                     </div>

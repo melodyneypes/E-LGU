@@ -36,7 +36,11 @@ import {
   Check,
   Hash,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Plus
 } from "lucide-react";
 import {
   Breadcrumb,
@@ -306,29 +310,29 @@ function formatWithCommas(val: string | number) {
 function parseLocationString(loc: string) {
   const result = { houseNumber: "", street: "", barangay: "" };
   if (!loc) return result;
-  
+
   const parts = loc.split(",").map(p => p.trim());
-  
+
   const housePart = parts.find(p => p.toLowerCase().startsWith("no.") || /^\d+$/.test(p));
   if (housePart) {
     result.houseNumber = housePart.replace(/no\.\s*/i, "");
   }
-  
+
   const brgyPart = parts.find(p => p.toLowerCase().startsWith("brgy.") || p.toLowerCase().startsWith("barangay"));
   if (brgyPart) {
     result.barangay = brgyPart.replace(/brgy\.\s*/i, "").replace(/barangay\s*/i, "");
   }
-  
-  const streetPart = parts.find(p => 
-    p !== housePart && 
-    p !== brgyPart && 
-    !p.toLowerCase().includes("mapandan") && 
+
+  const streetPart = parts.find(p =>
+    p !== housePart &&
+    p !== brgyPart &&
+    !p.toLowerCase().includes("mapandan") &&
     !p.toLowerCase().includes("pangasinan")
   );
   if (streetPart) {
     result.street = streetPart;
   }
-  
+
   return result;
 }
 
@@ -363,31 +367,31 @@ const getDisplayStatusDetails = (app: any) => {
     return { label: "CANCELLED", colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" };
   }
   if (app.status === "REJECTED" || (app.status === "EVALUATED" && app.additionalData?.zoningStatus === "REJECTED")) {
-    return { 
-      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED", 
-      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" 
+    return {
+      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED",
+      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
     };
   }
   if (app.status === "RELEASED" || app.status === "DELIVERED") {
-    return { 
-      label: app.status.replace(/_/g, ' '), 
-      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" 
+    return {
+      label: app.status.replace(/_/g, ' '),
+      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
     };
   }
-  
+
   if (app.status === "EVALUATED" && app.additionalData?.zoningStatus) {
     if (app.additionalData.zoningStatus === "EVALUATED") {
       return { label: "ZONING EVALUATED", colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" };
     }
-    return { 
-      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`, 
-      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+    return {
+      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`,
+      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
     };
   }
 
-  return { 
-    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING", 
-    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+  return {
+    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING",
+    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
   };
 };
 
@@ -406,6 +410,9 @@ export default function BuildingPermitPage() {
   const [currentStep, setCurrentStep] = useState("GUIDE");
   const [hasReadGuide, setHasReadGuide] = useState(true);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
+  const [existingSearchQuery, setExistingSearchQuery] = useState("");
+  const [existingCurrentPage, setExistingCurrentPage] = useState(1);
+  const EXISTING_ITEMS_PER_PAGE = 5;
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
   const [barangayList, setBarangayList] = useState<string[]>([]);
@@ -525,6 +532,7 @@ export default function BuildingPermitPage() {
     locationStreet: "",
     locationBarangay: "",
     isLotOwner: "",
+    isOwnerDeceased: false,
     totalFloors: "",
     newIdFile: null as File | null,
     newIdFileBack: null as File | null,
@@ -587,7 +595,7 @@ export default function BuildingPermitPage() {
       formData.locationBarangay ? `Brgy. ${formData.locationBarangay}` : "",
       "Mapandan, Pangasinan"
     ].filter(Boolean);
-    
+
     const combined = parts.join(", ");
     setFormData(prev => {
       if (combined !== prev.locationOfConstruction) {
@@ -628,12 +636,14 @@ export default function BuildingPermitPage() {
     }
   }, [currentStep, maxStepIdx]);
 
-  const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
+  const isOwnerDeceased = formData.isOwnerDeceased === true;
+  const isAffidavitOfConsentRequired = formData.isLotOwner === "No" && !isOwnerDeceased;
   const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
   const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
     .filter(index => {
-      if ([2, 5, 8, 13, 14].includes(index)) return false;
-      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(index)) return false;
+      if ([2, 5, 8].includes(index)) return false;
+      if (!isOwnerDeceased && [13, 14].includes(index)) return false;
+      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12].includes(index)) return false;
       if (isAffidavitOfConsentRequired && [21, 22].includes(index)) return false;
       if (!hasMultipleFloors && [23, 24].includes(index)) return false;
       return true;
@@ -674,8 +684,8 @@ export default function BuildingPermitPage() {
     "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
     "Cedula of Lot Owner",
     "ID of Lot Owner",
-    "Death Certificate of Lot Owner (Optional)",
-    "Birth Certificate of Heirs of Deceased Owner (Optional)",
+    "Death Certificate of Lot Owner",
+    "Birth Certificate of Heirs of Deceased Owner",
     "Valid Licenses (PRC I.D.) of Involved Professionals",
     "Duly Notarized Estimated Value of Building/Structure",
     "Duly Notarized Technical Specification",
@@ -730,6 +740,8 @@ export default function BuildingPermitPage() {
     init();
   }, []);
 
+
+
   useEffect(() => {
     if (selectedApplication) {
       const addData = selectedApplication.additionalData as any || {};
@@ -763,6 +775,7 @@ export default function BuildingPermitPage() {
         locationStreet: parsedLoc.street,
         locationBarangay: parsedLoc.barangay,
         isLotOwner: addData.isLotOwner || "",
+        isOwnerDeceased: addData.isOwnerDeceased || false,
         totalFloors: addData.totalFloors !== undefined ? String(addData.totalFloors) : "",
         newIdFile: null,
         newIdFileBack: null,
@@ -782,7 +795,7 @@ export default function BuildingPermitPage() {
       // Load custom requirements
       const docs = addData.documents || {};
       const labels = addData.customLabels || {};
-      
+
       const loadedReqs: { label: string }[] = [];
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
@@ -1290,7 +1303,7 @@ export default function BuildingPermitPage() {
         if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(i)) continue;
         if (isAffidavitOfConsentRequired && [21, 22].includes(i)) continue;
         if (!hasMultipleFloors && [23, 24].includes(i)) continue;
-        
+
         const file = uploadedRequirements[i];
         if (file) {
           if (typeof file === "string") {
@@ -1416,6 +1429,7 @@ export default function BuildingPermitPage() {
       data.append("estimatedCost", formData.estimatedCost);
       data.append("locationOfConstruction", formData.locationOfConstruction);
       data.append("isLotOwner", formData.isLotOwner);
+      data.append("isOwnerDeceased", formData.isOwnerDeceased ? "true" : "false");
       data.append("houseNumber", formData.locationHouseNumber);
       data.append("street", formData.locationStreet);
       data.append("barangay", formData.locationBarangay);
@@ -1561,11 +1575,11 @@ export default function BuildingPermitPage() {
                       isCompleted ? "" :
                         "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                   )}
-                  style={isCompleted && !isActive ? {
-                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
-                    color: themeColor,
-                    borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
-                  } : undefined}>
+                    style={isCompleted && !isActive ? {
+                      backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
+                      color: themeColor,
+                      borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
+                    } : undefined}>
                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                   </div>
                   <span className={cn(
@@ -1602,158 +1616,241 @@ export default function BuildingPermitPage() {
           </div>
         )}
 
-        {!loading && currentStep === "EXISTING" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
-                Existing <span className="text-primary italic">Applications</span>
-              </h2>
-              <p className="text-slate-500 font-medium italic text-xs md:text-lg uppercase tracking-widest max-w-2xl mx-auto mt-2">
-                We found existing Building Permit records under your name.
-              </p>
-            </div>
+        {!loading && currentStep === "EXISTING" && (() => {
+          const handleStartNewApp = () => {
+            setSelectedApplication(null);
+            setSignatureUrl(null);
+            setFormData({
+              descriptionOfWork: "",
+              scopeNewConstruction: false,
+              scopeAddition: false,
+              scopeAdditionText: "",
+              scopeRepair: false,
+              scopeRepairText: "",
+              scopeRenovation: false,
+              scopeRenovationText: "",
+              scopeDemolition: false,
+              scopeDemolitionText: "",
+              scopeOthers1: false,
+              scopeOthers1Text1: "",
+              scopeOthers1Text2: "",
+              scopeOthers2: false,
+              scopeOthers2Text1: "",
+              scopeOthers2Text2: "",
+              descriptionOfWorkLegacyText: "",
+              occupancyCategory: "",
+              selectedSubOccupancies: [],
+              subOccupancyOthersSpecify: "",
+              estimatedCost: "",
+              locationOfConstruction: "",
+              locationHouseNumber: "",
+              locationStreet: "",
+              locationBarangay: "",
+              isLotOwner: "",
+              isOwnerDeceased: false,
+              totalFloors: "",
+              newIdFile: null,
+              newIdFileBack: null,
+              tctFile: null,
+              occupancyUse: "Residential (Single Family)",
+              otherOccupancyUse: "",
+            });
+            setUploadedRequirements({});
+            setUploadedPermits({});
+            setCurrentStep("GUIDE");
+          };
 
-            <div className="grid gap-4">
-              {existingApplications.map((app, idx) => (
-                <div
-                  key={app.id || idx}
-                  onClick={() => {
-                    setSelectedApplication(app);
-                    const parsedLoc = parseLocationString(app.additionalData?.locationOfConstruction || "");
-                    setFormData(prev => ({
-                      ...prev,
-                      descriptionOfWork: app.additionalData?.descriptionOfWork || "",
-                      occupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? "Other" : (app.additionalData?.occupancyUse || "Residential (Single Family)"),
-                      otherOccupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? app.additionalData.occupancyUse.replace("Other - ", "") : "",
-                      estimatedCost: app.additionalData?.estimatedCost || "",
-                      locationOfConstruction: app.additionalData?.locationOfConstruction || "",
-                      locationHouseNumber: parsedLoc.houseNumber,
-                      locationStreet: parsedLoc.street,
-                      locationBarangay: parsedLoc.barangay,
-                      isLotOwner: app.additionalData?.isLotOwner || "",
-                      totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
-                      newIdFile: null,
-                      newIdFileBack: null,
-                      tctFile: null
-                    }));
-                    setIsRevision(false);
-                    setIsZoningRevision(false);
-                    let newMaxIdx = 3;
-                    let initialStep = "EVALUATION";
-                    if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(app.status)) {
-                      newMaxIdx = 5;
-                      initialStep = "SUBMIT";
-                    } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(app.status)) {
-                      newMaxIdx = 4;
-                      initialStep = "BFP";
-                    }
-                    setMaxStepIdx(newMaxIdx);
-                    setCurrentStep(initialStep);
-                  }}
-                  className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6 flex items-center justify-between cursor-pointer hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/10 transition-all group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Building2 className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-sm md:text-base">
-                        Application {app.id?.substring(0, 8).toUpperCase()}
-                      </p>
-                      <p className="text-xs text-slate-500 font-medium mt-1">
-                        Submitted: {new Date(app.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {/* UPDATED: Dynamic styling kapag cancelled, rejected, or released yung application */}
-                    {(() => {
-                      const statusDetails = getDisplayStatusDetails(app);
-                      return (
-                        <span className={cn(
-                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
-                          statusDetails.colorClass
-                        )}>
-                          {statusDetails.label}
-                        </span>
-                      );
-                    })()}
+          const filteredApps = existingApplications.filter(app => {
+            if (!existingSearchQuery.trim()) return true;
+            const q = existingSearchQuery.toLowerCase().trim();
+            const idMatch = app.id?.toLowerCase().includes(q);
+            const locationMatch = app.additionalData?.locationOfConstruction?.toLowerCase().includes(q);
+            const statusDetails = getDisplayStatusDetails(app);
+            const statusMatch = statusDetails.label?.toLowerCase().includes(q) || app.status?.toLowerCase().includes(q);
+            return idMatch || locationMatch || statusMatch;
+          });
 
-                    <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
-                      →
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          const totalPages = Math.ceil(filteredApps.length / EXISTING_ITEMS_PER_PAGE) || 1;
+          const paginatedApps = filteredApps.slice(
+            (existingCurrentPage - 1) * EXISTING_ITEMS_PER_PAGE,
+            existingCurrentPage * EXISTING_ITEMS_PER_PAGE
+          );
 
-            {hasActiveApplication && (
-              <div className="mt-8 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
-                <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(59,130,246,0.05)]">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 mb-1">
-                    <AlertCircle className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">
-                    Active Application In Progress
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans">
-                    You currently have an active building permit application. You may still apply for a new permit for another property or project by clicking the button below.
+          return (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              {/* Header with Relocated Primary Action */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm">
+                <div>
+                  <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                    Application <span className="text-primary italic">History</span>
+                  </h2>
+                  <p className="text-slate-500 font-medium italic text-xs md:text-sm uppercase tracking-widest mt-1">
+                    Comprehensive record of your past and active Building Permit applications.
                   </p>
                 </div>
+                <button
+                  onClick={handleStartNewApp}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-500/20 shrink-0 self-start md:self-auto cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Start New Application</span>
+                </button>
               </div>
-            )}
 
-            <div className="mt-8 flex justify-center border-t border-slate-200 dark:border-white/10 pt-8">
-              <button
-                onClick={() => {
-                  setSelectedApplication(null);
-                  setSignatureUrl(null);
-                  setFormData({
-                    descriptionOfWork: "",
-                    scopeNewConstruction: false,
-                    scopeAddition: false,
-                    scopeAdditionText: "",
-                    scopeRepair: false,
-                    scopeRepairText: "",
-                    scopeRenovation: false,
-                    scopeRenovationText: "",
-                    scopeDemolition: false,
-                    scopeDemolitionText: "",
-                    scopeOthers1: false,
-                    scopeOthers1Text1: "",
-                    scopeOthers1Text2: "",
-                    scopeOthers2: false,
-                    scopeOthers2Text1: "",
-                    scopeOthers2Text2: "",
-                    descriptionOfWorkLegacyText: "",
-                    occupancyCategory: "",
-                    selectedSubOccupancies: [],
-                    subOccupancyOthersSpecify: "",
-                    estimatedCost: "",
-                    locationOfConstruction: "",
-                    locationHouseNumber: "",
-                    locationStreet: "",
-                    locationBarangay: "",
-                    isLotOwner: "",
-                    totalFloors: "",
-                    newIdFile: null,
-                    newIdFileBack: null,
-                    tctFile: null,
-                    occupancyUse: "Residential (Single Family)",
-                    otherOccupancyUse: "",
-                  });
-                  setUploadedRequirements({});
-                  setUploadedPermits({});
-                  setCurrentStep("GUIDE");
-                }}
-                className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20"
-              >
-                Start a New Application
-                <span className="text-xl leading-none">+</span>
-              </button>
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={existingSearchQuery}
+                  onChange={(e) => {
+                    setExistingSearchQuery(e.target.value);
+                    setExistingCurrentPage(1);
+                  }}
+                  placeholder="Search by Application ID (e.g. CMSA2JGJ), location, or status..."
+                  className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
+                />
+                {existingSearchQuery && (
+                  <button
+                    onClick={() => setExistingSearchQuery("")}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-wider"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Applications List */}
+              {paginatedApps.length > 0 ? (
+                <div className="grid gap-4">
+                  {paginatedApps.map((app, idx) => (
+                    <div
+                      key={app.id || idx}
+                      onClick={() => {
+                        setSelectedApplication(app);
+                        const parsedLoc = parseLocationString(app.additionalData?.locationOfConstruction || "");
+                        setFormData(prev => ({
+                          ...prev,
+                          descriptionOfWork: app.additionalData?.descriptionOfWork || "",
+                          occupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? "Other" : (app.additionalData?.occupancyUse || "Residential (Single Family)"),
+                          otherOccupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? app.additionalData.occupancyUse.replace("Other - ", "") : "",
+                          estimatedCost: app.additionalData?.estimatedCost || "",
+                          locationOfConstruction: app.additionalData?.locationOfConstruction || "",
+                          locationHouseNumber: parsedLoc.houseNumber,
+                          locationStreet: parsedLoc.street,
+                          locationBarangay: parsedLoc.barangay,
+                          isLotOwner: app.additionalData?.isLotOwner || "",
+                          isOwnerDeceased: app.additionalData?.isOwnerDeceased || false,
+                          totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
+                          newIdFile: null,
+                          newIdFileBack: null,
+                          tctFile: null
+                        }));
+                        setIsRevision(false);
+                        setIsZoningRevision(false);
+                        let newMaxIdx = 3;
+                        let initialStep = "EVALUATION";
+                        if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(app.status)) {
+                          newMaxIdx = 5;
+                          initialStep = "SUBMIT";
+                        } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(app.status)) {
+                          newMaxIdx = 4;
+                          initialStep = "BFP";
+                        }
+                        setMaxStepIdx(newMaxIdx);
+                        setCurrentStep(initialStep);
+                      }}
+                      className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6 flex items-center justify-between cursor-pointer hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/10 transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                          <Building2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-sm md:text-base">
+                            Application {app.id?.substring(0, 8).toUpperCase()}
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            Submitted: {new Date(app.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {(() => {
+                          const statusDetails = getDisplayStatusDetails(app);
+                          return (
+                            <span className={cn(
+                              "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
+                              statusDetails.colorClass
+                            )}>
+                              {statusDetails.label}
+                            </span>
+                          );
+                        })()}
+
+                        <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
+                          →
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2">
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">
+                    No matching records found
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Try adjusting your search query or clear the filter.
+                  </p>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Showing Page {existingCurrentPage} of {totalPages} ({filteredApps.length} Total Records)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={existingCurrentPage === 1}
+                      onClick={() => setExistingCurrentPage(prev => Math.max(prev - 1, 1))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Previous</span>
+                    </button>
+                    <button
+                      disabled={existingCurrentPage === totalPages}
+                      onClick={() => setExistingCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {hasActiveApplication && (
+                <div className="mt-8 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
+                  <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(59,130,246,0.05)]">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 mb-1">
+                      <AlertCircle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">
+                      Active Application In Progress
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans">
+                      You currently have an active building permit application. You may still apply for a new permit for another property or project by clicking the button above.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
 
         {!loading && currentStep === "GUIDE" && (
@@ -1996,7 +2093,7 @@ export default function BuildingPermitPage() {
                   </div>
 
                   {/* Government ID Card */}
-                      <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
+                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary opacity-50 group-hover:opacity-100 transition-opacity rounded-l-2xl"></div>
                     <div className="flex items-center gap-2 mb-4">
                       <Book className="w-5 h-5 text-primary" />
@@ -2144,6 +2241,7 @@ export default function BuildingPermitPage() {
                                 file={formData.newIdFile}
                                 existingUrl={effectiveDocuments?.newIdFile}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
+                                onClear={() => setFormData({ ...formData, newIdFile: null })}
                                 onView={() => {
                                   if (formData.newIdFile) {
                                     setViewerFile(formData.newIdFile);
@@ -2167,6 +2265,7 @@ export default function BuildingPermitPage() {
                                 file={formData.newIdFileBack}
                                 existingUrl={effectiveDocuments?.newIdFileBack}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
+                                onClear={() => setFormData({ ...formData, newIdFileBack: null })}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
@@ -2455,6 +2554,7 @@ export default function BuildingPermitPage() {
                           file={formData.tctFile}
                           existingUrl={effectiveDocuments?.tctFile}
                           onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
+                          onClear={() => setFormData({ ...formData, tctFile: null })}
                           onView={() => {
                             if (formData.tctFile) {
                               setViewerFile(formData.tctFile);
@@ -2635,7 +2735,7 @@ export default function BuildingPermitPage() {
                             <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                               Barangay <span className="text-red-500">*</span>
                             </label>
-                            
+
                             <button
                               type="button"
                               onClick={() => isEditable && setIsBrgyDropdownOpen(!isBrgyDropdownOpen)}
@@ -2711,7 +2811,7 @@ export default function BuildingPermitPage() {
                         <Select
                           value={formData.isLotOwner}
                           onValueChange={value => {
-                            setFormData({ ...formData, isLotOwner: value });
+                            setFormData({ ...formData, isLotOwner: value, isOwnerDeceased: value === "Yes" ? false : formData.isOwnerDeceased });
                             if (value === "Yes") {
                               setUploadedRequirements(prev => {
                                 const next = { ...prev };
@@ -2735,6 +2835,40 @@ export default function BuildingPermitPage() {
                             <SelectItem value="No">No</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {formData.isLotOwner === "No" && (
+                          <div className="flex items-center space-x-3 py-1 mt-4">
+                            <Checkbox
+                              id="is-owner-deceased"
+                              checked={formData.isOwnerDeceased}
+                              disabled={!isEditable}
+                              onCheckedChange={checked => {
+                                const isChecked = !!checked;
+                                setFormData({ ...formData, isOwnerDeceased: isChecked });
+                                if (!isChecked) {
+                                  setUploadedRequirements(prev => {
+                                    const next = { ...prev };
+                                    delete next[13];
+                                    delete next[14];
+                                    return next;
+                                  });
+                                } else {
+                                  setUploadedRequirements(prev => {
+                                    const next = { ...prev };
+                                    delete next[7];
+                                    delete next[10];
+                                    delete next[11];
+                                    delete next[12];
+                                    return next;
+                                  });
+                                }
+                              }}
+                            />
+                            <label htmlFor="is-owner-deceased" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                              The registered lot owner is deceased (Applicant is an heir)
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2820,15 +2954,15 @@ export default function BuildingPermitPage() {
                         setCurrentStep("DOCUMENTS");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                       className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
-                       style={{
-                         backgroundColor: themeColor,
-                         boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                       }}
-                     >
-                       Next: Upload Requirements & Documents
-                       <span className="text-xl leading-none">→</span>
-                     </button>
+                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
+                      style={{
+                        backgroundColor: themeColor,
+                        boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                      }}
+                    >
+                      Next: Upload Requirements & Documents
+                      <span className="text-xl leading-none">→</span>
+                    </button>
                   </div>
                 </>
               )}
@@ -2849,6 +2983,7 @@ export default function BuildingPermitPage() {
               documentRequirementsList={documentRequirementsList}
               customRequirements={customRequirements}
               isAffidavitOfConsentRequired={isAffidavitOfConsentRequired}
+              isOwnerDeceased={formData.isOwnerDeceased}
               hasMultipleFloors={hasMultipleFloors}
               permitTypesList={permitTypesList}
               customPermits={customPermits}

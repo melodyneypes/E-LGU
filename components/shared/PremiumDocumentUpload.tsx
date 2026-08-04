@@ -27,6 +27,7 @@ export default function PremiumDocumentUpload({
     previewUrl,
     existingUrl,
     onFileSelect,
+    onClear,
     onView,
     error = false,
     infoText = "PDF / IMAGE (MAX 5MB)",
@@ -208,19 +209,31 @@ export default function PremiumDocumentUpload({
                             type="button"
                             onClick={onView}
                             className={cn(
-                                "font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-4 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 transition-all duration-300 truncate",
+                                "font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 transition-all duration-300 truncate",
                                 disabled ? "w-full flex-none" : "flex-1"
                             )}
                         >
-                            View Document
+                            View
                         </button>
                         {!disabled && (
                             <button
                                 type="button"
                                 onClick={triggerUpload}
-                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-4 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300 truncate"
+                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300 truncate"
                             >
                                 Change
+                            </button>
+                        )}
+                        {!disabled && onClear && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                }}
+                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-red-200 dark:border-red-500/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex-1 transition-all duration-300 truncate"
+                            >
+                                Remove
                             </button>
                         )}
                      </>

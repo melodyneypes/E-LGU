@@ -46,6 +46,9 @@ export async function submitBuildingPermit(formData: FormData) {
       }
     }
 
+    const isOwnerDeceasedVal = formData.get("isOwnerDeceased") as string;
+    const isOwnerDeceased = isOwnerDeceasedVal === "true";
+
     // Prepare JSON for additional Data
     const additionalData: any = {
       descriptionOfWork,
@@ -53,6 +56,7 @@ export async function submitBuildingPermit(formData: FormData) {
       estimatedCost,
       locationOfConstruction,
       isLotOwner,
+      isOwnerDeceased,
       houseNumber,
       street,
       barangay,
@@ -120,6 +124,13 @@ export async function submitBuildingPermit(formData: FormData) {
     });
 
     revalidatePath("/user/transactions");
+    try {
+      const { broadcastRealtimeUpdate } = await import("@/app/api/realtime/stream/route");
+      broadcastRealtimeUpdate({ type: "BUILDING_PERMIT_SUBMITTED", transactionId: transaction.id });
+    } catch {
+      // Ignore broadcast errors in server context
+    }
+
     return { success: true, transactionId: transaction.id };
 
   } catch (error) {
@@ -235,11 +246,16 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const totalFloorsVal = formData.get("totalFloors") as string;
     const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
+    const isOwnerDeceasedVal = formData.get("isOwnerDeceased") as string;
+
     if (descriptionOfWork) additionalData.descriptionOfWork = descriptionOfWork;
     if (occupancyUse) additionalData.occupancyUse = occupancyUse;
     if (estimatedCost) additionalData.estimatedCost = estimatedCost;
     if (locationOfConstruction) additionalData.locationOfConstruction = locationOfConstruction;
     if (isLotOwner) additionalData.isLotOwner = isLotOwner;
+    if (isOwnerDeceasedVal !== null && isOwnerDeceasedVal !== undefined) {
+      additionalData.isOwnerDeceased = isOwnerDeceasedVal === "true";
+    }
     if (houseNumber) additionalData.houseNumber = houseNumber;
     if (street) additionalData.street = street;
     if (barangay) additionalData.barangay = barangay;
