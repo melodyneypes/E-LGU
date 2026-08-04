@@ -1,5 +1,6 @@
 
 "use client";
+"use client";
 
 import React, { useState, useEffect, use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,7 +9,8 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     BadgeCheck,
-    Check
+    Check,
+    XCircle
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -70,6 +72,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const [reinspectTime, setReinspectTime] = useState("");
     const [reinspectInspector, setReinspectInspector] = useState("");
     const [reinspectType, setReinspectType] = useState("Structural Inspection");
+    const [reinspectErrors, setReinspectErrors] = useState<{ reason?: string; date?: string; time?: string; inspectorName?: string }>({});
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -110,8 +113,39 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     };
 
     const handleReinspect = async () => {
-        if (!reinspectReason) { toast.error("Reason required"); return; }
-        if (!reinspectDate || !reinspectTime || !reinspectInspector) { toast.error("Please fill in Date, Time, and Inspector"); return; }
+        const missing: string[] = [];
+        const errs: { reason?: string; date?: string; time?: string; inspectorName?: string } = {};
+
+        if (!reinspectReason.trim()) {
+            missing.push("Reason");
+            errs.reason = "Reason is required.";
+        }
+        if (!reinspectDate) {
+            missing.push("Date");
+            errs.date = "Date is required.";
+        }
+        if (!reinspectTime) {
+            missing.push("Time");
+            errs.time = "Time is required.";
+        }
+        if (!reinspectInspector.trim()) {
+            missing.push("Inspector Name");
+            errs.inspectorName = "Inspector Name is required.";
+        }
+
+        setReinspectErrors(errs);
+
+        if (missing.length > 0) {
+            toast.error(`Please fill in the missing field${missing.length > 1 ? 's' : ''}: ${missing.join(", ")}`);
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (reinspectDate < todayStr) {
+            setReinspectErrors({ date: "Re-inspection date cannot be in the past." });
+            toast.error("Re-inspection date cannot be in the past.");
+            return;
+        }
         setActionLoading(true);
         try {
             const res = await markForReinspection(id, reinspectReason, {
@@ -130,7 +164,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
             setActionLoading(false);
         }
     };
-
 
     if (loading) {
         return (
@@ -151,14 +184,25 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
         { id: "FOR_REINSPECTION", label: "RE-INSPECTION" },
         { id: "EVALUATED", label: "FEE ASSESSMENT" }
     ];
+    const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true || zoningStatus === "REJECTED";
     const getStepIndex = (status: string) => {
         if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4;
+        return -1;
     };
-    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
+    const currentStepIdx = isRejected ? -1 : getStepIndex(zoningStatus || "FOR_REQUESTING");
+
+    const getRejectedStepIndex = () => {
+        const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
+        if (rejectedPhase === "FOR_INSPECTION") return 1;
+        if (rejectedPhase === "FOR_REINSPECTION") return 2;
+        if (rejectedPhase === "EVALUATED" || rejectedPhase === "FEE_ASSESSMENT") return 3;
+        if (rejectedPhase === "FOR_REQUESTING" || rejectedPhase === "EVALUATION") return 0;
+        return 1;
+    };
+    const rejectedStepIdx = isRejected ? getRejectedStepIndex() : -1;
 
     return (
         <div
@@ -377,8 +421,9 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                     }
                                 };
                                 return steps.map((step, idx) => {
-                                    const isCompleted = idx < currentStepIdx;
-                                    const isActive = idx === currentStepIdx;
+                                    const isRejectedStep = isRejected && idx === rejectedStepIdx;
+                                    const isCompleted = !isRejected ? (idx < currentStepIdx) : (idx < rejectedStepIdx);
+                                    const isActive = !isRejected && (idx === currentStepIdx);
                                     return (
                                         <div
                                             key={step.id}
@@ -387,14 +432,33 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                                 }`}
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
-                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
-                                                        "bg-slate-900 border-white/10 text-slate-500"
-                                                    }`}>
-                                                    {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isRejectedStep
+                                                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20 scale-110"
+                                                        : isCompleted
+                                                        ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20"
+                                                        : isActive
+                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110"
+                                                        : "bg-slate-900 border-white/10 text-slate-500"
+                                                }`}>
+                                                    {isRejectedStep ? (
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                    ) : isCompleted ? (
+                                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                        <span className="text-[10px] font-black">{idx + 1}</span>
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{step.label}</p>
+                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${
+                                                        isRejectedStep
+                                                            ? "text-red-400 font-bold"
+                                                            : isActive
+                                                            ? "text-white"
+                                                            : "text-slate-400"
+                                                    }`}>
+                                                        {step.label} {isRejectedStep ? "(REJECTED)" : ""}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -424,10 +488,19 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                                 Mark for <span className="text-blue-600">Re-Inspection</span>
                                             </DialogTitle>
                                         </DialogHeader>
-                                        <div className="space-y-6 py-6">
+                                        <div className="space-y-6">
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reason for Re-Inspection <span className="text-red-500">*</span></Label>
-                                                <Textarea placeholder="State reason..." value={reinspectReason} onChange={(e) => setReinspectReason(e.target.value)} className="min-h-[80px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold p-6 text-sm" required />
+                                                <Textarea 
+                                                    placeholder="State reason..." 
+                                                    value={reinspectReason} 
+                                                    onChange={(e) => {
+                                                        setReinspectReason(e.target.value);
+                                                        if (reinspectErrors.reason) setReinspectErrors(prev => ({ ...prev, reason: undefined }));
+                                                    }} 
+                                                    className={`min-h-[80px] rounded-2xl bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold p-6 text-sm ${reinspectErrors.reason ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                />
+                                                {reinspectErrors.reason && <p className="text-[10px] text-red-500 font-medium ml-1">{reinspectErrors.reason}</p>}
                                             </div>
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Inspection Type <span className="text-red-500">*</span></Label>
@@ -441,19 +514,47 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-3">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Date <span className="text-red-500">*</span></Label>
-                                                    <Input type="date" value={reinspectDate} onChange={(e) => setReinspectDate(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                                    <Input 
+                                                        type="date" 
+                                                        min={new Date().toISOString().split("T")[0]} 
+                                                        value={reinspectDate} 
+                                                        onChange={(e) => {
+                                                            setReinspectDate(e.target.value);
+                                                            if (reinspectErrors.date) setReinspectErrors(prev => ({ ...prev, date: undefined }));
+                                                        }} 
+                                                        className={`h-12 rounded-2xl bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4 ${reinspectErrors.date ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                    />
+                                                    {reinspectErrors.date && <p className="text-[10px] text-red-500 font-medium ml-1">{reinspectErrors.date}</p>}
                                                 </div>
                                                 <div className="space-y-3">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Time <span className="text-red-500">*</span></Label>
-                                                    <Input type="time" value={reinspectTime} onChange={(e) => setReinspectTime(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                                    <Input 
+                                                        type="time" 
+                                                        value={reinspectTime} 
+                                                        onChange={(e) => {
+                                                            setReinspectTime(e.target.value);
+                                                            if (reinspectErrors.time) setReinspectErrors(prev => ({ ...prev, time: undefined }));
+                                                        }} 
+                                                        className={`h-12 rounded-2xl bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4 ${reinspectErrors.time ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                    />
+                                                    {reinspectErrors.time && <p className="text-[10px] text-red-500 font-medium ml-1">{reinspectErrors.time}</p>}
                                                 </div>
                                             </div>
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Assigned Inspector <span className="text-red-500">*</span></Label>
-                                                <Input placeholder="Engr. Santos" value={reinspectInspector} onChange={(e) => setReinspectInspector(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                                <Input 
+                                                    placeholder="Engr. Santos" 
+                                                    value={reinspectInspector} 
+                                                    onChange={(e) => {
+                                                        setReinspectInspector(e.target.value);
+                                                        if (reinspectErrors.inspectorName) setReinspectErrors(prev => ({ ...prev, inspectorName: undefined }));
+                                                    }} 
+                                                    className={`h-12 rounded-2xl bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4 ${reinspectErrors.inspectorName ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                />
+                                                {reinspectErrors.inspectorName && <p className="text-[10px] text-red-500 font-medium ml-1">{reinspectErrors.inspectorName}</p>}
                                             </div>
                                         </div>
-                                        <Button onClick={handleReinspect} disabled={actionLoading || !reinspectReason.trim() || !reinspectDate || !reinspectTime || !reinspectInspector} className="w-full h-14 bg-blue-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl">
+                                        <Button onClick={handleReinspect} disabled={actionLoading} className="w-full h-14 bg-blue-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl">
                                             {actionLoading ? "Processing..." : "Confirm Re-Inspection"}
                                         </Button>
                                     </DialogContent>

@@ -1,5 +1,8 @@
 "use server";
 
+// Simple in-memory cache for matched health center per user to reduce DB queries on navigation
+const matchedCenterCache = new Map<string, any>();
+
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -11,30 +14,46 @@ async function getSession() {
 
 export async function getMatchedCenterForUser(user: any) {
     if (!user) return null;
-    const role = user.role;
+    // Use a cache key that uniquely identifies the user (email is typically unique)
+    const cacheKey = (user.email || String(user.id)).toLowerCase();
+    if (matchedCenterCache.has(cacheKey)) {
+        return matchedCenterCache.get(cacheKey);
+    }
+
     const userEmail = (user.email || "").toLowerCase();
     const userName = (user.name || "").toLowerCase();
     const userDept = (user.department || "").toLowerCase();
     const userIdStr = String(user.id);
 
-    const isCenterStaff = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" ||
-        userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas");
-
-    if (!isCenterStaff && role !== "ADMIN") return null;
-    if (role === "ADMIN" && !userEmail.includes("lalas") && !userName.includes("lalas") && !userDept.includes("lalas")) {
-        return null; // Global admin sees all unless specific center account
+    // Global admin accounts (rhu@mapandan.gov.ph or main.rhu@mapandan.gov.ph) without medical personnel link see all centers
+    if (userEmail === "rhu@mapandan.gov.ph" || userEmail === "main.rhu@mapandan.gov.ph") {
+        return null;
     }
 
     try {
         const centers: any[] = await prisma.$queryRaw`
-            SELECT "id", "name", "code", "barangay", "accountEmail", "userId" FROM "RHUHealthCenter"
+            SELECT "id", "name", "code", "barangay", "accountEmail", "userId", "pharmacyEmail", "pharmacyUserId" FROM "RHUHealthCenter"
         `;
 
-        // 1. Priority: keyword matching by email/name (prevents wrong userId DB links)
+        // 1. Direct check in RHUMedicalPersonnel for assigned doctor or medical staff (by userId or email)
+        try {
+            const personnel: any[] = await prisma.$queryRaw`
+                SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
+                WHERE ("userId" = ${userIdStr} OR LOWER("email") = ${userEmail}) 
+                  AND "healthCenterId" IS NOT NULL LIMIT 1
+            `;
+            if (personnel && personnel[0] && personnel[0].healthCenterId) {
+                const matched = centers.find((c: any) => c.id === personnel[0].healthCenterId);
+                if (matched) return matched;
+            }
+        } catch {}
+
+        // 2. Priority: keyword matching by email/name on RHUHealthCenter
         const keywordMatch = centers.find((c: any) => {
             const centerNameLower = String(c.name || "").toLowerCase();
             return (
                 (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
+                (c.pharmacyEmail && String(c.pharmacyEmail).toLowerCase() === userEmail) ||
                 (userEmail.includes("lalas") && centerNameLower.includes("lalas")) ||
                 (userName.includes("lalas") && centerNameLower.includes("lalas")) ||
                 (userDept.includes("lalas") && centerNameLower.includes("lalas")) ||
@@ -44,15 +63,16 @@ export async function getMatchedCenterForUser(user: any) {
 
         if (keywordMatch) return keywordMatch;
 
-        // 2. Fallback: userId match
+        // 3. Fallback: userId match on RHUHealthCenter
         const userIdMatch = centers.find((c: any) =>
-            c.userId && String(c.userId) === userIdStr
+            (c.userId && String(c.userId) === userIdStr) ||
+            (c.pharmacyUserId && String(c.pharmacyUserId) === userIdStr)
         );
         if (userIdMatch) return userIdMatch;
 
     } catch {}
 
-    // 3. Virtual fallback by email/name keywords
+    // 4. Virtual fallback by email/name keywords
     if (userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas")) {
         return {
             id: "lalas-medical-clinic",
@@ -71,6 +91,8 @@ export async function getMatchedCenterForUser(user: any) {
         };
     }
 
+    // Cache the result before returning
+    matchedCenterCache.set(cacheKey, null);
     return null;
 }
 
@@ -115,7 +137,12 @@ export async function getRHUAdminTransactions(params?: {
             andConditions.push({ additionalData: { path: ["rhuStatus"], equals: "REFERRED" } });
         } else if (status === "COMPLETED") {
             andConditions.push({
-                status: { in: ["RELEASED", "DELIVERED"] },
+                OR: [
+                    { status: { in: ["RELEASED", "DELIVERED"] } },
+                    { additionalData: { path: ["rhuStatus"], equals: "COMPLETED" } },
+                    { additionalData: { path: ["rhuStatus"], equals: "DISPENSED" } },
+                    { additionalData: { path: ["rhuStatus"], equals: "RELEASED" } }
+                ],
                 NOT: { additionalData: { path: ["rhuStatus"], equals: "REFERRED" } }
             });
         } else if (status !== "ALL") {
@@ -203,7 +230,7 @@ export async function getRHUAdminTransactions(params?: {
         const isPharmacy = session.user.role === "RHU_PHARMACY" ||
             ((session.user as any).department || "").toUpperCase().includes("PHARMACY");
 
-        const matchedCenter = (showAllCenters || isPharmacy) ? null : await getMatchedCenterForUser(session.user);
+        const matchedCenter = showAllCenters ? null : await getMatchedCenterForUser(session.user);
         let finalData = filteredByCheckup;
 
 
@@ -259,6 +286,7 @@ export async function getRHUAdminTransactions(params?: {
 
         return {
             success: true,
+            centerName: matchedCenter ? matchedCenter.name : null,
             data: paginatedData,
             pagination: {
                 page,
@@ -424,9 +452,7 @@ export async function getRHUDashboardStats() {
             ]
         };
 
-        const isPharmacy = session.user.role === "RHU_PHARMACY" ||
-            ((session.user as any).department || "").toUpperCase().includes("PHARMACY");
-        const matchedCenter = isPharmacy ? null : await getMatchedCenterForUser(session.user);
+        const matchedCenter = await getMatchedCenterForUser(session.user);
         if (matchedCenter) {
             const centerId = matchedCenter.id;
             const centerName = matchedCenter.name;
@@ -492,6 +518,7 @@ export async function getRHUDashboardStats() {
 
         return {
             success: true,
+            centerName: matchedCenter ? matchedCenter.name : null,
             stats: {
                 total,
                 booked,

@@ -58,6 +58,7 @@ import {
     DialogTitle,
     DialogTrigger
 } from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
 
 type RevisionRequestItem = {
     type: "REQUIREMENTS" | "PERMITS";
@@ -417,11 +418,42 @@ export default function EngineerDetailPage({ params }: PageProps) {
         });
     }, [fetchTransaction]);
 
+    // Realtime Supabase Subscription for single transaction detail review
+    useEffect(() => {
+        if (!supabase || !id) return;
+
+        console.log(`[EngineerDetailPage] Subscribing to Supabase Realtime for transaction ${id}...`);
+        const channel = supabase
+            .channel(`realtime-tx-${id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                    filter: `id=eq.${id}`,
+                },
+                (payload: any) => {
+                    console.log(`[EngineerDetailPage] Realtime change caught for transaction ${id}:`, payload);
+                    fetchTransaction();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [id, fetchTransaction]);
+
     useEffect(() => {
         if (transaction) {
             const isBuildingPermit = isEngineeringPermitCode(transaction.type?.code);
             if (isBuildingPermit) {
-                if (transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_REVISION" || transaction.status === "REJECTED") {
+                if (transaction.isCancelled || transaction.status === "CANCELLED") {
+                    router.replace(`/admin/engineer/${id}/evaluation?view=true`);
+                } else if (transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_REVISION" || transaction.status === "REJECTED") {
                     router.replace(`/admin/engineer/${id}/evaluation`);
                 } else if (transaction.status === "FOR_INSPECTION") {
                     router.replace(`/admin/engineer/${id}/inspection`);

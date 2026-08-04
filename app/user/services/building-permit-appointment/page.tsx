@@ -321,29 +321,29 @@ function formatWithCommas(val: string | number) {
 function parseLocationString(loc: string) {
   const result = { houseNumber: "", street: "", barangay: "" };
   if (!loc) return result;
-  
+
   const parts = loc.split(",").map(p => p.trim());
-  
+
   const housePart = parts.find(p => p.toLowerCase().startsWith("no.") || /^\d+$/.test(p));
   if (housePart) {
     result.houseNumber = housePart.replace(/no\.\s*/i, "");
   }
-  
+
   const brgyPart = parts.find(p => p.toLowerCase().startsWith("brgy.") || p.toLowerCase().startsWith("barangay"));
   if (brgyPart) {
     result.barangay = brgyPart.replace(/brgy\.\s*/i, "").replace(/barangay\s*/i, "");
   }
-  
-  const streetPart = parts.find(p => 
-    p !== housePart && 
-    p !== brgyPart && 
-    !p.toLowerCase().includes("mapandan") && 
+
+  const streetPart = parts.find(p =>
+    p !== housePart &&
+    p !== brgyPart &&
+    !p.toLowerCase().includes("mapandan") &&
     !p.toLowerCase().includes("pangasinan")
   );
   if (streetPart) {
     result.street = streetPart;
   }
-  
+
   return result;
 }
 
@@ -378,31 +378,31 @@ const getDisplayStatusDetails = (app: any) => {
     return { label: "CANCELLED", colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" };
   }
   if (app.status === "REJECTED" || (app.status === "EVALUATED" && app.additionalData?.zoningStatus === "REJECTED")) {
-    return { 
-      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED", 
-      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" 
+    return {
+      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED",
+      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
     };
   }
   if (app.status === "RELEASED" || app.status === "DELIVERED") {
-    return { 
-      label: app.status.replace(/_/g, ' '), 
-      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" 
+    return {
+      label: app.status.replace(/_/g, ' '),
+      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
     };
   }
-  
+
   if (app.status === "EVALUATED" && app.additionalData?.zoningStatus) {
     if (app.additionalData.zoningStatus === "EVALUATED") {
       return { label: "ZONING EVALUATED", colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" };
     }
-    return { 
-      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`, 
-      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+    return {
+      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`,
+      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
     };
   }
 
-  return { 
-    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING", 
-    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+  return {
+    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING",
+    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
   };
 };
 
@@ -542,7 +542,7 @@ export default function BuildingPermitAppointmentPage() {
       formData.locationBarangay ? `Brgy. ${formData.locationBarangay}` : "",
       "Mapandan, Pangasinan"
     ].filter(Boolean);
-    
+
     const combined = parts.join(", ");
     setFormData(prev => {
       if (combined !== prev.locationOfConstruction) {
@@ -607,10 +607,10 @@ export default function BuildingPermitAppointmentPage() {
     ...(isRevision && Array.isArray(selectedApplication?.additionalData?.revisionRequests) ? selectedApplication.additionalData.revisionRequests : []),
     ...(isZoningRevision && Array.isArray(selectedApplication?.additionalData?.zoningRevisionRequests) ? selectedApplication.additionalData.zoningRevisionRequests : [])
   ];
-  
+
   const revisionRequests = allRevisionRequests
-        .map((item: any, index: number) => ({ ...item, index }))
-        .filter((item: any) => item?.name);
+    .map((item: any, index: number) => ({ ...item, index }))
+    .filter((item: any) => item?.name);
   const revisionRequestsForTab = revisionRequests.filter((item: any) => item.type === activeDocTab);
   const uploadedRevisionKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("revision_")),
@@ -647,8 +647,8 @@ export default function BuildingPermitAppointmentPage() {
     "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
     "Cedula of Lot Owner",
     "ID of Lot Owner",
-    "Death Certificate of Lot Owner (Optional)",
-    "Birth Certificate of Heirs of Deceased Owner (Optional)",
+    "Death Certificate of Lot Owner",
+    "Birth Certificate of Heirs of Deceased Owner",
     "Valid Licenses (PRC I.D.) of Involved Professionals",
     "Duly Notarized Estimated Value of Building/Structure",
     "Duly Notarized Technical Specification",
@@ -762,7 +762,7 @@ export default function BuildingPermitAppointmentPage() {
       // Load custom requirements
       const docs = addData.documents || {};
       const labels = addData.customLabels || {};
-      
+
       const loadedReqs: { label: string }[] = [];
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
@@ -1507,11 +1507,11 @@ export default function BuildingPermitAppointmentPage() {
                       isCompleted ? "" :
                         "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                   )}
-                  style={isCompleted && !isActive ? {
-                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
-                    color: themeColor,
-                    borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
-                  } : undefined}
+                    style={isCompleted && !isActive ? {
+                      backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
+                      color: themeColor,
+                      borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
+                    } : undefined}
                   >
                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                   </div>
@@ -1971,24 +1971,24 @@ export default function BuildingPermitAppointmentPage() {
                   </div>
 
                   {/* Government ID Card */}
-                      <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
+                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary opacity-50 group-hover:opacity-100 transition-opacity rounded-l-2xl"></div>
                     <div className="flex items-center gap-2 mb-4">
                       <Book className="w-5 h-5 text-primary" />
                       <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg md:text-xl italic">
                         Government ID <span className="text-red-500 text-xl">*</span>
-                    </h3>
-                  </div>
-                  {!isEditable ? (
-                    <div>
-                      {selectedApplication.additionalData?.documents?.newIdFile ? (
+                      </h3>
+                    </div>
+                    {!isEditable ? (
+                      <div>
+                        {selectedApplication.additionalData?.documents?.newIdFile ? (
                           <div className="flex flex-col md:flex-row gap-6">
                             <div className="flex-1">
                               <PremiumDocumentUpload
                                 label="Government ID - Front"
                                 file={null}
                                 existingUrl={selectedApplication.additionalData.documents.newIdFile}
-                                onFileSelect={() => {}}
+                                onFileSelect={() => { }}
                                 onView={() => {
                                   setViewerUrl(selectedApplication.additionalData.documents.newIdFile);
                                   setViewerFile(null);
@@ -2004,7 +2004,7 @@ export default function BuildingPermitAppointmentPage() {
                                   label="Government ID - Back"
                                   file={null}
                                   existingUrl={selectedApplication.additionalData.documents.newIdFileBack}
-                                  onFileSelect={() => {}}
+                                  onFileSelect={() => { }}
                                   onView={() => {
                                     setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack);
                                     setViewerFile(null);
@@ -2401,7 +2401,7 @@ export default function BuildingPermitAppointmentPage() {
                             required={false}
                             file={null}
                             existingUrl={selectedApplication.additionalData?.documents?.tctFile}
-                            onFileSelect={() => {}}
+                            onFileSelect={() => { }}
                             onView={() => {
                               setViewerUrl(selectedApplication.additionalData?.documents?.tctFile || null);
                               setViewerFile(null);
@@ -2597,7 +2597,7 @@ export default function BuildingPermitAppointmentPage() {
                             <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                               Barangay <span className="text-red-500">*</span>
                             </label>
-                            
+
                             <button
                               type="button"
                               onClick={() => isEditable && setIsBrgyDropdownOpen(!isBrgyDropdownOpen)}
@@ -2886,21 +2886,21 @@ export default function BuildingPermitAppointmentPage() {
               {([
                 ...(activeDocTab === "REQUIREMENTS"
                   ? [
-                      ...documentRequirementsList
-                        .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                      ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
-                    ].filter(({ idx, kind }) => {
-                      if (kind === "custom") return true;
-                      if (idx === 5) return false;
-                      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                      if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
-                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                      return true;
-                    })
+                    ...documentRequirementsList
+                      .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
+                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
+                  ].filter(({ idx, kind }) => {
+                    if (kind === "custom") return true;
+                    if (idx === 5) return false;
+                    if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                    if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
+                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                    return true;
+                  })
                   : [
-                      ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                      ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
-                    ]),
+                    ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
+                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
+                  ]),
                 ...revisionRequestsForTab.map((req: any) => ({
                   docName: req.name,
                   idx: req.index,
@@ -3017,18 +3017,18 @@ export default function BuildingPermitAppointmentPage() {
 
             {/* Progress Summary */}
             <div className="space-y-4 mt-8">
-              <div 
+              <div
                 className="border-l-4 p-4 rounded-r-xl flex items-center gap-3"
                 style={{
                   backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
                   borderLeftColor: themeColor
                 }}
               >
-                <UploadCloud 
-                  className="w-5 h-5 shrink-0" 
+                <UploadCloud
+                  className="w-5 h-5 shrink-0"
                   style={{ color: themeColor }}
                 />
-                <p 
+                <p
                   className="text-xs md:text-sm font-bold"
                   style={{ color: themeColor }}
                 >
@@ -3053,14 +3053,14 @@ export default function BuildingPermitAppointmentPage() {
             {/* Signature Block */}
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm mt-8">
               <div className="flex items-center gap-3">
-                <div 
+                <div
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{
                     backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`
                   }}
                 >
-                  <PenTool 
-                    className="w-5 h-5" 
+                  <PenTool
+                    className="w-5 h-5"
                     style={{ color: themeColor }}
                   />
                 </div>
@@ -3087,7 +3087,7 @@ export default function BuildingPermitAppointmentPage() {
                   <p className="text-sm text-slate-500 mb-6">Please sign to acknowledge that all information provided is true and correct.</p>
                   {isRevision && signatureUrl && (
                     <div className="mb-4">
-                      <p 
+                      <p
                         className="text-xs font-bold mb-2"
                         style={{ color: themeColor }}
                       >
@@ -3099,23 +3099,23 @@ export default function BuildingPermitAppointmentPage() {
                     </div>
                   )}
                   <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
-                  <SignaturePad
-                    themeColor={themeColor}
-                    onSave={async (file) => {
-                      if (!file) return;
-                      toast.loading("Uploading signature...", { id: "signature-upload-toast" });
-                      const url = await uploadFileClientSide(file, "signature", "signature");
-                      if (url) {
-                        setSignatureUrl(url);
-                        toast.success("Signature uploaded successfully. Ready to submit!", { id: "signature-upload-toast" });
-                      } else {
-                        toast.error("Failed to upload signature.", { id: "signature-upload-toast" });
-                      }
-                    }}
-                  />
+                    <SignaturePad
+                      themeColor={themeColor}
+                      onSave={async (file) => {
+                        if (!file) return;
+                        toast.loading("Uploading signature...", { id: "signature-upload-toast" });
+                        const url = await uploadFileClientSide(file, "signature", "signature");
+                        if (url) {
+                          setSignatureUrl(url);
+                          toast.success("Signature uploaded successfully. Ready to submit!", { id: "signature-upload-toast" });
+                        } else {
+                          toast.error("Failed to upload signature.", { id: "signature-upload-toast" });
+                        }
+                      }}
+                    />
                   </div>
                   {signatureUrl && (
-                    <div 
+                    <div
                       className="mt-4 p-3 border rounded-xl flex items-center gap-2 text-sm font-bold"
                       style={{
                         backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
@@ -3362,7 +3362,7 @@ export default function BuildingPermitAppointmentPage() {
                           {selectedApplication.status === "REJECTED" ? "Reason for Rejection" : "Revision Remarks"}
                         </p>
                         <p className="whitespace-pre-wrap font-medium">{selectedApplication.rejectionRemarks}</p>
-                        
+
                         {selectedApplication.status === "FOR_REVISION" && selectedApplication.additionalData?.revisionRequests?.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-red-200 dark:border-red-500/20">
                             <p className="font-bold uppercase tracking-widest text-[10px] mb-2 text-red-700 dark:text-red-400">Documents to Revise / Additional Attachments:</p>
@@ -3438,167 +3438,211 @@ export default function BuildingPermitAppointmentPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                      <div className="flex items-start gap-4">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                          !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                            : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
-                        )}>
-                          {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
-                             <Clock className="w-5 h-5" />
-                          ) : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed ? (
-                             <Check className="w-5 h-5" />
-                          ) : (
-                             <MapPin className="w-5 h-5" />
+                {(() => {
+                  const isEngineeringRejected = selectedApplication?.status === "REJECTED";
+                  const isEngineeringCancelled = !!selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED";
+                  const isEngineeringApproved = ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "");
+                  const isZoningRejected = selectedApplication?.additionalData?.zoningStatus === "REJECTED";
+                  const isZoningApproved = !!selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed || selectedApplication?.additionalData?.zoningStatus === "EVALUATED";
+
+                  return (
+                    <>
+                      <div className="space-y-4">
+                        <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
+                        <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                            <div className="flex items-start gap-4">
+                              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                                isEngineeringRejected || isEngineeringCancelled || isZoningRejected
+                                  ? "bg-red-100 text-red-500 dark:bg-red-500/20"
+                                  : !isEngineeringApproved
+                                    ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                                    : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
+                              )}>
+                                {isEngineeringRejected || isEngineeringCancelled || isZoningRejected ? (
+                                   <AlertCircle className="w-5 h-5" />
+                                ) : !isEngineeringApproved ? (
+                                   <Clock className="w-5 h-5" />
+                                ) : isZoningApproved ? (
+                                   <Check className="w-5 h-5" />
+                                ) : (
+                                   <MapPin className="w-5 h-5" />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                                  {isEngineeringRejected
+                                    ? "Zoning Review Halted"
+                                    : isEngineeringCancelled
+                                      ? "Zoning Review Cancelled"
+                                      : !isEngineeringApproved
+                                        ? "Awaiting Engineering Approval"
+                                        : isZoningRejected
+                                          ? "Zoning Review Rejected"
+                                          : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                            ? "Scheduled for Zoning Site Inspection"
+                                            : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                              ? "Scheduled for Zoning Site Re-inspection"
+                                              : isZoningApproved
+                                                ? "Zoning Assessment Endorsed"
+                                                : "Zoning Clearance Under Review"}
+                                </p>
+                                <p className="text-xs text-slate-500 leading-normal">
+                                  {isEngineeringRejected
+                                    ? "Zoning review halted due to Engineering Department rejection."
+                                    : isEngineeringCancelled
+                                      ? "Zoning review halted due to application cancellation."
+                                      : !isEngineeringApproved
+                                        ? "Zoning review will commence once the Engineering Department approves your documents."
+                                        : isZoningRejected
+                                          ? "Your zoning requirements were evaluated and rejected by the MPDC Zoning Office."
+                                          : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                            ? "Your application is scheduled for an upcoming zoning site inspection."
+                                            : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                              ? "Your application requires a zoning site re-inspection. Please check for updates."
+                                              : isZoningApproved
+                                                ? "Your zoning requirements have been evaluated and endorsed by MPDC."
+                                                : "Your documents are currently being reviewed by the MPDC Zoning Office."}
+                                </p>
+                              </div>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                              isEngineeringCancelled
+                                ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                                : isEngineeringRejected || isZoningRejected
+                                  ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                                  : !isEngineeringApproved
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                    : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                      : isZoningApproved
+                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                            )}>
+                              {isEngineeringCancelled
+                                ? "Cancelled"
+                                : isEngineeringRejected || isZoningRejected
+                                  ? "REJECTED"
+                                  : !isEngineeringApproved
+                                    ? "Pending"
+                                    : isZoningApproved
+                                      ? "Approved"
+                                      : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                        ? "For Inspection"
+                                        : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                          ? "For Revision"
+                                          : "Pending Review"}
+                            </span>
+                          </div>
+
+                          {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
+                            <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
+                              <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
+                                {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
+                              </p>
+                              <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
+                            </div>
                           )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Awaiting Engineering Approval"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                ? "Scheduled for Zoning Site Inspection"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                  ? "Scheduled for Zoning Site Re-inspection"
-                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                    ? "Zoning Assessment Endorsed"
-                                    : "Zoning Clearance Under Review"}
-                          </p>
-                          <p className="text-xs text-slate-500 leading-normal">
-                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Zoning review will commence once the Engineering Department approves your documents."
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                ? "Your application is scheduled for an upcoming zoning site inspection."
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                  ? "Your application requires a zoning site re-inspection. Please check for updates."
-                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                    ? "Your zoning requirements have been evaluated and endorsed by MPDC."
-                                    : "Your documents are currently being reviewed by the MPDC Zoning Office."}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                        selectedApplication?.isCancelled
-                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                            : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
-                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                      )}>
-                        {selectedApplication?.isCancelled
-                          ? "Cancelled"
-                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "Pending"
-                            : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                              ? "Approved"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                ? "For Inspection"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                  ? "For Revision"
-                                  : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
-                                    ? "Rejected"
-                                    : "Pending Review"}
-                      </span>
-                    </div>
 
-                    {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
-                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
-                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
-                          {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
-                        </p>
-                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
-                      </div>
-                    )}
-
-                    {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
-                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                          {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
-                          </div>
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
-                          </div>
-                          {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
-                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
-                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
-                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">"{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}"</p>
+                          {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
+                            <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                                {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
+                              </h4>
+                              <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
+                                <div>
+                                  <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
+                                  {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
+                                </div>
+                                <div>
+                                  <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
+                                  {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
+                                  {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
+                                </div>
+                                {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
+                                  <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
+                                    <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
+                                    <p className="italic text-purple-700 dark:text-purple-300 font-medium">&quot;{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}&quot;</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                        ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                          : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                      )}>
-                        {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED") ? (
-                          <Check className="w-5 h-5 text-emerald-500" />
-                        ) : (
-                          <Clock className="w-5 h-5 text-amber-500" />
-                        )}
+                      <div className="space-y-4">
+                        <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
+                        <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start gap-4">
+                            <div className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                              isEngineeringCancelled || isEngineeringRejected || isZoningRejected
+                                ? "bg-red-100 text-red-500 dark:bg-red-500/20"
+                                : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                                  ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
+                                  : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                            )}>
+                              {isEngineeringCancelled || isEngineeringRejected || isZoningRejected ? (
+                                <AlertCircle className="w-5 h-5 text-red-500" />
+                              ) : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED") ? (
+                                <Check className="w-5 h-5 text-emerald-500" />
+                              ) : (
+                                <Clock className="w-5 h-5 text-amber-500" />
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                                {isEngineeringRejected || isZoningRejected
+                                  ? "Endorsement to Treasury Halted"
+                                  : isEngineeringCancelled
+                                    ? "Endorsement to Treasury Cancelled"
+                                    : "Endorsement to Treasury"}
+                              </p>
+                              <p className="text-xs text-slate-500 leading-normal">
+                                {isEngineeringRejected
+                                  ? "Endorsement halted due to Engineering Department rejection."
+                                  : isZoningRejected
+                                    ? "Endorsement halted due to MPDC Zoning Office rejection."
+                                    : isEngineeringCancelled
+                                      ? "Endorsement cancelled due to application cancellation."
+                                      : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                                        ? "Endorsed successfully to Treasury"
+                                        : !isEngineeringApproved
+                                          ? "Awaiting Engineering and Zoning approval"
+                                          : "Awaiting Zoning approval"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                            isEngineeringCancelled || isEngineeringRejected || isZoningRejected
+                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                              : selectedApplication?.status === "UNPAID"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                          )}>
+                            {isEngineeringCancelled
+                              ? "Cancelled"
+                              : isEngineeringRejected || isZoningRejected
+                                ? "REJECTED"
+                                : selectedApplication?.status === "UNPAID"
+                                  ? "Unpaid"
+                                  : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                                    ? "Endorsed"
+                                    : "Pending"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to Treasury</p>
-                        <p className="text-xs text-slate-500 leading-normal">
-                          {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                            ? "Endorsed successfully to Treasury"
-                            : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Awaiting Engineering and Zoning approval"
-                              : "Awaiting Zoning approval"}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                      selectedApplication?.isCancelled || selectedApplication?.status === "REJECTED"
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : selectedApplication?.status === "UNPAID"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                    )}>
-                      {selectedApplication?.isCancelled
-                        ? "Cancelled"
-                        : selectedApplication?.status === "REJECTED"
-                          ? "Rejected"
-                          : selectedApplication?.status === "UNPAID"
-                            ? "Unpaid"
-                            : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                              ? "Endorsed"
-                              : "Pending"}
-                    </span>
-                  </div>
-                </div>
+                    </>
+                  );
+                })()}
 
                 {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (
                   <div className="mt-8 p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in-50 duration-500">

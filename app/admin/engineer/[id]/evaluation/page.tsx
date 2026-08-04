@@ -17,7 +17,10 @@ import {
     AlertCircle,
     BadgeCheck,
     FileText,
-    Trash2
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { getEngineeringPermitLabel } from "@/lib/transactions/engineering-permit";
@@ -50,7 +53,23 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
+function LightboxView({ 
+    src, 
+    alt, 
+    label,
+    onPrev,
+    onNext,
+    currentIndex,
+    totalDocs
+}: { 
+    src: string; 
+    alt: string; 
+    label: string;
+    onPrev?: () => void;
+    onNext?: () => void;
+    currentIndex?: number;
+    totalDocs?: number;
+}) {
     const [scale, setScale] = useState(1);
     const [rotate, setRotate] = useState(0);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -90,6 +109,24 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         setPosition({ x: 0, y: 0 });
     };
 
+    // Bind Keyboard Navigation (ArrowLeft, ArrowRight)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft" && onPrev) {
+                e.preventDefault();
+                onPrev();
+                reset();
+            } else if (e.key === "ArrowRight" && onNext) {
+                e.preventDefault();
+                onNext();
+                reset();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onPrev, onNext]);
+
     return (
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
             <DialogHeader className="sr-only">
@@ -104,6 +141,36 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             >
+                {/* Directional Controls: Left Chevron */}
+                {onPrev && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPrev();
+                            reset();
+                        }}
+                        className="absolute left-6 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/20 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                        title="Previous Document (Left Arrow)"
+                    >
+                        <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+                    </button>
+                )}
+
+                {/* Directional Controls: Right Chevron */}
+                {onNext && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNext();
+                            reset();
+                        }}
+                        className="absolute right-6 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/20 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                        title="Next Document (Right Arrow)"
+                    >
+                        <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                )}
+
                 <div
                     className="relative w-full h-full flex items-center justify-center"
                     style={{
@@ -131,6 +198,13 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
             </div>
 
             <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
+                {typeof currentIndex === "number" && typeof totalDocs === "number" && totalDocs > 0 && (
+                    <div className="flex items-center gap-1.5 pr-4 border-r border-white/15">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 italic whitespace-nowrap">
+                            Document {currentIndex + 1} of {totalDocs}
+                        </span>
+                    </div>
+                )}
                 <div className="flex items-center gap-1 pr-4 border-r border-white/10">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
                 </div>
@@ -179,7 +253,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                     <RefreshCcw className="w-4 h-4" />
                 </Button>
             </div>
-            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active</p>
+            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active • Arrow Keys to Navigate</p>
         </DialogContent>
     );
 }
@@ -208,6 +282,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     const [selectedVaultDocs, setSelectedVaultDocs] = useState<string[]>([]);
+    const [activeDocIndex, setActiveDocIndex] = useState<number | null>(null);
 
     // Schedule Inspection Form State
     const [isSchedulingInspection, setIsSchedulingInspection] = useState(false);
@@ -216,6 +291,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [inspectionTime, setInspectionTime] = useState("");
     const [inspectorName, setInspectorName] = useState("");
     const [inspectionNotes, setInspectionNotes] = useState("");
+    const [scheduleErrors, setScheduleErrors] = useState<{ date?: string; time?: string; inspectorName?: string }>({});
     const canScheduleInspection = transaction?.status === "FOR_REQUESTING";
     const canRequestRevision = transaction?.status === "FOR_REQUESTING";
 
@@ -249,8 +325,8 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
                 "Cedula of Lot Owner",
                 "ID of Lot Owner",
-                "Death Certificate of Lot Owner (Optional)",
-                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Death Certificate of Lot Owner",
+                "Birth Certificate of Heirs of Deceased Owner",
                 "Valid Licenses (PRC I.D.) of Involved Professionals",
                 "Duly Notarized Estimated Value of Building/Structure",
                 "Duly Notarized Technical Specification",
@@ -262,14 +338,17 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "Structural Analysis and Design",
                 "Soil Boring Test"
             ]
-              .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx, type: "REQUIREMENTS" }))
-              .filter(({ idx }) => {
-                  if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                  if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                  const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                  if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                  return true;
-              })),
+                .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx, type: "REQUIREMENTS" }))
+                .filter(({ idx }) => {
+                    const isOwnerDeceased = additional?.isOwnerDeceased === true;
+                    const isAffidavitRequired = additional?.isLotOwner === "No" && !isOwnerDeceased;
+                    if (!isOwnerDeceased && [13, 14].includes(idx)) return false;
+                    if (!isAffidavitRequired && [7, 10, 11, 12].includes(idx)) return false;
+                    if (isAffidavitRequired && [21, 22].includes(idx)) return false;
+                    const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                    return true;
+                })),
             ...Object.keys(additional?.documents || {})
                 .filter(key => key.startsWith("req_"))
                 .map(key => {
@@ -334,8 +413,33 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     }, [fetchTransaction]);
 
     const handleScheduleInspection = async () => {
-        if (!inspectionDate || !inspectionTime || !inspectorName) {
-            toast.error("Please fill in all required fields (Date, Time, Inspector Name)");
+        const missing: string[] = [];
+        const errs: { date?: string; time?: string; inspectorName?: string } = {};
+
+        if (!inspectionDate) {
+            missing.push("Date");
+            errs.date = "Date is required.";
+        }
+        if (!inspectionTime) {
+            missing.push("Time");
+            errs.time = "Time is required.";
+        }
+        if (!inspectorName.trim()) {
+            missing.push("Inspector Name");
+            errs.inspectorName = "Inspector Name is required.";
+        }
+
+        setScheduleErrors(errs);
+
+        if (missing.length > 0) {
+            toast.error(`Please fill in the missing field${missing.length > 1 ? 's' : ''}: ${missing.join(", ")}`);
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (inspectionDate < todayStr) {
+            setScheduleErrors({ date: "Inspection date cannot be in the past." });
+            toast.error("Inspection date cannot be in the past.");
             return;
         }
 
@@ -387,7 +491,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
         if (finalRequests.length === 0) { toast.error("At least one document must be requested"); return; }
-        
+
         let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
         finalRequests.forEach((req, index) => {
             finalRemarks += `${index + 1}. ${req.name}\n`;
@@ -420,31 +524,30 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
             {vaultDocs.map((doc, i) => (
-                <Dialog key={i}>
-                    <DialogTrigger asChild>
-                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
-                            {doc.url?.toLowerCase().includes('.pdf') ? (
-                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
-                                    <FileText className="w-8 h-8 mb-1" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
-                                </div>
-                            ) : (
-                                <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                    <ZoomIn className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="absolute bottom-2 left-2 right-2 z-10">
-                                <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
-                                    {doc.label}
-                                </span>
-                            </div>
+                <div 
+                    key={i}
+                    onClick={() => setActiveDocIndex(i)}
+                    className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in"
+                >
+                    {doc.url?.toLowerCase().includes('.pdf') ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
+                            <FileText className="w-8 h-8 mb-1" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                         </div>
-                    </DialogTrigger>
-                    <LightboxView src={doc.url} alt={doc.label} label={doc.label} />
-                </Dialog>
+                    ) : (
+                        <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                            <ZoomIn className="w-5 h-5 text-white" />
+                        </div>
+                    </div>
+                    <div className="absolute bottom-2 left-2 right-2 z-10">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
+                            {doc.label}
+                        </span>
+                    </div>
+                </div>
             ))}
         </div>
     );
@@ -455,14 +558,25 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         { id: "FOR_REINSPECTION", label: "RE-INSPECTION" },
         { id: "EVALUATED", label: "FEE ASSESSMENT" }
     ];
+
+    const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
     const getStepIndex = (status: string) => {
         if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4;
+        return -1;
     };
-    const currentStepIdx = getStepIndex(transaction.status);
+    const currentStepIdx = isRejected ? -1 : getStepIndex(transaction.status);
+
+    const getRejectedStepIndex = () => {
+        const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
+        if (rejectedPhase === "FOR_INSPECTION") return 1;
+        if (rejectedPhase === "FOR_REINSPECTION") return 2;
+        if (rejectedPhase === "EVALUATED" || rejectedPhase === "FEE_ASSESSMENT") return 3;
+        return 0;
+    };
+    const rejectedStepIdx = isRejected ? getRejectedStepIndex() : -1;
 
     return (
         <div
@@ -769,8 +883,9 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                     }
                                 };
                                 return steps.map((step, idx) => {
-                                    const isCompleted = idx < currentStepIdx;
-                                    const isActive = idx === currentStepIdx;
+                                    const isRejectedStep = isRejected && idx === rejectedStepIdx;
+                                    const isCompleted = !isRejected ? (idx < currentStepIdx) : (idx < rejectedStepIdx);
+                                    const isActive = !isRejected && (idx === currentStepIdx);
                                     return (
                                         <div
                                             key={step.id}
@@ -779,14 +894,33 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 }`}
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
-                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
-                                                        "bg-slate-900 border-white/10 text-slate-500"
-                                                    }`}>
-                                                    {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isRejectedStep
+                                                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20 scale-110"
+                                                        : isCompleted
+                                                        ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20"
+                                                        : isActive
+                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110"
+                                                        : "bg-slate-900 border-white/10 text-slate-500"
+                                                }`}>
+                                                    {isRejectedStep ? (
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                    ) : isCompleted ? (
+                                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                        <span className="text-[10px] font-black">{idx + 1}</span>
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{step.label}</p>
+                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${
+                                                        isRejectedStep
+                                                            ? "text-red-400 font-bold"
+                                                            : isActive
+                                                            ? "text-white"
+                                                            : "text-slate-400"
+                                                    }`}>
+                                                        {step.label} {isRejectedStep ? "(REJECTED)" : ""}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -830,15 +964,43 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date <span className="text-red-500">*</span>:</Label>
-                                                    <Input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                    <Input 
+                                                        type="date" 
+                                                        min={new Date().toISOString().split("T")[0]} 
+                                                        value={inspectionDate} 
+                                                        onChange={(e) => {
+                                                            setInspectionDate(e.target.value);
+                                                            if (scheduleErrors.date) setScheduleErrors(prev => ({ ...prev, date: undefined }));
+                                                        }} 
+                                                        className={`h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 px-4 font-medium ${scheduleErrors.date ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                    />
+                                                    {scheduleErrors.date && <p className="text-[10px] text-red-500 font-medium">{scheduleErrors.date}</p>}
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time <span className="text-red-500">*</span>:</Label>
-                                                    <Input type="time" value={inspectionTime} onChange={(e) => setInspectionTime(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                    <Input 
+                                                        type="time" 
+                                                        value={inspectionTime} 
+                                                        onChange={(e) => {
+                                                            setInspectionTime(e.target.value);
+                                                            if (scheduleErrors.time) setScheduleErrors(prev => ({ ...prev, time: undefined }));
+                                                        }} 
+                                                        className={`h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 px-4 font-medium ${scheduleErrors.time ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                    />
+                                                    {scheduleErrors.time && <p className="text-[10px] text-red-500 font-medium">{scheduleErrors.time}</p>}
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name <span className="text-red-500">*</span>:</Label>
-                                                    <Input placeholder="Engr. Santos" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                    <Input 
+                                                        placeholder="Engr. Santos" 
+                                                        value={inspectorName} 
+                                                        onChange={(e) => {
+                                                            setInspectorName(e.target.value);
+                                                            if (scheduleErrors.inspectorName) setScheduleErrors(prev => ({ ...prev, inspectorName: undefined }));
+                                                        }} 
+                                                        className={`h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 px-4 font-medium ${scheduleErrors.inspectorName ? "border border-red-500 focus-visible:ring-red-500" : "border-none"}`} 
+                                                    />
+                                                    {scheduleErrors.inspectorName && <p className="text-[10px] text-red-500 font-medium">{scheduleErrors.inspectorName}</p>}
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Notes (optional):</Label>
@@ -857,8 +1019,8 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                         <DialogTrigger asChild>
                                             {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                                                                Request Revision
-                                                                                            </Button>
+                                                    Request Revision
+                                                </Button>
                                             )}
                                         </DialogTrigger>
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
@@ -963,6 +1125,20 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     </div>
                 </div>
             </main>
+
+            {activeDocIndex !== null && vaultDocs[activeDocIndex] && (
+                <Dialog open={true} onOpenChange={(open) => { if (!open) setActiveDocIndex(null); }}>
+                    <LightboxView
+                        src={vaultDocs[activeDocIndex].url}
+                        alt={vaultDocs[activeDocIndex].label}
+                        label={vaultDocs[activeDocIndex].label}
+                        currentIndex={activeDocIndex}
+                        totalDocs={vaultDocs.length}
+                        onPrev={vaultDocs.length > 1 ? () => setActiveDocIndex(prev => (prev !== null ? (prev - 1 + vaultDocs.length) % vaultDocs.length : 0)) : undefined}
+                        onNext={vaultDocs.length > 1 ? () => setActiveDocIndex(prev => (prev !== null ? (prev + 1) % vaultDocs.length : 0)) : undefined}
+                    />
+                </Dialog>
+            )}
         </div>
     );
 }

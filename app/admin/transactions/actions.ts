@@ -3216,8 +3216,20 @@ export async function cancelTransaction(id: string) {
             data: { isCancelled: true }
         });
 
+        try {
+            const { broadcastRealtimeUpdate } = await import("@/app/api/realtime/stream/route");
+            broadcastRealtimeUpdate({ type: "TRANSACTION_CANCELLED", id });
+        } catch {
+            // Ignore broadcast errors
+        }
+
+        revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
+        revalidatePath("/admin/bfp");
+        revalidatePath("/admin/transactions");
         revalidatePath("/user/services/requests");
         revalidatePath(`/user/services/requests/${id}`);
+        revalidatePath("/user/services/building-permit");
         revalidatePath("/user/appointment");
         revalidatePath(`/user/appointment/${id}`);
         return { success: true };
@@ -3757,6 +3769,14 @@ export async function scheduleBuildingInspection(id: string, details: any) {
 
         const existingAdditionalData = (transaction.additionalData as any) || {};
         const isZoningRequest = user.role === "MPDC_ZONING" && transaction.status === "EVALUATED" && existingAdditionalData.zoningStatus === "FOR_REQUESTING";
+
+        const targetDateStr = details?.date || details?.inspectionDate;
+        if (targetDateStr) {
+            const todayStr = new Date().toISOString().split("T")[0];
+            if (targetDateStr < todayStr) {
+                return { success: false, error: "Cannot schedule or reschedule an inspection for a past date." };
+            }
+        }
 
         if (transaction.status !== "FOR_REQUESTING" && !isZoningRequest) {
             return { success: false, error: "Inspection can only be scheduled after the resident resubmits and the application returns to evaluation." };
@@ -5982,6 +6002,14 @@ export async function scheduleZoningInspection(id: string, details: any) {
         });
 
         if (!transaction) return { success: false, error: "Transaction not found" };
+
+        const targetDateStr = details?.date || details?.inspectionDate;
+        if (targetDateStr) {
+            const todayStr = new Date().toISOString().split("T")[0];
+            if (targetDateStr < todayStr) {
+                return { success: false, error: "Cannot schedule or reschedule an inspection for a past date." };
+            }
+        }
 
         const existingAdditionalData = (transaction.additionalData as any) || {};
         

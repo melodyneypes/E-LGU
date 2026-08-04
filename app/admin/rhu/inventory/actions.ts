@@ -23,20 +23,27 @@ async function checkPharmacyAuth() {
     const email = (user?.email || "").toLowerCase();
     const department = (user?.department || "").toUpperCase();
 
-    const isCenterAdmin = role === "RHU_CENTER_ADMIN" || email.includes("lalas");
+    const matchedCenter = await getMatchedCenterForUser(user);
 
-    const isRhuAdmin = role === "ADMIN" || 
-        role === "RHU_ADMIN" ||
-        role === "RHU_PHARMACY" || 
+    const isGlobalAdmin = role === "ADMIN" || 
+        role === "RHU_ADMIN" || 
         email === "rhu@mapandan.gov.ph" || 
         email === "main.rhu@mapandan.gov.ph" ||
-        department.includes("PHARMACY") || 
         department.includes("LGU");
 
-    if (isCenterAdmin || !isRhuAdmin) {
-        throw new Error("Only RHU Administrator can modify inventory items and stock.");
+    const isPharmacyUser = role === "RHU_PHARMACY" || 
+        role === "RHU_CENTER_ADMIN" || 
+        role === "RHU_DOCTOR" || 
+        role === "RHU_STAFF" || 
+        email.includes("pharmacy") || 
+        email.includes("lalas") || 
+        department.includes("PHARMACY") || 
+        !!matchedCenter;
+
+    if (!isGlobalAdmin && !isPharmacyUser) {
+        throw new Error("Only authorized RHU / Pharmacy personnel can modify inventory items and stock.");
     }
-    return session;
+    return { session, user, matchedCenter, isGlobalAdmin };
 }
 
 export interface RHUInventoryInput {
@@ -272,8 +279,12 @@ export async function getRHUInventoryItems(params?: {
 
 export async function createRHUInventoryItem(input: RHUInventoryInput) {
     try {
-        await checkPharmacyAuth();
+        const { matchedCenter, isGlobalAdmin } = await checkPharmacyAuth();
         await ensureInventoryTablesExist();
+
+        if (!isGlobalAdmin && matchedCenter) {
+            input.healthCenterId = matchedCenter.id;
+        }
 
         if (!input.name || !input.name.trim()) {
             return { success: false, error: "Item name is required" };
@@ -364,8 +375,12 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
 
 export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
     try {
-        await checkPharmacyAuth();
+        const { matchedCenter, isGlobalAdmin } = await checkPharmacyAuth();
         await ensureInventoryTablesExist();
+
+        if (!isGlobalAdmin && matchedCenter) {
+            input.healthCenterId = matchedCenter.id;
+        }
 
         if (!input.itemId) {
             return { success: false, error: "Target item ID is required" };

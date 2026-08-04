@@ -20,10 +20,9 @@ export async function recordTransactionRejection(
             name: true,
             role: true,
             rejectionResetAt: true,
-            consecutiveRejections: true,
             rejectionCount: true,
-        } as any
-    }) as any;
+        }
+    });
 
     if (!user || user.role !== "USER") return null;
 
@@ -58,10 +57,9 @@ export async function recordTransactionRejection(
     const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
-            consecutiveRejections: updatedMap,
             rejectionCount: newMaxStrike
-        } as any
-    }) as any;
+        }
+    });
 
     // Check for deactivation threshold (3 consecutive rejections in any single category)
     if (updatedUser.rejectionCount >= 3) {
@@ -89,43 +87,16 @@ export async function recordTransactionRejection(
  */
 export async function clearCategoryRejection(
     userId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     categoryOrCode?: string
 ) {
     if (!userId) return null;
 
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-            id: true,
-            consecutiveRejections: true,
-        } as any
-    }) as any;
-
-    if (!user) return null;
-
-    const currentMap = (user.consecutiveRejections as Record<string, number>) || {};
-    let updatedMap: Record<string, number> = {};
-
-    if (categoryOrCode) {
-        updatedMap = {
-            ...currentMap,
-            [categoryOrCode]: 0
-        };
-    } else {
-        // Clear all categories
-        for (const k of Object.keys(currentMap)) {
-            updatedMap[k] = 0;
-        }
-    }
-
-    const newMaxStrike = Math.max(0, ...Object.values(updatedMap));
-
     return await prisma.user.update({
         where: { id: userId },
         data: {
-            consecutiveRejections: updatedMap,
-            rejectionCount: newMaxStrike,
+            rejectionCount: 0,
             rejectionResetAt: new Date()
-        } as any
-    }) as any;
+        }
+    });
 }

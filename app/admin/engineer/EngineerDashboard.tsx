@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 
 const STATUS_TABS = [
@@ -51,15 +52,36 @@ function formatDateTime(date: string | Date): { date: string; time: string } {
 
 // Helper: Safely parse residentSnapshot which might be stringified JSON
 function getResidentSnapshot(tx: any): any {
-    if (!tx.residentSnapshot) return {};
-    if (typeof tx.residentSnapshot === 'string') {
+    if (!tx) return {};
+    const raw = tx.residentSnapshot || tx.user?.residentProfile;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
         try {
-            return JSON.parse(tx.residentSnapshot);
+            return JSON.parse(raw) || {};
         } catch {
             return {};
         }
     }
-    return tx.residentSnapshot;
+    return (typeof raw === 'object' && raw !== null) ? raw : {};
+}
+
+function getEngineerTransactionUrl(tx: any): string {
+    if (tx.isCancelled || tx.status === "CANCELLED") {
+        return `/admin/engineer/${tx.id}/evaluation?view=true`;
+    }
+    if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_REVISION" || tx.status === "REJECTED") {
+        return `/admin/engineer/${tx.id}/evaluation`;
+    }
+    if (tx.status === "FOR_INSPECTION") {
+        return `/admin/engineer/${tx.id}/inspection`;
+    }
+    if (tx.status === "FOR_REINSPECTION") {
+        return `/admin/engineer/${tx.id}/reinspection`;
+    }
+    if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(tx.status)) {
+        return `/admin/engineer/${tx.id}/fees`;
+    }
+    return `/admin/engineer/${tx.id}`;
 }
 
 export default function EngineerDashboard() {
@@ -85,8 +107,8 @@ export default function EngineerDashboard() {
     const [sortBy, setSortBy] = useState<"date" | "service">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             const res = await getEngineerTransactions({
                 status,
@@ -97,7 +119,7 @@ export default function EngineerDashboard() {
             if (res.success) {
                 setTransactions(res.data || []);
                 setTotalCount(res.totalCount || 0);
-            } else {
+            } else if (!isSilent) {
                 console.error("[EngineerDashboard] getEngineerTransactions failed:", res.error);
                 setTransactions([]);
                 setTotalCount(0);
@@ -105,10 +127,12 @@ export default function EngineerDashboard() {
             }
             await getEngineerPendingCount();
         } catch (err) {
-            console.error("[EngineerDashboard] Unexpected error:", err);
-            toast.error("Failed to load transactions");
+            if (!isSilent) {
+                console.error("[EngineerDashboard] Unexpected error:", err);
+                toast.error("Failed to load transactions");
+            }
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, [status, currentPage, itemsPerPage, debouncedSearch]);
 
@@ -137,6 +161,58 @@ export default function EngineerDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading]);
+
+    // Native SSE (Server-Sent Events) Stream Listener for Engineering Admin Hub
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+        try {
+            eventSource = new EventSource("/api/realtime/stream");
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("[SSE EngineerDashboard] Realtime stream payload:", data);
+                    toast.info("⚡ Live Stream Update: Permit applications updated.", { id: "sse-engineer-toast" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                } catch {}
+            };
+        } catch {}
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
+
+    // Event-driven Supabase Realtime Subscription for Engineering Admin Hub
+    useEffect(() => {
+        if (!supabase) return;
+
+        const channel = supabase
+            .channel("realtime-engineer-dashboard")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                },
+                (payload: any) => {
+                    console.log("[EngineerDashboard] Realtime change detected:", payload);
+                    toast.info("⚡ Realtime Update: Applications updated live.", { id: "realtime-update-toast" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
 
     useEffect(() => {
         if (currentPage !== 1) {
@@ -217,7 +293,7 @@ export default function EngineerDashboard() {
                                 </div>
                             </div>
                             <Button 
-                                onClick={fetchTransactions} 
+                                onClick={() => fetchTransactions()} 
                                 variant="outline" 
                                 className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
                             >
@@ -232,6 +308,7 @@ export default function EngineerDashboard() {
                             <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">#</TableHead>
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Reference ID</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300">Applicant</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">Service</TableHead>
                                     <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
@@ -261,25 +338,30 @@ export default function EngineerDashboard() {
                                 {loading ? (
                                     Array(5).fill(0).map((_, i) => (
                                         <TableRow key={i} className="animate-pulse">
-                                            <TableCell colSpan={6} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
+                                            <TableCell colSpan={7} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
                                         </TableRow>
                                     ))
                                 ) : sortedTransactions.length > 0 ? (
                                     sortedTransactions.map((tx: any, index: number) => (
                                         <TableRow 
                                             key={tx.id} 
-                                            onClick={() => router.push(`/admin/engineer/${tx.id}`)}
+                                            onClick={() => router.push(getEngineerTransactionUrl(tx))}
                                             className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none"
                                         >
                                             <TableCell className="py-4">
                                                 <span className="text-xs font-black font-mono tracking-widest text-primary">{(currentPage - 1) * itemsPerPage + index + 1}</span>
                                             </TableCell>
                                             <TableCell>
+                                                <span className="text-[11px] font-mono font-bold text-[#0c4a6e] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-lg border border-blue-100 dark:border-blue-800/30 select-all tracking-wider">
+                                                    {tx.id}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
                                                         {(() => {
                                                             const rs = getResidentSnapshot(tx);
-                                                            return `${rs.firstName || 'Unknown'} ${rs.lastName || 'Applicant'}`;
+                                                            return `${rs?.firstName || 'Unknown'} ${rs?.lastName || 'Applicant'}`;
                                                         })()}
                                                     </span>
                                                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
@@ -338,7 +420,7 @@ export default function EngineerDashboard() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-[400px] text-center">
+                                        <TableCell colSpan={7} className="h-[400px] text-center">
                                             <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                                                 <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
                                                 <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No building permit applications found</p>

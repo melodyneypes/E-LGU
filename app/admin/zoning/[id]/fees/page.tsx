@@ -13,7 +13,8 @@ import {
     Check,
     X,
     FileWarning,
-    RefreshCw
+    RefreshCw,
+    XCircle
 } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
@@ -283,14 +284,25 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         { id: "EVALUATED", label: "FEE ASSESSMENT" },
         { id: "FOR_PROCESSING", label: "SUBMIT" }
     ];
+    const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true || zoningStatus === "REJECTED";
     const getStepIndex = (status: string) => {
         if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4;
+        return -1;
     };
-    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
+    const currentStepIdx = isRejected ? -1 : getStepIndex(zoningStatus || "FOR_REQUESTING");
+
+    const getRejectedStepIndex = () => {
+        const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
+        if (rejectedPhase === "FOR_INSPECTION") return 1;
+        if (rejectedPhase === "FOR_REINSPECTION") return 2;
+        if (rejectedPhase === "EVALUATED" || rejectedPhase === "FEE_ASSESSMENT") return 3;
+        if (rejectedPhase === "FOR_REQUESTING" || rejectedPhase === "EVALUATION") return 0;
+        return 3;
+    };
+    const rejectedStepIdx = isRejected ? getRejectedStepIndex() : -1;
 
     return (
         <div
@@ -739,8 +751,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     }
                                 };
                                 return steps.map((step, idx) => {
-                                    const isCompleted = idx < currentStepIdx;
-                                    const isActive = idx === currentStepIdx;
+                                    const isRejectedStep = isRejected && idx === rejectedStepIdx;
+                                    const isCompleted = !isRejected ? (idx < currentStepIdx) : (idx < rejectedStepIdx);
+                                    const isActive = !isRejected && (idx === currentStepIdx);
                                     return (
                                         <div
                                             key={step.id}
@@ -749,14 +762,33 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 }`}
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
-                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
-                                                        "bg-slate-900 border-white/10 text-slate-500"
-                                                    }`}>
-                                                    {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isRejectedStep
+                                                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20 scale-110"
+                                                        : isCompleted
+                                                        ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20"
+                                                        : isActive
+                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110"
+                                                        : "bg-slate-900 border-white/10 text-slate-500"
+                                                }`}>
+                                                    {isRejectedStep ? (
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                    ) : isCompleted ? (
+                                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                        <span className="text-[10px] font-black">{idx + 1}</span>
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{step.label}</p>
+                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${
+                                                        isRejectedStep
+                                                            ? "text-red-400 font-bold"
+                                                            : isActive
+                                                            ? "text-white"
+                                                            : "text-slate-400"
+                                                    }`}>
+                                                        {step.label} {isRejectedStep ? "(REJECTED)" : ""}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>

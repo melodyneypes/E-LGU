@@ -3,8 +3,23 @@
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export type MedicalPersonnelRole = "DOCTOR" | "NURSE" | "MIDWIFE" | "DENTIST";
+export type MedicalPersonnelRole = "DOCTOR" | "NURSE" | "MIDWIFE" | "DENTIST" | "ADMIN" | "PHARMACY";
+
+async function checkCenterManageAuth() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+        return { authorized: false, error: "Unauthorized: Please log in." };
+    }
+    const role = ((session.user as any).role || "").toUpperCase();
+    const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN";
+    if (!canManage) {
+        return { authorized: false, error: "Access Denied: Only RHU Center Admins and RHU Administrators can manage health centers and medical staff." };
+    }
+    return { authorized: true, user: session.user };
+}
 
 export interface RHUHealthCenterInput {
     name: string;
@@ -23,6 +38,9 @@ export interface RHUHealthCenterInput {
     accountEmail?: string;
     accountPassword?: string;
     userId?: string | null;
+    pharmacyEmail?: string;
+    pharmacyPassword?: string;
+    pharmacyUserId?: string | null;
 }
 
 export interface RHUHealthCenterFilterParams {
@@ -68,7 +86,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
     name: string;
     email: string;
     password?: string;
-    role: "RHU_CENTER_ADMIN" | "RHU_STAFF" | "RHU_DOCTOR";
+    role: "RHU_CENTER_ADMIN" | "RHU_STAFF" | "RHU_DOCTOR" | "RHU_PHARMACY";
     department?: string;
     managedBarangay?: string;
 }) {
@@ -83,6 +101,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_CENTER_ADMIN';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_DOCTOR';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_STAFF';`);
+        await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_PHARMACY';`);
     } catch {}
 
     let user: any = null;
@@ -153,6 +172,11 @@ let tablesInitialized = false;
 export async function ensureHealthCenterTableExists() {
     if (tablesInitialized) return;
     try {
+        try {
+            await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'ADMIN';`);
+            await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'PHARMACY';`);
+        } catch {}
+
         await prisma.$executeRaw`
             CREATE TABLE IF NOT EXISTS "RHUHealthCenter" (
                 "id" TEXT NOT NULL PRIMARY KEY,
@@ -177,6 +201,8 @@ export async function ensureHealthCenterTableExists() {
         await prisma.$executeRaw`ALTER TABLE "RHUHealthCenter" ADD COLUMN IF NOT EXISTS "longitude" DOUBLE PRECISION;`;
         await prisma.$executeRaw`ALTER TABLE "RHUHealthCenter" ADD COLUMN IF NOT EXISTS "userId" TEXT;`;
         await prisma.$executeRaw`ALTER TABLE "RHUHealthCenter" ADD COLUMN IF NOT EXISTS "accountEmail" TEXT;`;
+        await prisma.$executeRaw`ALTER TABLE "RHUHealthCenter" ADD COLUMN IF NOT EXISTS "pharmacyUserId" TEXT;`;
+        await prisma.$executeRaw`ALTER TABLE "RHUHealthCenter" ADD COLUMN IF NOT EXISTS "pharmacyEmail" TEXT;`;
 
         await prisma.$executeRaw`
             CREATE TABLE IF NOT EXISTS "RHUMedicalPersonnel" (
@@ -286,6 +312,9 @@ export async function getRHUHealthCenters(params?: RHUHealthCenterFilterParams) 
 
 export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         await ensureHealthCenterTableExists();
 
         if (!input.name || !input.name.trim()) {
@@ -307,6 +336,7 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
         const statusClean = input.status || "ACTIVE";
         const remarksClean = input.remarks?.trim() || null;
         const accountEmailClean = input.accountEmail?.trim() || null;
+        const pharmacyEmailClean = input.pharmacyEmail?.trim() || null;
 
         const latVal = typeof input.latitude === "number" ? input.latitude : null;
         const lngVal = typeof input.longitude === "number" ? input.longitude : null;
@@ -320,6 +350,19 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
                 password: input.accountPassword,
                 role: "RHU_CENTER_ADMIN",
                 department: "RHU Center Medical Admin",
+                managedBarangay: barangayClean || undefined
+            });
+        }
+
+        let linkedPharmacyUserId: string | null = null;
+        if (input.pharmacyEmail && input.pharmacyEmail.trim()) {
+            linkedPharmacyUserId = await createOrUpdateLinkedUserAccount({
+                existingUserId: input.pharmacyUserId,
+                name: `${nameClean} Pharmacy`,
+                email: input.pharmacyEmail,
+                password: input.pharmacyPassword,
+                role: "RHU_PHARMACY",
+                department: "RHU Center Pharmacy",
                 managedBarangay: barangayClean || undefined
             });
         }
@@ -345,7 +388,9 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
                         status: statusClean,
                         remarks: remarksClean,
                         accountEmail: accountEmailClean,
-                        userId: linkedUserId
+                        userId: linkedUserId,
+                        pharmacyEmail: pharmacyEmailClean,
+                        pharmacyUserId: linkedPharmacyUserId
                     }
                 });
                 createdSuccess = true;
@@ -357,9 +402,9 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
         if (!createdSuccess) {
             await prisma.$executeRaw`
                 INSERT INTO "RHUHealthCenter" (
-                    "id", "name", "code", "location", "latitude", "longitude", "barangay", "contactNumber", "operatingHours", "headPersonnel", "servicesOffered", "status", "remarks", "accountEmail", "userId", "createdAt", "updatedAt"
+                    "id", "name", "code", "location", "latitude", "longitude", "barangay", "contactNumber", "operatingHours", "headPersonnel", "servicesOffered", "status", "remarks", "accountEmail", "userId", "pharmacyEmail", "pharmacyUserId", "createdAt", "updatedAt"
                 ) VALUES (
-                    ${centerId}, ${nameClean}, ${codeClean}, ${locationClean}, ${latVal}, ${lngVal}, ${barangayClean}, ${contactClean}, ${hoursClean}, ${headClean}, ${servicesClean}, ${statusClean}, ${remarksClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
+                    ${centerId}, ${nameClean}, ${codeClean}, ${locationClean}, ${latVal}, ${lngVal}, ${barangayClean}, ${contactClean}, ${hoursClean}, ${headClean}, ${servicesClean}, ${statusClean}, ${remarksClean}, ${accountEmailClean}, ${linkedUserId}, ${pharmacyEmailClean}, ${linkedPharmacyUserId}, NOW(), NOW()
                 )
             `;
         }
@@ -374,6 +419,9 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
 
 export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealthCenterInput>) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         if (!id) {
             return { success: false, error: "Health center ID is required" };
         }
@@ -393,6 +441,9 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
         const accountEmailClean = input.accountEmail !== undefined
             ? (input.accountEmail && input.accountEmail.trim() ? input.accountEmail.trim() : null)
             : undefined;
+        const pharmacyEmailClean = input.pharmacyEmail !== undefined
+            ? (input.pharmacyEmail && input.pharmacyEmail.trim() ? input.pharmacyEmail.trim() : null)
+            : undefined;
 
         let linkedUserId: string | null = input.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
@@ -407,6 +458,21 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
             });
         } else if (input.accountEmail !== undefined && (!input.accountEmail || !input.accountEmail.trim())) {
             linkedUserId = null;
+        }
+
+        let linkedPharmacyUserId: string | null = input.pharmacyUserId || null;
+        if (input.pharmacyEmail && input.pharmacyEmail.trim()) {
+            linkedPharmacyUserId = await createOrUpdateLinkedUserAccount({
+                existingUserId: input.pharmacyUserId,
+                name: `${input.name || "Health Center"} Pharmacy`,
+                email: input.pharmacyEmail,
+                password: input.pharmacyPassword,
+                role: "RHU_PHARMACY",
+                department: "RHU Center Pharmacy",
+                managedBarangay: barangayClean || undefined
+            });
+        } else if (input.pharmacyEmail !== undefined && (!input.pharmacyEmail || !input.pharmacyEmail.trim())) {
+            linkedPharmacyUserId = null;
         }
 
         let updateSuccess = false;
@@ -430,6 +496,8 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
                 };
                 if (accountEmailClean !== undefined) updateData.accountEmail = accountEmailClean;
                 if (linkedUserId !== undefined) updateData.userId = linkedUserId;
+                if (pharmacyEmailClean !== undefined) updateData.pharmacyEmail = pharmacyEmailClean;
+                if (linkedPharmacyUserId !== undefined) updateData.pharmacyUserId = linkedPharmacyUserId;
 
                 await model.update({
                     where: { id },
@@ -442,45 +510,27 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
         }
 
         if (!updateSuccess) {
-            if (accountEmailClean !== undefined) {
-                await prisma.$executeRaw`
-                    UPDATE "RHUHealthCenter" 
-                    SET "name" = COALESCE(${nameClean}, "name"),
-                        "code" = ${codeClean},
-                        "location" = COALESCE(${locationClean}, "location"),
-                        "latitude" = ${latVal},
-                        "longitude" = ${lngVal},
-                        "barangay" = ${barangayClean},
-                        "contactNumber" = ${contactClean},
-                        "operatingHours" = ${hoursClean},
-                        "headPersonnel" = ${headClean},
-                        "servicesOffered" = ${servicesClean},
-                        "status" = ${statusClean},
-                        "remarks" = ${remarksClean},
-                        "accountEmail" = ${accountEmailClean},
-                        "userId" = ${linkedUserId},
-                        "updatedAt" = NOW()
-                    WHERE "id" = ${id}
-                `;
-            } else {
-                await prisma.$executeRaw`
-                    UPDATE "RHUHealthCenter" 
-                    SET "name" = COALESCE(${nameClean}, "name"),
-                        "code" = ${codeClean},
-                        "location" = COALESCE(${locationClean}, "location"),
-                        "latitude" = ${latVal},
-                        "longitude" = ${lngVal},
-                        "barangay" = ${barangayClean},
-                        "contactNumber" = ${contactClean},
-                        "operatingHours" = ${hoursClean},
-                        "headPersonnel" = ${headClean},
-                        "servicesOffered" = ${servicesClean},
-                        "status" = ${statusClean},
-                        "remarks" = ${remarksClean},
-                        "updatedAt" = NOW()
-                    WHERE "id" = ${id}
-                `;
-            }
+            await prisma.$executeRaw`
+                UPDATE "RHUHealthCenter" 
+                SET "name" = COALESCE(${nameClean}, "name"),
+                    "code" = ${codeClean},
+                    "location" = COALESCE(${locationClean}, "location"),
+                    "latitude" = ${latVal},
+                    "longitude" = ${lngVal},
+                    "barangay" = ${barangayClean},
+                    "contactNumber" = ${contactClean},
+                    "operatingHours" = ${hoursClean},
+                    "headPersonnel" = ${headClean},
+                    "servicesOffered" = ${servicesClean},
+                    "status" = ${statusClean},
+                    "remarks" = ${remarksClean},
+                    "accountEmail" = CASE WHEN ${accountEmailClean !== undefined} THEN ${accountEmailClean} ELSE "accountEmail" END,
+                    "userId" = CASE WHEN ${linkedUserId !== undefined} THEN ${linkedUserId} ELSE "userId" END,
+                    "pharmacyEmail" = CASE WHEN ${pharmacyEmailClean !== undefined} THEN ${pharmacyEmailClean} ELSE "pharmacyEmail" END,
+                    "pharmacyUserId" = CASE WHEN ${linkedPharmacyUserId !== undefined} THEN ${linkedPharmacyUserId} ELSE "pharmacyUserId" END,
+                    "updatedAt" = NOW()
+                WHERE "id" = ${id}
+            `;
         }
 
         revalidatePath("/admin/rhu/centers");
@@ -493,6 +543,9 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
 
 export async function deleteRHUHealthCenter(id: string) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         if (!id) {
             return { success: false, error: "Health center ID is required" };
         }
@@ -664,6 +717,9 @@ async function syncHealthCenterServices(healthCenterId: string | null | undefine
 
 export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         await ensureMedicalPersonnelTableExists();
 
         if (!input.name || !input.name.trim()) {
@@ -688,7 +744,14 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
 
         let linkedUserId: string | null = null;
         if (input.accountEmail && input.accountEmail.trim()) {
-            const userRole = roleClean === "DOCTOR" ? "RHU_DOCTOR" : "RHU_STAFF";
+            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
+            if (roleClean === "ADMIN") {
+                userRole = "RHU_CENTER_ADMIN";
+            } else if (roleClean === "PHARMACY") {
+                userRole = "RHU_PHARMACY";
+            } else {
+                userRole = "RHU_STAFF";
+            }
             linkedUserId = await createOrUpdateLinkedUserAccount({
                 existingUserId: input.userId,
                 name: nameClean,
@@ -731,7 +794,7 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
                 INSERT INTO "RHUMedicalPersonnel" (
                     "id", "name", "role", "specialization", "licenseNumber", "contactNumber", "email", "schedule", "assignedServices", "status", "healthCenterId", "accountEmail", "userId", "createdAt", "updatedAt"
                 ) VALUES (
-                    ${id}, ${nameClean}, ${roleClean}, ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
+                    ${id}, ${nameClean}, ${roleClean}::"MedicalRole", ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
                 )
             `;
         }
@@ -750,6 +813,9 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
 
 export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMedicalPersonnelInput>) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         if (!id) {
             return { success: false, error: "Medical personnel ID is required" };
         }
@@ -770,7 +836,15 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
 
         let linkedUserId: string | null = input.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
-            const userRole = (input.role || "DOCTOR") === "DOCTOR" ? "RHU_DOCTOR" : "RHU_STAFF";
+            const roleToMap = input.role || "DOCTOR";
+            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
+            if (roleToMap === "ADMIN") {
+                userRole = "RHU_CENTER_ADMIN";
+            } else if (roleToMap === "PHARMACY") {
+                userRole = "RHU_PHARMACY";
+            } else {
+                userRole = "RHU_STAFF";
+            }
             linkedUserId = await createOrUpdateLinkedUserAccount({
                 existingUserId: input.userId,
                 name: input.name || "Medical Personnel",
@@ -815,7 +889,7 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
             await prisma.$executeRaw`
                 UPDATE "RHUMedicalPersonnel"
                 SET "name" = COALESCE(${nameClean}, "name"),
-                    "role" = COALESCE(${roleClean}, "role"),
+                    "role" = COALESCE(${roleClean}::"MedicalRole", "role"),
                     "specialization" = ${specClean !== undefined ? specClean : null},
                     "licenseNumber" = ${licenseClean !== undefined ? licenseClean : null},
                     "contactNumber" = ${contactClean !== undefined ? contactClean : null},
@@ -864,6 +938,9 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
 
 export async function deleteRHUMedicalPersonnel(id: string) {
     try {
+        const auth = await checkCenterManageAuth();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
         if (!id) {
             return { success: false, error: "Medical personnel ID is required" };
         }

@@ -1084,6 +1084,8 @@ model RHUHealthCenter {
   remarks         String?
   userId          String?
   accountEmail    String?
+  pharmacyUserId  String?
+  pharmacyEmail   String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
@@ -1099,6 +1101,8 @@ enum MedicalRole {
   NURSE
   MIDWIFE
   DENTIST
+  ADMIN
+  PHARMACY
 }
 
 model RHUMedicalPersonnel {

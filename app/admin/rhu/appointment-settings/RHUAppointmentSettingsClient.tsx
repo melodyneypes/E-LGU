@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Activity, Clock, Plus, Trash2 } from "lucide-react";
+import { Activity, Clock, Eye, Plus, Trash2 } from "lucide-react";
 import { getCenterAppointmentConfig, updateCenterAppointmentConfig } from "@/app/user/services/rural-health-unit/actions";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -29,14 +29,17 @@ interface RHUAppointmentSettingsClientProps {
     isCenterAdmin?: boolean;
     healthCenters?: any[];
     assignedCenterId?: string | null;
+    canManageSchedule?: boolean;
 }
 
 export default function RHUAppointmentSettingsClient({ 
     appointmentConfig,
     isCenterAdmin = true,
     healthCenters = [],
-    assignedCenterId = null
+    assignedCenterId = null,
+    canManageSchedule = true
 }: RHUAppointmentSettingsClientProps) {
+    const isReadOnly = !canManageSchedule;
     const [selectedCenterId, setSelectedCenterId] = useState<string>(assignedCenterId || healthCenters?.[0]?.id || "NONE");
     const [isAMEnabled, setIsAMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsAM ?? 25) > 0);
     const [isPMEnabled, setIsPMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsPM ?? 25) > 0);
@@ -51,7 +54,7 @@ export default function RHUAppointmentSettingsClient({
     const [newBlockedDate, setNewBlockedDate] = useState("");
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-    const isEditable = selectedCenterId !== undefined && selectedCenterId !== null && selectedCenterId !== "NONE";
+    const isEditable = !isReadOnly && selectedCenterId !== undefined && selectedCenterId !== null && selectedCenterId !== "NONE";
 
     const toggleDay = (dayNum: number) => {
         if (!isEditable) return;
@@ -165,7 +168,15 @@ export default function RHUAppointmentSettingsClient({
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 md:p-6 lg:p-8 px-4 md:px-8 space-y-6">
-                    {!isCenterAdmin ? (
+                    {isReadOnly ? (
+                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center gap-3 text-xs font-semibold">
+                            <Eye className="w-5 h-5 text-amber-500 shrink-0" />
+                            <div>
+                                <p className="font-bold text-amber-800 dark:text-amber-200">Read-Only Staff Access</p>
+                                <p className="text-[11px] opacity-90">You are viewing slot capacities, active weekdays, and session hours for your health center in read-only mode. Only Center Medical Admins can modify schedule settings.</p>
+                            </div>
+                        </div>
+                    ) : !isCenterAdmin ? (
                         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center gap-3 text-xs font-semibold">
                             <Clock className="w-5 h-5 text-amber-500 shrink-0" />
                             <div>
@@ -473,7 +484,7 @@ export default function RHUAppointmentSettingsClient({
                                     : "bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
                             )}
                         >
-                            {isEditable ? (isSavingConfig ? "Saving..." : "Save Settings") : "Select a Health Center to Edit"}
+                            {isReadOnly ? "Read-Only View Mode" : (isEditable ? (isSavingConfig ? "Saving..." : "Save Settings") : "Select a Health Center to Edit")}
                         </Button>
                     </div>
                 </CardContent>

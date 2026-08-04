@@ -19,6 +19,7 @@ interface UploadStepProps {
   documentRequirementsList: readonly string[];
   customRequirements: { label: string }[];
   isAffidavitOfConsentRequired: boolean;
+  isOwnerDeceased?: boolean;
   hasMultipleFloors: boolean;
   permitTypesList: readonly string[];
   customPermits: { label: string }[];
@@ -63,6 +64,7 @@ export function UploadStep({
   documentRequirementsList,
   customRequirements,
   isAffidavitOfConsentRequired,
+  isOwnerDeceased,
   hasMultipleFloors,
   permitTypesList,
   customPermits,
@@ -96,7 +98,37 @@ export function UploadStep({
   addAbandonedFile
 }: UploadStepProps) {
 
+  const [clearedKeys, setClearedKeys] = React.useState<Set<string>>(new Set());
+
+  const handleClearUpload = (idx: number, isRequirement: boolean) => {
+    const key = isRequirement ? `req_${idx}` : `permit_${idx}`;
+    setClearedKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    if (isRequirement) {
+      setUploadedRequirements(prev => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+    } else {
+      setUploadedPermits(prev => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+    }
+  };
+
   const handleAsyncUpload = async (file: File, idx: number, isRequirement: boolean) => {
+    const fieldName = isRequirement ? `req_${idx}` : `permit_${idx}`;
+    setClearedKeys(prev => {
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
     const toastId = toast.loading("Uploading document...", { id: `upload-${idx}` });
     try {
       const extension = file.name.split(".").pop() || "bin";
@@ -219,7 +251,8 @@ export function UploadStep({
             ].filter(({ idx, kind }) => {
               if (kind === "custom") return true;
               if (idx === 5) return false;
-              if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+              if (!isOwnerDeceased && [13, 14].includes(idx)) return false;
+              if (!isAffidavitOfConsentRequired && [7, 10, 11, 12].includes(idx)) return false;
               if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
               if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
               return true;
@@ -231,7 +264,7 @@ export function UploadStep({
         ).map(({ docName, idx, kind }) => {
           const isCustomItem = kind === "custom";
           const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-          const fileUrl = effectiveDocuments?.[key];
+          const fileUrl = clearedKeys.has(key) ? null : effectiveDocuments?.[key];
           const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
           const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
           const isRequired = isCustomItem
@@ -243,6 +276,7 @@ export function UploadStep({
           
           const uploadedData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
           const isFileObj = uploadedData && typeof uploadedData !== 'string';
+          const cleanDocName = docName.replace(/\s*\(Optional\)/gi, "").trim();
 
           return (
             <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
@@ -250,12 +284,12 @@ export function UploadStep({
                 <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
                   <div className="min-h-[40px] leading-tight">
                     <span className="text-lg mr-1.5 align-bottom">📄</span>
-                    <span className="break-words">{docName}</span>
+                    <span className="break-words">{cleanDocName}</span>
                     {isRequired ? (
                       <span className="text-red-500 ml-1 text-base align-top">*</span>
                     ) : (
                       activeDocTab !== "PERMITS" && (
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">(Optional)</span>
                       )
                     )}
                   </div>
@@ -320,6 +354,7 @@ export function UploadStep({
                   previewUrl={!isFileObj && uploadedData ? uploadedData : undefined}
                   existingUrl={fileUrl}
                   onFileSelect={(file) => handleAsyncUpload(file, idx, activeDocTab === "REQUIREMENTS")}
+                  onClear={() => handleClearUpload(idx, activeDocTab === "REQUIREMENTS")}
                   onView={() => {
                     const currentData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
                     if (currentData && typeof currentData !== 'string') {

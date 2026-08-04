@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
     { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
@@ -41,15 +42,17 @@ function formatDateTime(date: string | Date): { date: string; time: string } {
 }
 
 function getResidentSnapshot(tx: any): any {
-    if (!tx.residentSnapshot) return {};
-    if (typeof tx.residentSnapshot === 'string') {
+    if (!tx) return {};
+    const raw = tx.residentSnapshot || tx.user?.residentProfile;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
         try {
-            return JSON.parse(tx.residentSnapshot);
+            return JSON.parse(raw) || {};
         } catch {
             return {};
         }
     }
-    return tx.residentSnapshot;
+    return (typeof raw === 'object' && raw !== null) ? raw : {};
 }
 
 function getEffectiveBfpStatus(tx: any): "PENDING" | "ACKNOWLEDGED" | "COMPLETED" {
@@ -71,8 +74,8 @@ export default function BFPDashboard() {
 
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             const res = await getBFPTransactions();
             if (res.success) {
@@ -82,14 +85,14 @@ export default function BFPDashboard() {
                         ? allTransactions
                         : allTransactions.filter((tx: any) => getEffectiveBfpStatus(tx) === status)
                 );
-            } else {
+            } else if (!isSilent) {
                 setTransactions([]);
                 toast.error(res.error || "Failed to load transactions.");
             }
         } catch {
-            toast.error("Failed to load transactions");
+            if (!isSilent) toast.error("Failed to load transactions");
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, [status]);
 
@@ -113,6 +116,58 @@ export default function BFPDashboard() {
     useEffect(() => {
         if (!loading) fetchStatusCounts();
     }, [loading, fetchStatusCounts]);
+
+    // Native SSE (Server-Sent Events) Stream Listener for BFP Admin Hub
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+        try {
+            eventSource = new EventSource("/api/realtime/stream");
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("[SSE BFPDashboard] Realtime stream payload:", data);
+                    toast.info("⚡ Live Stream Update: Permit applications updated.", { id: "sse-bfp-toast" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                } catch {}
+            };
+        } catch {}
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
+
+    // Event-driven Supabase Realtime Subscription for BFP Admin Hub
+    useEffect(() => {
+        if (!supabase) return;
+
+        const channel = supabase
+            .channel("realtime-bfp-dashboard")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                },
+                (payload: any) => {
+                    console.log("[BFPDashboard] Realtime change detected:", payload);
+                    toast.info("⚡ Realtime Update: Applications updated live.", { id: "realtime-update-bfp" });
+                    fetchTransactions(true);
+                    fetchStatusCounts();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchTransactions, fetchStatusCounts]);
 
     useEffect(() => {
         if (currentPage !== 1) setCurrentPage(1);
@@ -181,7 +236,7 @@ export default function BFPDashboard() {
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={fetchTransactions}
+                        onClick={() => fetchTransactions()}
                         disabled={loading}
                         className="h-12 w-12 rounded-xl border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5"
                     >
@@ -251,7 +306,7 @@ export default function BFPDashboard() {
                                             </TableCell>
                                             <TableCell className="py-4 px-6">
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-sm text-slate-900 dark:text-white">{rs.firstName} {rs.lastName}</span>
+                                                    <span className="font-bold text-sm text-slate-900 dark:text-white">{rs?.firstName || 'Unknown'} {rs?.lastName || 'Applicant'}</span>
                                                     <span className="text-xs text-slate-500 font-medium">{tx.user?.email || "No email provided"}</span>
                                                 </div>
                                             </TableCell>

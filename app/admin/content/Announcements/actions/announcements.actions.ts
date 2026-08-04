@@ -52,6 +52,13 @@ async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ 
     const matchedCenter = await getMatchedCenterForUser(user);
     const isSuperAdmin = (user.role === "ADMIN" || user.role === "RHU_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
 
+    if (user.role === "RHU_STAFF") {
+        return {
+            allowed: false,
+            error: "Forbidden: RHU Staff accounts have read-only access to announcements."
+        };
+    }
+
     if (isSuperAdmin || user.role === "RHU_ADMIN") {
         return { allowed: true };
     }
@@ -140,6 +147,10 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         const { user, error: authError } = await getAuthenticatedUser();
         if (authError || !user) {
             return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        if (user.role === "RHU_STAFF") {
+            return { success: false, error: "Forbidden: RHU Staff accounts have read-only access to announcements." };
         }
 
         const title = (formData.get("title") as string)?.trim();

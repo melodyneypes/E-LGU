@@ -357,13 +357,13 @@ export async function updateCenterAppointmentConfig(
             return { success: false, error: "Unauthorized" };
         }
 
-        const role = (session.user as any)?.role;
-        const email = session.user.email;
-        const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
-        const isMainAdmin = role === "ADMIN" || role === "RHU_ADMIN" || role === "ADMIN_AIDE";
+        const role = ((session.user as any)?.role || "").toUpperCase();
+        const email = session.user.email || "";
+        const isCenterAdmin = role === "RHU_CENTER_ADMIN";
+        const canManageSchedule = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN";
 
-        if (!isCenterAdmin && !isMainAdmin) {
-            return { success: false, error: "Unauthorized: Access denied." };
+        if (!canManageSchedule) {
+            return { success: false, error: "Access Denied: Only RHU Center Medical Admins and Administrators can update schedule settings." };
         }
 
         // If center admin, verify they are assigned to this specific health center

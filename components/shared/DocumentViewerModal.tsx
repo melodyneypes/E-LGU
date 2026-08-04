@@ -98,6 +98,37 @@ export default function DocumentViewerModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
+    // Keyboard Navigation Support (ArrowLeft, ArrowRight, Escape)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft") {
+                if (documents && documents.length > 1) {
+                    e.preventDefault();
+                    setCurrentIndex(prev => (prev - 1 + documents.length) % documents.length);
+                    setScale(1);
+                    setRotation(0);
+                    setPosition({ x: 0, y: 0 });
+                }
+            } else if (e.key === "ArrowRight") {
+                if (documents && documents.length > 1) {
+                    e.preventDefault();
+                    setCurrentIndex(prev => (prev + 1) % documents.length);
+                    setScale(1);
+                    setRotation(0);
+                    setPosition({ x: 0, y: 0 });
+                }
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                onClose();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, documents, onClose]);
+
     const currentDoc = React.useMemo(() => {
         if (documents && documents.length > 0 && currentIndex >= 0 && currentIndex < documents.length) {
             return documents[currentIndex];
@@ -378,7 +409,12 @@ export default function DocumentViewerModal({
                                     )}
                                 </div>
                                 <div>
-                                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 italic block leading-none">Document Visualizer</span>
+                                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 italic block leading-none">
+                                        {documents && documents.length > 1
+                                            ? `Document ${currentIndex + 1} of ${documents.length}`
+                                            : "Document Visualizer"
+                                        }
+                                    </span>
                                     <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-tight">
                                         {activeTitle}
                                     </h3>
@@ -461,30 +497,32 @@ export default function DocumentViewerModal({
                             onWheel={handleWheel}
                         >
                             {/* Floating Previous Navigation Button */}
-                            {documents && documents.length > 1 && currentIndex > 0 && (
+                            {documents && documents.length > 1 && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setCurrentIndex(prev => prev - 1);
+                                        setCurrentIndex(prev => (prev - 1 + documents.length) % documents.length);
                                         handleReset();
                                     }}
-                                    className="absolute left-4 z-30 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900/90 text-white backdrop-blur-md flex items-center justify-center border border-white/10 hover:scale-105 transition-all shadow-xl active:scale-95"
+                                    className="absolute left-4 z-40 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/10 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                                    title="Previous document (Left Arrow)"
                                 >
-                                    <ChevronLeft className="w-6 h-6" />
+                                    <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
                                 </button>
                             )}
 
                             {/* Floating Next Navigation Button */}
-                            {documents && documents.length > 1 && currentIndex < documents.length - 1 && (
+                            {documents && documents.length > 1 && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setCurrentIndex(prev => prev + 1);
+                                        setCurrentIndex(prev => (prev + 1) % documents.length);
                                         handleReset();
                                     }}
-                                    className="absolute right-4 z-30 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900/90 text-white backdrop-blur-md flex items-center justify-center border border-white/10 hover:scale-105 transition-all shadow-xl active:scale-95"
+                                    className="absolute right-4 z-40 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md flex items-center justify-center border border-white/10 hover:scale-110 transition-all shadow-2xl active:scale-95 group"
+                                    title="Next document (Right Arrow)"
                                 >
-                                    <ChevronRight className="w-6 h-6" />
+                                    <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
                                 </button>
                             )}
 
