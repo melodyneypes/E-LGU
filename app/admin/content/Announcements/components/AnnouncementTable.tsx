@@ -194,6 +194,7 @@ export function AnnouncementTable() {
                             const itemAuthorEmail = (item.authorEmail || "").toLowerCase();
                             const canEdit =
                                 isSuperAdmin ||
+                                userRole === "RHU_ADMIN" ||
                                 (item.authorId && userId && String(item.authorId) === String(userId)) ||
                                 (itemAuthorEmail && userEmail && itemAuthorEmail === userEmail) ||
                                 (userCenterId && item.healthCenterId && String(item.healthCenterId) === String(userCenterId));

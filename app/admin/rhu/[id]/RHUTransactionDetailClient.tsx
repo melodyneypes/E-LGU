@@ -654,42 +654,65 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
 
                     {/* Doctor's Clinical Notes Card (visible after PRESCRIBED) */}
                     {addData.deos && (
-                        <Card className="rounded-3xl border border-teal-200/60 dark:border-teal-500/20 bg-white dark:bg-[#151922] shadow-sm overflow-hidden">
-                            <div className="bg-teal-600 px-6 py-4 flex items-center gap-3">
-                                <ClipboardList className="w-4 h-4 text-white" />
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-200 italic">Clinical Notes & Orders</p>
-                                    <p className="text-xs font-black text-white uppercase tracking-wide">Doctor&apos;s Consultation Record — DEOS</p>
+                        <Card className="rounded-3xl border border-teal-500/20 dark:border-teal-500/10 bg-gradient-to-b from-slate-500/5 via-white dark:via-[#151922] to-slate-500/5 dark:to-[#0e1219] shadow-xl overflow-hidden backdrop-blur-md">
+                            <div className="relative border-b border-teal-500/20 px-6 py-5 flex items-center gap-4 bg-teal-500/5">
+                                <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-teal-500/50 via-teal-500/10 to-transparent" />
+                                <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 shadow-inner">
+                                    <ClipboardList className="w-5 h-5 text-teal-500" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-teal-500/80">Clinical Notes & Orders</p>
+                                    <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight italic">Doctor&apos;s Consultation Record (DEOS)</p>
                                 </div>
                                 {addData.prescribedAt && (
-                                    <span className="ml-auto text-[9px] font-bold text-teal-200 uppercase bg-white/10 px-2 py-1">
+                                    <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-full px-3 py-1 shadow-sm">
                                         {new Date(addData.prescribedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
                                     </span>
                                 )}
                             </div>
                             <div className="p-6 space-y-4">
                                 {addData.deos.diagnosis && (
-                                    <div className="space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-teal-500">D — Diagnosis</p>
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{addData.deos.diagnosis}</p>
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 font-mono font-black text-sm">
+                                            D
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Diagnosis</p>
+                                            <p className="text-sm font-black text-slate-950 dark:text-white whitespace-pre-wrap leading-relaxed tracking-tight">{addData.deos.diagnosis}</p>
+                                        </div>
                                     </div>
                                 )}
                                 {addData.deos.examinationFindings && (
-                                    <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-white/5">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-teal-500">E — Examination Findings</p>
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{addData.deos.examinationFindings}</p>
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shrink-0 font-mono font-black text-sm">
+                                            E
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Examination Findings</p>
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{addData.deos.examinationFindings}</p>
+                                        </div>
                                     </div>
                                 )}
                                 {addData.deos.orders && (
-                                    <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-white/5">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-teal-500">O — Orders / Prescription</p>
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{addData.deos.orders}</p>
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0 font-mono font-black text-sm">
+                                            O
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Orders / Prescription</p>
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{addData.deos.orders}</p>
+                                        </div>
                                     </div>
                                 )}
                                 {addData.deos.status && (
-                                    <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-white/5">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-teal-500">S — Status / Notes</p>
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{addData.deos.status}</p>
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 dark:bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 shrink-0 font-mono font-black text-sm">
+                                            S
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Status / Notes</p>
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{addData.deos.status}</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
