@@ -42,7 +42,6 @@ export default withAuth(
     // Clean redirect if trying to access protected paths without a session
     if (!token && (isAdminPath || isMayorPath || (isUserPath && !isPublicUserPath))) {
       const redirectUrl = new URL("/auth/login", req.url);
-      redirectUrl.searchParams.set("callbackUrl", requestTarget);
       return NextResponse.redirect(redirectUrl);
     }
 
