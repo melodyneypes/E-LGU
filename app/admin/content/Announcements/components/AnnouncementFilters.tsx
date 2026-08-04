@@ -4,7 +4,7 @@ import { useAnnouncements } from "../providers/AnnouncementProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, MapPin } from "lucide-react";
+import { Search, Plus, MapPin, Eye } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 
@@ -20,6 +20,7 @@ export function AnnouncementFilters() {
         hideCategory,
         themeColor,
         setIsPending,
+        currentUser,
     } = useAnnouncements();
 
     const router = useRouter();
@@ -141,17 +142,24 @@ export function AnnouncementFilters() {
                     )}
                 </div>
 
-                <Button
-                    onClick={() => {
-                        setEditingData(null);
-                        setIsAddModalOpen(true);
-                    }}
-                    className="w-full sm:w-auto h-12 text-white font-black uppercase tracking-widest text-[10px] px-8 rounded-xl transition-all shadow-xl flex items-center gap-2 hover:opacity-90 active:scale-95"
-                    style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
-                >
-                    <Plus className="w-4 h-4" />
-                    New Notice
-                </Button>
+                {currentUser?.role === "RHU_STAFF" ? (
+                    <div className="w-full sm:w-auto h-12 px-6 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center gap-2">
+                        <Eye className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>Read-Only Staff Access</span>
+                    </div>
+                ) : (
+                    <Button
+                        onClick={() => {
+                            setEditingData(null);
+                            setIsAddModalOpen(true);
+                        }}
+                        className="w-full sm:w-auto h-12 text-white font-black uppercase tracking-widest text-[10px] px-8 rounded-xl transition-all shadow-xl flex items-center gap-2 hover:opacity-90 active:scale-95"
+                        style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                    >
+                        <Plus className="w-4 h-4" />
+                        New Notice
+                    </Button>
+                )}
             </div>
         </div>
     );

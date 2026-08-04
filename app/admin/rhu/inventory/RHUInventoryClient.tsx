@@ -178,13 +178,20 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         }) : null
     );
 
-    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and CANNOT modify master inventory/adjust stock
+    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and manage inventory in their own center
     const isCenterAdmin = currentUser?.role === "RHU_CENTER_ADMIN" || (userMatchedCenter && !userEmail.includes("rhu@") && !userEmail.includes("main"));
     const isCenterScopedUser = !!userMatchedCenter;
 
-    // Only RHU Administrator (Main RHU / Super Admin / Pharmacy / RHU_ADMIN) can add/edit/adjust inventory
-    const isRhuAdmin = (role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_PHARMACY" || userEmail.includes("rhu@") || userEmail.includes("main")) && !isCenterAdmin;
-    const canManageInventory = isRhuAdmin;
+    // RHU Administrator (Main RHU / Super Admin / RHU Pharmacy) or Center Pharmacy staff can add/edit/adjust inventory for their scoped center
+    const canManageInventory = role === "ADMIN" || 
+        role === "RHU_ADMIN" || 
+        role === "RHU_PHARMACY" || 
+        role === "RHU_CENTER_ADMIN" || 
+        role === "RHU_DOCTOR" || 
+        role === "RHU_STAFF" || 
+        isCenterScopedUser || 
+        userEmail.includes("pharmacy") || 
+        userEmail.includes("rhu");
 
     const defaultCenterId = userMatchedCenter ? userMatchedCenter.id : "ALL";
     const [centerFilter, setCenterFilter] = useState<string>(defaultCenterId);
@@ -205,7 +212,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         expirationDate: "",
         quantity: 0,
         remarks: "",
-        healthCenterId: isCenterAdmin && centers.length > 0 ? centers[0]?.id : null
+        healthCenterId: userMatchedCenter ? userMatchedCenter.id : null
     });
     const [stockInFormErrors, setStockInFormErrors] = useState<{ itemId?: string; batchNumber?: string; quantity?: string; expirationDate?: string }>({});
 
@@ -257,15 +264,15 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         name: "",
         genericName: "",
         brandName: "",
-        category: "MEDICINE",
+        category: "",
         dosage: "",
-        unit: "pcs",
+        unit: "",
         quantity: 0,
         reorderLevel: 10,
         expirationDate: "",
         batchNumber: "",
         remarks: "",
-        healthCenterId: isCenterAdmin && centers.length > 0 ? centers[0]?.id : null
+        healthCenterId: userMatchedCenter ? userMatchedCenter.id : null
     });
     const [formErrors, setFormErrors] = useState<{ name?: string; unit?: string; category?: string }>({});
 
@@ -296,15 +303,15 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             name: "",
             genericName: "",
             brandName: "",
-            category: "MEDICINE",
+            category: "",
             dosage: "",
-            unit: "pcs",
+            unit: "",
             quantity: 0,
             reorderLevel: 10,
             expirationDate: "",
             batchNumber: "",
             remarks: "",
-            healthCenterId: isCenterAdmin && centers.length > 0 ? centers[0]?.id : null
+            healthCenterId: userMatchedCenter ? userMatchedCenter.id : null
         });
         setIsItemModalOpen(true);
     };
@@ -324,13 +331,13 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             brandName: item.brandName || "",
             category: item.category,
             dosage: item.dosage || "",
-            unit: item.unit || "pcs",
+            unit: item.unit || "",
             quantity: item.quantity,
             reorderLevel: item.reorderLevel,
             expirationDate: expDateStr,
             batchNumber: item.batchNumber || "",
             remarks: item.remarks || "",
-            healthCenterId: item.healthCenterId || (isCenterAdmin && centers.length > 0 ? centers[0]?.id : null)
+            healthCenterId: item.healthCenterId || (userMatchedCenter ? userMatchedCenter.id : null)
         });
         setIsItemModalOpen(true);
     };
@@ -344,7 +351,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             expirationDate: "",
             quantity: 0,
             remarks: "",
-            healthCenterId: item?.healthCenterId || (isCenterAdmin && centers.length > 0 ? centers[0]?.id : null)
+            healthCenterId: item?.healthCenterId || (userMatchedCenter ? userMatchedCenter.id : null)
         });
         setIsStockInModalOpen(true);
     };
@@ -1065,8 +1072,8 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                                                                             <TableCell className="font-mono font-bold text-slate-800 dark:text-slate-200 py-2">
                                                                                                 #{batch.batchNumber}
                                                                                             </TableCell>
-                                                                                             <TableCell className="py-2">
-                                                                                                {canManageInventory ? (
+                                                                                            <TableCell className="py-2">
+                                                                                                {canManageInventory && !isCenterScopedUser ? (
                                                                                                     <Select
                                                                                                         value={batch.healthCenterId || "ALL"}
                                                                                                         onValueChange={(val) => handleBatchCenterChange(batch.id, batch.batchNumber, val)}
@@ -1323,20 +1330,27 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold">Target Health Center / Depot</Label>
-                            <Select
-                                value={stockInFormData.healthCenterId || "ALL"}
-                                onValueChange={(val) => setStockInFormData({ ...stockInFormData, healthCenterId: val === "ALL" ? null : val })}
-                            >
-                                <SelectTrigger className="h-9 text-xs rounded-xl">
-                                    <SelectValue placeholder="Central RHU Depot (All Centers)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">Central RHU Depot (All Centers)</SelectItem>
-                                    {centers.map((c: any) => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name} ({c.barangay})</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {isCenterScopedUser ? (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/20 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400">
+                                    <Hospital className="w-4 h-4 text-rose-500 shrink-0" />
+                                    <span>{userMatchedCenter?.name || "Your Health Center"}</span>
+                                </div>
+                            ) : (
+                                <Select
+                                    value={stockInFormData.healthCenterId || "ALL"}
+                                    onValueChange={(val) => setStockInFormData({ ...stockInFormData, healthCenterId: val === "ALL" ? null : val })}
+                                >
+                                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                                        <SelectValue placeholder="Central RHU Depot (All Centers)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Central RHU Depot (All Centers)</SelectItem>
+                                        {centers.map((c: any) => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.barangay})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

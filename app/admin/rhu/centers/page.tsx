@@ -3,6 +3,7 @@ import RHUCentersClient from "./RHUCentersClient";
 import { getRHUHealthCenters, getRHUMedicalPersonnel } from "./actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getMatchedCenterForUser } from "../actions";
 
 export const metadata = {
     title: "Health Centers & Stations | RHU Admin",
@@ -13,34 +14,22 @@ export default async function RHUCentersPage() {
     const session = await getServerSession(authOptions);
     const currentUser = session?.user as any;
 
+    const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
+    const isCenterScoped = !!matchedCenter;
+
     const centersRes = await getRHUHealthCenters();
     const personnelRes = await getRHUMedicalPersonnel();
 
     let initialCenters = centersRes.success && centersRes.data ? centersRes.data : [];
     let initialPersonnel = personnelRes.success && personnelRes.data ? personnelRes.data : [];
 
-    const isCenterAdmin = currentUser?.role === "RHU_CENTER_ADMIN";
-
-    if (isCenterAdmin && currentUser) {
-        // Filter health centers strictly to the one assigned to this admin user
-        const matchedCenter = initialCenters.find((c: any) =>
-            (c.userId && String(c.userId) === String(currentUser.id)) ||
-            (c.accountEmail && currentUser.email && String(c.accountEmail).toLowerCase() === String(currentUser.email).toLowerCase()) ||
-            (currentUser.email && String(currentUser.email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
-            (currentUser.email && String(currentUser.email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
-        );
-
-        if (matchedCenter) {
-            initialCenters = [matchedCenter];
-            initialPersonnel = initialPersonnel.filter((p: any) => p.healthCenterId === matchedCenter.id);
-        } else if (currentUser.managedBarangay) {
-            initialCenters = initialCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
-            const validCenterIds = new Set(initialCenters.map((c: any) => c.id));
-            initialPersonnel = initialPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId));
-        } else {
-            initialCenters = [];
-            initialPersonnel = [];
-        }
+    if (matchedCenter) {
+        initialCenters = initialCenters.filter((c: any) => c.id === matchedCenter.id);
+        initialPersonnel = initialPersonnel.filter((p: any) => p.healthCenterId === matchedCenter.id);
+    } else if (currentUser?.managedBarangay) {
+        initialCenters = initialCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
+        const validCenterIds = new Set(initialCenters.map((c: any) => c.id));
+        initialPersonnel = initialPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId));
     }
 
     return (
@@ -49,7 +38,8 @@ export default async function RHUCentersPage() {
                 initialCenters={initialCenters}
                 initialPersonnel={initialPersonnel}
                 currentUser={currentUser}
-                isCenterAdmin={isCenterAdmin}
+                isCenterAdmin={isCenterScoped}
+                matchedCenter={matchedCenter}
             />
         </div>
     );

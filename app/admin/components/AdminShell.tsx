@@ -189,7 +189,18 @@ export function AdminShell({
                 isRestricted = true;
             }
         } else if (role === "RHU_PHARMACY" || deptUpper.includes("PHARMACY")) {
-            if (!pathname.startsWith("/admin/rhu")) {
+            const isAllowedPharmacyPath = 
+                pathname === "/admin/rhu" || 
+                pathname.startsWith("/admin/rhu/consultations") || 
+                pathname.startsWith("/admin/rhu/inventory") ||
+                pathname.startsWith("/admin/rhu/daily-report") ||
+                (/^\/admin\/rhu\/[^\/]+$/.test(pathname) && 
+                 !pathname.endsWith("/centers") && 
+                 !pathname.endsWith("/announcements") && 
+                 !pathname.endsWith("/appointment-settings") && 
+                 !pathname.endsWith("/ledger"));
+
+            if (!isAllowedPharmacyPath) {
                 isRestricted = true;
             }
         }
@@ -227,7 +238,7 @@ export function AdminShell({
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
                     } else if (role === "RHU_PHARMACY" || deptUpper.includes("PHARMACY")) {
-                        router.push("/admin/rhu/inventory");
+                        router.push("/admin/rhu");
                     } else if (role === "ADMIN_AIDE") {
                         if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                             router.push("/admin/rhu");

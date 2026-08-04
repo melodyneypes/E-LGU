@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getRHUHealthCenters } from "@/app/admin/rhu/centers/actions";
 import { getCenterAppointmentConfig } from "@/app/user/services/rural-health-unit/actions";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export const metadata: Metadata = {
     title: "RHU Appointment Settings | Mapandan Portal",
@@ -36,17 +37,10 @@ export default async function RHUAppointmentSettingsPage() {
     const centersRes = await getRHUHealthCenters();
     const healthCenters = centersRes.success && centersRes.data ? centersRes.data : [];
 
-    const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
-    
-    let matchedCenter = null;
-    if (isCenterAdmin && session.user) {
-        matchedCenter = healthCenters.find((c: any) =>
-            (c.userId && String(c.userId) === String(session.user.id)) ||
-            (c.accountEmail && session.user.email && String(c.accountEmail).toLowerCase() === String(session.user.email).toLowerCase()) ||
-            (session.user.email && String(session.user.email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
-            (session.user.email && String(session.user.email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
-        );
-    }
+    const matchedCenter = session.user ? await getMatchedCenterForUser(session.user) : null;
+    const userRole = (role || "").toUpperCase();
+    const canManageSchedule = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN";
+    const isCenterAdmin = !!matchedCenter || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
 
     // Load initial configuration
     const initialCenterId = matchedCenter?.id || healthCenters[0]?.id || "NONE";
@@ -64,26 +58,15 @@ export default async function RHUAppointmentSettingsPage() {
     };
 
     return (
-        <div className="p-2 md:p-4 max-w-full mx-auto space-y-6 pb-20">
-            {/* Elegant Header Banner */}
-            <div className="px-6 py-8 rounded-[1.5rem] border bg-rose-500/10 border-rose-500/20">
-                <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter drop-shadow-sm text-rose-600 dark:text-rose-400">
-                    RHU Schedule <span className="tracking-normal italic">Settings</span>
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 font-black uppercase tracking-[0.2em] text-[10px] opacity-70">
-                    Manage booking slot limits, session hours, active weekdays, and blocked dates for Rural Health Unit appointments.
-                </p>
-            </div>
-
-            <div className="w-full">
-                <RHUAppointmentSettingsClient 
-                    themeColor={themeColor}
-                    appointmentConfig={appointmentConfig as any}
-                    isCenterAdmin={isCenterAdmin}
-                    healthCenters={healthCenters}
-                    assignedCenterId={matchedCenter?.id || null}
-                />
-            </div>
+        <div className="p-4 md:p-8 max-w-full mx-auto space-y-6 pb-20">
+            <RHUAppointmentSettingsClient 
+                themeColor={themeColor}
+                appointmentConfig={appointmentConfig as any}
+                isCenterAdmin={isCenterAdmin}
+                healthCenters={healthCenters}
+                assignedCenterId={matchedCenter?.id || null}
+                canManageSchedule={canManageSchedule}
+            />
         </div>
     );
 }
