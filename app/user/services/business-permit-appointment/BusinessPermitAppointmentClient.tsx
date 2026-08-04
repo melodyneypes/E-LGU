@@ -194,7 +194,7 @@ export function BusinessPermitAppointmentClient({
     const [businessType, setBusinessType] = useState<"NEW" | "RENEWAL">("NEW");
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
-    const [isPriorityLane, setIsPriorityLane] = useState(false);
+    const [isPriorityLane] = useState(false);
     const [showRenewalModal, setShowRenewalModal] = useState(false);
     const [selectedPermitIndex, setSelectedPermitIndex] = useState(0);
 
