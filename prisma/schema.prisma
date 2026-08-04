@@ -29,6 +29,7 @@ model User {
   accessibleStatuses   String[]      @default([])
   isSynced             Boolean       @default(false)
   rfid                 String?       @unique
+  fcmToken             String?
   accounts             Account[]
   reports              Report[]
   residentProfile      Resident?
@@ -1309,6 +1310,7 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 
 
 

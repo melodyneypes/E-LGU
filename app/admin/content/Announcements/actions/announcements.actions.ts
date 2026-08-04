@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
+import { sendRHUAnnouncementNotification } from "@/lib/services/fcm";
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -31,7 +32,7 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
         }
         
         const user = session.user as SessionUser;
-        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
+        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF", "RHU_ADMIN"];
         if (user.role && !allowedRoles.includes(user.role)) {
             return { user: null, error: "Forbidden: You do not have administrative privileges." };
         }
@@ -51,7 +52,7 @@ async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ 
     const matchedCenter = await getMatchedCenterForUser(user);
     const isSuperAdmin = (user.role === "ADMIN" || user.role === "RHU_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
 
-    if (isSuperAdmin) {
+    if (isSuperAdmin || user.role === "RHU_ADMIN") {
         return { allowed: true };
     }
 
@@ -193,20 +194,47 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
                 data: createData,
             });
         } catch (err: any) {
-            const errStr = String(err?.message || err);
-            if (errStr.includes("imageUrl") || errStr.includes("Unknown arg") || errStr.includes("Unknown field")) {
+            console.warn("[addAnnouncement warning]: Initial create failed, stripping author metadata for fallback", err?.message);
+            delete createData.authorId;
+            delete createData.authorEmail;
+            delete createData.healthCenterId;
+            try {
+                newAnnouncement = await announcementDelegate.create({
+                    data: createData,
+                });
+            } catch {
                 delete createData.imageUrl;
                 newAnnouncement = await announcementDelegate.create({
                     data: createData,
                 });
-            } else {
-                throw err;
             }
         }
 
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
+
+        // Send FCM Push Notification to Flutter mobile app users
+        const isHealthOrRHU =
+            category?.toLowerCase().includes("health") ||
+            category?.toLowerCase().includes("rhu") ||
+            user.role === "RHU_ADMIN" ||
+            user.role === "RHU_CENTER_ADMIN" ||
+            user.role === "RHU_DOCTOR" ||
+            Boolean(matchedCenter);
+
+        if (isHealthOrRHU && newAnnouncement) {
+            try {
+                await sendRHUAnnouncementNotification(
+                    String(newAnnouncement.title || title || "RHU Health Advisory"),
+                    String(newAnnouncement.content || content || ""),
+                    { announcementId: String(newAnnouncement.id || "") }
+                );
+            } catch (fcmErr) {
+                console.error("[FCM Broadcast Error]:", fcmErr);
+            }
+        }
+
         return { success: true, announcement: newAnnouncement };
     } catch (error) {
         console.error("[addAnnouncement Error]:", error);
@@ -281,15 +309,21 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
                 data: updateData,
             });
         } catch (err: any) {
-            const errStr = String(err?.message || err);
-            if (errStr.includes("imageUrl") || errStr.includes("Unknown arg") || errStr.includes("Unknown field")) {
+            console.warn("[updateAnnouncement warning]: Initial update failed, stripping author metadata for fallback", err?.message);
+            delete updateData.authorId;
+            delete updateData.authorEmail;
+            delete updateData.healthCenterId;
+            try {
+                updated = await announcementDelegate.update({
+                    where: { id },
+                    data: updateData,
+                });
+            } catch {
                 delete updateData.imageUrl;
                 updated = await announcementDelegate.update({
                     where: { id },
                     data: updateData,
                 });
-            } else {
-                throw err;
             }
         }
 

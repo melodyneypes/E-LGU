@@ -384,7 +384,7 @@ export function MedicalConsultationForm({
                     <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
-                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 theme-text-hover transition-colors italic">
                                     <Home className="w-3.5 h-3.5 mb-0.5" />
                                     Home
                                 </Link>
@@ -393,7 +393,7 @@ export function MedicalConsultationForm({
                         <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
-                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 theme-text-hover transition-colors italic">
                                     Services
                                 </Link>
                             </BreadcrumbLink>
@@ -401,7 +401,7 @@ export function MedicalConsultationForm({
                         <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
-                                <Link href="/user/services/rural-health-unit" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                <Link href="/user/services/rural-health-unit" className="text-[10px] font-black uppercase tracking-widest text-slate-500 theme-text-hover transition-colors italic">
                                     Rural Health Unit
                                 </Link>
                             </BreadcrumbLink>
@@ -416,7 +416,7 @@ export function MedicalConsultationForm({
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1">
                     <div className="space-y-1 md:space-y-2">
                         <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none select-none">
-                            Book <span className="text-primary underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ textDecorationColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }}>Appointment</span>
+                            Book <span className="underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ color: themeColor, textDecorationColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }}>Appointment</span>
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 italic">Rural Health Unit Appointment</p>
                     </div>
