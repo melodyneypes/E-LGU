@@ -73,7 +73,7 @@ export async function searchPublicTicket(query: string) {
     try {
         const cleanQuery = query.trim();
         if (!cleanQuery) {
-            return { success: false, error: "Please enter a valid Citation Ticket Number, License No., or Plate No." };
+            return { success: false, error: "Please enter a valid Citation Ticket Number." };
         }
 
         // Search strictly by ticketNo only

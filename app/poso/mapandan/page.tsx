@@ -194,7 +194,7 @@ export default function PosoMapandanPublicPage() {
                                     <Input
                                         id="ticket-search-input"
                                         type="text"
-                                        placeholder="Enter Ticket No. or Plate No."
+                                        placeholder="Enter Ticket No."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         onKeyDown={(e) => e.key === "Enter" && performSearch(searchQuery)}
