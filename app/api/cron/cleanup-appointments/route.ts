@@ -58,20 +58,33 @@ async function runCleanup() {
             }
         });
 
-        // 2. Record rejection for each affected missed transaction
+        // 2. Group missed transactions by user to prevent duplicate calls per user in loop
         const userMissedTxs = candidates.filter(c => toRejectIds.includes(c.id));
+        const userCategoryMap = new Map<string, Set<string>>();
+
         for (const missedTx of userMissedTxs) {
             if (missedTx.userId) {
                 const categoryKey = isEngineeringPermitCode(missedTx.type?.code)
                     ? missedTx.type?.code
                     : (missedTx.type?.category || "General");
 
-                const updatedUser = await recordTransactionRejection(
-                    missedTx.userId,
-                    categoryKey || "General"
-                );
+                if (!userCategoryMap.has(missedTx.userId)) {
+                    userCategoryMap.set(missedTx.userId, new Set());
+                }
+                userCategoryMap.get(missedTx.userId)!.add(categoryKey || "General");
+            }
+        }
 
-                // Send rejection email if account is still active (less than 3 strikes)
+        // Record rejection once per unique user & category
+        for (const [userId, categories] of userCategoryMap.entries()) {
+            let updatedUser: any = null;
+            for (const catKey of categories) {
+                updatedUser = await recordTransactionRejection(userId, catKey);
+            }
+
+            // Send rejection email if account is still active (less than 3 strikes)
+            const missedForUser = userMissedTxs.filter(tx => tx.userId === userId);
+            for (const missedTx of missedForUser) {
                 if (updatedUser && updatedUser.email && (updatedUser.rejectionCount ?? 0) < 3) {
                     const resident = missedTx.residentSnapshot as any;
                     sendEmail({

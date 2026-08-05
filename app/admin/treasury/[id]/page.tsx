@@ -30,6 +30,7 @@ import {
     releaseCedula,
     processOnsitePaymentAndReleaseAction
 } from "@/app/admin/transactions/cedula-actions";
+import { processCedulaOnsitePaymentAndRelease } from "@/app/admin/transactions/treasury-cedula-actions";
 import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actions";
 import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-actions";
 import { releaseDeathRegistry } from "@/app/admin/transactions/death-regis-actions";
@@ -1572,22 +1573,34 @@ export default function TreasuryDetailPage() {
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             const totalDue = displayTotal + itemsSum;
 
-            const res = await processOnsitePaymentAndReleaseAction({
-                transactionId: transaction.id,
-                typeCode,
-                isStudent: !!transaction.isStudent,
-                deliveryFee,
-                remarks,
-                itemsToSend,
-                registryBookVerification,
-                orSeriesNumber,
-                miscFee: lcrMiscFee,
-                paymentMethod: method,
-                amountTendered,
-                paymentReference,
-                totalDue,
-                ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || ""
-            });
+            const isCedulaCategory = typeCode.includes("CEDULA");
+            const res = isCedulaCategory
+                ? await processCedulaOnsitePaymentAndRelease({
+                    transactionId: transaction.id,
+                    totalDue,
+                    paymentMethod: method,
+                    paymentReference,
+                    amountTendered,
+                    ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || "",
+                    remarks,
+                    orSeriesNumber
+                })
+                : await processOnsitePaymentAndReleaseAction({
+                    transactionId: transaction.id,
+                    typeCode,
+                    isStudent: !!transaction.isStudent,
+                    deliveryFee,
+                    remarks,
+                    itemsToSend,
+                    registryBookVerification,
+                    orSeriesNumber,
+                    miscFee: lcrMiscFee,
+                    paymentMethod: method,
+                    amountTendered,
+                    paymentReference,
+                    totalDue,
+                    ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || ""
+                });
 
             if (!res.success) {
                 toast.error(res.error || "Failed to process payment and release");

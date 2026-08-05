@@ -12,7 +12,7 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
         where: { id }
     });
 
-    if (!announcement) {
+    if (!announcement || announcement.category === "Health") {
         notFound();
     }
 

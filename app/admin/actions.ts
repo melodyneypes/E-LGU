@@ -3442,6 +3442,7 @@ export async function activateUser(userId: string) {
             where: { id: userId },
             data: {
                 rejectionCount: 0,
+                consecutiveRejections: {},
                 isEmailVerified: true,
                 rejectionResetAt: new Date(),
             } as any
