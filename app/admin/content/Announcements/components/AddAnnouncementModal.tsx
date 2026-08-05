@@ -2,7 +2,7 @@
 
 import { useAnnouncements } from "../providers/AnnouncementProvider";
 import { useAnnouncementForm } from "../hooks/useAnnouncementForm";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
     Dialog,
@@ -23,22 +23,17 @@ import {
     Pin,
     Loader2,
     X,
-    UploadCloud,
-    ImageIcon,
-    Trash2,
-    Link as LinkIcon,
     ShieldAlert,
     AlertTriangle,
     Tag,
     Eye,
-    BellRing,
-    MapPin
+    BellRing
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 export function AddAnnouncementModal() {
-    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, hideCategory, activeBarangays = [] } = useAnnouncements();
+    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, hideCategory } = useAnnouncements();
     const { handleSubmit, loading } = useAnnouncementForm();
     const [themeColor, setThemeColor] = useState("#2563eb");
     const [validationError, setValidationError] = useState("");
@@ -46,9 +41,8 @@ export function AddAnnouncementModal() {
     // Real-time Form States for Live Preview
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
-    const [category, setCategory] = useState(hideCategory ? "Health" : "General");
+    const [category, setCategory] = useState("General");
     const [priority, setPriority] = useState("");
-    const [barangay, setBarangay] = useState("ALL");
     const [isPinned, setIsPinned] = useState(false);
 
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -60,17 +54,6 @@ export function AddAnnouncementModal() {
         setValidationError("");
         await handleSubmit(e);
     };
-
-    // Image upload / URL states
-    const [imageUrl, setImageUrl] = useState<string>("");
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageTab, setImageTab] = useState<"upload" | "url" | "file">("upload");
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [expiryDate, setExpiryDate] = useState("");
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -92,24 +75,15 @@ export function AddAnnouncementModal() {
         if (editingData) {
             setTitle(editingData.title || "");
             setContent(editingData.content || "");
-            setCategory(editingData.category || (hideCategory ? "Health" : "General"));
+            setCategory(editingData.category || "General");
             setPriority(editingData.priority || "");
-            setBarangay(editingData.barangay || "ALL");
             setIsPinned(Boolean(editingData.isPinned));
-            setImageUrl(editingData.imageUrl || "");
-            setImagePreview(editingData.imageUrl || null);
-            setExpiryDate(editingData.expiryDate ? format(new Date(editingData.expiryDate), "yyyy-MM-dd") : "");
         } else {
             setTitle("");
             setContent("");
-            setCategory(hideCategory ? "Health" : "General");
+            setCategory("General");
             setPriority("");
-            setBarangay(currentBarangay || "ALL");
             setIsPinned(false);
-            setImageUrl("");
-            setImagePreview(null);
-            setImageFile(null);
-            setExpiryDate("");
         }
     }, [editingData, isAddModalOpen, hideCategory, currentBarangay]);
 
@@ -117,31 +91,6 @@ export function AddAnnouncementModal() {
         if (!dateInput) return "";
         const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
         return date.toISOString().split('T')[0];
-    };
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (file.size > 5 * 1024 * 1024) {
-            alert("File size exceeds 5MB limit. Please choose a smaller image.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            if (typeof reader.result === "string") {
-                setImageUrl(reader.result);
-            }
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const handleRemoveImage = () => {
-        setImageUrl("");
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
     };
 
     const isCritical = priority === "Critical";
@@ -152,7 +101,6 @@ export function AddAnnouncementModal() {
             setIsAddModalOpen(open);
             if (!open) {
                 setEditingData(null);
-                setImageUrl("");
                 setValidationError("");
             }
         }}>
@@ -219,18 +167,6 @@ export function AddAnnouncementModal() {
                                 </div>
                             </div>
 
-                            {/* Optional Preview Image */}
-                            {imageUrl && (
-                                <div className="relative w-full bg-slate-950 p-1 border-b border-slate-800 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={imageUrl}
-                                        alt="Banner Preview"
-                                        className="w-full max-h-[220px] object-contain rounded-none"
-                                    />
-                                </div>
-                            )}
-
                             {/* Preview Body Text */}
                             <div className="p-4 space-y-3 bg-slate-900">
                                 <p className="text-xs text-slate-300 font-medium leading-relaxed italic line-clamp-4">
@@ -278,12 +214,10 @@ export function AddAnnouncementModal() {
 
                     <div className="flex-1 px-7 overflow-y-auto custom-scrollbar">
                         <form id="announcementForm" onSubmit={handleFormSubmit} className="space-y-5 py-4">
-                            <input type="hidden" name="imageUrl" value={imageUrl} />
-
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                                        Title *
+                                        Title <span className="text-red-500 font-bold">*</span>
                                     </Label>
                                     <span className={`text-[10px] font-mono ${title.length >= 100 ? "text-red-500 font-bold" : "text-slate-400"}`}>
                                         {title.length} / 100 max
@@ -306,13 +240,12 @@ export function AddAnnouncementModal() {
                                         Title cannot exceed 100 characters to prevent UI distortion.
                                     </p>
                                 )}
-                                {/* Hidden inputs removed, handled dynamically by form fields below */}
                             </div>
 
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                                        Content Details *
+                                        Content Details <span className="text-red-500 font-bold">*</span>
                                     </Label>
                                     <span className={`text-[10px] font-mono ${content.length >= 500 ? "text-red-500 font-bold" : "text-slate-400"}`}>
                                         {content.length} / 500 max
@@ -337,96 +270,6 @@ export function AddAnnouncementModal() {
                                 )}
                             </div>
 
-                            {/* Optional Banner Image Upload Section */}
-                            <div className="space-y-2 pt-1">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                        <ImageIcon className="w-3.5 h-3.5 text-primary" />
-                                        Cover / Banner Image <span className="text-slate-400 font-normal lowercase">(optional)</span>
-                                    </Label>
-
-                                    <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold">
-                                        <button
-                                            type="button"
-                                            onClick={() => setImageTab("file")}
-                                            className={`px-2 py-0.5 rounded-md transition-all ${imageTab === "file" ? "bg-white dark:bg-slate-700 text-primary shadow-xs" : "text-slate-500"}`}
-                                        >
-                                            Upload File
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setImageTab("url")}
-                                            className={`px-2 py-0.5 rounded-md transition-all ${imageTab === "url" ? "bg-white dark:bg-slate-700 text-primary shadow-xs" : "text-slate-500"}`}
-                                        >
-                                            Image URL
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {imageUrl ? (
-                                    <div className="relative w-full min-h-[140px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-950 p-1 group flex items-center justify-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={imageUrl}
-                                            alt="Announcement banner preview"
-                                            className="w-full max-h-[220px] object-contain rounded-none"
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={handleRemoveImage}
-                                                className="h-8 px-3 rounded-lg text-xs font-bold gap-1.5 shadow-lg"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" /> Remove Image
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : imageTab === "file" ? (
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 dark:hover:border-primary/50 bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 group"
-                                    >
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleFileSelect}
-                                            className="hidden"
-                                        />
-                                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <UploadCloud className="w-4 h-4" />
-                                        </div>
-                                        <div className="space-y-0.5">
-                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                                Click to upload announcement banner image
-                                            </p>
-                                            <p className="text-[10px] text-slate-400">
-                                                PNG, JPG, WEBP up to 5MB
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            <LinkIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
-                                            <Input
-                                                type="url"
-                                                placeholder="https://example.com/image.jpg"
-                                                value={imageUrl}
-                                                onChange={(e) => setImageUrl(e.target.value)}
-                                                className="h-10 pl-9 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {hideCategory ? (
-                                <input type="hidden" name="category" value={category || "Health"} />
-                            ) : null}
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 {!hideCategory && (
                                     <div className="space-y-1.5">
@@ -438,7 +281,6 @@ export function AddAnnouncementModal() {
                                             <SelectContent className="bg-white dark:bg-[#161820] border-slate-200 dark:border-slate-850">
                                                 <SelectItem value="General">General</SelectItem>
                                                 <SelectItem value="Weather">Weather</SelectItem>
-                                                <SelectItem value="Health">Health</SelectItem>
                                                 <SelectItem value="Emergency">Emergency</SelectItem>
                                                 <SelectItem value="Public Service">Public Service</SelectItem>
                                             </SelectContent>
@@ -447,7 +289,7 @@ export function AddAnnouncementModal() {
                                 )}
 
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Priority *</Label>
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Priority <span className="text-red-500 font-bold">*</span></Label>
                                     <Select name="priority" value={priority} onValueChange={(val) => {
                                         setPriority(val);
                                         if (val) setValidationError("");
@@ -483,37 +325,11 @@ export function AddAnnouncementModal() {
                                     )}
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Scope / Barangay</Label>
                                     {currentBarangay ? (
-                                        <div className="relative">
-                                            <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                                            <Input
-                                                readOnly
-                                                value={currentBarangay}
-                                                className="h-11 pl-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold cursor-not-allowed"
-                                            />
-                                            <input type="hidden" name="barangay" value={currentBarangay} />
-                                        </div>
+                                        <input type="hidden" name="barangay" value={currentBarangay} />
                                     ) : (
-                                        <Select name="barangay" value={barangay} onValueChange={setBarangay}>
-                                            <SelectTrigger className="h-11 bg-slate-50/50 dark:bg-[#1c1f2e] border border-slate-200 dark:border-slate-800 rounded-xl text-xs px-3.5 flex items-center gap-2 transition-all hover:bg-slate-100/50 dark:hover:bg-[#23273a]">
-                                                <div className="flex items-center gap-2">
-                                                    <MapPin className="w-4 h-4" style={{ color: themeColor }} />
-                                                    <SelectValue placeholder="Select Scope..." />
-                                                </div>
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-white dark:bg-[#161820] border-slate-200 dark:border-slate-850">
-                                                <SelectItem value="ALL">Whole Municipality</SelectItem>
-                                                {activeBarangays.map((b) => (
-                                                    <SelectItem key={b} value={b}>
-                                                        {b}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <input type="hidden" name="barangay" value="ALL" />
                                     )}
-                                </div>
 
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
