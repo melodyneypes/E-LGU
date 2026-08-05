@@ -201,6 +201,7 @@ export default async function Home({
     const announcements = await prisma.announcement.findMany({
         where: {
                 isActive: true,
+                category: { not: "Health" },
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             orderBy: [
@@ -208,6 +209,18 @@ export default async function Home({
                 { createdAt: 'desc' }
             ],
             take: 3
+        });
+    const healthAnnouncements = await prisma.announcement.findMany({
+        where: {
+                isActive: true,
+                category: "Health",
+                ...(isFiltered ? { barangay: selectedBarangay } : {})
+            } as any,
+            orderBy: [
+                { isPinned: 'desc' },
+                { createdAt: 'desc' }
+            ],
+            take: 5
         });
     const events = await prisma.event.findMany({
         where: {
@@ -440,7 +453,7 @@ export default async function Home({
                 {/* Announcements & News Section */}
                 {showAnnouncements && (
                     <ClientOnly delay={1000} fallback={<AnnouncementsNewsSkeleton />}>
-                        <AnnouncementsNews announcements={announcements} news={news} />
+                        <AnnouncementsNews announcements={announcements} healthAnnouncements={healthAnnouncements} news={news} />
                     </ClientOnly>
                 )}
 
