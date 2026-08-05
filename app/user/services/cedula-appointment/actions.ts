@@ -102,14 +102,32 @@ export async function cleanupPastDueCedulaAppointments(userId?: string) {
             whereClause.userId = userId;
         }
 
-        await prisma.transaction.updateMany({
+        const pastDueTxs = await prisma.transaction.findMany({
             where: whereClause,
-            data: {
-                isCancelled: true,
-                status: "REJECTED",
-                rejectionRemarks: "Appointment slot expired / missed"
-            }
+            include: { type: true }
         });
+
+        if (pastDueTxs.length > 0) {
+            const pastDueIds = pastDueTxs.map(t => t.id);
+
+            await prisma.transaction.updateMany({
+                where: { id: { in: pastDueIds } },
+                data: {
+                    isCancelled: true,
+                    status: "REJECTED",
+                    rejectionRemarks: "Appointment slot expired / missed"
+                }
+            });
+
+            // Record category rejection for each past due appointment
+            const { recordTransactionRejection } = await import("@/lib/transactions/rejection-tracker");
+            for (const tx of pastDueTxs) {
+                if (tx.userId) {
+                    const categoryKey = tx.type?.category || "CEDULA";
+                    await recordTransactionRejection(tx.userId, categoryKey);
+                }
+            }
+        }
     } catch (error) {
         console.error("Error cleaning up past-due appointments:", error);
     }
