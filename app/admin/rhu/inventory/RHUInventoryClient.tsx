@@ -178,8 +178,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         }) : null
     );
 
-    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and manage inventory in their own center
-    const isCenterAdmin = currentUser?.role === "RHU_CENTER_ADMIN" || (userMatchedCenter && !userEmail.includes("rhu@") && !userEmail.includes("main"));
     const isCenterScopedUser = !!userMatchedCenter;
 
     // RHU Administrator (Main RHU / Super Admin / RHU Pharmacy) or Center Pharmacy staff can add/edit/adjust inventory for their scoped center

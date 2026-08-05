@@ -81,7 +81,7 @@ export function ActivateUserModal({
             <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 leading-normal">
-                This action will reset their rejection count to <span className="font-extrabold text-amber-600 dark:text-amber-400">0</span> and mark their email as <span className="font-extrabold text-emerald-600 dark:text-emerald-400">Verified</span>.
+                This action will reset their rejection count & consecutive rejections map to <span className="font-extrabold text-amber-600 dark:text-amber-400">0</span> and mark their email as <span className="font-extrabold text-emerald-600 dark:text-emerald-400">Verified</span>.
               </p>
             </div>
           </div>
