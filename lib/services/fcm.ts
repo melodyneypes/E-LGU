@@ -67,14 +67,14 @@ export async function sendRHUAnnouncementNotification(
 
     const messaging = getMessaging(app);
 
-    const safeTitle = title || "RHU Health Advisory";
+    const safeTitle = title || "Announcement Advisory";
     const safeBody = body || "";
     const formattedBody = safeBody.length > 150 ? safeBody.substring(0, 147) + "..." : safeBody;
 
-    const message: Message = {
-      topic: "rhu_announcements",
+    const buildMessage = (topicName: string): Message => ({
+      topic: topicName,
       notification: {
-        title: `📢 RHU Advisory: ${safeTitle}`,
+        title: `📢 Advisory: ${safeTitle}`,
         body: formattedBody,
       },
       data: {
@@ -90,13 +90,20 @@ export async function sendRHUAnnouncementNotification(
           priority: "high",
         },
       },
-    };
+    });
 
-    const response = await messaging.send(message);
-    console.log("[FCM] Broadcast announcement push notification sent successfully:", response);
-    return { success: true, messageId: response };
+    const res1 = await messaging.send(buildMessage("rhu_announcements"));
+    let res2: string | null = null;
+    try {
+      res2 = await messaging.send(buildMessage("announcements"));
+    } catch (e: any) {
+      console.warn("[FCM Warning] Could not send to secondary topic 'announcements':", e?.message);
+    }
+
+    console.log("[FCM] Broadcast announcement push notification sent successfully:", res1, res2);
+    return { success: true, messageId: res1 };
   } catch (error: any) {
-    console.error("[FCM Error] Failed to send RHU announcement notification:", error?.message || error);
+    console.error("[FCM Error] Failed to send announcement notification:", error?.message || error);
     return { success: false, error: String(error?.message || error) };
   }
 }

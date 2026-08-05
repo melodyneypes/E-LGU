@@ -19,32 +19,40 @@ const geistMono = Geist_Mono({
 import { getMultipleSystemSettings } from "@/lib/settings";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await getMultipleSystemSettings([
-    "site_logo",
-    "brand_word_1",
-    "brand_word_2"
-  ]);
+  try {
+    const settings = await getMultipleSystemSettings([
+      "site_logo",
+      "brand_word_1",
+      "brand_word_2"
+    ]);
 
-  const brand1 = settings.get("brand_word_1") || "E";
-  const brand2 = settings.get("brand_word_2") || "Mapandan";
-  const logo = settings.get("site_logo") || "";
+    const brand1 = settings.get("brand_word_1") || "E";
+    const brand2 = settings.get("brand_word_2") || "Mapandan";
+    const logo = settings.get("site_logo") || "";
 
-  return {
-    title: `${brand1}${brand2}`,
-    description: `Official digital governance portal for ${brand1}${brand2}. Access public services, news, and community updates.`,
-    ...(logo ? {
-      icons: {
-        icon: [
-          {
-            url: logo,
-            href: logo,
-          },
-        ],
-        shortcut: [logo],
-        apple: [logo],
-      }
-    } : {}),
-  };
+    return {
+      title: `${brand1}${brand2}`,
+      description: `Official digital governance portal for ${brand1}${brand2}. Access public services, news, and community updates.`,
+      ...(logo ? {
+        icons: {
+          icon: [
+            {
+              url: logo,
+              href: logo,
+            },
+          ],
+          shortcut: [logo],
+          apple: [logo],
+        }
+      } : {}),
+    };
+  } catch (error) {
+    console.error("Error generating metadata:", error);
+    return {
+      title: "EMapandan",
+      description: "Official digital governance portal for EMapandan."
+    };
+  }
 }
 
 import { Providers } from "@/components/shared/Providers";

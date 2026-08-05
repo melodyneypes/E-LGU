@@ -263,7 +263,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
             initial={{ y: "-100%" }}
             animate={{ y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="h-14 shrink-0 flex items-center justify-between px-4 bg-white dark:bg-[#1e2330] border-b border-slate-200 dark:border-[#2a3040] z-50 relative"
+            className="h-14 shrink-0 flex items-center justify-between px-4 bg-white dark:bg-[#1e2330] border-b border-slate-200 dark:border-[#2a3040] z-50 relative print:hidden"
         >
             {/* Left: Hamburger + Breadcrumbs */}
             <div className="flex items-center gap-3 min-w-0">

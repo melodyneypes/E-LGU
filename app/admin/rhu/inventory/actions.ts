@@ -23,6 +23,10 @@ async function checkPharmacyAuth() {
     const email = (user?.email || "").toLowerCase();
     const department = (user?.department || "").toUpperCase();
 
+    if (role === "RHU_STAFF" || role === "RHU_DOCTOR" || role === "ADMIN_AIDE") {
+        throw new Error("Forbidden: RHU Staff accounts have read-only access to inventory.");
+    }
+
     const matchedCenter = await getMatchedCenterForUser(user);
 
     const isGlobalAdmin = role === "ADMIN" || 
@@ -33,12 +37,8 @@ async function checkPharmacyAuth() {
 
     const isPharmacyUser = role === "RHU_PHARMACY" || 
         role === "RHU_CENTER_ADMIN" || 
-        role === "RHU_DOCTOR" || 
-        role === "RHU_STAFF" || 
         email.includes("pharmacy") || 
-        email.includes("lalas") || 
-        department.includes("PHARMACY") || 
-        !!matchedCenter;
+        department.includes("PHARMACY");
 
     if (!isGlobalAdmin && !isPharmacyUser) {
         throw new Error("Only authorized RHU / Pharmacy personnel can modify inventory items and stock.");
@@ -665,5 +665,75 @@ export async function deleteRHUInventoryItem(id: string) {
     } catch (error: any) {
         console.error("Error deleting RHU inventory item:", error);
         return { success: false, error: error?.message || "Failed to delete inventory item" };
+    }
+}
+
+export async function dispenseRHUMedicines(dispensedItems: { itemId: string; quantity: number }[]) {
+    try {
+        await checkPharmacyAuth();
+        await ensureInventoryTablesExist();
+
+        for (const item of dispensedItems) {
+            if (!item.itemId || item.quantity <= 0) continue;
+
+            // Deduct from batches using FEFO (First Expired, First Out)
+            let itemBatches: any[] = [];
+            try {
+                itemBatches = await prisma.$queryRaw`
+                    SELECT * FROM "RHUInventoryBatch" 
+                    WHERE "itemId" = ${item.itemId} AND "quantity" > 0 
+                    ORDER BY "expirationDate" ASC NULLS LAST, "createdAt" ASC
+                `;
+            } catch {
+                itemBatches = [];
+            }
+
+            let remainingToDeduct = item.quantity;
+            if (itemBatches && itemBatches.length > 0) {
+                for (const batch of itemBatches) {
+                    if (remainingToDeduct <= 0) break;
+                    const deduct = Math.min(batch.quantity, remainingToDeduct);
+                    const newBatchQty = batch.quantity - deduct;
+                    try {
+                        await prisma.$executeRaw`
+                            UPDATE "RHUInventoryBatch" 
+                            SET "quantity" = ${newBatchQty}, "updatedAt" = NOW() 
+                            WHERE "id" = ${batch.id}
+                        `;
+                    } catch {}
+                    remainingToDeduct -= deduct;
+                }
+
+                // Sync master item total quantity from batches
+                try {
+                    const sumResult: any[] = await prisma.$queryRaw`
+                        SELECT COALESCE(SUM(quantity), 0) as total FROM "RHUInventoryBatch" WHERE "itemId" = ${item.itemId}
+                    `;
+                    const newTotalQty = Number(sumResult[0]?.total || 0);
+                    await prisma.$executeRaw`
+                        UPDATE "RHUInventoryItem" 
+                        SET "quantity" = ${newTotalQty}, "updatedAt" = NOW() 
+                        WHERE "id" = ${item.itemId}
+                    `;
+                } catch {}
+            } else {
+                // Direct update on item master if no batch records exist
+                try {
+                    await prisma.$executeRaw`
+                        UPDATE "RHUInventoryItem" 
+                        SET "quantity" = GREATEST(0, "quantity" - ${item.quantity}), "updatedAt" = NOW() 
+                        WHERE "id" = ${item.itemId}
+                    `;
+                } catch {}
+            }
+        }
+
+        revalidatePath("/admin/rhu/inventory");
+        revalidatePath("/admin/rhu/consultations");
+        revalidatePath("/admin/rhu");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error dispensing RHU medicines:", error);
+        return { success: false, error: error?.message || "Failed to dispense medicines" };
     }
 }

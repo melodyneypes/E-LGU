@@ -135,7 +135,7 @@ export default function UserAppointmentsPage() {
             }
             const rhuStatus = addData.rhuStatus || null;
 
-            if (rhuStatus === "CHECK_IN" || status === "EVALUATED") {
+            if (rhuStatus === "CHECK_IN" || status === "CHECK_IN" || status === "CHECKED_IN" || status === "EVALUATED") {
                 return { color: "text-indigo-500", bg: "bg-indigo-500/10", border: "border-indigo-500/20", icon: CheckCircle2, label: "CHECKED IN", opacity: 1 };
             }
             if (rhuStatus === "IN_CONSULTATION" || status === "FOR_PROCESSING" || status === "FOR_REINSPECTION") {
@@ -194,12 +194,19 @@ export default function UserAppointmentsPage() {
         }
     };
 
-    const filteredRequests = requests.filter(r => 
-        r.appointmentDate && (
-            r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.id.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-    );
+    const filteredRequests = requests.filter(r => {
+        const isRHU = ["RHU", "Rural Health Unit", "HEALTH", "RURAL_HEALTH_UNIT"].includes(r.type?.category) || r.type?.code?.startsWith("RHU_");
+        const hasAppointment = r.appointmentDate || r.appointmentSlot || isRHU;
+        if (!hasAppointment) return false;
+
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (r.type?.name || "").toLowerCase().includes(q) ||
+            (r.id || "").toLowerCase().includes(q) ||
+            (r.queueNumber || "").toLowerCase().includes(q)
+        );
+    });
 
     const sortedRequests = [...filteredRequests].sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;

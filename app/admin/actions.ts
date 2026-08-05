@@ -2743,13 +2743,27 @@ export async function getUserTransactions() {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-        const transactions = await (prisma as any).transaction.findMany({
-            where: { userId: (session.user as any).id },
-            include: { type: true },
-            orderBy: { createdAt: "desc" }
-        });
+        let transactions: any[] = [];
+        try {
+            transactions = await (prisma as any).transaction.findMany({
+                where: { userId: (session.user as any).id },
+                include: { type: true },
+                orderBy: { createdAt: "desc" }
+            });
+        } catch (findErr) {
+            console.warn("Prisma findMany in admin/actions getUserTransactions failed, fallback to raw SQL:", findErr);
+            const raw: any[] = await prisma.$queryRaw`
+                SELECT t.*,
+                       JSON_BUILD_OBJECT('id', tt.id, 'code', tt.code, 'name', tt.name, 'category', tt.category) as type
+                FROM "Transaction" t
+                LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+                WHERE t."userId" = ${(session.user as any).id}
+                ORDER BY t."createdAt" DESC
+            `;
+            transactions = raw;
+        }
 
-        return { success: true, transactions };
+        return { success: true, transactions, data: transactions };
     } catch (error) {
         return { success: false, error: "Failed to fetch your transactions." };
     }

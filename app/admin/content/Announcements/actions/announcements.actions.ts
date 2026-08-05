@@ -226,18 +226,10 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         revalidatePath("/");
 
         // Send FCM Push Notification to Flutter mobile app users
-        const isHealthOrRHU =
-            category?.toLowerCase().includes("health") ||
-            category?.toLowerCase().includes("rhu") ||
-            user.role === "RHU_ADMIN" ||
-            user.role === "RHU_CENTER_ADMIN" ||
-            user.role === "RHU_DOCTOR" ||
-            Boolean(matchedCenter);
-
-        if (isHealthOrRHU && newAnnouncement) {
+        if (newAnnouncement && createData.isActive !== false) {
             try {
                 await sendRHUAnnouncementNotification(
-                    String(newAnnouncement.title || title || "RHU Health Advisory"),
+                    String(newAnnouncement.title || title || "New Announcement"),
                     String(newAnnouncement.content || content || ""),
                     { announcementId: String(newAnnouncement.id || "") }
                 );

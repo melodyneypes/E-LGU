@@ -18,20 +18,35 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
 
     const { id } = await params;
 
-    const transaction = await prisma.transaction.findUnique({
-        where: { id },
-        include: {
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    residentProfile: true
-                }
-            },
-            type: true
-        }
-    });
+    let transaction: any = null;
+    try {
+        transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        residentProfile: true
+                    }
+                },
+                type: true
+            }
+        });
+    } catch {
+        const raw: any[] = await prisma.$queryRaw`
+            SELECT t.*,
+                   JSON_BUILD_OBJECT('id', u.id, 'name', u.name, 'email', u.email) as user,
+                   JSON_BUILD_OBJECT('id', tt.id, 'code', tt.code, 'name', tt.name, 'category', tt.category) as type
+            FROM "Transaction" t
+            LEFT JOIN "User" u ON t."userId" = u.id
+            LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+            WHERE t.id = ${id}
+            LIMIT 1
+        `;
+        transaction = raw[0] || null;
+    }
 
     if (!transaction) {
         notFound();
@@ -81,7 +96,7 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
 
     return (
         <div className="p-4 md:p-8 w-full max-w-full space-y-6 pb-20 animate-in fade-in duration-500">
-            <RHUTransactionDetailClient transaction={transaction} />
+            <RHUTransactionDetailClient transaction={transaction} currentUser={session.user as any} />
         </div>
     );
 }

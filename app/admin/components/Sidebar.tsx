@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -433,6 +433,12 @@ export function Sidebar({
             category: "Rural Health Unit"
         },
         {
+            href: "/admin/rhu/purchase-orders",
+            label: "Purchase Orders",
+            icon: ShoppingCart,
+            category: "Rural Health Unit"
+        },
+        {
             href: "/admin/rhu/announcements",
             label: "Announcements",
             icon: Megaphone,
@@ -721,7 +727,7 @@ export function Sidebar({
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 onAnimationComplete={() => setIsEntranceComplete(true)}
                 className={cn(
-                    "fixed md:static inset-y-0 left-0 flex-shrink-0 z-40 bg-white dark:bg-[#1e2330] border-r border-slate-200 dark:border-[#2a3040] overflow-hidden",
+                    "fixed md:static inset-y-0 left-0 flex-shrink-0 z-40 bg-white dark:bg-[#1e2330] border-r border-slate-200 dark:border-[#2a3040] overflow-hidden print:hidden",
                     isEntranceComplete && "transition-all duration-300",
                     isSidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full md:translate-x-0 md:w-0"
                 )}
