@@ -12,6 +12,7 @@ export default async function UserAnnouncementsPage({
     const announcements = await prisma.announcement.findMany({
         where: { 
             isActive: true,
+            category: { not: "Health" },
             ...(isFiltered ? { barangay } : {})
         } as any,
         orderBy: { createdAt: "desc" }
