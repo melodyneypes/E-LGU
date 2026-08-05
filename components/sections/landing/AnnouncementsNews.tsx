@@ -36,10 +36,11 @@ interface News {
 
 interface AnnouncementsNewsProps {
     announcements: Announcement[];
+    healthAnnouncements?: Announcement[];
     news: News[];
 }
 
-export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProps) {
+export function AnnouncementsNews({ announcements, healthAnnouncements, news }: AnnouncementsNewsProps) {
     const { selectedBarangay } = useBarangay();
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -55,7 +56,7 @@ export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProp
 
     return (
         <>
-            <HighPriorityAnnouncementModal announcements={announcements} />
+            <HighPriorityAnnouncementModal announcements={healthAnnouncements || announcements} />
 
             <section id="news" className="pt-8 md:pt-12 pb-8 md:pb-12 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16">
             

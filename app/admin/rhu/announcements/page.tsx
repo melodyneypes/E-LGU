@@ -1,6 +1,6 @@
 import React from "react";
 import prisma from "@/lib/db/prisma";
-import { AnnouncementPage } from "@/app/admin/content/Announcements/AnnouncementPage";
+import { RHUAnnouncementPage } from "./components/RHUAnnouncementPage";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Metadata } from "next";
@@ -95,7 +95,7 @@ export default async function RHUAnnouncementsPage({
     ]);
 
     return (
-        <AnnouncementPage
+        <RHUAnnouncementPage
             initialData={announcements}
             totalCount={totalCount}
             page={page}

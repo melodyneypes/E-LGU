@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { useSession } from "next-auth/react";
 import { 
     ShieldAlert, 
-    AlertTriangle, 
+    Activity, 
     Calendar, 
     Tag, 
     X, 
@@ -57,27 +58,46 @@ const slideVariants = {
 };
 
 export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnnouncementModalProps) {
+    const { data: session } = useSession();
+    const userKey = session?.user ? `user_${(session.user as any).id || (session.user as any).email}` : "guest";
+
     const [isOpen, setIsOpen] = useState(false);
     const [highPriorityList, setHighPriorityList] = useState<HighPriorityAnnouncement[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [direction, setDirection] = useState(1);
+    const [themeColor, setThemeColor] = useState("#2563eb");
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                if (data.themeColor) {
+                    setThemeColor(data.themeColor);
+                }
+            } catch (error) {
+                console.error('Error fetching theme settings:', error);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         if (!announcements || announcements.length === 0) return;
 
-        // Filter and sort High & Critical priority announcements
+        // Filter Health category announcements regardless of priority
         const filtered = [...announcements]
-            .filter(a => a.priority === "Critical" || a.priority === "High")
+            .filter(a => a.category === "Health")
             .sort((a, b) => {
                 if (a.priority === "Critical" && b.priority !== "Critical") return -1;
                 if (a.priority !== "Critical" && b.priority === "Critical") return 1;
                 return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
 
-        // Exclude ones dismissed in this browser session
+        // Exclude ones dismissed for the current auth scope (guest vs logged-in user)
         const unDismissed = filtered.filter(a => {
             try {
-                return !sessionStorage.getItem(`dismissed_announcement_${a.id}`);
+                return !sessionStorage.getItem(`dismissed_${userKey}_announcement_${a.id}`);
             } catch {
                 return true;
             }
@@ -93,7 +113,7 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
             setIsOpen(true);
         }, 600);
         return () => clearTimeout(timer);
-    }, [announcements]);
+    }, [announcements, userKey]);
 
     const activeAnnouncement = highPriorityList[currentIndex];
 
@@ -101,7 +121,7 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
         if (!activeAnnouncement) return;
 
         try {
-            sessionStorage.setItem(`dismissed_announcement_${activeAnnouncement.id}`, "true");
+            sessionStorage.setItem(`dismissed_${userKey}_announcement_${activeAnnouncement.id}`, "true");
         } catch {
             // ignore
         }
@@ -145,9 +165,18 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
             >
                 <DialogTitle className="sr-only">{activeAnnouncement.title}</DialogTitle>
 
-
                 {/* Main Front Modal Container */}
-                <div className="relative w-full overflow-hidden bg-transparent">
+                <div className="relative w-full bg-transparent pt-3 pr-3">
+                    {/* Floating Shopee-Style Top-Right Close Circle */}
+                    <button
+                        type="button"
+                        onClick={handleDismissCurrent}
+                        className="absolute top-0 right-0 z-50 w-9 h-9 rounded-full bg-slate-900/90 text-slate-300 hover:text-white border-2 border-white/20 shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 focus:outline-none backdrop-blur-md cursor-pointer"
+                        title="Dismiss Advisory"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+
                     <AnimatePresence mode="wait" custom={direction}>
                         <motion.div
                             key={activeAnnouncement.id}
@@ -157,35 +186,38 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
                             animate="center"
                             exit="exit"
                             transition={{ duration: 0.22, ease: "easeInOut" }}
-                            className="relative w-full overflow-hidden rounded-none border border-slate-800/90 shadow-2xl bg-slate-950 text-white"
+                            className="relative w-full overflow-hidden rounded-3xl border border-slate-800/90 shadow-2xl bg-slate-950 text-white"
                         >
                             {/* Top Banner Header */}
-                            <div className={`p-3.5 sm:p-4 relative overflow-hidden shrink-0 ${
-                                isCritical
-                                    ? "bg-gradient-to-br from-red-600 via-rose-600 to-orange-600"
-                                    : "bg-gradient-to-br from-amber-500 via-orange-600 to-rose-600"
-                            }`}>
+                            <div
+                                className={`p-4 sm:p-5 relative overflow-hidden shrink-0 ${
+                                    isCritical
+                                        ? "bg-gradient-to-br from-red-600 via-rose-600 to-orange-600"
+                                        : ""
+                                }`}
+                                style={!isCritical ? { backgroundColor: themeColor } : undefined}
+                            >
                                 {/* Background Decorative Graphic */}
                                 <div className="absolute -right-6 -bottom-6 opacity-15 pointer-events-none">
-                                    <ShieldAlert className="w-44 sm:w-52 h-44 sm:h-52 text-white" />
+                                    <Activity className="w-44 sm:w-52 h-44 sm:h-52 text-white" />
                                 </div>
                                 <div className="absolute top-0 right-0 w-44 sm:w-52 h-44 sm:h-52 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
 
-                                <div className="relative z-10 space-y-1.5">
-                                    {/* Top Bar: Badges, Stack Count & Close Button */}
-                                    <div className="flex items-center justify-between gap-2">
+                                <div className="relative z-10 space-y-2">
+                                    {/* Top Bar: Badges & Stack Navigation */}
+                                    <div className="flex items-center justify-between gap-2 pr-6">
                                         <div className="flex flex-wrap items-center gap-1.5">
-                                            <Badge className={`px-2.5 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-widest gap-1 border-0 shadow-md ${
+                                            <Badge className={`px-3 py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest gap-1 border-0 shadow-md ${
                                                 isCritical
                                                     ? "bg-white text-red-600 animate-pulse"
-                                                    : "bg-white text-orange-600"
+                                                    : "bg-white text-emerald-800"
                                             }`}>
                                                 {isCritical ? (
                                                     <ShieldAlert className="w-3 h-3 text-red-600 shrink-0" />
                                                 ) : (
-                                                    <AlertTriangle className="w-3 h-3 text-orange-600 shrink-0" />
+                                                    <Activity className="w-3 h-3 text-emerald-600 shrink-0" />
                                                 )}
-                                                <span>{activeAnnouncement.priority} Priority Notice</span>
+                                                <span>RHU Health Advisory</span>
                                             </Badge>
 
                                             {activeAnnouncement.isPinned && (
@@ -197,56 +229,44 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
 
                                             {/* Stack Deck Counter Badge */}
                                             {hasMultiple && (
-                                                <Badge className="bg-black/30 text-white border border-white/25 text-[8px] uppercase font-black tracking-wider backdrop-blur-md gap-1 px-2">
-                                                    <Layers className="w-2.5 h-2.5 text-amber-300" />
-                                                    <span>Notice {currentIndex + 1} of {highPriorityList.length}</span>
+                                                <Badge className="bg-black/40 text-white border border-white/25 text-[8px] uppercase font-black tracking-wider backdrop-blur-md gap-1 px-2">
+                                                    <Layers className="w-2.5 h-2.5 text-emerald-300" />
+                                                    <span>Advisory {currentIndex + 1} of {highPriorityList.length}</span>
                                                 </Badge>
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-1.5">
-                                            {/* Stack Navigation Arrows */}
-                                            {hasMultiple && (
-                                                <div className="flex items-center gap-1 bg-black/20 backdrop-blur-md p-0.5 rounded-full border border-white/20">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handlePrev}
-                                                        className="w-6 h-6 rounded-full hover:bg-white/20 text-white/90 flex items-center justify-center transition-all focus:outline-none"
-                                                        title="Previous Notice"
-                                                    >
-                                                        <ChevronLeft className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <span className="text-[9px] font-mono font-bold px-1 text-white/90">
-                                                        {currentIndex + 1}/{highPriorityList.length}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleNext}
-                                                        className="w-6 h-6 rounded-full hover:bg-white/20 text-white/90 flex items-center justify-center transition-all focus:outline-none"
-                                                        title="Next Notice"
-                                                    >
-                                                        <ChevronRight className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* Custom Close Button */}
-                                            <button
-                                                type="button"
-                                                onClick={handleDismissCurrent}
-                                                className="w-7 h-7 rounded-full bg-black/20 hover:bg-black/40 text-white/80 hover:text-white backdrop-blur-md flex items-center justify-center transition-all shrink-0 focus:outline-none focus:ring-2 focus:ring-white/40"
-                                                title="Dismiss Advisory"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        {/* Stack Navigation Arrows */}
+                                        {hasMultiple && (
+                                            <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md p-0.5 rounded-full border border-white/20">
+                                                <button
+                                                    type="button"
+                                                    onClick={handlePrev}
+                                                    className="w-6 h-6 rounded-full hover:bg-white/20 text-white/90 flex items-center justify-center transition-all focus:outline-none"
+                                                    title="Previous Advisory"
+                                                >
+                                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                                </button>
+                                                <span className="text-[9px] font-mono font-bold px-1 text-white/90">
+                                                    {currentIndex + 1}/{highPriorityList.length}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNext}
+                                                    className="w-6 h-6 rounded-full hover:bg-white/20 text-white/90 flex items-center justify-center transition-all focus:outline-none"
+                                                    title="Next Advisory"
+                                                >
+                                                    <ChevronRight className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Title & Metadata */}
                                     <div className="space-y-0.5">
                                         <div className="flex items-center gap-2 text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] text-white/85">
-                                            <BellRing className="w-3 h-3 animate-bounce" />
-                                            <span>Urgent Public Advisory</span>
+                                            <BellRing className="w-3 h-3 text-emerald-300 animate-bounce" />
+                                            <span>Rural Health Unit Mapandan</span>
                                             <span className="opacity-40">•</span>
                                             <span className="flex items-center gap-1">
                                                 <Calendar className="w-2.5 h-2.5 opacity-70" />
@@ -335,11 +355,12 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
                                 >
                                     <Button
                                         type="button"
-                                        className={`w-full sm:w-auto text-[11px] sm:text-xs font-black uppercase tracking-wider rounded-xl h-9 sm:h-9.5 px-5 gap-2 text-white shadow-xl transition-all active:scale-95 ${
+                                        className={`w-full sm:w-auto text-[11px] sm:text-xs font-black uppercase tracking-wider rounded-xl h-9 sm:h-9.5 px-5 gap-2 text-white shadow-xl transition-all active:scale-95 border-0 ${
                                             isCritical
                                                 ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-600/25"
-                                                : "bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 shadow-orange-500/25"
+                                                : ""
                                         }`}
+                                        style={!isCritical ? { backgroundColor: themeColor } : undefined}
                                     >
                                         <Calendar className="w-3.5 h-3.5" />
                                         <span>Schedule RHU Appointment</span>
