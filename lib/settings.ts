@@ -21,6 +21,7 @@ export const getSystemSetting = cache(async function getSystemSetting(
         return value;
     } catch (error) {
         console.error(`Error fetching system setting ${key}:`, error);
+        if (cached) return cached.value;
         return defaultValue;
     }
 });
@@ -43,6 +44,7 @@ export const getMultipleSystemSettings = cache(async function getMultipleSystemS
         return settingsMap;
     } catch (error) {
         console.error(`Error fetching multiple system settings:`, error);
+        if (cached) return cached.value;
         return new Map();
     }
 });

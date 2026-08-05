@@ -135,7 +135,7 @@ export default function ConsultationsClient() {
             : (tx?.additionalData || {});
         if (addData?.rhuStatus) return addData.rhuStatus;
         if (tx?.isCancelled || tx?.status === "REJECTED") return "CANCELLED";
-        if (tx?.status === "FOR_CLAIM") return "PRESCRIBED";
+        if (tx?.status === "FOR_CLAIM") return "DISPENSED";
         if (tx?.status === "FOR_PROCESSING") return "IN_CONSULTATION";
         if (tx?.status === "EVALUATED") return "CHECK_IN";
         if (tx?.status === "RELEASED" || tx?.status === "DELIVERED") return "COMPLETED";
@@ -143,6 +143,7 @@ export default function ConsultationsClient() {
     };
 
     const getStatusBadge = (tx: any) => {
+        const addData = getAdditionalData(tx);
         const rhuStatus = getEffectiveRHUStatus(tx);
         if (tx.isCancelled || rhuStatus === "CANCELLED" || tx.status === "REJECTED") {
             return (
@@ -176,9 +177,23 @@ export default function ConsultationsClient() {
                     </span>
                 );
             case "PRESCRIBED":
+                if (!!(addData.dispenseInfo || addData.dispensedAt || addData.poDispensedByPharmacy)) {
+                    return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                            <Clock className="w-3 h-3" /> Waiting for Approval
+                        </span>
+                    );
+                }
                 return (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
                         <CheckCircle2 className="w-3 h-3" /> Prescribed
+                    </span>
+                );
+            case "DISPENSED":
+            case "FOR_CLAIM":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                        <Clock className="w-3 h-3" /> Waiting for Approval
                     </span>
                 );
             case "REFERRED":
@@ -195,7 +210,20 @@ export default function ConsultationsClient() {
                         <CheckCircle2 className="w-3 h-3" /> Completed
                     </span>
                 );
+            case "PO_APPROVED":
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> PO Approved
+                    </span>
+                );
             default:
+                if (tx.status === "FOR_CLAIM") {
+                    return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                            <CheckCircle2 className="w-3 h-3" /> PO Approved
+                        </span>
+                    );
+                }
                 return (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                         <Clock className="w-3 h-3" /> {tx.status.replace("_", " ")}

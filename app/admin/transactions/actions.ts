@@ -1391,29 +1391,45 @@ export async function getTransactionById(id: string) {
         const session = await getSession();
         const user = session?.user as any;
 
-        const transaction = await prisma.transaction.findUnique({
-            where: { id },
-            include: {
-                type: true,
-                cedula: true,
-                businessPermit: true,
-                birthCertificateRequest: true,
-                birthCertificateRegistry: true,
-                deathRegistration: true,
-                deathCertificateRequest: true,
-                marriageRegistration: true,
-                marriageLicenseApplication: true,
-                marriageCertificateRequest: true,
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        residentProfile: true
+        let transaction: any = null;
+        try {
+            transaction = await prisma.transaction.findUnique({
+                where: { id },
+                include: {
+                    type: true,
+                    cedula: true,
+                    businessPermit: true,
+                    birthCertificateRequest: true,
+                    birthCertificateRegistry: true,
+                    deathRegistration: true,
+                    deathCertificateRequest: true,
+                    marriageRegistration: true,
+                    marriageLicenseApplication: true,
+                    marriageCertificateRequest: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            residentProfile: true
+                        }
                     }
                 }
-            }
-        });
+            });
+        } catch {
+            const raw: any[] = await prisma.$queryRaw`
+                SELECT t.*,
+                       JSON_BUILD_OBJECT('id', u.id, 'name', u.name, 'email', u.email) as user,
+                       JSON_BUILD_OBJECT('id', tt.id, 'code', tt.code, 'name', tt.name, 'category', tt.category) as type
+                FROM "Transaction" t
+                LEFT JOIN "User" u ON t."userId" = u.id
+                LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+                WHERE t.id = ${id}
+                LIMIT 1
+            `;
+            transaction = raw[0] || null;
+        }
+
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const isBusinessPermit = transaction.type.code.startsWith("BUSINESS_PERMIT");
@@ -3044,36 +3060,16 @@ export async function getUserTransactions() {
             console.error("Failed to cleanup past due civil registry appointments in background:", err);
         });
 
-        const transactions = await prisma.transaction.findMany({
-            where: { userId: session.user.id },
-            select: {
-                id: true,
-                status: true,
-                createdAt: true,
-                isCancelled: true,
-                totalAmount: true,
-                appointmentDate: true,
-                type: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        category: true
-                    }
-                },
-                cedula: {
-                    select: {
-                        id: true
-                    }
-                },
-                businessPermit: {
-                    select: {
-                        id: true
-                    }
-                }
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        const transactions: any[] = await prisma.$queryRaw`
+            SELECT t.id, t.status, t."createdAt", t."isCancelled", t."totalAmount", t."appointmentDate",
+                   t."appointmentSlot", t."queueNumber", t."isPriority", t."additionalData", t."residentSnapshot",
+                   t."businessName", t."rejectionRemarks",
+                   JSON_BUILD_OBJECT('id', tt.id, 'code', tt.code, 'name', tt.name, 'category', tt.category) as type
+            FROM "Transaction" t
+            LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+            WHERE t."userId" = ${session.user.id}
+            ORDER BY t."createdAt" DESC
+        `;
 
         return { success: true, data: transactions as any[] };
     } catch (error) {
@@ -3191,11 +3187,21 @@ export async function cancelTransaction(id: string) {
             ? JSON.parse(tx.additionalData || "{}")
             : tx.additionalData) || {};
         if (additionalData.checkedIn) {
-            return { success: false, error: "Cannot cancel a transaction that has already been checked in at the kiosk." };
+            return { success: false, error: "Cannot cancel an appointment that has already been checked in." };
         }
 
-        // Only allow cancellation if the request is still in DRAFT or FOR_REQUESTING phase
+        const rhuStatus = additionalData.rhuStatus || null;
+        if (rhuStatus && rhuStatus !== "APPOINTMENT_BOOKED") {
+            return { success: false, error: "Appointments can only be cancelled while in Booked status." };
+        }
+
+        // Only allow cancellation if the request is still in BOOKED / FOR_REQUESTING / FOR_INSPECTION phase
         const restrictedStatuses = [
+            "CHECK_IN",
+            "IN_CONSULTATION",
+            "PRESCRIBED",
+            "REFERRED",
+            "COMPLETED",
             "FOR_PROCESSING",
             "EVALUATED",
             "FOR_CLAIM",
@@ -3208,7 +3214,7 @@ export async function cancelTransaction(id: string) {
             "REJECTED"
         ];
         if (restrictedStatuses.includes(tx.status)) {
-            return { success: false, error: "Cannot cancel transaction at this stage. Please contact support if you need assistance." };
+            return { success: false, error: "Cannot cancel appointment at this stage. Appointments can only be cancelled while in Booked status." };
         }
 
         await (prisma.transaction.update as any)({

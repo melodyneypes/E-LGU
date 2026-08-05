@@ -412,15 +412,25 @@ export default function AppointmentDetailsPage() {
                                 <Printer className="w-4 h-4 mr-2" /> Print Slip Receipt
                             </Button>
 
-                            {(request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION") && !request.isCancelled && !additionalData?.checkedIn && (
-                                <Button
-                                    onClick={() => setCancelConfirmOpen(true)}
-                                    variant="outline"
-                                    className="w-full h-11 border-red-500/20 text-red-500 hover:bg-red-500/10 rounded-xl font-bold uppercase tracking-widest text-xs"
-                                >
-                                    <X className="w-4 h-4 mr-2" /> Cancel Booking
-                                </Button>
-                            )}
+                            {(() => {
+                                const rhuStatus = additionalData?.rhuStatus || null;
+                                const isBookedState = (request.status === "BOOKED" || request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION") &&
+                                    (!rhuStatus || rhuStatus === "APPOINTMENT_BOOKED") &&
+                                    !additionalData?.checkedIn;
+
+                                if (isBookedState && !request.isCancelled) {
+                                    return (
+                                        <Button
+                                            onClick={() => setCancelConfirmOpen(true)}
+                                            variant="outline"
+                                            className="w-full h-11 border-red-500/20 text-red-500 hover:bg-red-500/10 rounded-xl font-bold uppercase tracking-widest text-xs"
+                                        >
+                                            <X className="w-4 h-4 mr-2" /> Cancel Booking
+                                        </Button>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                     </div>
 
@@ -479,97 +489,7 @@ export default function AppointmentDetailsPage() {
                             </div>
                         )}
 
-                        {/* Real-time RHU Stepper Tracker */}
-                        {isRHU && !request.isCancelled && request.status !== "REJECTED" && (
-                            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-6 space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
-                                        <h3 className="text-xs font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Consultation Real-time Tracker</h3>
-                                    </div>
-                                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 animate-pulse">Live Tracking</Badge>
-                                </div>
-                                <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6 md:gap-4 pt-2">
-                                    {/* Line connector for stepper (desktop) */}
-                                    <div className="absolute top-[21px] left-[24px] right-[24px] h-[3px] bg-slate-200 dark:bg-white/10 hidden md:block z-0" />
-                                    {/* Active fill line for stepper (desktop) */}
-                                    <div 
-                                        className="absolute top-[21px] left-[24px] h-[3px] bg-primary transition-all duration-500 hidden md:block z-0" 
-                                        style={{ 
-                                            width: `${
-                                                (request.status === "RELEASED" || request.status === "DELIVERED" || additionalData?.rhuStatus === "COMPLETED") ? 100 :
-                                                (request.status === "FOR_CLAIM" || additionalData?.rhuStatus === "PRESCRIBED" || additionalData?.rhuStatus === "REFERRED") ? 75 :
-                                                (request.status === "FOR_PROCESSING" || additionalData?.rhuStatus === "IN_CONSULTATION") ? 50 :
-                                                (request.status === "EVALUATED" || additionalData?.rhuStatus === "CHECK_IN") ? 25 : 0
-                                            }%` 
-                                        }} 
-                                    />
-                                    
-                                    {/* Line connector for stepper (mobile) */}
-                                    <div className="absolute left-[20px] top-[24px] bottom-[24px] w-[3px] bg-slate-200 dark:bg-white/10 md:hidden z-0" />
-                                    
-                                    {[
-                                        { key: "BOOKED", label: "Booked", desc: "Awaiting Check-in" },
-                                        { key: "CHECKED_IN", label: "Checked In", desc: "In Waiting Area" },
-                                        { key: "CONSULTATION", label: "Consultation", desc: "With Doctor/Staff" },
-                                        { key: "DISPOSITION", label: additionalData?.rhuStatus === "REFERRED" ? "Referred" : "Prescribed", desc: additionalData?.rhuStatus === "REFERRED" ? "Referred to Hospital" : "Prescriptions Logged" },
-                                        { key: "COMPLETED", label: "Completed", desc: "Done" }
-                                    ].map((step, idx) => {
-                                        const rhuStatus = additionalData?.rhuStatus || null;
-                                        const status = request.status;
-                                        
-                                        let currentIdx = 0;
-                                        if (rhuStatus === "CHECK_IN" || status === "EVALUATED") {
-                                            currentIdx = 1;
-                                        } else if (rhuStatus === "IN_CONSULTATION" || status === "FOR_PROCESSING" || status === "FOR_REINSPECTION") {
-                                            currentIdx = 2;
-                                        } else if (rhuStatus === "PRESCRIBED" || status === "FOR_CLAIM" || rhuStatus === "REFERRED") {
-                                            currentIdx = 3;
-                                        } else if (rhuStatus === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
-                                            currentIdx = 4;
-                                        }
-                                        
-                                        const isCompleted = idx < currentIdx;
-                                        const isActive = idx === currentIdx;
-                                        
-                                        return (
-                                            <div key={step.key} className="flex md:flex-col items-center gap-4 md:gap-2 relative z-10 w-full md:w-auto">
-                                                {/* Step Circle */}
-                                                <div 
-                                                    className={cn(
-                                                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 shadow-md",
-                                                        isCompleted ? "bg-primary text-white" : 
-                                                        isActive ? "bg-indigo-500 text-white ring-4 ring-indigo-500/20" : 
-                                                        "bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-600"
-                                                    )}
-                                                >
-                                                    {isCompleted ? (
-                                                        <CheckCircle2 className="w-5 h-5 text-white" />
-                                                    ) : (
-                                                        <span>{idx + 1}</span>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Text Info */}
-                                                <div className="text-left md:text-center">
-                                                    <p className={cn(
-                                                        "font-black uppercase tracking-tight text-xs",
-                                                        isActive ? "text-indigo-500 dark:text-indigo-400" :
-                                                        isCompleted ? "text-slate-800 dark:text-white" :
-                                                        "text-slate-400 dark:text-slate-600"
-                                                    )}>
-                                                        {step.label}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap hidden md:block">
-                                                        {step.desc}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
+
 
 
 
@@ -767,9 +687,13 @@ export default function AppointmentDetailsPage() {
                                     <Separator className="bg-amber-200/20" />
                                 </div>
                                 <ul className="list-disc pl-5 space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
-                                    <li><strong>Physical Ticket Copy:</strong> Please note that you cannot get your physical ticket from this website. You must tap your ID card at the Municipal Hall Kiosk, print your physical ticket there, and present it to the front desk.</li>
+                                    {isRHU ? (
+                                        <li><strong>Queue Ticket Slip:</strong> Present this digital queue ticket on your phone screen (or a printed copy) to the RHU triage counter / medical staff upon arrival.</li>
+                                    ) : (
+                                        <li><strong>Physical Ticket Copy:</strong> Please note that you cannot get your physical ticket from this website. You must tap your ID card at the Municipal Hall Kiosk, print your physical ticket there, and present it to the front desk.</li>
+                                    )}
                                     <li><strong>Punctuality:</strong> Arrive at least 10–15 minutes prior to your selected slot ({request.appointmentSlot}).</li>
-                                    <li><strong>Verification:</strong> Present this queue ticket slip (either printed or on your phone screen) to the kiosk or officer.</li>
+                                    <li><strong>Verification:</strong> Present this queue ticket slip (either printed or on your phone screen) to the {isRHU ? "RHU health staff or counter" : "kiosk or officer"}.</li>
                                     {request.isPriority && (
                                         <li className="text-primary font-bold">
                                             <strong>Priority Verification:</strong> You are required to present your physical Priority ID (e.g. Senior Citizen, PWD, or pregnancy proof) at the front desk to ensure you proceed to the priority lane.

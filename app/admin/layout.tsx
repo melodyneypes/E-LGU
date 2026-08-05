@@ -58,29 +58,42 @@ export default async function AdminLayout({
         residentsWhere.barangay = managedBarangay;
     }
 
-    const [, , , lcrTransactions] = await Promise.all([
-        prisma.report.count({ where: reportsWhere }),
-        prisma.resident.count({ where: residentsWhere }),
-        prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }),
-        prisma.transaction.findMany({
-            where: {
-                status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
-                isCancelled: false,
-                type: {
-                    OR: [
-                        { category: "Civil Registry" },
-                        { code: { startsWith: "LCR_" } },
-                        { code: { startsWith: "CIVIL_REGISTRY" } }
-                    ]
+    let pendingReportsCount = 0;
+    let pendingResidentsCount = 0;
+    let pendingTreasuryCount = 0;
+    let lcrTransactions: any[] = [];
+
+    try {
+        const [repCnt, resCnt, trsCnt, lcrTx] = await Promise.all([
+            prisma.report.count({ where: reportsWhere }).catch(() => 0),
+            prisma.resident.count({ where: residentsWhere }).catch(() => 0),
+            prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0),
+            prisma.transaction.findMany({
+                where: {
+                    status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
+                    isCancelled: false,
+                    type: {
+                        OR: [
+                            { category: "Civil Registry" },
+                            { code: { startsWith: "LCR_" } },
+                            { code: { startsWith: "CIVIL_REGISTRY" } }
+                        ]
+                    }
+                },
+                select: {
+                    id: true,
+                    updatedAt: true,
+                    type: { select: { code: true } }
                 }
-            },
-            select: {
-                id: true,
-                updatedAt: true,
-                type: { select: { code: true } }
-            }
-        })
-    ]);
+            }).catch(() => [])
+        ]);
+        pendingReportsCount = repCnt;
+        pendingResidentsCount = resCnt;
+        pendingTreasuryCount = trsCnt;
+        lcrTransactions = lcrTx;
+    } catch (err) {
+        console.error("Error fetching admin layout counts:", err);
+    }
 
     // Map type codes to sidebar category labels
     const codeToCategory: Record<string, string> = {
@@ -122,10 +135,10 @@ export default async function AdminLayout({
                     brandWord1={settings.get("brand_word_1")}
                     brandWord2={settings.get("brand_word_2")}
                     themeColor={settings.get("theme_color")}
-                    pendingReportsCount={0}
-                    pendingResidentsCount={0}
-                    pendingTransactionsCount={0}
-                    unviewedLcrCounts={{}}
+                    pendingReportsCount={pendingReportsCount}
+                    pendingResidentsCount={pendingResidentsCount}
+                    pendingTransactionsCount={pendingTreasuryCount}
+                    unviewedLcrCounts={unviewedLcrCounts}
                 >
                     {children}
                 </AdminShell>

@@ -5,7 +5,7 @@ import { Monitor, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { useSession } from "next-auth/react";
+import { useSafeSession } from "@/lib/hooks/useSafeSession";
 
 interface CounterSelectorHeaderProps {
     themeColor?: string;
@@ -32,7 +32,7 @@ export default function CounterSelectorHeader({
     userRole: propRole,
     userDepartment: propDept
 }: CounterSelectorHeaderProps) {
-    const sessionRes = useSession();
+    const sessionRes = useSafeSession();
     const session = sessionRes?.data;
 
     const userRole = propRole || (session?.user as any)?.role || "ADMIN";

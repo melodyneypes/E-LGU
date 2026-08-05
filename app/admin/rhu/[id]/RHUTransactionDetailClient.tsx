@@ -7,9 +7,12 @@ import { Card } from "@/components/ui/card";
 import {
     ArrowLeft, CheckCircle2, XCircle, Printer,
     Activity, Stethoscope, ClipboardList,
-    ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle
+    ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
+    Search, Pill, Clock
 } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Dialog,
     DialogContent,
@@ -21,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateRHUAppointmentStatus } from "../actions";
+import { getRHUInventoryItems, dispenseRHUMedicines } from "@/app/admin/rhu/inventory/actions";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -113,9 +117,35 @@ function getAdditionalData(tx: any): any {
     return tx.additionalData;
 }
 
-export default function RHUTransactionDetailClient({ transaction }: { transaction: any }) {
+function formatExpiryDate(expDate?: string | Date | null): { text: string; isExpired: boolean; isExpiringSoon: boolean } {
+    if (!expDate) return { text: "N/A", isExpired: false, isExpiringSoon: false };
+    const exp = new Date(expDate);
+    if (isNaN(exp.getTime())) return { text: "N/A", isExpired: false, isExpiringSoon: false };
+
+    const now = new Date();
+    const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    const formatted = exp.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+
+    if (diffDays <= 0) {
+        return { text: `${formatted} (Expired)`, isExpired: true, isExpiringSoon: false };
+    }
+    if (diffDays <= 60) {
+        return { text: `${formatted} (${diffDays}d left)`, isExpired: false, isExpiringSoon: true };
+    }
+    return { text: formatted, isExpired: false, isExpiringSoon: false };
+}
+
+export default function RHUTransactionDetailClient({ transaction, currentUser }: { transaction: any; currentUser?: any }) {
     const router = useRouter();
     const [submitting, setSubmitting] = useState(false);
+
+    const userRole = currentUser?.role || "";
+    const userEmail = (currentUser?.email || "").toLowerCase();
+    const isPharmacyAccount = userRole === "ADMIN" || 
+                              userRole === "RHU_ADMIN" || 
+                              userRole === "RHU_PHARMACY" || 
+                              userEmail.includes("pharmacy");
 
     // Cancel modal state
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -154,6 +184,62 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
         status: "",
     });
     const [deosErrors, setDeosErrors] = useState<Record<string, boolean>>({});
+
+    // Pharmacy Dispense Confirmation modal state
+    const [dispenseModalOpen, setDispenseModalOpen] = useState(false);
+    const [dispenseItems, setDispenseItems] = useState<{ id: string; name: string; currentStock: number; unit: string; qtyToDispense: number | string }[]>([]);
+
+    // Medicine catalog search state for prescription
+    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+    const [medSearchQuery, setMedSearchQuery] = useState("");
+    const [loadingInventory, setLoadingInventory] = useState(false);
+
+    React.useEffect(() => {
+        if ((deosModalOpen || dispenseModalOpen) && inventoryItems.length === 0) {
+            setLoadingInventory(true);
+            getRHUInventoryItems()
+                .then((res) => {
+                    if (res.success && res.data) {
+                        setInventoryItems(res.data);
+                    }
+                })
+                .catch((err) => {
+                    console.error("Failed to load inventory items:", err);
+                })
+                .finally(() => {
+                    setLoadingInventory(false);
+                });
+        }
+    }, [deosModalOpen, dispenseModalOpen, inventoryItems.length]);
+
+    const filteredMeds = inventoryItems.filter((item) => {
+        if (!medSearchQuery.trim()) return false;
+        const q = medSearchQuery.toLowerCase();
+        const name = (item.name || "").toLowerCase();
+        const generic = (item.genericName || "").toLowerCase();
+        const brand = (item.brandName || "").toLowerCase();
+        return name.includes(q) || generic.includes(q) || brand.includes(q);
+    });
+
+    const handleAddMedicineToOrders = (item: any) => {
+        const expInfo = formatExpiryDate(item.expirationDate);
+        const isOutOfStock = (item.quantity || 0) <= 0 || expInfo.isExpired;
+
+        let medLine = "";
+        if (isOutOfStock) {
+            medLine = `• ${item.name}${item.dosage ? ` (${item.dosage})` : ""} [OUT OF STOCK - External Purchase Required]`;
+        } else {
+            medLine = `• ${item.name}${item.dosage ? ` (${item.dosage})` : ""}`;
+        }
+
+        setDeos(prev => {
+            const currentOrders = prev.orders ? prev.orders.trim() : "";
+            const updatedOrders = currentOrders ? `${currentOrders}\n${medLine}` : medLine;
+            return { ...prev, orders: updatedOrders };
+        });
+
+        toast.success(`Added "${item.name}" to prescription orders.`);
+    };
 
     // Vaccine batch encoder state
     const [vaccines, setVaccines] = useState([{
@@ -204,6 +290,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                 setCancelModalOpen(false);
                 setReferralModalOpen(false);
                 setVitalsModalOpen(false);
+                setDeosModalOpen(false);
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to update status.");
@@ -246,10 +333,123 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
         handleUpdateStatus("PRESCRIBED", undefined, undefined, undefined, deos);
     };
 
+    const autoPopulateDispenseItems = (items: any[]) => {
+        const orderText = (addData.deos?.orders || addData.deos?.diagnosis || "").toLowerCase();
+        const matched: { id: string; name: string; currentStock: number; unit: string; qtyToDispense: number | string }[] = [];
+        
+        if (orderText && items.length > 0) {
+            items.forEach(inv => {
+                const name = (inv.name || "").toLowerCase();
+                const generic = (inv.genericName || "").toLowerCase();
+                const brand = (inv.brandName || "").toLowerCase();
+                
+                if ((name && name.length > 2 && orderText.includes(name)) || 
+                    (generic && generic.length > 3 && orderText.includes(generic)) ||
+                    (brand && brand.length > 3 && orderText.includes(brand))) {
+                    if (!matched.some(m => m.id === inv.id)) {
+                        const availableStock = inv.quantity || 0;
+                        matched.push({
+                            id: inv.id,
+                            name: inv.name,
+                            currentStock: availableStock,
+                            unit: inv.unit || "pcs",
+                            qtyToDispense: ""
+                        });
+                    }
+                }
+            });
+        }
+        setDispenseItems(matched);
+    };
+
+    const handleOpenDispenseModal = () => {
+        setDispenseModalOpen(true);
+        if (inventoryItems.length === 0) {
+            getRHUInventoryItems().then(res => {
+                if (res.success && res.data) {
+                    setInventoryItems(res.data);
+                    autoPopulateDispenseItems(res.data);
+                }
+            });
+        } else {
+            autoPopulateDispenseItems(inventoryItems);
+        }
+    };
+
+    const handleConfirmDispenseAndComplete = async () => {
+        // Enforce required quantity input validation
+        const emptyItem = dispenseItems.find(i => !i.qtyToDispense || Number(i.qtyToDispense) <= 0);
+        if (emptyItem) {
+            toast.error(`Please enter a valid quantity to dispense for ${emptyItem.name}.`);
+            return;
+        }
+
+        // Enforce stock limit validation
+        const overStockItem = dispenseItems.find(i => Number(i.qtyToDispense) > i.currentStock);
+        if (overStockItem) {
+            toast.error(`Cannot dispense ${overStockItem.name}: requested quantity (${overStockItem.qtyToDispense}) exceeds available stock (${overStockItem.currentStock} ${overStockItem.unit}).`);
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            if (dispenseItems.length > 0) {
+                const itemsToDeduct = dispenseItems.map(i => ({ itemId: i.id, quantity: Number(i.qtyToDispense) }));
+                const dispRes = await dispenseRHUMedicines(itemsToDeduct);
+                if (!dispRes.success) {
+                    toast.error(dispRes.error || "Failed to deduct inventory stock.");
+                }
+            }
+
+            const targetStatus = (userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN") ? "COMPLETED" : "PRESCRIBED";
+            const dispensedItemsList = dispenseItems.map(i => ({
+                name: i.name,
+                quantity: Number(i.qtyToDispense),
+                unit: i.unit || "pcs"
+            }));
+            const summaryText = dispensedItemsList.map(i => `• ${i.name} ${i.quantity} ${i.unit || 'pcs'}`).join("\n");
+
+            const res = await updateRHUAppointmentStatus(
+                transaction.id,
+                targetStatus,
+                "Medicine dispensed by RHU Pharmacy",
+                undefined, undefined, undefined,
+                {
+                    dispensedAt: new Date().toISOString(),
+                    dispenseInfo: {
+                        dispensedBy: currentUser?.name || currentUser?.email || "RHU Pharmacy Staff",
+                        dispensedByEmail: currentUser?.email || null,
+                        dispensedByRole: userRole || "RHU_PHARMACY",
+                        dispensedAt: new Date().toISOString(),
+                        items: dispensedItemsList,
+                        summaryText: summaryText
+                    },
+                    poDispensedByPharmacy: true
+                }
+            );
+
+            if (res.success) {
+                if (targetStatus === "COMPLETED") {
+                    toast.success("Purchase order approved and completed successfully!");
+                } else {
+                    toast.success("Medicine dispensed by RHU Pharmacy! Awaiting Center Admin approval.");
+                }
+                setDispenseModalOpen(false);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to process transaction.");
+            }
+        } catch (err: any) {
+            toast.error(err?.message || "Error dispensing medicine.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const effectiveStatus = addData?.rhuStatus || (
         transaction.isCancelled || transaction.status === "REJECTED" ? "CANCELLED" :
-        transaction.status === "FOR_CLAIM" ? "PRESCRIBED" :
-        transaction.status === "FOR_PROCESSING" ? "IN_CONSULTATION" :
+        transaction.status === "FOR_CLAIM" ? "PO_APPROVED" :
+        transaction.status === "FOR_PROCESSING" ? (addData?.deos ? "PRESCRIBED" : "IN_CONSULTATION") :
         transaction.status === "EVALUATED" ? "CHECK_IN" :
         transaction.status === "RELEASED" || transaction.status === "DELIVERED" ? "COMPLETED" :
         "APPOINTMENT_BOOKED"
@@ -258,11 +458,17 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
     // Calculate progress step for status tracker (1 to 5)
     let currentStep = 1; // APPOINTMENT_BOOKED
     if (effectiveStatus === "CHECK_IN" || transaction.status === "EVALUATED") currentStep = 2;
-    if (effectiveStatus === "IN_CONSULTATION" || transaction.status === "FOR_PROCESSING") currentStep = 3;
-    if (effectiveStatus === "PRESCRIBED" || transaction.status === "FOR_CLAIM") currentStep = 4;
-    if (effectiveStatus === "COMPLETED" || transaction.status === "RELEASED") currentStep = 5;
+    if (effectiveStatus === "IN_CONSULTATION") currentStep = 3;
+    if (effectiveStatus === "PRESCRIBED") currentStep = 4;
+    if (effectiveStatus === "COMPLETED" || transaction.status === "RELEASED" || transaction.status === "DELIVERED") currentStep = 5;
     if (effectiveStatus === "REFERRED") currentStep = 6;
     if (transaction.isCancelled || effectiveStatus === "CANCELLED" || transaction.status === "REJECTED") currentStep = 0;
+
+    const canReferOrCancel = (effectiveStatus === "APPOINTMENT_BOOKED" || effectiveStatus === "CHECK_IN" || effectiveStatus === "IN_CONSULTATION") && 
+                             !transaction.isCancelled && 
+                             transaction.status !== "RELEASED" && 
+                             transaction.status !== "DELIVERED" && 
+                             transaction.status !== "REJECTED";
 
     const getStatusPill = () => {
         if (transaction.isCancelled || effectiveStatus === "CANCELLED" || transaction.status === "REJECTED") {
@@ -297,8 +503,22 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                 );
             case "PRESCRIBED":
                 return (
+                    <span className="px-4 py-1.5 rounded-full bg-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-md animate-pulse">
+                        PENDING PO APPROVAL
+                    </span>
+                );
+            case "PO_APPROVED":
+                return (
                     <span className="px-4 py-1.5 rounded-full bg-teal-600 text-white font-black text-xs uppercase tracking-wider shadow-md">
-                        PRESCRIBED
+                        PO APPROVED (READY TO DISPENSE)
+                    </span>
+                );
+            case "DISPENSED":
+            case "COMPLETED":
+            case "RELEASED":
+                return (
+                    <span className="px-4 py-1.5 rounded-full bg-emerald-600 text-white font-black text-xs uppercase tracking-wider shadow-md">
+                        COMPLETED
                     </span>
                 );
             case "REFERRED":
@@ -307,14 +527,14 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                         REFERRED
                     </span>
                 );
-            case "COMPLETED":
-            case "RELEASED":
-                return (
-                    <span className="px-4 py-1.5 rounded-full bg-emerald-600 text-white font-black text-xs uppercase tracking-wider shadow-md">
-                        COMPLETED
-                    </span>
-                );
             default:
+                if (transaction.status === "FOR_CLAIM") {
+                    return (
+                        <span className="px-4 py-1.5 rounded-full bg-teal-600 text-white font-black text-xs uppercase tracking-wider shadow-md">
+                            PO APPROVED (READY TO DISPENSE)
+                        </span>
+                    );
+                }
                 return (
                     <span className="px-4 py-1.5 rounded-full bg-slate-700 text-white font-black text-xs uppercase tracking-wider shadow-md">
                         {transaction.status.replace(/_/g, " ")}
@@ -718,6 +938,59 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                             </div>
                         </Card>
                     )}
+
+                    {/* Actual Pharmacy Dispensed Purchase Order Display Card */}
+                    {addData.dispenseInfo && (
+                        <Card className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 dark:bg-emerald-950/20 shadow-xl overflow-hidden backdrop-blur-md">
+                            <div className="relative border-b border-emerald-500/30 px-6 py-5 flex items-center justify-between bg-emerald-500/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                        <Pill className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-400">RHU Pharmacy Recorded</p>
+                                        <p className="text-sm font-black text-white uppercase tracking-tight italic">Actual Pharmacy Dispensed Purchase Order</p>
+                                    </div>
+                                </div>
+                                {addData.dispenseInfo.dispensedBy && (
+                                    <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 rounded-full px-3 py-1">
+                                        Dispensed by {addData.dispenseInfo.dispensedBy}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="p-6 space-y-3">
+                                {addData.dispenseInfo.items && Array.isArray(addData.dispenseInfo.items) && addData.dispenseInfo.items.length > 0 ? (
+                                    <div className="space-y-2.5">
+                                        {addData.dispenseInfo.items.map((it: any, idx: number) => (
+                                            <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                                                        <Pill className="w-4 h-4 text-emerald-400" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-white">{it.name}</p>
+                                                        <p className="text-[10px] text-emerald-400 font-mono">Actual Dispensed Quantity</p>
+                                                    </div>
+                                                </div>
+                                                <span className="text-sm font-mono font-black text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-xl border border-emerald-500/40">
+                                                    {it.quantity} {it.unit || "pcs"}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/30 text-xs font-mono font-bold text-emerald-400 whitespace-pre-wrap">
+                                        {addData.dispenseInfo.summaryText || "Medicine dispensed by pharmacy."}
+                                    </div>
+                                )}
+                                {addData.dispenseInfo.dispensedAt && (
+                                    <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 pt-2">
+                                        <Clock className="w-3.5 h-3.5 text-emerald-400" /> Dispensed on: {new Date(addData.dispenseInfo.dispensedAt).toLocaleString("en-US", { timeZone: "Asia/Manila" })}
+                                    </p>
+                                )}
+                            </div>
+                        </Card>
+                    )}
                 </div>
 
                 {/* RIGHT COLUMN: Status Tracker & Action Panel */}
@@ -740,10 +1013,10 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                 { step: 1, title: "1. APPOINTMENT BOOKED" },
                                 { step: 2, title: "2. PATIENT CHECK-IN" },
                                 { step: 3, title: "3. IN CONSULTATION" },
-                                { step: 4, title: "4. PRESCRIBED (PENDING PHARMACY)" },
+                                { step: 4, title: "4. PRESCRIBED (PENDING PO APPROVAL)" },
                                 { step: 5, title: "5. DISPENSED & COMPLETED" },
                             ].map((item) => {
-                                const isPassed = currentStep >= item.step && currentStep !== 6 && currentStep !== 0;
+                                const isPassed = currentStep >= item.step && currentStep !== 5 && currentStep !== 0;
                                 const isCurrent = currentStep === item.step;
                                 return (
                                     <div key={item.step} className="flex items-center gap-3 relative z-10">
@@ -844,7 +1117,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                 </div>
 
                                 <div className="space-y-3">
-                                    {(transaction.status === "APPOINTMENT_BOOKED" || transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_INSPECTION") && (
+                                    {effectiveStatus === "APPOINTMENT_BOOKED" && (
                                         <Button
                                             disabled={submitting}
                                             onClick={() => setVitalsModalOpen(true)}
@@ -855,7 +1128,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                         </Button>
                                     )}
 
-                                    {(transaction.status === "CHECK_IN" || transaction.status === "EVALUATED") && (
+                                    {effectiveStatus === "CHECK_IN" && (
                                         <Button
                                             disabled={submitting}
                                             onClick={() => setDeosModalOpen(true)}
@@ -866,54 +1139,157 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                         </Button>
                                     )}
 
-                                    {(transaction.status === "IN_CONSULTATION" || transaction.status === "FOR_PROCESSING") && (
+                                    {effectiveStatus === "IN_CONSULTATION" && (
                                         <Button
                                             disabled={submitting}
-                                            onClick={handleConfirmPrescription}
+                                            onClick={() => setDeosModalOpen(true)}
                                             className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
                                         >
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            ISSUE PRESCRIPTION / ORDERS
+                                            <ClipboardList className="w-4 h-4" />
+                                            FINISH CONSULTATION & PRESCRIBE
                                         </Button>
                                     )}
 
-                                    {(transaction.status === "PRESCRIBED") && (
-                                         <div className="space-y-3">
-                                             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left space-y-0.5">
-                                                 <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Consultation Completed</p>
-                                                 <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                                     Pending medicine collection at RHU Pharmacy.
-                                                 </p>
-                                             </div>
-                                             <Button
-                                                 disabled={submitting}
-                                                 onClick={() => handleUpdateStatus("COMPLETED")}
-                                                 className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
-                                             >
-                                                 <CheckCircle2 className="w-4 h-4" />
-                                                 DISPENSE MEDICINE & COMPLETE
-                                             </Button>
-                                         </div>
-                                     )}
+                                    {effectiveStatus === "PRESCRIBED" && (() => {
+                                        const isDispensed = !!(addData?.dispenseInfo || addData?.dispensedAt || addData?.poDispensedByPharmacy);
+                                        const dispItems = addData?.dispenseInfo?.items;
+                                        return (
+                                            <div className="space-y-3">
+                                                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left space-y-2">
+                                                    <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
+                                                        <Pill className="w-4 h-4" />
+                                                        Patient Prescribed — {isDispensed ? "Dispensed by Pharmacy (Awaiting Center Admin Approval)" : "Pending Pharmacy Dispensing"}
+                                                    </div>
+                                                    <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                                                        {isDispensed
+                                                            ? `Medicine has been dispensed by RHU Pharmacy (${addData?.dispenseInfo?.dispensedBy || "Staff"}). Center Admin approval required to complete transaction.`
+                                                            : "Doctor has encoded the prescription. RHU Pharmacy can dispense medicine before Center Admin approval."}
+                                                    </p>
 
-                                    <div className="pt-2 grid grid-cols-2 gap-2">
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={() => setReferralModalOpen(true)}
-                                            className="h-10 bg-fuchsia-600/90 hover:bg-fuchsia-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-1"
-                                        >
-                                            <Activity className="w-3.5 h-3.5" />
-                                            REFER PATIENT
-                                        </Button>
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={() => setCancelModalOpen(true)}
-                                            className="h-10 bg-rose-600/90 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-1"
-                                        >
-                                            <XCircle className="w-3.5 h-3.5" />
-                                            CANCEL APPT
-                                        </Button>
-                                    </div>
+                                                    {/* Actual Pharmacy Dispensed Items Preview for Center Admin */}
+                                                    {isDispensed && dispItems && Array.isArray(dispItems) && dispItems.length > 0 && (
+                                                        <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Actual Pharmacy Dispensed Items:</p>
+                                                            {dispItems.map((it: any, idx: number) => (
+                                                                <div key={idx} className="flex justify-between items-center bg-slate-900/90 px-3 py-2 rounded-xl border border-emerald-500/30 text-xs">
+                                                                    <span className="font-bold text-white truncate">{it.name}</span>
+                                                                    <span className="font-mono font-black text-emerald-400">{it.quantity} {it.unit || "pcs"}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {(isPharmacyAccount || userRole === "RHU_PHARMACY") && !isDispensed && (
+                                                    <Button
+                                                        disabled={submitting}
+                                                        onClick={handleOpenDispenseModal}
+                                                        className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
+                                                    >
+                                                        <Pill className="w-4 h-4" />
+                                                        DISPENSE MEDICINE
+                                                    </Button>
+                                                )}
+
+                                                {(userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userRole === "ADMIN_AIDE") && (
+                                                    <Button
+                                                        disabled={submitting}
+                                                        onClick={() => handleUpdateStatus("COMPLETED")}
+                                                        className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        APPROVE PURCHASE ORDER
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {(effectiveStatus === "COMPLETED" || transaction.status === "RELEASED" || transaction.status === "DELIVERED") && (() => {
+                                        const dispInfo = addData.dispenseInfo || (addData.dispensedBy ? { dispensedBy: typeof addData.dispensedBy === 'object' ? addData.dispensedBy.name : addData.dispensedBy, dispensedAt: addData.dispensedAt } : null);
+                                        return (
+                                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-left space-y-2">
+                                                <div className="flex items-center gap-2 text-emerald-400 font-black text-xs uppercase tracking-wider">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                    Consultation & Dispensing Completed
+                                                </div>
+                                                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                                                    This health transaction has been fully processed, prescribed, and dispensed by the Rural Health Unit.
+                                                </p>
+                                                {dispInfo && (
+                                                    <div className="pt-2 border-t border-emerald-500/20 text-xs space-y-1">
+                                                        <div className="flex items-center justify-between text-slate-200">
+                                                            <span className="text-emerald-400 font-bold uppercase text-[10px] tracking-wider">Dispensed By:</span>
+                                                            <span className="font-bold text-white text-[11px]">
+                                                                {dispInfo.dispensedBy || dispInfo.dispensedByEmail || "RHU Pharmacy Personnel"}
+                                                                {dispInfo.dispensedByRole ? ` (${dispInfo.dispensedByRole})` : ""}
+                                                            </span>
+                                                        </div>
+                                                        {dispInfo.dispensedByEmail && dispInfo.dispensedBy && (
+                                                            <div className="flex items-center justify-between text-slate-300">
+                                                                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Staff Email:</span>
+                                                                <span className="font-mono text-[10px] text-slate-300">{dispInfo.dispensedByEmail}</span>
+                                                            </div>
+                                                        )}
+                                                        {dispInfo.dispensedAt && (
+                                                            <div className="flex items-center justify-between text-slate-300">
+                                                                <span className="text-emerald-400 font-bold uppercase text-[10px] tracking-wider">Dispense Time:</span>
+                                                                <span className="font-mono text-[10px] text-emerald-300 font-semibold">
+                                                                    {new Date(dispInfo.dispensedAt).toLocaleString("en-US", { timeZone: "Asia/Manila" })}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {effectiveStatus === "REFERRED" && (
+                                        <div className="p-4 bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-2xl text-left space-y-2">
+                                            <div className="flex items-center gap-2 text-fuchsia-400 font-black text-xs uppercase tracking-wider">
+                                                <Activity className="w-4 h-4 text-fuchsia-400" />
+                                                Patient Referred to External Hospital
+                                            </div>
+                                            <div className="text-xs text-slate-300 space-y-1 bg-white/5 p-2.5 rounded-xl border border-white/5">
+                                                <p><span className="text-slate-400 font-bold uppercase text-[10px]">Hospital:</span> {addData.referralFacility || "N/A"}</p>
+                                                {addData.referralReason && <p><span className="text-slate-400 font-bold uppercase text-[10px]">Reason:</span> {addData.referralReason}</p>}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {(effectiveStatus === "CANCELLED" || transaction.isCancelled || transaction.status === "REJECTED") && (
+                                        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-left space-y-1.5">
+                                            <div className="flex items-center gap-2 text-rose-400 font-black text-xs uppercase tracking-wider">
+                                                <XCircle className="w-4 h-4 text-rose-400" />
+                                                Appointment Cancelled
+                                            </div>
+                                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                                                {addData.cancellationRemarks ? `Reason: ${addData.cancellationRemarks}` : "This appointment was cancelled."}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {canReferOrCancel && (
+                                        <div className="pt-2 grid grid-cols-2 gap-2">
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={() => setReferralModalOpen(true)}
+                                                className="h-10 bg-fuchsia-600/90 hover:bg-fuchsia-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-1"
+                                            >
+                                                <Activity className="w-3.5 h-3.5" />
+                                                REFER PATIENT
+                                            </Button>
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={() => setCancelModalOpen(true)}
+                                                className="h-10 bg-rose-600/90 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-1"
+                                            >
+                                                <XCircle className="w-3.5 h-3.5" />
+                                                CANCEL APPT
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1136,6 +1512,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
             {/* Doctor Console Modal */}
             <Dialog open={deosModalOpen} onOpenChange={(open) => { setDeosModalOpen(open); if (!open) setDeosErrors({}); }}>
                 <DialogContent className="sm:max-w-[95vw] md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[1300px] w-[95vw] max-h-[88vh] bg-[#0d1117] border border-slate-200/20 dark:border-white/10 rounded-3xl shadow-2xl p-0 overflow-hidden flex flex-col">
+                    <DialogTitle className="sr-only">Doctor Consultation Console - {patientName}</DialogTitle>
                     <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0 h-full overflow-hidden">
                         {/* LEFT PANEL: Patient Chronicles (4 cols) */}
                         <div className="md:col-span-4 bg-[#0d1117] border-r border-white/10 flex flex-col h-full min-h-0 overflow-hidden">
@@ -1282,8 +1659,131 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                             {deosErrors.examinationFindings && <p className="text-[10px] text-red-500 font-medium">Examination findings are required.</p>}
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">O — Orders / Prescription <span className="text-rose-500">*</span></Label>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                    O — Orders / Prescription <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                    <Pill className="w-3 h-3" /> RHU Catalog Helper
+                                                </span>
+                                            </div>
+
+                                            {/* Medicine & Supplies Catalog Search Box */}
+                                            <div className="bg-white/[0.03] border border-white/10 p-3 rounded-2xl space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative flex-1">
+                                                        <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                                                        <Input
+                                                            placeholder="Search RHU Medicine Catalog (e.g. Amoxicillin, Paracetamol)..."
+                                                            value={medSearchQuery}
+                                                            onChange={(e) => setMedSearchQuery(e.target.value)}
+                                                            className="h-8 pl-9 pr-3 rounded-xl bg-white/5 border-white/10 text-white placeholder:text-slate-500 text-xs font-medium"
+                                                        />
+                                                    </div>
+                                                    {medSearchQuery && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setMedSearchQuery("")}
+                                                            className="h-8 px-2 text-xs text-slate-400 hover:text-white"
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                {/* Search Results Dropdown / Panel */}
+                                                {medSearchQuery.trim().length > 0 && (
+                                                    <div className="max-h-48 overflow-y-auto space-y-1.5 pt-2 border-t border-white/5">
+                                                        {loadingInventory ? (
+                                                            <div className="space-y-2 p-1">
+                                                                {[1, 2, 3].map((i) => (
+                                                                    <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/5">
+                                                                        <div className="space-y-1.5 flex-1">
+                                                                            <Skeleton className="h-3.5 w-40 rounded-md bg-white/10" />
+                                                                            <Skeleton className="h-2.5 w-24 rounded-md bg-white/5" />
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Skeleton className="h-5 w-20 rounded-md bg-white/10" />
+                                                                            <Skeleton className="h-7 w-12 rounded-lg bg-teal-600/30" />
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : filteredMeds.length === 0 ? (
+                                                            <div className="text-xs text-slate-400 italic p-2 text-center">
+                                                                No catalog items found matching &quot;{medSearchQuery}&quot;. You can still prescribe items manually below.
+                                                            </div>
+                                                        ) : (
+                                                            filteredMeds.map((item) => {
+                                                                const expInfo = formatExpiryDate(item.expirationDate);
+                                                                const isOutOfStock = (item.quantity || 0) <= 0;
+                                                                const isExpired = expInfo.isExpired;
+
+                                                                return (
+                                                                    <div
+                                                                        key={item.id}
+                                                                        onClick={() => handleAddMedicineToOrders(item)}
+                                                                        className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] hover:bg-teal-500/10 border border-white/5 hover:border-teal-500/30 cursor-pointer transition-all group"
+                                                                    >
+                                                                        <div className="space-y-0.5 max-w-[65%]">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <p className="text-xs font-bold text-white group-hover:text-teal-300">{item.name}</p>
+                                                                                {item.dosage && (
+                                                                                    <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded font-mono">{item.dosage}</span>
+                                                                                )}
+                                                                            </div>
+                                                                            {(item.genericName || item.brandName) && (
+                                                                                <p className="text-[10px] text-slate-400 truncate">
+                                                                                    {item.genericName && `Generic: ${item.genericName}`}
+                                                                                    {item.brandName && ` | Brand: ${item.brandName}`}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-2">
+                                                                            {/* Stock & Expiration Status Badges */}
+                                                                            <div className="text-right space-y-0.5">
+                                                                                <div>
+                                                                                    {isOutOfStock ? (
+                                                                                        <Badge className="text-[10px] uppercase font-black px-2.5 py-1 bg-red-600 text-white border border-red-500 shadow-md">
+                                                                                            OUT OF STOCK (EXTERNAL)
+                                                                                        </Badge>
+                                                                                    ) : (
+                                                                                        <Badge className="text-[10px] uppercase font-black px-2.5 py-1 bg-emerald-600 text-white border border-emerald-500 shadow-md">
+                                                                                            IN STOCK: {item.quantity} {item.unit}
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="text-[10px] text-slate-300 font-bold font-mono">
+                                                                                    {isExpired ? (
+                                                                                        <span className="text-rose-400 font-black">Exp: {expInfo.text}</span>
+                                                                                    ) : expInfo.isExpiringSoon ? (
+                                                                                        <span className="text-amber-400 font-black">Exp: {expInfo.text}</span>
+                                                                                    ) : (
+                                                                                        <span>Exp: {expInfo.text}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <Button
+                                                                                type="button"
+                                                                                size="sm"
+                                                                                className="h-7 text-[10px] font-bold bg-teal-600 hover:bg-teal-500 text-white rounded-lg px-2"
+                                                                            >
+                                                                                + Add
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <Textarea
                                                 placeholder="e.g. Amoxicillin 500mg TID x 7 days, CBC, rest..."
                                                 value={deos.orders}
@@ -1403,7 +1903,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                                     className="h-11 px-8 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-2"
                                 >
                                     <Activity className="w-4 h-4" />
-                                    {submitting ? "Saving..." : "Start Consultation"}
+                                    {submitting ? "Prescribing..." : "Finish Consultation & Prescribe"}
                                 </Button>
                             </div>
                         </div>
@@ -1503,7 +2003,7 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                 <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
                     <DialogContent className="max-w-4xl p-4 bg-slate-950/95 text-white border-white/10 rounded-3xl">
                         <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400">Document Lightbox Preview</span>
+                            <DialogTitle className="text-xs font-black uppercase tracking-widest text-slate-400">Document Lightbox Preview</DialogTitle>
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="ghost"
@@ -1546,6 +2046,141 @@ export default function RHUTransactionDetailClient({ transaction }: { transactio
                     </DialogContent>
                 </Dialog>
             )}
+            {/* Dispense Medicine Confirmation Modal */}
+            <Dialog open={dispenseModalOpen} onOpenChange={setDispenseModalOpen}>
+                <DialogContent className="max-w-2xl bg-[#0f172a] text-white border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
+                    <DialogHeader className="space-y-1.5 border-b border-slate-800 pb-4">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                            <Pill className="w-5 h-5" />
+                            <DialogTitle className="text-lg font-black uppercase italic tracking-wider">
+                                Dispense Medicine Confirmation
+                            </DialogTitle>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium">
+                            Review doctor orders, confirm stock deduction, and finalize dispensing for <span className="text-white font-bold">{patientName}</span>.
+                        </p>
+                    </DialogHeader>
+
+                    {/* Prescribed Orders Summary */}
+                    <div className="space-y-2 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Doctor Prescribed Orders</p>
+                        <p className="text-xs font-semibold text-teal-300 whitespace-pre-wrap leading-relaxed">
+                            {addData.deos?.orders || addData.deos?.diagnosis || "No specific orders encoded."}
+                        </p>
+                    </div>
+
+                    {/* Items & Stock Deduction List */}
+                    <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <span>Medicines to Dispense & Deduct</span>
+                            <span>Quantity & Stock</span>
+                        </div>
+
+                        {loadingInventory ? (
+                            <div className="space-y-2.5">
+                                {[1, 2].map((i) => (
+                                    <div key={i} className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
+                                        <div className="space-y-2 flex-1">
+                                            <Skeleton className="h-4 w-44 rounded-lg bg-slate-800" />
+                                            <Skeleton className="h-3 w-28 rounded-md bg-slate-800/60" />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Skeleton className="h-3 w-12 rounded-md bg-slate-800/60" />
+                                            <Skeleton className="h-8 w-16 rounded-lg bg-slate-800" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : dispenseItems.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-slate-400 italic bg-slate-900/40 rounded-xl border border-slate-800">
+                                No matching inventory medicines detected automatically.
+                            </div>
+                        ) : (
+                            dispenseItems.map((item, idx) => {
+                                const numQty = Number(item.qtyToDispense);
+                                const isOverStock = numQty > item.currentStock;
+                                const isInvalid = item.qtyToDispense !== "" && (isNaN(numQty) || numQty <= 0);
+                                return (
+                                    <div key={item.id || idx} className="space-y-1">
+                                        <div className={`flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border gap-3 ${
+                                            isOverStock || isInvalid ? "border-red-500 bg-red-500/5 focus-visible:ring-red-500" : "border-slate-800"
+                                        }`}>
+                                            <div className="min-w-0 flex-1 space-y-0.5">
+                                                <p className="text-xs font-bold text-white truncate">{item.name}</p>
+                                                <p className="text-[10px] font-mono text-emerald-400">
+                                                    Current Stock: <span className="font-bold">{item.currentStock} {item.unit}</span>
+                                                    {!isOverStock && numQty > 0 && (
+                                                        <span className="text-slate-400 ml-2">
+                                                            → New Stock: <span className="text-amber-400 font-bold">{item.currentStock - numQty} {item.unit}</span>
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <Label className="text-[10px] text-slate-400 font-bold">Dispense Qty:</Label>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    max={item.currentStock}
+                                                    placeholder="0"
+                                                    value={item.qtyToDispense}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setDispenseItems(prev => prev.map((it, i) => i === idx ? { ...it, qtyToDispense: val } : it));
+                                                    }}
+                                                    className={`w-20 h-8 text-xs font-bold bg-slate-800 text-white text-center rounded-lg ${
+                                                        isOverStock || isInvalid ? "border-red-500 focus-visible:ring-red-500 text-red-400" : "border-slate-700"
+                                                    }`}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setDispenseItems(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="h-8 w-8 p-0 text-slate-500 hover:text-rose-400"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        {isInvalid && (
+                                            <p className="text-[10px] text-red-500 font-medium px-2">
+                                                Please enter the quantity to dispense.
+                                            </p>
+                                        )}
+                                        {isOverStock && (
+                                            <p className="text-[10px] text-red-500 font-medium px-2">
+                                                Cannot dispense more than available stock ({item.currentStock} {item.unit}).
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    <DialogFooter className="pt-3 border-t border-slate-800 gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setDispenseModalOpen(false)}
+                            disabled={submitting}
+                            className="h-10 text-xs rounded-xl border-slate-700 text-slate-300 hover:bg-slate-800"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={submitting}
+                            onClick={handleConfirmDispenseAndComplete}
+                            className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase tracking-wider text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {submitting ? "Dispensing..." : "Confirm & Dispense Medicine"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

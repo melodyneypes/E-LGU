@@ -145,7 +145,7 @@ export async function getRHUAdminTransactions(params?: {
                 ],
                 NOT: { additionalData: { path: ["rhuStatus"], equals: "REFERRED" } }
             });
-        } else if (status !== "ALL") {
+        } else if (status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
             andConditions.push({ status: status as any });
         }
 
@@ -163,25 +163,19 @@ export async function getRHUAdminTransactions(params?: {
             });
         }
 
-        const whereClause: any = andConditions.length > 0 ? { AND: andConditions } : {};
-
-        // Fetch all transactions (type filtering is done in JS below for reliability)
-        const allTransactions = await prisma.transaction.findMany({
-            where: whereClause,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        residentProfile: true
-                    }
-                },
-                type: true
-            },
-            orderBy: { createdAt: "desc" },
-            take: 1000
-        });
+        // Fetch all transactions via raw SQL for fast execution and enum safety
+        const allTransactions: any[] = await prisma.$queryRaw`
+            SELECT t.id, t.status, t."createdAt", t."isCancelled", t."totalAmount", t."appointmentDate",
+                   t."appointmentSlot", t."queueNumber", t."isPriority", t."additionalData", t."residentSnapshot",
+                   t."businessName", t."rejectionRemarks", t."userId",
+                   JSON_BUILD_OBJECT('id', u.id, 'name', u.name, 'email', u.email) as user,
+                   JSON_BUILD_OBJECT('id', tt.id, 'code', tt.code, 'name', tt.name, 'category', tt.category) as type
+            FROM "Transaction" t
+            LEFT JOIN "User" u ON t."userId" = u.id
+            LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+            ORDER BY t."createdAt" DESC
+            LIMIT 1000
+        `;
 
         // Filter to RHU-only transactions in JS (robust against DB value variance)
         const RHU_KEYWORDS = ["rhu", "rural health", "medical consultation", "health certificate", "consultation", "checkup", "check-up"];
@@ -277,7 +271,47 @@ export async function getRHUAdminTransactions(params?: {
                     addData = tx.additionalData || {};
                 }
                 const rhuStatus = addData?.rhuStatus || tx.status;
-                return rhuStatus === "PRESCRIBED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                return rhuStatus === "PRESCRIBED" || rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+            });
+        }
+
+        // Status Filter Logic (Separate completed records for Ledger vs active Consultations)
+        if (status === "COMPLETED") {
+            finalData = finalData.filter((tx: any) => {
+                let addData: any = {};
+                if (typeof tx.additionalData === "string") {
+                    try { addData = JSON.parse(tx.additionalData); } catch {}
+                } else {
+                    addData = tx.additionalData || {};
+                }
+                const rhuStatus = (addData?.rhuStatus || "").toUpperCase();
+                const txStatus = (tx.status || "").toUpperCase();
+                return txStatus === "COMPLETED" || txStatus === "RELEASED" || txStatus === "DELIVERED" || rhuStatus === "COMPLETED";
+            });
+        } else if (status && status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
+            finalData = finalData.filter((tx: any) => {
+                let addData: any = {};
+                if (typeof tx.additionalData === "string") {
+                    try { addData = JSON.parse(tx.additionalData); } catch {}
+                } else {
+                    addData = tx.additionalData || {};
+                }
+                const rhuStatus = addData?.rhuStatus || tx.status;
+                return rhuStatus === status || tx.status === status;
+            });
+        } else if (status === "ALL" || !status) {
+            // Exclude COMPLETED consultations from All Consultations page since they display in Consultation Ledger
+            finalData = finalData.filter((tx: any) => {
+                let addData: any = {};
+                if (typeof tx.additionalData === "string") {
+                    try { addData = JSON.parse(tx.additionalData); } catch {}
+                } else {
+                    addData = tx.additionalData || {};
+                }
+                const rhuStatus = (addData?.rhuStatus || "").toUpperCase();
+                const txStatus = (tx.status || "").toUpperCase();
+                const isCompleted = txStatus === "COMPLETED" || txStatus === "RELEASED" || txStatus === "DELIVERED" || rhuStatus === "COMPLETED";
+                return !isCompleted;
             });
         }
 
@@ -321,7 +355,8 @@ export async function updateRHUAppointmentStatus(
         examinationFindings?: string;
         orders?: string;
         status?: string;
-    }
+    },
+    extraAdditionalData?: Record<string, any>
 ) {
     try {
         const session = await getSession();
@@ -329,9 +364,28 @@ export async function updateRHUAppointmentStatus(
             return { success: false, error: "Unauthorized" };
         }
 
-        const existing = await prisma.transaction.findUnique({
-            where: { id: transactionId }
-        });
+        const user = session.user as any;
+        const role = user?.role || "";
+        const email = (user?.email || "").toLowerCase();
+
+        if (status === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
+            const isPharmacy = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_PHARMACY" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "ADMIN_AIDE" || email.includes("pharmacy");
+            if (!isPharmacy) {
+                return { success: false, error: "Forbidden: Only Pharmacy personnel can dispense medicine and complete transactions." };
+            }
+        }
+
+        let existing: any = null;
+        try {
+            existing = await prisma.transaction.findUnique({
+                where: { id: transactionId }
+            });
+        } catch {
+            const raw: any[] = await prisma.$queryRaw`
+                SELECT * FROM "Transaction" WHERE "id" = ${transactionId} LIMIT 1
+            `;
+            existing = raw[0] || null;
+        }
 
         if (!existing) {
             return { success: false, error: "Transaction not found." };
@@ -347,6 +401,9 @@ export async function updateRHUAppointmentStatus(
         }
 
         additionalData.rhuStatus = status;
+        if (extraAdditionalData && typeof extraAdditionalData === "object") {
+            additionalData = { ...additionalData, ...extraAdditionalData };
+        }
 
         if (vitalsData) {
             const h = parseFloat(vitalsData.height || "");
@@ -397,27 +454,57 @@ export async function updateRHUAppointmentStatus(
             additionalData.referredAt = new Date().toISOString();
         }
 
+        if (status === "COMPLETED" || status === "DISPENSED" || status === "RELEASED") {
+            additionalData.dispensedAt = additionalData.dispensedAt || new Date().toISOString();
+            const existingDispenseInfo = additionalData.dispenseInfo || {};
+            additionalData.dispenseInfo = {
+                ...existingDispenseInfo,
+                dispensedBy: existingDispenseInfo.dispensedBy || user?.name || user?.email || "RHU Pharmacy Personnel",
+                dispensedByEmail: existingDispenseInfo.dispensedByEmail || user?.email || null,
+                dispensedByRole: existingDispenseInfo.dispensedByRole || user?.role || "RHU_PHARMACY",
+                dispensedAt: existingDispenseInfo.dispensedAt || additionalData.dispensedAt
+            };
+        }
+
         const dbStatusMap: Record<string, any> = {
             "APPOINTMENT_BOOKED": "FOR_INSPECTION",
             "CHECK_IN": "EVALUATED",
             "IN_CONSULTATION": "FOR_PROCESSING",
-            "PRESCRIBED": "FOR_CLAIM",
+            "PRESCRIBED": "FOR_PROCESSING",
+            "PO_APPROVED": "FOR_CLAIM",
+            "DISPENSED": "FOR_CLAIM",
             "REFERRED": "RELEASED",
             "COMPLETED": "RELEASED",
             "CANCELLED": "REJECTED"
         };
         const targetDbStatus = dbStatusMap[status] || (isCancelled ? "REJECTED" : (status as any));
 
-        const updated = await prisma.transaction.update({
-            where: { id: transactionId },
-            data: {
-                status: targetDbStatus,
-                isCancelled,
-                rejectionRemarks: remarks || null,
-                additionalData,
-                updatedAt: new Date()
-            }
-        });
+        let updated: any = null;
+        try {
+            updated = await prisma.transaction.update({
+                where: { id: transactionId },
+                data: {
+                    status: targetDbStatus,
+                    isCancelled,
+                    rejectionRemarks: remarks || null,
+                    additionalData,
+                    updatedAt: new Date()
+                }
+            });
+        } catch (updateErr) {
+            console.warn("Prisma model update in updateRHUAppointmentStatus failed, fallback to raw SQL:", updateErr);
+            const jsonAddData = typeof additionalData === "string" ? additionalData : JSON.stringify(additionalData);
+            await prisma.$executeRaw`
+                UPDATE "Transaction"
+                SET "status" = ${targetDbStatus}::"TransactionStatus",
+                    "isCancelled" = ${isCancelled},
+                    "rejectionRemarks" = ${remarks || null},
+                    "additionalData" = ${jsonAddData}::jsonb,
+                    "updatedAt" = NOW()
+                WHERE "id" = ${transactionId}
+            `;
+            updated = { ...existing, status: targetDbStatus, isCancelled, additionalData };
+        }
 
         revalidatePath("/admin/rhu");
         revalidatePath("/admin/rhu/consultations");
@@ -535,5 +622,92 @@ export async function getRHUDashboardStats() {
     } catch (error: any) {
         console.error("getRHUDashboardStats error:", error);
         return { success: false, error: error.message || "Failed to fetch stats." };
+    }
+}
+
+export async function getRHUPurchaseOrders({
+    page = 1,
+    limit = 10,
+    search = "",
+    status = "ALL"
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+} = {}) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const res = await getRHUAdminTransactions({
+            page: 1,
+            limit: 1000,
+            search,
+            status: "ALL_WITH_COMPLETED"
+        });
+
+        if (!res.success || !res.data) {
+            return { success: false, error: res.error || "Failed to fetch purchase orders." };
+        }
+
+        let poList = res.data.filter((tx: any) => {
+            let addData: any = {};
+            if (typeof tx.additionalData === "string") {
+                try { addData = JSON.parse(tx.additionalData); } catch {}
+            } else {
+                addData = tx.additionalData || {};
+            }
+
+            const hasDeos = !!addData.deos;
+            const rhuStatus = (addData.rhuStatus || "").toUpperCase();
+            const txStatus = (tx.status || "").toUpperCase();
+
+            return hasDeos || 
+                rhuStatus === "PRESCRIBED" || 
+                rhuStatus === "PO_APPROVED" || 
+                rhuStatus === "DISPENSED" || 
+                rhuStatus === "COMPLETED" || 
+                txStatus === "FOR_CLAIM" || 
+                txStatus === "RELEASED" || 
+                txStatus === "DELIVERED";
+        });
+
+        if (status && status !== "ALL") {
+            const statusUpper = status.toUpperCase();
+            poList = poList.filter((tx: any) => {
+                let addData: any = {};
+                if (typeof tx.additionalData === "string") {
+                    try { addData = JSON.parse(tx.additionalData); } catch {}
+                } else {
+                    addData = tx.additionalData || {};
+                }
+                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                return rhuStatus === statusUpper || tx.status === statusUpper;
+            });
+        }
+
+        const total = poList.length;
+        const paginated = poList.slice((page - 1) * limit, page * limit);
+
+        return {
+            success: true,
+            centerName: res.centerName,
+            staffName: session?.user?.name || "RHU Pharmacy Staff",
+            staffEmail: session?.user?.email || null,
+            data: paginated,
+            allData: poList,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / limit))
+            }
+        };
+    } catch (error: any) {
+        console.error("getRHUPurchaseOrders error:", error);
+        return { success: false, error: error.message || "Failed to fetch purchase orders." };
     }
 }
