@@ -318,18 +318,12 @@ export default function AppointmentDetailsPage() {
 
                             {/* Ticket Header */}
                             <div className="text-center space-y-2 pb-6 border-b border-dashed border-slate-800">
-                                {branding.logo ? (
-                                    <div className="relative w-12 h-12 mx-auto filter brightness-0 invert">
-                                        <Image src={branding.logo} alt="LGU Logo" fill className="object-contain" />
-                                    </div>
-                                ) : (
-                                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
-                                        <QrCode className="w-5 h-5 text-white" />
-                                    </div>
-                                )}
+                                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
+                                    <QrCode className="w-5 h-5 text-white" />
+                                </div>
                                 <div className="space-y-0.5">
                                     <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Mapandan Municipal Hall</p>
-                                    <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">{branding.word1} PORTAL</h4>
+                                    <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">MUNICIPALITY PORTAL</h4>
                                 </div>
                             </div>
 
