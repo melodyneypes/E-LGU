@@ -42,10 +42,9 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import {
-    getTransactionById,
-    getSystemSettingAction,
-    cancelTransaction
-} from "@/app/admin/transactions/actions";
+    getAppointmentDetailsAction,
+    cancelAppointmentAction
+} from "./actions";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
@@ -87,11 +86,14 @@ export default function AppointmentDetailsPage() {
 
     const fetchAppointment = useCallback(async () => {
         try {
-            const res = await getTransactionById(id);
+            const res = await getAppointmentDetailsAction(id);
             if (res.success && res.data) {
                 setRequest(res.data);
+                if (res.themeColor) {
+                    setThemeColor(res.themeColor);
+                }
             } else {
-                toast.error("Failed to load appointment details.");
+                toast.error(res.error || "Failed to load appointment details.");
                 router.push("/user/appointment");
             }
         } catch (err) {
@@ -99,33 +101,14 @@ export default function AppointmentDetailsPage() {
         }
     }, [id, router]);
 
-    const fetchSettings = useCallback(async () => {
-        try {
-            const [themeRes, logoRes, word1Res, word2Res] = await Promise.all([
-                getSystemSettingAction("theme_color", "#2563eb"),
-                getSystemSettingAction("logo", ""),
-                getSystemSettingAction("brand_word_1", "MUNICIPALITY"),
-                getSystemSettingAction("brand_word_2", "PORTAL")
-            ]);
-            setThemeColor(themeRes.data);
-            setBranding({
-                logo: logoRes.data || "",
-                word1: word1Res.data || "MUNICIPALITY",
-                word2: word2Res.data || "PORTAL"
-            });
-        } catch (err) {
-            console.error("Fetch settings error:", err);
-        }
-    }, []);
-
     useEffect(() => {
-        async function initialize() {
-            setLoading(true);
-            await Promise.all([fetchAppointment(), fetchSettings()]);
-            setLoading(false);
-        }
-        initialize();
-    }, [fetchAppointment, fetchSettings]);
+        let isMounted = true;
+        setLoading(true);
+        fetchAppointment().finally(() => {
+            if (isMounted) setLoading(false);
+        });
+        return () => { isMounted = false; };
+    }, [fetchAppointment]);
 
     // Realtime Supabase updates
     useEffect(() => {
@@ -159,7 +142,7 @@ export default function AppointmentDetailsPage() {
     const handleCancel = async () => {
         setIsCancelling(true);
         try {
-            const res = await cancelTransaction(id);
+            const res = await cancelAppointmentAction(id);
             if (res.success) {
                 toast.success("Appointment successfully cancelled.");
                 await fetchAppointment();
@@ -192,7 +175,7 @@ export default function AppointmentDetailsPage() {
         if (request.isCancelled) {
             return { color: "text-red-500 bg-red-500/10 border-red-500/20", label: "CANCELLED", icon: X };
         }
-        
+
         const isRHU = request.type?.category === "Rural Health Unit" || request.type?.category === "RHU" || request.type?.code?.startsWith("RHU_");
         let addData: any = {};
         if (request.additionalData) {
@@ -479,10 +462,10 @@ export default function AppointmentDetailsPage() {
                                                     : request.status === "PAID"
                                                         ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
                                                         : request.status === "UNPAID"
-                                                        ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
-                                                        : (request.status === "RELEASED" || request.status === "DELIVERED")
-                                                            ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
-                                                            : "Your booking status has changed. Please read any evaluation comments below."
+                                                            ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
+                                                            : (request.status === "RELEASED" || request.status === "DELIVERED")
+                                                                ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                                : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
                                 </div>

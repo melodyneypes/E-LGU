@@ -10,9 +10,9 @@ function formatPHDate(date: string | Date): string {
         year: "numeric",
     }).format(new Date(date));
 }
-import { 
-    Clock, 
-    CheckCircle2, 
+import {
+    Clock,
+    CheckCircle2,
     Home,
     FileText,
     Activity,
@@ -29,12 +29,12 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
@@ -118,7 +118,7 @@ export default function UserAppointmentsPage() {
         if (req.isCancelled) {
             return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "CANCELLED" };
         }
-        
+
         const isRHU = ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"].includes(req.type?.category) || req.type?.code?.startsWith("RHU_");
         const status = req.status;
 
@@ -182,14 +182,14 @@ export default function UserAppointmentsPage() {
             case "DELIVERED": return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: CheckCircle2, label: "DELIVERED", opacity: 1 };
             case "RELEASED": return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: CheckCircle2, label: "RELEASED", opacity: 1 };
             case "REJECTED": return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "DECLINED" };
-            
+
             // Dispute Lifecycle
             case "RETURN_REQUESTED": return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: Activity, label: "REQUEST FOR RETURN", opacity: 1 };
             case "REFUND_REQUESTED": return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: DollarSign, label: "REQUEST FOR REFUND", opacity: 1 };
             case "RETURNED": return { color: "text-white", bg: "bg-slate-600", border: "border-transparent", icon: Package, label: "RETURNED", opacity: 1 };
             case "REFUNDED": return { color: "text-white", bg: "bg-slate-600", border: "border-transparent", icon: DollarSign, label: "REFUNDED", opacity: 1 };
             case "DISPUTE_REJECTED": return { color: "text-white", bg: "bg-red-600", border: "border-transparent", icon: X, label: "RETURN REJECTED", opacity: 1 };
-            
+
             default: return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: Clock, label: status.replace("_", " ") };
         }
     };
@@ -218,7 +218,7 @@ export default function UserAppointmentsPage() {
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-32">
             <div className="max-w-5xl mx-auto px-4 md:px-0 pt-4 md:pt-10 space-y-8 md:space-y-12">
-                
+
                 {/* Sticky Mobile Breadcrumbs */}
                 <div className="sticky top-[64px] sm:top-[80px] z-40 bg-white/70 dark:bg-[#06080a]/70 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 -mx-4 px-4 py-3 md:hidden mb-4">
                     <Breadcrumb>
@@ -267,12 +267,12 @@ export default function UserAppointmentsPage() {
                                 Real-time tracking and verification of your municipal appointments and queue tickets.
                             </p>
                         </div>
-                        
+
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                             <div className="relative w-full md:w-80 group">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                                <Input 
-                                    placeholder="Search appointments..." 
+                                <Input
+                                    placeholder="Search appointments..."
                                     className="h-12 md:h-14 pl-12 rounded-xl md:rounded-2xl border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-black italic transition-all focus:ring-4 focus:ring-primary/10 text-xs md:text-sm w-full"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -299,10 +299,10 @@ export default function UserAppointmentsPage() {
                         ))
                     ) : sortedRequests.length > 0 ? sortedRequests.map((req) => {
                         const style = getStatusStyle(req);
-                        
+
                         return (
-                            <div 
-                                key={req.id} 
+                            <div
+                                key={req.id}
                                 onClick={() => {
                                     const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
                                     if (engineeringPermitRoute && req.status !== "UNPAID") {
