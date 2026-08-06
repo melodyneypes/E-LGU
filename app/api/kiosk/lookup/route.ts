@@ -69,7 +69,22 @@ export async function POST(request: Request) {
 
         let transaction = await prisma.transaction.findUnique({
             where: { id: transactionId },
-            include: { type: true, user: true }
+            include: {
+                type: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        residentProfile: {
+                            select: {
+                                isSenior: true,
+                                isPWD: true
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         // Fallback: If not found by CUID, search by queueNumber or ticketNo
@@ -86,7 +101,22 @@ export async function POST(request: Request) {
                         }
                     ]
                 },
-                include: { type: true, user: true },
+                include: {
+                    type: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            residentProfile: {
+                                select: {
+                                    isSenior: true,
+                                    isPWD: true
+                                }
+                            }
+                        }
+                    }
+                },
                 orderBy: { createdAt: "desc" }
             });
             if (txs.length > 0) {
@@ -173,8 +203,18 @@ export async function POST(request: Request) {
             );
         }
 
-        const resident = (transaction.residentSnapshot as any) || (transaction.user as any)?.residentProfile || {};
-        const citizenName = `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || transaction.user?.name || "Resident Applicant";
+        const liveProfile = (transaction.user as any)?.residentProfile || {};
+        const snapshot = (transaction.residentSnapshot as any) || {};
+
+        const citizenName = `${snapshot.firstName || ""} ${snapshot.lastName || ""}`.trim() || transaction.user?.name || "Resident Applicant";
+
+        const isSenior =
+            liveProfile.isSenior === true || liveProfile.isSenior === "true" ||
+            snapshot.isSenior === true || snapshot.isSenior === "true";
+
+        const isPWD =
+            liveProfile.isPWD === true || liveProfile.isPWD === "true" || liveProfile.isPwd === true || liveProfile.isPwd === "true" ||
+            snapshot.isPWD === true || snapshot.isPWD === "true" || snapshot.isPwd === true || snapshot.isPwd === "true";
 
         return NextResponse.json({
             success: true,
@@ -182,7 +222,9 @@ export async function POST(request: Request) {
             queueNumber: transaction.queueNumber || "N/A",
             serviceName: transaction.type?.name || "Service Appointment",
             citizenName,
-            isPriority: transaction.isPriority === true || addData.isPriorityLane === true,
+            isPriority: transaction.isPriority === true || addData.isPriorityLane === true || isSenior || isPWD,
+            isSenior,
+            isPWD,
             status: transaction.status,
             appointmentSlot: transaction.appointmentSlot || "Standard Queue"
         });
