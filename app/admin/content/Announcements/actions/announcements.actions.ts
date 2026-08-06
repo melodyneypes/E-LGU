@@ -158,6 +158,8 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         const category = (formData.get("category") as string)?.trim();
         const priority = (formData.get("priority") as string)?.trim();
         const expiryDate = formData.get("expiryDate") as string;
+        const eventDate = formData.get("eventDate") as string;
+        const eventSchedule = (formData.get("eventSchedule") as string)?.trim() || null;
         const imageUrl = (formData.get("imageUrl") as string)?.trim() || null;
         
         // Form field validation
@@ -189,6 +191,8 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
             isPinned: formData.get("isPinned") === "on",
             isActive: formData.get("isActive") === "on",
             expiryDate: expiryDate ? new Date(expiryDate) : null,
+            eventDate: eventDate ? new Date(eventDate) : null,
+            eventSchedule: eventSchedule || null,
             barangay: barangay || null,
             authorId: user.id || null,
             authorEmail: userEmail || null,
@@ -205,15 +209,36 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
                 data: createData,
             });
         } catch (err: any) {
-            console.warn("[addAnnouncement warning]: Initial create failed, stripping author metadata for fallback", err?.message);
-            delete createData.authorId;
-            delete createData.authorEmail;
-            delete createData.healthCenterId;
+            console.warn("[addAnnouncement warning]: Initial create failed, attempting raw SQL create fallback", err?.message);
             try {
-                newAnnouncement = await announcementDelegate.create({
-                    data: createData,
-                });
-            } catch {
+                const newId = `an_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                await (prisma as any).$executeRawUnsafe(
+                    `INSERT INTO "Announcement" ("id", "title", "content", "category", "priority", "isPinned", "isActive", "expiryDate", "eventDate", "eventSchedule", "barangay", "imageUrl", "authorId", "authorEmail", "healthCenterId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())`,
+                    newId,
+                    createData.title,
+                    createData.content,
+                    createData.category || "General",
+                    createData.priority || "Normal",
+                    createData.isPinned || false,
+                    createData.isActive !== false,
+                    createData.expiryDate || null,
+                    createData.eventDate || null,
+                    createData.eventSchedule || null,
+                    createData.barangay || null,
+                    createData.imageUrl || null,
+                    createData.authorId || null,
+                    createData.authorEmail || null,
+                    createData.healthCenterId || null
+                );
+                const rows = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Announcement" WHERE id = $1 LIMIT 1`, newId);
+                newAnnouncement = Array.isArray(rows) && rows.length > 0 ? rows[0] : { id: newId, ...createData };
+            } catch (sqlErr: any) {
+                console.warn("[addAnnouncement warning]: Raw SQL failed, falling back to basic create", sqlErr?.message);
+                delete createData.eventDate;
+                delete createData.eventSchedule;
+                delete createData.authorId;
+                delete createData.authorEmail;
+                delete createData.healthCenterId;
                 delete createData.imageUrl;
                 newAnnouncement = await announcementDelegate.create({
                     data: createData,
@@ -265,6 +290,8 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
         const category = (formData.get("category") as string)?.trim();
         const priority = (formData.get("priority") as string)?.trim();
         const expiryDate = formData.get("expiryDate") as string;
+        const eventDate = formData.get("eventDate") as string;
+        const eventSchedule = (formData.get("eventSchedule") as string)?.trim() || null;
         const imageUrl = (formData.get("imageUrl") as string)?.trim();
 
         if (!title || !content) {
@@ -298,6 +325,8 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
             isPinned: formData.get("isPinned") === "on",
             isActive: formData.get("isActive") === "on",
             expiryDate: expiryDate ? new Date(expiryDate) : null,
+            eventDate: eventDate ? new Date(eventDate) : null,
+            eventSchedule: eventSchedule || null,
             barangay: barangay || null,
         };
 
@@ -312,16 +341,32 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
                 data: updateData,
             });
         } catch (err: any) {
-            console.warn("[updateAnnouncement warning]: Initial update failed, stripping author metadata for fallback", err?.message);
-            delete updateData.authorId;
-            delete updateData.authorEmail;
-            delete updateData.healthCenterId;
+            console.warn("[updateAnnouncement warning]: Initial update failed, attempting raw SQL update fallback", err?.message);
             try {
-                updated = await announcementDelegate.update({
-                    where: { id },
-                    data: updateData,
-                });
-            } catch {
+                await (prisma as any).$executeRawUnsafe(
+                    `UPDATE "Announcement" SET "title" = $1, "content" = $2, "category" = $3, "priority" = $4, "isPinned" = $5, "isActive" = $6, "expiryDate" = $7, "eventDate" = $8, "eventSchedule" = $9, "barangay" = $10, "imageUrl" = $11, "updatedAt" = NOW() WHERE "id" = $12`,
+                    updateData.title,
+                    updateData.content,
+                    updateData.category || "General",
+                    updateData.priority || "Normal",
+                    updateData.isPinned || false,
+                    updateData.isActive !== false,
+                    updateData.expiryDate || null,
+                    updateData.eventDate || null,
+                    updateData.eventSchedule || null,
+                    updateData.barangay || null,
+                    updateData.imageUrl !== undefined ? (updateData.imageUrl || null) : (existing.imageUrl || null),
+                    id
+                );
+                const rows = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Announcement" WHERE id = $1 LIMIT 1`, id);
+                updated = Array.isArray(rows) && rows.length > 0 ? rows[0] : { id, ...updateData };
+            } catch (sqlErr: any) {
+                console.warn("[updateAnnouncement warning]: Raw SQL failed, falling back to basic update", sqlErr?.message);
+                delete updateData.eventDate;
+                delete updateData.eventSchedule;
+                delete updateData.authorId;
+                delete updateData.authorEmail;
+                delete updateData.healthCenterId;
                 delete updateData.imageUrl;
                 updated = await announcementDelegate.update({
                     where: { id },

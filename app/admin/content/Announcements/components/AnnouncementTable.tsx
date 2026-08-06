@@ -217,6 +217,16 @@ export function AnnouncementTable() {
                                                     {item.content}
                                                 </span>
                                             )}
+                                            {(item.eventDate || item.eventSchedule) && (
+                                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                                    <Calendar className="w-3 h-3 shrink-0 text-emerald-500" />
+                                                    <span>
+                                                        {item.eventDate ? format(new Date(item.eventDate), "MMM d, yyyy") : ""}
+                                                        {item.eventDate && item.eventSchedule ? " • " : ""}
+                                                        {item.eventSchedule || ""}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell>

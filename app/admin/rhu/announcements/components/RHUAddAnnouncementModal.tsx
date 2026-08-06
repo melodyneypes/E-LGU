@@ -47,6 +47,8 @@ export function RHUAddAnnouncementModal() {
     const [content, setContent] = useState("");
     const [priority, setPriority] = useState("");
     const [isPinned, setIsPinned] = useState(false);
+    const [eventDate, setEventDate] = useState("");
+    const [eventSchedule, setEventSchedule] = useState("");
 
     // Cover Image states
     const [imageUrl, setImageUrl] = useState<string>("");
@@ -86,12 +88,16 @@ export function RHUAddAnnouncementModal() {
             setPriority(editingData.priority || "");
             setIsPinned(Boolean(editingData.isPinned));
             setImageUrl(editingData.imageUrl || "");
+            setEventDate(editingData.eventDate ? formatDateForInput(editingData.eventDate) : "");
+            setEventSchedule(editingData.eventSchedule || "");
         } else {
             setTitle("");
             setContent("");
             setPriority("");
             setIsPinned(false);
             setImageUrl("");
+            setEventDate("");
+            setEventSchedule("");
         }
     }, [editingData, isAddModalOpen, currentBarangay]);
 
@@ -219,6 +225,25 @@ export function RHUAddAnnouncementModal() {
                                     {content.trim() || "Write health advisory details on the form to preview how text will look to citizens..."}
                                 </p>
 
+                                {(eventDate || eventSchedule) && (
+                                    <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-1">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400 uppercase tracking-wider">
+                                            <Calendar className="w-3 h-3 text-emerald-400" />
+                                            Event Schedule
+                                        </div>
+                                        {eventDate && (
+                                            <p className="text-[11px] font-bold text-slate-200">
+                                                📅 {format(new Date(eventDate), "MMMM d, yyyy")}
+                                            </p>
+                                        )}
+                                        {eventSchedule && (
+                                            <p className="text-[10px] text-emerald-300 font-medium">
+                                                ⏰ {eventSchedule}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="pt-2 flex items-center justify-between border-t border-slate-800/80 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                     <div className="flex items-center gap-1 text-emerald-400">
                                         <Tag className="w-2.5 h-2.5" />
@@ -294,6 +319,41 @@ export function RHUAddAnnouncementModal() {
                                         Title cannot exceed 100 characters to prevent UI distortion.
                                     </p>
                                 )}
+                            </div>
+
+                            {/* Optional Event Schedule Section */}
+                            <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-emerald-500" />
+                                    Event / Activity Schedule <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                                </Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                            Event Date
+                                        </Label>
+                                        <Input
+                                            type="date"
+                                            name="eventDate"
+                                            value={eventDate}
+                                            onChange={(e) => setEventDate(e.target.value)}
+                                            className="h-10 bg-white dark:bg-[#1c1f2e] border-slate-200 dark:border-slate-800 rounded-xl text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                            Time & Venue Details
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            name="eventSchedule"
+                                            value={eventSchedule}
+                                            onChange={(e) => setEventSchedule(e.target.value)}
+                                            placeholder="e.g. 8:00 AM - 3:00 PM @ RHU Main"
+                                            className="h-10 bg-white dark:bg-[#1c1f2e] border-slate-200 dark:border-slate-800 rounded-xl text-xs"
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">

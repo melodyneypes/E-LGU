@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import {
     Pill,
@@ -295,6 +295,48 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         });
     };
 
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [lastSyncedTime, setLastSyncedTime] = useState<string>("Just now");
+
+    // Realtime background auto-update polling (every 5 seconds)
+    useEffect(() => {
+        const performSilentSync = async () => {
+            if (document.visibilityState === "hidden") return;
+            setIsSyncing(true);
+            try {
+                const res = await getRHUInventoryItems({
+                    category: categoryTab,
+                    search: searchQuery,
+                    stockStatus: stockFilter,
+                    healthCenterId: centerFilter
+                });
+                if (res.success && res.data) {
+                    setItems(res.data as any);
+                    setLastSyncedTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+                }
+            } catch (err) {
+                console.warn("[Realtime Inventory Sync Warning]:", err);
+            } finally {
+                setIsSyncing(false);
+            }
+        };
+
+        const intervalId = setInterval(performSilentSync, 5000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                performSilentSync();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [categoryTab, searchQuery, stockFilter, centerFilter]);
+
     const handleOpenCreateModal = () => {
         setEditingItem(null);
         setFormErrors({});
@@ -413,6 +455,14 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         }
         if (!stockInFormData.expirationDate || !stockInFormData.expirationDate.trim()) {
             errors.expirationDate = "Expiration date is required for batch tracking";
+        } else {
+            const exp = new Date(stockInFormData.expirationDate);
+            exp.setHours(23, 59, 59, 999);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (exp.getTime() < today.getTime()) {
+                errors.expirationDate = "Cannot add an expired product to stock";
+            }
         }
 
         if (Object.keys(errors).length > 0) {
@@ -431,6 +481,9 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 );
                 await refreshData();
             } else {
+                if (res.error?.toLowerCase().includes("expired")) {
+                    setStockInFormErrors({ expirationDate: res.error });
+                }
                 toast.error(res.error || "Failed to log stock batch");
             }
         });
@@ -612,14 +665,23 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     </p>
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-xs h-10">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span className="uppercase tracking-wider text-[10px]">Realtime Live ({lastSyncedTime})</span>
+                        {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-emerald-500 ml-0.5" />}
+                    </div>
+
                     <Button
                         onClick={refreshData}
                         variant="outline"
                         size="sm"
-                        disabled={isPending}
+                        disabled={isPending || isSyncing}
                         className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold h-10 px-3.5"
                     >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isPending ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isPending || isSyncing ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
                     {!canManageInventory && (
@@ -1385,6 +1447,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                             <Label className="text-xs font-semibold">Expiration Date *</Label>
                             <Input
                                 type="date"
+                                min={new Date().toISOString().split("T")[0]}
                                 value={stockInFormData.expirationDate || ""}
                                 onChange={(e) => setStockInFormData({ ...stockInFormData, expirationDate: e.target.value })}
                                 className={cn("h-9 text-xs rounded-xl", stockInFormErrors.expirationDate && "border-red-500 focus-visible:ring-red-500")}

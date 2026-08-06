@@ -8,6 +8,16 @@ import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export type InventoryCategory = "MEDICINE" | "MEDICAL_SUPPLY";
 
+function isExpiredDate(dateStrOrObj?: string | Date | null): boolean {
+    if (!dateStrOrObj) return false;
+    const exp = new Date(dateStrOrObj);
+    if (isNaN(exp.getTime())) return false;
+    exp.setHours(23, 59, 59, 999);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp.getTime() < today.getTime();
+}
+
 async function checkAuth() {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -207,12 +217,12 @@ export async function getRHUInventoryItems(params?: {
             if (batches.length > 0) {
                 totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                 
-                const activeBatchesWithExpiry = batches
-                    .filter(b => (b.quantity || 0) > 0 && b.expirationDate)
+                const activeUnexpiredBatches = batches
+                    .filter(b => (b.quantity || 0) > 0 && b.expirationDate && !isExpiredDate(b.expirationDate))
                     .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
                 
-                if (activeBatchesWithExpiry.length > 0) {
-                    earliestExpiration = new Date(activeBatchesWithExpiry[0].expirationDate!);
+                if (activeUnexpiredBatches.length > 0) {
+                    earliestExpiration = new Date(activeUnexpiredBatches[0].expirationDate!);
                 } else if (batches.some(b => b.expirationDate)) {
                     const allExpiries = batches
                         .filter(b => b.expirationDate)
@@ -288,6 +298,16 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
 
         if (!input.name || !input.name.trim()) {
             return { success: false, error: "Item name is required" };
+        }
+
+        if (input.expirationDate) {
+            const expDateCheck = new Date(input.expirationDate);
+            expDateCheck.setHours(23, 59, 59, 999);
+            const todayCheck = new Date();
+            todayCheck.setHours(0, 0, 0, 0);
+            if (expDateCheck.getTime() < todayCheck.getTime()) {
+                return { success: false, error: "Cannot add an expired product to stock" };
+            }
         }
 
         const quantityNum = Number(input.quantity) || 0;
@@ -388,6 +408,16 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
 
         if (!input.batchNumber || !input.batchNumber.trim()) {
             return { success: false, error: "Batch / Lot Number is required" };
+        }
+
+        if (input.expirationDate) {
+            const expDateCheck = new Date(input.expirationDate);
+            expDateCheck.setHours(23, 59, 59, 999);
+            const todayCheck = new Date();
+            todayCheck.setHours(0, 0, 0, 0);
+            if (expDateCheck.getTime() < todayCheck.getTime()) {
+                return { success: false, error: "Cannot add an expired product to stock" };
+            }
         }
 
         const quantityNum = Math.max(1, Number(input.quantity) || 0);
@@ -676,16 +706,23 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
         for (const item of dispensedItems) {
             if (!item.itemId || item.quantity <= 0) continue;
 
-            // Deduct from batches using FEFO (First Expired, First Out)
+            // Deduct from batches using FEFO (First Expired, First Out) for non-expired stock only
             let itemBatches: any[] = [];
             try {
                 itemBatches = await prisma.$queryRaw`
                     SELECT * FROM "RHUInventoryBatch" 
-                    WHERE "itemId" = ${item.itemId} AND "quantity" > 0 
+                    WHERE "itemId" = ${item.itemId} 
+                      AND "quantity" > 0 
+                      AND ("expirationDate" IS NULL OR "expirationDate" >= CURRENT_DATE)
                     ORDER BY "expirationDate" ASC NULLS LAST, "createdAt" ASC
                 `;
             } catch {
                 itemBatches = [];
+            }
+
+            const unexpiredStock = itemBatches.reduce((sum: number, b: any) => sum + (b.quantity || 0), 0);
+            if (itemBatches.length > 0 && unexpiredStock < item.quantity) {
+                return { success: false, error: "Cannot dispense stock from expired batches. Insufficient non-expired stock available." };
             }
 
             let remainingToDeduct = item.quantity;

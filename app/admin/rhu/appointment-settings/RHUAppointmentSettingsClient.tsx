@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Activity, Clock, Eye, Plus, Trash2 } from "lucide-react";
+import { Activity, Clock, Eye, Plus, Trash2, CalendarDays } from "lucide-react";
 import { getCenterAppointmentConfig, updateCenterAppointmentConfig } from "@/app/user/services/rural-health-unit/actions";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RHUSpecialEventsModal } from "./components/RHUSpecialEventsModal";
 
 interface RHUAppointmentSettingsClientProps {
     themeColor?: string;
@@ -53,6 +54,7 @@ export default function RHUAppointmentSettingsClient({
     const [blockedDates, setBlockedDates] = useState<string[]>(appointmentConfig?.blockedDates || []);
     const [newBlockedDate, setNewBlockedDate] = useState("");
     const [isSavingConfig, setIsSavingConfig] = useState(false);
+    const [isSpecialEventsModalOpen, setIsSpecialEventsModalOpen] = useState(false);
 
     const isEditable = !isReadOnly && selectedCenterId !== undefined && selectedCenterId !== null && selectedCenterId !== "NONE";
 
@@ -157,14 +159,25 @@ export default function RHUAppointmentSettingsClient({
             {/* Appointment Schedule Settings Card */}
             <Card className="border-slate-200 dark:border-[#2a3040] shadow-xl overflow-hidden rounded-[1.5rem] md:rounded-[2rem] bg-white dark:bg-[#1e2330]">
                 <CardHeader className="bg-slate-50/50 dark:bg-black/20 border-b border-slate-100 dark:border-[#2a3040] p-5 md:p-6 px-4 md:px-8">
-                    <div className="space-y-1">
-                        <CardTitle className="flex items-center gap-3 text-2xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-                            <Activity className="w-6 h-6 text-rose-500" />
-                            RHU Appointment Configuration
-                        </CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">
-                            Configure booking slot limits, active weekdays, and blocked dates for Rural Health Unit appointments.
-                        </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <CardTitle className="flex items-center gap-3 text-2xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                                <Activity className="w-6 h-6 text-rose-500" />
+                                RHU Appointment Configuration
+                            </CardTitle>
+                            <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">
+                                Configure booking slot limits, active weekdays, and blocked dates for Rural Health Unit appointments.
+                            </CardDescription>
+                        </div>
+
+                        <Button
+                            type="button"
+                            onClick={() => setIsSpecialEventsModalOpen(true)}
+                            className="h-12 px-6 font-black uppercase text-xs rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white shadow-xl flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all border border-rose-500/30 shrink-0"
+                        >
+                            <CalendarDays className="w-4 h-4 text-white animate-pulse" />
+                            Special Medical Events Schedule
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 md:p-6 lg:p-8 px-4 md:px-8 space-y-6">
@@ -489,6 +502,16 @@ export default function RHUAppointmentSettingsClient({
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Interactive Schedule Grid Modal */}
+            <RHUSpecialEventsModal
+                isOpen={isSpecialEventsModalOpen}
+                onClose={() => setIsSpecialEventsModalOpen(false)}
+                healthCenters={healthCenters}
+                selectedCenterId={selectedCenterId}
+                onSelectCenter={setSelectedCenterId}
+                isEditable={isEditable}
+            />
         </div>
     );
 }

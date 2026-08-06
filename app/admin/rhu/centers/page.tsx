@@ -20,8 +20,10 @@ export default async function RHUCentersPage() {
     const centersRes = await getRHUHealthCenters();
     const personnelRes = await getRHUMedicalPersonnel();
 
-    let initialCenters = centersRes.success && centersRes.data ? centersRes.data : [];
+    const rawCenters = centersRes.success && centersRes.data ? centersRes.data : [];
+    let initialCenters = rawCenters;
     let initialPersonnel = personnelRes.success && personnelRes.data ? personnelRes.data : [];
+    const totalActiveCentersCount = rawCenters.filter((c: any) => (c.status || "ACTIVE").toUpperCase() === "ACTIVE").length;
 
     if (matchedCenter) {
         initialCenters = initialCenters.filter((c: any) => c.id === matchedCenter.id);
@@ -40,6 +42,7 @@ export default async function RHUCentersPage() {
                 currentUser={currentUser}
                 isCenterAdmin={isCenterScoped}
                 matchedCenter={matchedCenter}
+                allActiveCentersCount={totalActiveCentersCount}
             />
         </div>
     );

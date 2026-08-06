@@ -20,6 +20,8 @@ export interface Announcement {
     barangay: string | null;
     imageUrl?: string | null;
     expiryDate: Date | null;
+    eventDate?: Date | string | null;
+    eventSchedule?: string | null;
     createdAt: Date;
     updatedAt: Date;
     authorId?: string | null;

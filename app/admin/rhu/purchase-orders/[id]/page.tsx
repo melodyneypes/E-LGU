@@ -241,20 +241,19 @@ export default function PurchaseOrderDetail() {
 
                 <div className="flex items-center gap-2 flex-wrap">
                     <Button
-                        onClick={handlePrint}
                         variant="outline"
-                        className="h-10 px-4 rounded-2xl border-slate-700 bg-slate-800/90 hover:bg-slate-700 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-md"
+                        onClick={handlePrint}
+                        className="h-10 px-4 rounded-2xl border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-2"
                     >
-                        <Printer className="w-4 h-4 text-teal-400" /> Print PO Slip
+                        <Printer className="w-3.5 h-3.5 text-teal-400" /> Print PO
                     </Button>
-
                     <Button
+                        variant="outline"
                         onClick={handleExportPDF}
-                        className="h-10 px-4 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-teal-900/30"
+                        className="h-10 px-4 rounded-2xl border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-2"
                     >
-                        <FileText className="w-4 h-4" /> Export PDF Slip
+                        <FileText className="w-3.5 h-3.5 text-emerald-400" /> Export PDF
                     </Button>
-
                     <Button
                         variant="ghost"
                         onClick={() => router.push(`/admin/rhu/${tx.id}`)}
