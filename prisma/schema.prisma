@@ -9,34 +9,34 @@ datasource db {
 }
 
 model User {
-  id                   String        @id @default(cuid())
-  name                 String?
-  email                String?       @unique
-  emailVerified        DateTime?
-  password             String?
-  role                 UserRole      @default(USER)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  isEmailVerified      Boolean       @default(false)
-  isPasswordChanged    Boolean       @default(false)
-  rejectionCount       Int           @default(0)
-  consecutiveRejections Json?        @default("{}")
-  rejectionResetAt     DateTime?
-  managedBarangay      String?
-  department           String?
-  accessiblePages      String[]      @default([])
-  accessibleCategories String[]      @default([])
-  accessibleStatuses   String[]      @default([])
-  isSynced             Boolean       @default(false)
-  rfid                 String?       @unique
-  fcmToken             String?
-  accounts             Account[]
-  reports              Report[]
-  residentProfile      Resident?
-  reviews              Review[]
-  sessions             Session[]
-  driverTransactions   Transaction[] @relation("DriverTransactions")
-  transactions         Transaction[] @relation("ResidentTransactions")
+  id                    String        @id @default(cuid())
+  name                  String?
+  email                 String?       @unique
+  emailVerified         DateTime?
+  password              String?
+  role                  UserRole      @default(USER)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  isEmailVerified       Boolean       @default(false)
+  isPasswordChanged     Boolean       @default(false)
+  rejectionCount        Int           @default(0)
+  rejectionResetAt      DateTime?
+  managedBarangay       String?
+  department            String?
+  accessiblePages       String[]      @default([])
+  accessibleCategories  String[]      @default([])
+  accessibleStatuses    String[]      @default([])
+  isSynced              Boolean       @default(false)
+  rfid                  String?       @unique
+  consecutiveRejections Json?         @default("{}")
+  fcmToken              String?
+  accounts              Account[]
+  reports               Report[]
+  residentProfile       Resident?
+  reviews               Review[]
+  sessions              Session[]
+  driverTransactions    Transaction[] @relation("DriverTransactions")
+  transactions          Transaction[] @relation("ResidentTransactions")
 }
 
 model Account {
@@ -177,13 +177,13 @@ model Announcement {
   isPinned       Boolean   @default(false)
   isActive       Boolean   @default(true)
   expiryDate     DateTime?
-  authorId       String?
-  authorEmail    String?
-  healthCenterId String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   barangay       String?
   imageUrl       String?
+  authorEmail    String?
+  authorId       String?
+  healthCenterId String?
 }
 
 model Job {
@@ -565,8 +565,6 @@ model TransactionType {
   formSchema           Json          @default("{}")
   logicCode            String?
   defaultFees          Json          @default("[]")
-  pickupAddress        String?
-  processingTime       String?
   slaDays              Int           @default(3)
   processorRole        UserRole      @default(TREASURY_STAFF)
   isActive             Boolean       @default(true)
@@ -574,6 +572,8 @@ model TransactionType {
   lateFee              Float?        @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+  pickupAddress        String?
+  processingTime       String?
   transactions         Transaction[]
 }
 
@@ -599,7 +599,6 @@ model Transaction {
   eCopyUrl                      String?
   orUrl                         String?
   isStudent                     Boolean                        @default(false)
-  isPaid                        Boolean                        @default(false)
   processedBy                   String?
   rejectionRemarks              String?
   podUrl                        String?
@@ -609,13 +608,14 @@ model Transaction {
   disputeReason                 String?
   disputeRemarks                String?
   disputeProofUrl               String?
-  appointmentDate               DateTime?
-  appointmentSlot               String?
-  queueNumber                   String?
-  isPriority                    Boolean                        @default(false)
   isCancelled                   Boolean                        @default(false)
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
+  appointmentDate               DateTime?
+  appointmentSlot               String?
+  isPaid                        Boolean                        @default(false)
+  isPriority                    Boolean                        @default(false)
+  queueNumber                   String?
   birthCertificateRegistry      BirthCertificateRegistry?
   birthCertificateRequest       BirthCertificateRequest?
   birthPsaEndorsementRequest    BirthPsaEndorsementRequest?
@@ -776,6 +776,7 @@ model OccupancyPermit {
   verificationId String      @unique @default(cuid())
   transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
+
 model BirthCertificateRequest {
   id             String      @id @default(cuid())
   transactionId  String      @unique
@@ -948,15 +949,15 @@ model BirthCertificateRegistry {
 model Payment {
   id            String        @id @default(cuid())
   transactionId String        @unique
-  userId        String?
   amount        Float         @default(0)
   method        PaymentType   @default(CASH)
   status        PaymentStatus @default(PENDING)
   reference     String?
-  orNumber      String?
   meta          Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  orNumber      String?
+  userId        String?
   transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
 
@@ -1008,21 +1009,12 @@ model AppointmentConfig {
   maxSlots     Int      @default(50)
   maxSlotsAM   Int      @default(25)
   maxSlotsPM   Int      @default(25)
-  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
-  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
   blockedDates String[] @default([])
   activeDays   Int[]    @default([1, 2, 3, 4, 5])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-}
-
-// ------------------------------------------------------
-// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
-// ------------------------------------------------------
-
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
+  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
+  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
 }
 
 model RHUInventoryItem {
@@ -1040,7 +1032,6 @@ model RHUInventoryItem {
   remarks        String?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
-
   batches        RHUInventoryBatch[]
 
   @@index([category])
@@ -1048,19 +1039,18 @@ model RHUInventoryItem {
 }
 
 model RHUInventoryBatch {
-  id              String            @id @default(cuid())
+  id              String           @id @default(cuid())
   itemId          String
   batchNumber     String
   expirationDate  DateTime?
-  quantity        Int               @default(0)
-  initialQuantity Int               @default(0)
-  receivedDate    DateTime          @default(now())
-  healthCenterId  String?
+  quantity        Int              @default(0)
+  initialQuantity Int              @default(0)
+  receivedDate    DateTime         @default(now())
   remarks         String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  item            RHUInventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  healthCenterId  String?
+  item            RHUInventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId])
   @@index([batchNumber])
@@ -1084,11 +1074,10 @@ model RHUHealthCenter {
   remarks         String?
   userId          String?
   accountEmail    String?
-  pharmacyUserId  String?
-  pharmacyEmail   String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-
+  pharmacyEmail   String?
+  pharmacyUserId  String?
   personnel       RHUMedicalPersonnel[]
 
   @@index([name])
@@ -1096,48 +1085,29 @@ model RHUHealthCenter {
   @@index([status])
 }
 
-enum MedicalRole {
-  DOCTOR
-  NURSE
-  MIDWIFE
-  DENTIST
-  ADMIN
-  PHARMACY
-}
-
 model RHUMedicalPersonnel {
-  id              String           @id @default(cuid())
-  name            String
-  role            MedicalRole      @default(DOCTOR)
-  specialization  String?
-  licenseNumber   String?
-  contactNumber   String?
-  email           String?
-  schedule        String?          @default("Mon-Fri 8:00 AM - 5:00 PM")
+  id               String           @id @default(cuid())
+  name             String
+  role             MedicalRole      @default(DOCTOR)
+  specialization   String?
+  licenseNumber    String?
+  contactNumber    String?
+  email            String?
+  schedule         String?          @default("Mon-Fri 8:00 AM - 5:00 PM")
   assignedServices String?
-  status          String           @default("ACTIVE")
-  healthCenterId  String?
-  userId          String?
-  accountEmail    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  healthCenter    RHUHealthCenter? @relation(fields: [healthCenterId], references: [id], onDelete: SetNull)
+  status           String           @default("ACTIVE")
+  healthCenterId   String?
+  userId           String?
+  accountEmail     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  healthCenter     RHUHealthCenter? @relation(fields: [healthCenterId], references: [id])
 
   @@index([role])
   @@index([healthCenterId])
   @@index([status])
 }
 
-enum TicketStatus {
-  ISSUED
-  PAID
-  CANCELLED
-  SETTLED
-  RESOLVED
-  CONTESTED
-  UNPAID
-}
 model TrafficViolation {
   id               String         @id @default(cuid())
   violationCode    String?
@@ -1179,8 +1149,6 @@ model TicketHeader {
   puvBodyNo       String?
   location        String?
   barangay        String?
-  latitude        Float?
-  longitude       Float?
   dateTime        DateTime       @default(now())
   officerName     String?
   badgeNo         String?
@@ -1201,6 +1169,8 @@ model TicketHeader {
   isReleased      Boolean        @default(false)
   releasedAt      DateTime?
   vehicleClass    String?
+  latitude        Float?
+  longitude       Float?
   details         TicketDetail[]
   transaction     Transaction?   @relation(fields: [transactionId], references: [id])
   ticketPhotos    TicketPhoto[]
@@ -1231,6 +1201,30 @@ model VehicleClassification {
   updatedAt   DateTime @updatedAt
 }
 
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
+}
+
+enum MedicalRole {
+  DOCTOR
+  NURSE
+  MIDWIFE
+  DENTIST
+  ADMIN
+  PHARMACY
+}
+
+enum TicketStatus {
+  ISSUED
+  PAID
+  CANCELLED
+  SETTLED
+  RESOLVED
+  CONTESTED
+  UNPAID
+}
+
 enum UserRole {
   ADMIN
   USER
@@ -1249,6 +1243,7 @@ enum UserRole {
   MAYOR
   RHU_PHARMACY
   RHU_ADMIN
+  ASSESSOR
 }
 
 enum ResidentStatus {
@@ -1321,7 +1316,3 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
-
-
-
-
