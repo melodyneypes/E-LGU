@@ -211,3 +211,50 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* Global Print Styles */
+@media print {
+  aside,
+  header,
+  nav,
+  .print\:hidden,
+  .print-hidden,
+  [aria-hidden="true"],
+  button {
+    display: none !important;
+  }
+
+  body,
+  html,
+  #root,
+  main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  .print\:border-none {
+    border: none !important;
+  }
+
+  .print\:bg-white {
+    background-color: #ffffff !important;
+  }
+
+  .print\:text-slate-900 {
+    color: #0f172a !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 10mm;
+  }
+}

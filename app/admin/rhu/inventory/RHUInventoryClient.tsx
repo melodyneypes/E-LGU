@@ -21,7 +21,8 @@ import {
     Truck,
     Boxes,
     CheckCircle2,
-    Hospital
+    Hospital,
+    ShieldAlert
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -178,18 +179,18 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         }) : null
     );
 
+    // Center Admin accounts (e.g. Lalas Medical Clinic) are center scoped and manage inventory in their own center
     const isCenterScopedUser = !!userMatchedCenter;
 
-    // RHU Administrator (Main RHU / Super Admin / RHU Pharmacy) or Center Pharmacy staff can add/edit/adjust inventory for their scoped center
-    const canManageInventory = role === "ADMIN" || 
+    // Staff and Doctor accounts have read-only access to inventory. Only RHU Pharmacy, RHU Admin, RHU Center Admin, or Pharmacy accounts can edit.
+    const isStaff = role === "RHU_STAFF" || role === "RHU_DOCTOR" || role === "ADMIN_AIDE";
+    const canManageInventory = !isStaff && (
+        role === "ADMIN" || 
         role === "RHU_ADMIN" || 
         role === "RHU_PHARMACY" || 
         role === "RHU_CENTER_ADMIN" || 
-        role === "RHU_DOCTOR" || 
-        role === "RHU_STAFF" || 
-        isCenterScopedUser || 
-        userEmail.includes("pharmacy") || 
-        userEmail.includes("rhu");
+        userEmail.includes("pharmacy")
+    );
 
     const defaultCenterId = userMatchedCenter ? userMatchedCenter.id : "ALL";
     const [centerFilter, setCenterFilter] = useState<string>(defaultCenterId);
@@ -621,6 +622,12 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                         <RefreshCw className={`w-4 h-4 mr-2 ${isPending ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
+                    {!canManageInventory && (
+                        <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs h-10">
+                            <ShieldAlert className="w-4 h-4 text-amber-500" />
+                            Read-Only Staff Access
+                        </div>
+                    )}
                     {canManageInventory && (
                         <>
                             <Button
@@ -897,7 +904,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                                         <span className="text-xs text-slate-400">{item.unit}</span>
 
                                                         {isOutOfStock && (
-                                                            <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0.5">
+                                                            <Badge className="bg-red-600 text-white font-black text-[10px] uppercase px-2 py-0.5 border border-red-500 shadow-sm">
                                                                 Out of Stock
                                                             </Badge>
                                                         )}

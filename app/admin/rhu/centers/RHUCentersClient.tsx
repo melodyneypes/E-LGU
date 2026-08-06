@@ -803,7 +803,7 @@ export default function RHUCentersClient({
                                             <div className="flex items-center gap-3">
                                                 <UserCheck className="w-4 h-4 text-purple-500 shrink-0" />
                                                 <div>
-                                                    <p className="text-[10px] text-slate-400 font-medium">Head Medical Personnel</p>
+                                                    <p className="text-[10px] text-slate-400 font-medium">Center Head</p>
                                                     <p className="font-bold text-slate-800 dark:text-slate-200">{myCenter.headPersonnel || "Unassigned"}</p>
                                                 </div>
                                             </div>
@@ -1778,7 +1778,7 @@ export default function RHUCentersClient({
                                 </div>
 
                                 {/* Center Medical Admin Account Credentials */}
-                                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-2.5">
+                                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                             <ShieldCheck className="w-4 h-4 text-rose-500" /> Center Medical Admin Account (Optional)
@@ -1793,14 +1793,38 @@ export default function RHUCentersClient({
                                             </span>
                                         )}
                                     </div>
-                                    <div className="w-full">
-                                        <Input
-                                            type="email"
-                                            value={formData.accountEmail || "None Configured"}
-                                            disabled
-                                            className="h-10 text-xs rounded-xl bg-slate-100 dark:bg-slate-800/60 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700/60"
-                                        />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                Admin Email Address
+                                            </Label>
+                                            <Input
+                                                type="email"
+                                                placeholder="e.g. lalas.medical.clinic@mapandan.gov.ph"
+                                                value={formData.accountEmail || ""}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, accountEmail: e.target.value }))}
+                                                className="h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-between">
+                                                <span>Account Password</span>
+                                                {editingCenter && <span className="text-[9px] text-slate-400 font-normal">(Optional)</span>}
+                                            </Label>
+                                            <Input
+                                                type="password"
+                                                placeholder={editingCenter ? "Leave blank to keep current" : "Default: mapandan123"}
+                                                value={formData.accountPassword || ""}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, accountPassword: e.target.value }))}
+                                                className="h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                            />
+                                        </div>
                                     </div>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                        💡 You can update the center email or type a new password to reset account credentials.
+                                    </p>
                                 </div>
                             </div>
 

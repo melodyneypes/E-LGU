@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 import CounterSelectorHeader from "@/components/admin/CounterSelectorHeader";
 import { getRHUAdminTransactions, getRHUDashboardStats } from "./actions";
 import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
@@ -121,42 +122,42 @@ export default function RHUDashboard() {
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{stats.total || 0}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{stats.total || 0}</span>}
                         <Activity className="w-4 h-4 text-rose-500 opacity-60" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-sky-500">Booked</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-sky-600 font-mono">{stats.booked || 0}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-sky-600 font-mono">{stats.booked || 0}</span>}
                         <Clock className="w-4 h-4 text-sky-500 opacity-60" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Checked In</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-indigo-600 font-mono">{stats.checkedIn || 0}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-indigo-600 font-mono">{stats.checkedIn || 0}</span>}
                         <CheckCircle2 className="w-4 h-4 text-indigo-500 opacity-60" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Consultation</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-amber-600 font-mono">{(stats.inConsultation || 0) + (stats.prescribed || 0)}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-amber-600 font-mono">{(stats.inConsultation || 0) + (stats.prescribed || 0)}</span>}
                         <Activity className="w-4 h-4 text-amber-500 opacity-60" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-500">Referred</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-fuchsia-600 font-mono">{stats.referred || 0}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-fuchsia-600 font-mono">{stats.referred || 0}</span>}
                         <Activity className="w-4 h-4 text-fuchsia-500 opacity-60" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Completed</span>
                     <div className="flex items-baseline justify-between mt-3">
-                        <span className="text-2xl font-black text-emerald-600 font-mono">{stats.completed || 0}</span>
+                        {loading ? <Skeleton className="h-7 w-12 rounded-lg bg-slate-200 dark:bg-slate-800" /> : <span className="text-2xl font-black text-emerald-600 font-mono">{stats.completed || 0}</span>}
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-60" />
                     </div>
                 </div>
@@ -186,7 +187,20 @@ export default function RHUDashboard() {
 
                     <div className="space-y-3">
                         {loading ? (
-                            <div className="py-8 text-center text-xs font-bold text-slate-400">Loading snapshot...</div>
+                            <div className="space-y-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 flex items-center justify-between gap-4">
+                                        <div className="space-y-2 flex-1">
+                                            <Skeleton className="h-4 w-48 rounded-md bg-slate-200 dark:bg-slate-800" />
+                                            <Skeleton className="h-3 w-32 rounded-md bg-slate-100 dark:bg-slate-800/60" />
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="h-6 w-24 rounded-full bg-slate-200 dark:bg-slate-800" />
+                                            <Skeleton className="h-8 w-8 rounded-xl bg-slate-200 dark:bg-slate-800" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : recentBookings.length === 0 ? (
                             <div className="py-8 text-center text-xs font-bold text-slate-400 italic">No recent bookings</div>
                         ) : (
