@@ -177,6 +177,8 @@ model Announcement {
   isPinned       Boolean   @default(false)
   isActive       Boolean   @default(true)
   expiryDate     DateTime?
+  eventDate      DateTime?
+  eventSchedule  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   barangay       String?
@@ -1004,17 +1006,27 @@ model Review {
 }
 
 model AppointmentConfig {
-  id           String   @id @default(cuid())
-  department   String   @unique
-  maxSlots     Int      @default(50)
-  maxSlotsAM   Int      @default(25)
-  maxSlotsPM   Int      @default(25)
-  blockedDates String[] @default([])
-  activeDays   Int[]    @default([1, 2, 3, 4, 5])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
-  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
+  id            String   @id @default(cuid())
+  department    String   @unique
+  maxSlots      Int      @default(50)
+  maxSlotsAM    Int      @default(25)
+  maxSlotsPM    Int      @default(25)
+  amTimeLabel   String   @default("08:00 AM - 11:00 AM")
+  pmTimeLabel   String   @default("01:00 PM - 04:00 PM")
+  blockedDates  String[] @default([])
+  activeDays    Int[]    @default([1, 2, 3, 4, 5])
+  specialEvents Json?    @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ------------------------------------------------------
+// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
+// ------------------------------------------------------
+
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
 }
 
 model RHUInventoryItem {
@@ -1199,11 +1211,6 @@ model VehicleClassification {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-}
-
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
 }
 
 enum MedicalRole {

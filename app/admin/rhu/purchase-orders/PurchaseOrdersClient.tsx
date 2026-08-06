@@ -158,7 +158,12 @@ export default function PurchaseOrdersClient() {
     }, []);
 
     const generatePDFDoc = useCallback(async () => {
-        const dataToExport = allTransactions.length > 0 ? allTransactions : transactions;
+        const rawData = allTransactions.length > 0 ? allTransactions : transactions;
+        const dataToExport = rawData.filter(tx => {
+            const addData = getAdditionalData(tx);
+            const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+            return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+        });
         const { default: jsPDF } = await import("jspdf");
         const { default: autoTable } = await import("jspdf-autotable");
 
@@ -171,9 +176,9 @@ export default function PurchaseOrdersClient() {
 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
-        doc.text(`PURCHASE ORDERS SUMMARY REPORT (${centerName || "All Health Centers"})`, 14, 22);
+        doc.text(`APPROVED PURCHASE ORDERS SUMMARY REPORT (${centerName || "All Health Centers"})`, 14, 22);
         doc.setFontSize(9);
-        doc.text(`Generated Date: ${new Date().toLocaleString("en-PH")} | Total Purchase Orders: ${dataToExport.length}`, 14, 28);
+        doc.text(`Generated Date: ${new Date().toLocaleString("en-PH")} | Total Approved Purchase Orders: ${dataToExport.length}`, 14, 28);
 
         // Table Rows Formatting
         const tableRows = dataToExport.map((tx, idx) => {
@@ -233,9 +238,15 @@ export default function PurchaseOrdersClient() {
 
     const handleExportExcel = async () => {
         try {
-            const dataToExport = allTransactions.length > 0 ? allTransactions : transactions;
+            const rawData = allTransactions.length > 0 ? allTransactions : transactions;
+            const dataToExport = rawData.filter(tx => {
+                const addData = getAdditionalData(tx);
+                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+            });
+
             if (dataToExport.length === 0) {
-                toast.error("No purchase orders available to export.");
+                toast.error("No approved purchase orders available to export.");
                 return;
             }
 
@@ -275,7 +286,7 @@ export default function PurchaseOrdersClient() {
 
             // Assemble worksheet data with header rows similar to PDF
             const wsData = [
-                ["Prescription Purchase Order Summary"],
+                ["Approved Prescription Purchase Orders Summary"],
                 [centerName || "RHU Center"],
                 [`Generated: ${new Date().toLocaleString()}`],
                 [],
@@ -291,17 +302,28 @@ export default function PurchaseOrdersClient() {
             ];
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Purchase Orders");
+            XLSX.utils.book_append_sheet(wb, ws, "Approved Purchase Orders");
 
-            XLSX.writeFile(wb, `RHU_Purchase_Orders_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
-            toast.success("Excel summary exported successfully!");
+            XLSX.writeFile(wb, `RHU_Approved_Purchase_Orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Approved purchase orders exported to Excel successfully!");
         } catch (err: any) {
             console.error("Excel Export error:", err);
             toast.error("Failed to export Excel summary.");
         }
     };
 
-    const handleOpenExportPreview = async (type: "pdf" | "excel") => {
+    const handleOpenExportModal = async (type: "pdf" | "excel") => {
+        const rawData = allTransactions.length > 0 ? allTransactions : transactions;
+        const approvedPOs = rawData.filter(tx => {
+            const addData = getAdditionalData(tx);
+            const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+            return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+        });
+        if (approvedPOs.length === 0) {
+            toast.error("No approved purchase orders available to export.");
+            return;
+        }
+
         setExportPreviewType(type);
         setGeneratingPreview(true);
         setExportModalOpen(true);
@@ -375,14 +397,14 @@ export default function PurchaseOrdersClient() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <Button
-                        onClick={() => handleOpenExportPreview("pdf")}
+                        onClick={() => handleOpenExportModal("pdf")}
                         disabled={loading || transactions.length === 0}
                         className="h-10 px-4 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-wider text-xs rounded-xl shadow-sm flex items-center gap-2"
                     >
                         <FileText className="w-4 h-4" /> EXPORT PDF
                     </Button>
                     <Button
-                        onClick={() => handleOpenExportPreview("excel")}
+                        onClick={() => handleOpenExportModal("excel")}
                         disabled={loading || transactions.length === 0}
                         className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-xs rounded-xl shadow-sm flex items-center gap-2"
                     >
@@ -679,11 +701,17 @@ export default function PurchaseOrdersClient() {
                                 <div className="bg-emerald-700 text-white px-4 py-2 flex items-center justify-between border-b border-emerald-800 text-xs font-bold">
                                     <div className="flex items-center gap-2">
                                         <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-                                        <span className="tracking-tight">Microsoft Excel — RHU_Purchase_Orders_Summary.xlsx</span>
+                                        <span className="tracking-tight">Microsoft Excel — RHU_Approved_Purchase_Orders.xlsx</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-[11px] font-mono">
                                         <span className="bg-emerald-800/80 px-2.5 py-0.5 rounded text-emerald-100">
-                                            Worksheet Mode • {(allTransactions.length > 0 ? allTransactions : transactions).length} Data Rows
+                                            Worksheet Mode • {
+                                                (allTransactions.length > 0 ? allTransactions : transactions).filter(tx => {
+                                                    const addData = getAdditionalData(tx);
+                                                    const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                                                    return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                                                }).length
+                                            } Data Rows
                                         </span>
                                     </div>
                                 </div>
@@ -703,7 +731,7 @@ export default function PurchaseOrdersClient() {
                                 <div className="bg-slate-50 dark:bg-slate-950 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 text-xs font-mono text-slate-700 dark:text-slate-300">
                                     <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">A1</span>
                                     <span className="text-slate-400">fx</span>
-                                    <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">RHU Purchase Orders Summary Sheet</span>
+                                    <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">RHU Approved Purchase Orders Summary Sheet</span>
                                 </div>
 
                                 {/* Spreadsheet Table Grid */}
@@ -723,58 +751,72 @@ export default function PurchaseOrdersClient() {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white dark:bg-slate-950 font-mono text-slate-900 dark:text-slate-100">
-                                            {(allTransactions.length > 0 ? allTransactions : transactions).map((tx, idx) => {
-                                                const resident = getResidentSnapshot(tx);
-                                                const addData = getAdditionalData(tx);
-                                                const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
-                                                const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
-                                                const barangay = resident.barangay || "Mapandan";
-                                                const healthCenter = addData.healthCenterName || centerName || "RHU Main";
-                                                const orders = getPOOrdersDisplay(tx);
-                                                const apptDate = `${formatDateTime(tx.appointmentDate)} (${tx.appointmentSlot || "Regular"})`;
-                                                const statusInfo = getPOStatusInfo(tx);
-                                                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
-                                                const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
-                                                const dispenseInfo = addData.dispenseInfo || {};
-                                                const fallbackStaff = staffName || (healthCenter ? `${healthCenter} Medical Admin` : "RHU Pharmacy Staff");
-                                                const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending Dispense");
+                                            {(() => {
+                                                const approvedList = (allTransactions.length > 0 ? allTransactions : transactions).filter(tx => {
+                                                    const addData = getAdditionalData(tx);
+                                                    const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                                                    return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                                                });
+                                                return approvedList.map((tx, idx) => {
+                                                    const resident = getResidentSnapshot(tx);
+                                                    const addData = getAdditionalData(tx);
+                                                    const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
+                                                    const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
+                                                    const barangay = resident.barangay || "Mapandan";
+                                                    const healthCenter = addData.healthCenterName || centerName || "RHU Main";
+                                                    const orders = getPOOrdersDisplay(tx);
+                                                    const apptDate = `${formatDateTime(tx.appointmentDate)} (${tx.appointmentSlot || "Regular"})`;
+                                                    const statusInfo = getPOStatusInfo(tx);
+                                                    const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                                                    const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                                                    const dispenseInfo = addData.dispenseInfo || {};
+                                                    const fallbackStaff = staffName || (healthCenter ? `${healthCenter} Medical Admin` : "RHU Pharmacy Staff");
+                                                    const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending Dispense");
 
-                                                return (
-                                                    <tr key={tx.id || idx} className="hover:bg-emerald-500/10 border-b border-slate-200 dark:border-slate-800 text-[11px]">
-                                                        <td className="bg-slate-100 dark:bg-slate-900 text-center font-bold text-slate-500 border-r border-slate-200 dark:border-slate-800 px-2 py-1.5 select-none">{idx + 1}</td>
-                                                        <td className="font-mono font-bold text-teal-600 dark:text-teal-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{controlNo}</td>
-                                                        <td className="font-sans font-bold text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{patientName}</td>
-                                                        <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{barangay}</td>
-                                                        <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{healthCenter}</td>
-                                                        <td className="font-sans text-slate-700 dark:text-slate-300 max-w-xs truncate border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{orders}</td>
-                                                        <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{apptDate}</td>
-                                                        <td className="font-sans font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{dispensedBy}</td>
-                                                        <td className="font-sans border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">
-                                                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${statusInfo.color}`}>
-                                                                {statusInfo.label}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                                    return (
+                                                        <tr key={tx.id || idx} className="hover:bg-emerald-500/10 border-b border-slate-200 dark:border-slate-800 text-[11px]">
+                                                            <td className="bg-slate-100 dark:bg-slate-900 text-center font-bold text-slate-500 border-r border-slate-200 dark:border-slate-800 px-2 py-1.5 select-none">{idx + 1}</td>
+                                                            <td className="font-mono font-bold text-teal-600 dark:text-teal-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{controlNo}</td>
+                                                            <td className="font-sans font-bold text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{patientName}</td>
+                                                            <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{barangay}</td>
+                                                            <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{healthCenter}</td>
+                                                            <td className="font-sans text-slate-700 dark:text-slate-300 max-w-xs truncate border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{orders}</td>
+                                                            <td className="font-sans text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{apptDate}</td>
+                                                            <td className="font-sans font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">{dispensedBy}</td>
+                                                            <td className="font-sans border-r border-slate-200 dark:border-slate-800 px-3 py-1.5">
+                                                                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${statusInfo.color}`}>
+                                                                    {statusInfo.label}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
 
                                             {/* Empty Worksheet Grid Rows for Authentic Excel Look */}
-                                            {Array.from({ length: Math.max(1, 15 - (allTransactions.length || transactions.length)) }).map((_, emptyIdx) => {
-                                                const rowNum = (allTransactions.length || transactions.length) + emptyIdx + 1;
-                                                return (
-                                                    <tr key={`empty-${emptyIdx}`} className="border-b border-slate-200 dark:border-slate-800/60 text-[11px] h-7">
-                                                        <td className="bg-slate-100 dark:bg-slate-900 text-center font-bold text-slate-400 dark:text-slate-600 border-r border-slate-200 dark:border-slate-800 px-2 select-none">{rowNum}</td>
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                        <td className="border-r border-slate-200 dark:border-slate-800/60" />
-                                                    </tr>
-                                                );
-                                            })}
+                                            {(() => {
+                                                const approvedCount = (allTransactions.length > 0 ? allTransactions : transactions).filter(tx => {
+                                                    const addData = getAdditionalData(tx);
+                                                    const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                                                    return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                                                }).length;
+                                                return Array.from({ length: Math.max(1, 15 - approvedCount) }).map((_, emptyIdx) => {
+                                                    const rowNum = approvedCount + emptyIdx + 1;
+                                                    return (
+                                                        <tr key={`empty-${emptyIdx}`} className="border-b border-slate-200 dark:border-slate-800/60 text-[11px] h-7">
+                                                            <td className="bg-slate-100 dark:bg-slate-900 text-center font-bold text-slate-400 dark:text-slate-600 border-r border-slate-200 dark:border-slate-800 px-2 select-none">{rowNum}</td>
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                            <td className="border-r border-slate-200 dark:border-slate-800/60" />
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>
@@ -783,11 +825,19 @@ export default function PurchaseOrdersClient() {
                                 <div className="bg-slate-100 dark:bg-slate-900 border-t border-slate-300 dark:border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs select-none">
                                     <div className="flex items-center gap-1">
                                         <span className="px-3 py-1 rounded-t bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-bold text-[11px] flex items-center gap-1.5 border-t-2 border-emerald-500 border-x border-slate-300 dark:border-slate-700">
-                                            <FileSpreadsheet className="w-3.5 h-3.5" /> Sheet1: Purchase Orders
+                                            <FileSpreadsheet className="w-3.5 h-3.5" /> Sheet1: Approved POs
                                         </span>
                                         <span className="px-2 text-slate-400 text-base font-bold">+</span>
                                     </div>
-                                    <span className="text-[10px] text-slate-500 font-mono">100% Zoom • {(allTransactions.length > 0 ? allTransactions : transactions).length} records populated</span>
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                        100% Zoom • {
+                                            (allTransactions.length > 0 ? allTransactions : transactions).filter(tx => {
+                                                const addData = getAdditionalData(tx);
+                                                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                                                return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                                            }).length
+                                        } records populated
+                                    </span>
                                 </div>
                             </div>
                         )}

@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getRHUAdminTransactions } from "../actions";
 import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
+import { supabase } from "@/lib/supabase";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -82,8 +83,8 @@ export default function ConsultationsClient() {
         setPage(1);
     }, [urlCheckup]);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
+    const loadData = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const txRes = await getRHUAdminTransactions({
                 status: statusFilter,
@@ -105,12 +106,39 @@ export default function ConsultationsClient() {
         } catch {
             toast.error("Error connecting to server.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [statusFilter, page, search, checkupFilter]);
 
+    // Supabase Real-time + 30-second Polling Fallback
     useEffect(() => {
-        loadData();
+        loadData(false);
+
+        const pollInterval = setInterval(() => {
+            loadData(true);
+        }, 30000);
+
+        let channel: any = null;
+        if (supabase) {
+            channel = supabase
+                .channel("realtime-rhu-consultations")
+                .on(
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "Transaction" },
+                    (payload: any) => {
+                        console.log("RHU Consultations Realtime Update: Transaction change detected", payload);
+                        loadData(true);
+                    }
+                )
+                .subscribe();
+        }
+
+        return () => {
+            clearInterval(pollInterval);
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
     }, [loadData]);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -120,7 +148,7 @@ export default function ConsultationsClient() {
             if (result.success && result.data) {
                 const txData: any = result.data;
                 toast.success(`Now Calling Ticket #${txData.controlNumber || txData.id.slice(0, 8)}`);
-                loadData();
+                loadData(false);
             } else {
                 toast.info(result.error || "No waiting patients in queue.");
             }
@@ -134,11 +162,15 @@ export default function ConsultationsClient() {
             ? (JSON.parse(tx.additionalData || '{}'))
             : (tx?.additionalData || {});
         if (addData?.rhuStatus) return addData.rhuStatus;
-        if (tx?.isCancelled || tx?.status === "REJECTED") return "CANCELLED";
+        if (tx?.isCancelled || tx?.status === "REJECTED" || tx?.status === "CANCELLED") return "CANCELLED";
+        // Native RHU enum statuses - pass through directly
+        if (["BOOKED", "CHECK_IN", "IN_CONSULTATION", "PRESCRIBED", "REFERRED", "COMPLETED"].includes(tx?.status)) return tx.status;
+        // Legacy status mappings
         if (tx?.status === "FOR_CLAIM") return "DISPENSED";
         if (tx?.status === "FOR_PROCESSING") return "IN_CONSULTATION";
         if (tx?.status === "EVALUATED") return "CHECK_IN";
         if (tx?.status === "RELEASED" || tx?.status === "DELIVERED") return "COMPLETED";
+        if (tx?.status === "FOR_INSPECTION" || tx?.status === "FOR_REQUESTING") return "APPOINTMENT_BOOKED";
         return tx?.status || "APPOINTMENT_BOOKED";
     };
 
@@ -154,6 +186,7 @@ export default function ConsultationsClient() {
         }
 
         switch (rhuStatus) {
+            case "BOOKED":
             case "APPOINTMENT_BOOKED":
             case "FOR_REQUESTING":
             case "FOR_INSPECTION":
@@ -317,7 +350,7 @@ export default function ConsultationsClient() {
 
                         <Button
                             variant="outline"
-                            onClick={loadData}
+                            onClick={() => loadData(false)}
                             className="h-10 w-10 p-0 rounded-2xl border-slate-200 dark:border-white/10"
                         >
                             <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />

@@ -426,3 +426,196 @@ export async function updateCenterAppointmentConfig(
         return { success: false, error: error.message || "Failed to update config" };
     }
 }
+
+export async function getCenterSpecialEvents(healthCenterId: string) {
+    try {
+        const departmentKey = `RHU_CENTER_${healthCenterId}`;
+        const config: any = await prisma.appointmentConfig.findUnique({
+            where: { department: departmentKey }
+        });
+        const events: any[] = (config?.specialEvents as any[]) || [];
+
+        // Also fetch announcements with an eventDate
+        let announcementEvents: any[] = [];
+        try {
+            const rows = await (prisma as any).$queryRawUnsafe(
+                `SELECT * FROM "Announcement" WHERE "eventDate" IS NOT NULL AND ("healthCenterId" = $1 OR "healthCenterId" IS NULL) AND "isActive" = true ORDER BY "eventDate" ASC`,
+                healthCenterId
+            );
+            if (Array.isArray(rows)) {
+                announcementEvents = rows.map((ann: any) => {
+                    let eventDateIso = "";
+                    if (ann.eventDate) {
+                        const d = new Date(ann.eventDate);
+                        const y = d.getUTCFullYear();
+                        const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+                        const day = String(d.getUTCDate()).padStart(2, "0");
+                        eventDateIso = `${y}-${m}-${day}`;
+                    }
+                    return {
+                        id: `ann_${ann.id}`,
+                        announcementId: ann.id,
+                        title: ann.title,
+                        category: ann.priority === "Critical" ? "Critical Health Alert" : (ann.category || "Health Advisory"),
+                        eventDate: eventDateIso,
+                        timeRange: ann.eventSchedule || "Scheduled Advisory",
+                        venue: ann.barangay || "RHU Center",
+                        maxSlots: 50,
+                        description: ann.content,
+                        isAdvisory: true,
+                        createdAt: ann.createdAt
+                    };
+                });
+            }
+        } catch (annErr) {
+            console.warn("[getCenterSpecialEvents warning]: Failed to fetch announcements fallback", annErr);
+        }
+
+        // Combine events without duplicating
+        const combined = [...events];
+        const existingDatesAndTitles = new Set(events.map(e => `${e.eventDate}_${e.title}`));
+
+        for (const annEvt of announcementEvents) {
+            if (annEvt.eventDate && !existingDatesAndTitles.has(`${annEvt.eventDate}_${annEvt.title}`)) {
+                combined.push(annEvt);
+            }
+        }
+
+        return { success: true, data: combined };
+    } catch (error: any) {
+        console.error("getCenterSpecialEvents error:", error);
+        return { success: false, error: "Failed to load events", data: [] };
+    }
+}
+
+export async function saveCenterSpecialEvent(
+    healthCenterId: string,
+    eventData: {
+        id?: string;
+        title: string;
+        category?: string;
+        eventDate: string;
+        timeRange?: string;
+        venue?: string;
+        maxSlots?: number;
+        description?: string;
+        publishToAdvisories?: boolean;
+    }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const departmentKey = `RHU_CENTER_${healthCenterId}`;
+        const config: any = await prisma.appointmentConfig.findUnique({
+            where: { department: departmentKey }
+        });
+
+        let events: any[] = [];
+        if (config?.specialEvents && Array.isArray(config.specialEvents)) {
+            events = [...(config.specialEvents as any[])];
+        }
+
+        const eventId = eventData.id || `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const newEvent = {
+            id: eventId,
+            title: eventData.title,
+            category: eventData.category || "General Medical Event",
+            eventDate: eventData.eventDate,
+            timeRange: eventData.timeRange || "08:00 AM - 03:00 PM",
+            venue: eventData.venue || "",
+            maxSlots: eventData.maxSlots || 50,
+            description: eventData.description || "",
+            publishToAdvisories: eventData.publishToAdvisories ?? true,
+            createdAt: new Date().toISOString()
+        };
+
+        const existingIndex = events.findIndex(e => e.id === eventId);
+        if (existingIndex >= 0) {
+            events[existingIndex] = newEvent;
+        } else {
+            events.push(newEvent);
+        }
+
+        await prisma.appointmentConfig.upsert({
+            where: { department: departmentKey },
+            update: {
+                specialEvents: events,
+                updatedAt: new Date()
+            } as any,
+            create: {
+                department: departmentKey,
+                maxSlots: 50,
+                specialEvents: events
+            } as any
+        });
+
+        if (eventData.publishToAdvisories) {
+            try {
+                const announcementDelegate = (prisma as any).announcement;
+                if (announcementDelegate) {
+                    await announcementDelegate.create({
+                        data: {
+                            title: `[Special Medical Event] ${eventData.title}`,
+                            content: eventData.description || `Special Medical Event on ${eventData.eventDate} from ${eventData.timeRange} at ${eventData.venue}. Target Slots: ${eventData.maxSlots}`,
+                            category: "Health",
+                            priority: "High",
+                            eventDate: new Date(eventData.eventDate),
+                            eventSchedule: `${eventData.timeRange} @ ${eventData.venue}`,
+                            isActive: true,
+                            isPinned: true,
+                            healthCenterId: healthCenterId,
+                            authorId: (session.user as any).id || null,
+                            authorEmail: session.user.email || null
+                        }
+                    });
+                }
+            } catch (annErr) {
+                console.warn("Announcement publishing sync warning:", annErr);
+            }
+        }
+
+        revalidatePath("/admin/rhu/appointment-settings");
+        revalidatePath("/user/services/rural-health-unit");
+
+        return { success: true, data: events, event: newEvent };
+    } catch (error: any) {
+        console.error("saveCenterSpecialEvent error:", error);
+        return { success: false, error: error.message || "Failed to save event" };
+    }
+}
+
+export async function deleteCenterSpecialEvent(healthCenterId: string, eventId: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const departmentKey = `RHU_CENTER_${healthCenterId}`;
+        const config: any = await prisma.appointmentConfig.findUnique({
+            where: { department: departmentKey }
+        });
+
+        if (config?.specialEvents && Array.isArray(config.specialEvents)) {
+            const updatedEvents = (config.specialEvents as any[]).filter(e => e.id !== eventId);
+            await prisma.appointmentConfig.update({
+                where: { department: departmentKey },
+                data: {
+                    specialEvents: updatedEvents,
+                    updatedAt: new Date()
+                } as any
+            });
+        }
+
+        revalidatePath("/admin/rhu/appointment-settings");
+        revalidatePath("/user/services/rural-health-unit");
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("deleteCenterSpecialEvent error:", error);
+        return { success: false, error: error.message || "Failed to delete event" };
+    }
+}

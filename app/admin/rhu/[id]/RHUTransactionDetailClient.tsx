@@ -8,7 +8,7 @@ import {
     ArrowLeft, CheckCircle2, XCircle, Printer,
     Activity, Stethoscope, ClipboardList,
     ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
-    Search, Pill, Clock
+    Search, Pill, Clock, UserCheck, ShieldAlert
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +23,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateRHUAppointmentStatus } from "../actions";
+import { updateRHUAppointmentStatus, getRHUHealthCenters } from "../actions";
 import { getRHUInventoryItems, dispenseRHUMedicines } from "@/app/admin/rhu/inventory/actions";
+import PrintReferralSlip from "@/components/shared/PrintReferralSlip";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -117,6 +118,35 @@ function getAdditionalData(tx: any): any {
     return tx.additionalData;
 }
 
+function isExpiredDate(dateStrOrObj?: string | Date | null): boolean {
+    if (!dateStrOrObj) return false;
+    const exp = new Date(dateStrOrObj);
+    if (isNaN(exp.getTime())) return false;
+    exp.setHours(23, 59, 59, 999);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp.getTime() < today.getTime();
+}
+
+function getUnexpiredStock(item: any): number {
+    if (!item) return 0;
+
+    if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
+        return item.batches.reduce((sum: number, b: any) => {
+            const qty = b.quantity || 0;
+            if (qty <= 0) return sum;
+            if (b.expirationDate && isExpiredDate(b.expirationDate)) return sum;
+            return sum + qty;
+        }, 0);
+    }
+
+    if (item.expirationDate && isExpiredDate(item.expirationDate)) {
+        return 0;
+    }
+
+    return item.quantity || 0;
+}
+
 function formatExpiryDate(expDate?: string | Date | null): { text: string; isExpired: boolean; isExpiringSoon: boolean } {
     if (!expDate) return { text: "N/A", isExpired: false, isExpiringSoon: false };
     const exp = new Date(expDate);
@@ -134,6 +164,28 @@ function formatExpiryDate(expDate?: string | Date | null): { text: string; isExp
         return { text: `${formatted} (${diffDays}d left)`, isExpired: false, isExpiringSoon: true };
     }
     return { text: formatted, isExpired: false, isExpiringSoon: false };
+}
+
+function getItemDisplayExpiry(item: any): { text: string; isExpired: boolean; isExpiringSoon: boolean } {
+    if (!item) return { text: "N/A", isExpired: false, isExpiringSoon: false };
+
+    if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
+        const unexpiredBatches = item.batches.filter((b: any) => {
+            const qty = b.quantity || 0;
+            return qty > 0 && b.expirationDate && !isExpiredDate(b.expirationDate);
+        });
+
+        if (unexpiredBatches.length > 0) {
+            unexpiredBatches.sort((a: any, b: any) => {
+                const dateA = new Date(a.expirationDate).getTime();
+                const dateB = new Date(b.expirationDate).getTime();
+                return dateA - dateB;
+            });
+            return formatExpiryDate(unexpiredBatches[0].expirationDate);
+        }
+    }
+
+    return formatExpiryDate(item.expirationDate);
 }
 
 export default function RHUTransactionDetailClient({ transaction, currentUser }: { transaction: any; currentUser?: any }) {
@@ -155,13 +207,54 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const [referralModalOpen, setReferralModalOpen] = useState(false);
     const [referralFacility, setReferralFacility] = useState("");
     const [referralReason, setReferralReason] = useState("");
+    const [hospitalSearchQuery, setHospitalSearchQuery] = useState("");
+    const [hospitalDropdownOpen, setHospitalDropdownOpen] = useState(false);
+    const [healthCenters, setHealthCenters] = useState<any[]>([]);
+    const [loadingCenters, setLoadingCenters] = useState(false);
+    const [triggerPrintReferral, setTriggerPrintReferral] = useState(false);
+
+
+    // Fetch health centers from DB when referral modal opens
+    React.useEffect(() => {
+        if (referralModalOpen && healthCenters.length === 0) {
+            setLoadingCenters(true);
+            getRHUHealthCenters()
+                .then((res) => {
+                    if (res.success && res.data) {
+                        setHealthCenters(res.data);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => setLoadingCenters(false));
+        }
+    }, [referralModalOpen, healthCenters.length]);
+
+    // Derive current appointment's health center to exclude from referral options
+    const txAddData = (() => {
+        if (!transaction?.additionalData) return {};
+        if (typeof transaction.additionalData === "string") {
+            try { return JSON.parse(transaction.additionalData); } catch { return {}; }
+        }
+        return transaction.additionalData;
+    })();
+    const currentCenterId = txAddData.healthCenterId || "";
+    const currentCenterName = (txAddData.healthCenterName || "").toLowerCase();
+
+    const filteredHospitals = healthCenters.filter(c => {
+        // Exclude the current appointment's own center
+        if (currentCenterId && c.id === currentCenterId) return false;
+        if (currentCenterName && c.name.toLowerCase() === currentCenterName) return false;
+        // Apply search query filter
+        return c.name.toLowerCase().includes(hospitalSearchQuery.toLowerCase());
+    });
+
 
     // Lightbox image viewer state
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [zoomScale, setZoomScale] = useState(1);
     const [rotateAngle, setRotateAngle] = useState(0);
 
-    // Vitals Check-In modal state
+    // Patient Check-In (Vitals) modal state
     const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
     const [vitals, setVitals] = useState({
         height: "",
@@ -172,8 +265,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         pulseRate: "",
         philhealthNumber: "",
         konsultationNumber: "",
+        recordedBy: currentUser?.name || "",
     });
     const [vitalsErrors, setVitalsErrors] = useState<Record<string, boolean>>({});
+    const [confirmCheckInDialogOpen, setConfirmCheckInDialogOpen] = useState(false);
 
     // Doctor's Clinical Notes (DEOS) modal state
     const [deosModalOpen, setDeosModalOpen] = useState(false);
@@ -182,11 +277,15 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         examinationFindings: "",
         orders: "",
         status: "",
+        attendingPhysician: currentUser?.name || "",
     });
     const [deosErrors, setDeosErrors] = useState<Record<string, boolean>>({});
+    const [confirmDeosDialogOpen, setConfirmDeosDialogOpen] = useState(false);
 
     // Pharmacy Dispense Confirmation modal state
     const [dispenseModalOpen, setDispenseModalOpen] = useState(false);
+    const [confirmDispenseDialogOpen, setConfirmDispenseDialogOpen] = useState(false);
+    const [confirmApprovePoDialogOpen, setConfirmApprovePoDialogOpen] = useState(false);
     const [dispenseItems, setDispenseItems] = useState<{ id: string; name: string; currentStock: number; unit: string; qtyToDispense: number | string }[]>([]);
 
     // Medicine catalog search state for prescription
@@ -222,14 +321,20 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     });
 
     const handleAddMedicineToOrders = (item: any) => {
-        const expInfo = formatExpiryDate(item.expirationDate);
-        const isOutOfStock = (item.quantity || 0) <= 0 || expInfo.isExpired;
+        const expInfo = getItemDisplayExpiry(item);
+        const usableStock = getUnexpiredStock(item);
+        const isOutOfStock = usableStock <= 0 || expInfo.isExpired;
+
+        const rawDosage = (item.dosage || "").trim();
+        const dosageFormatted = rawDosage
+            ? (rawDosage.startsWith("(") ? ` ${rawDosage}` : ` (${rawDosage})`)
+            : "";
 
         let medLine = "";
         if (isOutOfStock) {
-            medLine = `• ${item.name}${item.dosage ? ` (${item.dosage})` : ""} [OUT OF STOCK - External Purchase Required]`;
+            medLine = `• ${item.name}${dosageFormatted} [OUT OF STOCK - External Purchase Required]`;
         } else {
-            medLine = `• ${item.name}${item.dosage ? ` (${item.dosage})` : ""}`;
+            medLine = `• ${item.name}${dosageFormatted}`;
         }
 
         setDeos(prev => {
@@ -302,6 +407,22 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         }
     };
 
+    const handleOpenCheckInModal = () => {
+        setVitals(p => ({
+            ...p,
+            recordedBy: p.recordedBy || currentUser?.name || ""
+        }));
+        setVitalsModalOpen(true);
+    };
+
+    const handleOpenDeosModal = () => {
+        setDeos(p => ({
+            ...p,
+            attendingPhysician: p.attendingPhysician || currentUser?.name || ""
+        }));
+        setDeosModalOpen(true);
+    };
+
     const handleConfirmCheckIn = () => {
         const errors: Record<string, boolean> = {};
         if (!vitals.height.trim()) errors.height = true;
@@ -310,13 +431,23 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         if (!vitals.diastolic.trim()) errors.diastolic = true;
         if (!vitals.temperature.trim()) errors.temperature = true;
         if (!vitals.pulseRate.trim()) errors.pulseRate = true;
+
         if (Object.keys(errors).length > 0) {
             setVitalsErrors(errors);
             toast.error("Please fill in all required vitals fields.");
             return;
         }
         setVitalsErrors({});
-        handleUpdateStatus("CHECK_IN", undefined, undefined, vitals);
+        setConfirmCheckInDialogOpen(true);
+    };
+
+    const executeCheckInSubmission = () => {
+        setConfirmCheckInDialogOpen(false);
+        const vitalsDataToSave = {
+            ...vitals,
+            recordedBy: currentUser?.name || "RHU Staff"
+        };
+        handleUpdateStatus("CHECK_IN", undefined, undefined, vitalsDataToSave);
     };
 
     const handleConfirmPrescription = () => {
@@ -330,7 +461,16 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             return;
         }
         setDeosErrors({});
-        handleUpdateStatus("PRESCRIBED", undefined, undefined, undefined, deos);
+        setConfirmDeosDialogOpen(true);
+    };
+
+    const executePrescriptionSubmission = () => {
+        setConfirmDeosDialogOpen(false);
+        const deosDataToSave = {
+            ...deos,
+            attendingPhysician: currentUser?.name || "Attending Physician"
+        };
+        handleUpdateStatus("PRESCRIBED", undefined, undefined, undefined, deosDataToSave);
     };
 
     const autoPopulateDispenseItems = (items: any[]) => {
@@ -347,7 +487,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                     (generic && generic.length > 3 && orderText.includes(generic)) ||
                     (brand && brand.length > 3 && orderText.includes(brand))) {
                     if (!matched.some(m => m.id === inv.id)) {
-                        const availableStock = inv.quantity || 0;
+                        const availableStock = getUnexpiredStock(inv);
                         matched.push({
                             id: inv.id,
                             name: inv.name,
@@ -376,7 +516,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         }
     };
 
-    const handleConfirmDispenseAndComplete = async () => {
+    const handleConfirmDispenseAndComplete = () => {
+        // Enforce non-expired stock validation
+        const zeroStockItem = dispenseItems.find(i => i.currentStock <= 0);
+        if (zeroStockItem) {
+            toast.error(`Cannot dispense ${zeroStockItem.name}: item has no non-expired stock available in inventory.`);
+            return;
+        }
+
         // Enforce required quantity input validation
         const emptyItem = dispenseItems.find(i => !i.qtyToDispense || Number(i.qtyToDispense) <= 0);
         if (emptyItem) {
@@ -391,6 +538,11 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             return;
         }
 
+        setConfirmDispenseDialogOpen(true);
+    };
+
+    const executeDispenseSubmission = async () => {
+        setConfirmDispenseDialogOpen(false);
         setSubmitting(true);
         try {
             if (dispenseItems.length > 0) {
@@ -437,21 +589,29 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 setDispenseModalOpen(false);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to process transaction.");
+                toast.error(res.error || "Failed to update appointment status.");
             }
         } catch (err: any) {
-            toast.error(err?.message || "Error dispensing medicine.");
+            toast.error(err.message || "Failed to finalize dispensing.");
         } finally {
             setSubmitting(false);
         }
     };
 
+    const executePoApprovalSubmission = () => {
+        setConfirmApprovePoDialogOpen(false);
+        handleUpdateStatus("COMPLETED");
+    };
+
     const effectiveStatus = addData?.rhuStatus || (
-        transaction.isCancelled || transaction.status === "REJECTED" ? "CANCELLED" :
+        transaction.isCancelled || transaction.status === "REJECTED" || transaction.status === "CANCELLED" ? "CANCELLED" :
+        transaction.status === "REFERRED" ? "REFERRED" :
+        transaction.status === "COMPLETED" || transaction.status === "RELEASED" || transaction.status === "DELIVERED" ? "COMPLETED" :
         transaction.status === "FOR_CLAIM" ? "PO_APPROVED" :
+        transaction.status === "PRESCRIBED" ? "PRESCRIBED" :
+        transaction.status === "IN_CONSULTATION" ? "IN_CONSULTATION" :
+        transaction.status === "CHECK_IN" || transaction.status === "EVALUATED" ? "CHECK_IN" :
         transaction.status === "FOR_PROCESSING" ? (addData?.deos ? "PRESCRIBED" : "IN_CONSULTATION") :
-        transaction.status === "EVALUATED" ? "CHECK_IN" :
-        transaction.status === "RELEASED" || transaction.status === "DELIVERED" ? "COMPLETED" :
         "APPOINTMENT_BOOKED"
     );
 
@@ -459,10 +619,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     let currentStep = 1; // APPOINTMENT_BOOKED
     if (effectiveStatus === "CHECK_IN" || transaction.status === "EVALUATED") currentStep = 2;
     if (effectiveStatus === "IN_CONSULTATION") currentStep = 3;
-    if (effectiveStatus === "PRESCRIBED") currentStep = 4;
-    if (effectiveStatus === "COMPLETED" || transaction.status === "RELEASED" || transaction.status === "DELIVERED") currentStep = 5;
-    if (effectiveStatus === "REFERRED") currentStep = 6;
+    if (effectiveStatus === "PRESCRIBED" || effectiveStatus === "PO_APPROVED" || transaction.status === "FOR_CLAIM") currentStep = 4;
+    if (effectiveStatus === "COMPLETED" || effectiveStatus === "DISPENSED" || effectiveStatus === "REFERRED" || transaction.status === "RELEASED" || transaction.status === "DELIVERED" || transaction.status === "REFERRED") currentStep = 5;
     if (transaction.isCancelled || effectiveStatus === "CANCELLED" || transaction.status === "REJECTED") currentStep = 0;
+
 
     const canReferOrCancel = (effectiveStatus === "APPOINTMENT_BOOKED" || effectiveStatus === "CHECK_IN" || effectiveStatus === "IN_CONSULTATION") && 
                              !transaction.isCancelled && 
@@ -502,9 +662,16 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                     </span>
                 );
             case "PRESCRIBED":
+                if (addData.dispenseInfo || addData.dispensedAt || addData.poDispensedByPharmacy) {
+                    return (
+                        <span className="px-4 py-1.5 rounded-full bg-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-md animate-pulse">
+                            DISPENSED (PENDING PO APPROVAL)
+                        </span>
+                    );
+                }
                 return (
-                    <span className="px-4 py-1.5 rounded-full bg-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-md animate-pulse">
-                        PENDING PO APPROVAL
+                    <span className="px-4 py-1.5 rounded-full bg-teal-600 text-white font-black text-xs uppercase tracking-wider shadow-md">
+                        PRESCRIBED (READY FOR DISPENSING)
                     </span>
                 );
             case "PO_APPROVED":
@@ -758,6 +925,21 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 })()}
 
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {/* Recorded / Checked-In By Staff Card */}
+                                    <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl space-y-1 col-span-2 sm:col-span-3 flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1.5">
+                                                <UserCheck className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                                Recorded / Checked-In By Staff (Accountability)
+                                            </p>
+                                            <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                                                {addData.vitals?.recordedBy || addData.checkedInBy || "RHU Check-In Staff"}
+                                            </p>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20">
+                                            ENCODER VERIFIED
+                                        </span>
+                                    </div>
                                     {/* Height */}
                                     {addData.vitals.height && (
                                         <div className="p-4 bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 rounded-2xl space-y-1">
@@ -891,6 +1073,15 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 )}
                             </div>
                             <div className="p-6 space-y-4">
+                                {addData.deos.attendingPhysician && (
+                                    <div className="flex items-center gap-3 p-4 rounded-2xl border border-teal-500/30 bg-teal-500/10 text-xs font-bold text-teal-800 dark:text-teal-200">
+                                        <Stethoscope className="w-5 h-5 text-teal-500 shrink-0" />
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Attending Physician (Medical Accountability)</p>
+                                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{addData.deos.attendingPhysician}</p>
+                                        </div>
+                                    </div>
+                                )}
                                 {addData.deos.diagnosis && (
                                     <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
                                         <div className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 font-mono font-black text-sm">
@@ -1013,16 +1204,26 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 { step: 1, title: "1. APPOINTMENT BOOKED" },
                                 { step: 2, title: "2. PATIENT CHECK-IN" },
                                 { step: 3, title: "3. IN CONSULTATION" },
-                                { step: 4, title: "4. PRESCRIBED (PENDING PO APPROVAL)" },
-                                { step: 5, title: "5. DISPENSED & COMPLETED" },
+                                { 
+                                    step: 4, 
+                                    title: (addData.dispenseInfo || addData.dispensedAt || addData.poDispensedByPharmacy)
+                                        ? "4. PRESCRIBED & DISPENSED (PENDING PO APPROVAL)" 
+                                        : "4. PRESCRIBED (READY FOR DISPENSING)" 
+                                },
+                                { 
+                                     step: 5, 
+                                     title: (effectiveStatus === "REFERRED" || transaction.status === "REFERRED") 
+                                         ? "5. REFERRED TO EXTERNAL FACILITY" 
+                                         : "5. DISPENSED & COMPLETED" 
+                                },
                             ].map((item) => {
-                                const isPassed = currentStep >= item.step && currentStep !== 5 && currentStep !== 0;
-                                const isCurrent = currentStep === item.step;
+                                const isPassed = (currentStep > item.step || currentStep === 5) && currentStep !== 0;
+                                const isCurrent = currentStep === item.step && currentStep !== 5;
                                 return (
                                     <div key={item.step} className="flex items-center gap-3 relative z-10">
                                         <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                                             isPassed
-                                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                                                ? (effectiveStatus === "REFERRED" || transaction.status === "REFERRED") ? "bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20" : "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
                                                 : isCurrent
                                                     ? "bg-rose-600 text-white shadow-md shadow-rose-600/20 ring-4 ring-rose-500/20"
                                                     : "bg-slate-200 dark:bg-white/10 text-slate-400"
@@ -1063,7 +1264,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     </div>
                                 )}
                             </div>
-                        ) : transaction.status === "REFERRED" ? (
+                        ) : (effectiveStatus === "REFERRED" || transaction.status === "REFERRED" || addData?.rhuStatus === "REFERRED") ? (
                             <div className="py-6 space-y-4">
                                 <div className="w-16 h-16 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center mx-auto text-fuchsia-500">
                                     <Activity className="w-8 h-8" />
@@ -1073,12 +1274,30 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         PATIENT REFERRED
                                     </h3>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        REFERRED TO HIGHER MEDICAL FACILITY
+                                        REFERRED TO EXTERNAL MEDICAL FACILITY
                                     </p>
                                 </div>
+
+                                {(addData.referralFacility || addData.referralReason) && (
+                                    <div className="p-4 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-xs text-left space-y-1.5">
+                                        {addData.referralFacility && (
+                                            <p className="text-slate-200">
+                                                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider block">Referred Facility:</span>
+                                                <span className="font-black text-fuchsia-400 text-sm">{addData.referralFacility}</span>
+                                            </p>
+                                        )}
+                                        {addData.referralReason && (
+                                            <p className="text-slate-300">
+                                                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider block">Reason for Referral:</span>
+                                                <span className="font-medium">{addData.referralReason}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <Button
-                                    onClick={() => window.print()}
-                                    className="w-full h-12 bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl flex items-center justify-center gap-2"
+                                    onClick={() => setTriggerPrintReferral(true)}
+                                    className="w-full h-12 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-fuchsia-600/20 flex items-center justify-center gap-2"
                                 >
                                     <Printer className="w-4 h-4" />
                                     PRINT REFERRAL SLIP
@@ -1120,7 +1339,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     {effectiveStatus === "APPOINTMENT_BOOKED" && (
                                         <Button
                                             disabled={submitting}
-                                            onClick={() => setVitalsModalOpen(true)}
+                                            onClick={handleOpenCheckInModal}
                                             className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
                                         >
                                             <CheckCircle2 className="w-4 h-4" />
@@ -1131,7 +1350,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     {effectiveStatus === "CHECK_IN" && (
                                         <Button
                                             disabled={submitting}
-                                            onClick={() => setDeosModalOpen(true)}
+                                            onClick={handleOpenDeosModal}
                                             className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
                                         >
                                             <ClipboardList className="w-4 h-4" />
@@ -1142,7 +1361,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     {effectiveStatus === "IN_CONSULTATION" && (
                                         <Button
                                             disabled={submitting}
-                                            onClick={() => setDeosModalOpen(true)}
+                                            onClick={handleOpenDeosModal}
                                             className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
                                         >
                                             <ClipboardList className="w-4 h-4" />
@@ -1194,7 +1413,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 {(userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userRole === "ADMIN_AIDE") && (
                                                     <Button
                                                         disabled={submitting}
-                                                        onClick={() => handleUpdateStatus("COMPLETED")}
+                                                        onClick={() => setConfirmApprovePoDialogOpen(true)}
                                                         className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                                                     >
                                                         <CheckCircle2 className="w-4 h-4" />
@@ -1486,6 +1705,23 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     />
                                 </div>
                             </div>
+
+                            {/* Staff Encoder Accountability (Read-only Authenticated Display) */}
+                            <div className="pt-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Staff / Encoder Accountability</p>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Recorded / Checked-In By Staff</Label>
+                                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <UserCheck className="w-4 h-4 text-rose-500 shrink-0" />
+                                            <span className="truncate text-slate-800 dark:text-white font-black">{currentUser?.name || "RHU Staff"}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-rose-500 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md shrink-0 border border-rose-500/20">
+                                            AUTHENTICATED
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1504,6 +1740,303 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             {submitting ? "Checking In..." : "Confirm Check-In"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Audit & Data Accuracy Warning Confirmation Dialog */}
+            <Dialog open={confirmCheckInDialogOpen} onOpenChange={setConfirmCheckInDialogOpen}>
+                <DialogContent className="sm:max-w-[640px] max-h-[88vh] overflow-y-auto overflow-x-hidden bg-[#0f172a] border border-rose-500/40 text-white rounded-3xl shadow-2xl p-6 space-y-5 custom-scrollbar">
+                    <DialogTitle className="sr-only">Confirm Patient Vitals Accuracy</DialogTitle>
+
+                    {/* Warning Header */}
+                    <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-rose-500 animate-pulse" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">MEDICAL ACCOUNTABILITY AUDIT</p>
+                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Data Accuracy Before Submitting</h3>
+                        </div>
+                    </div>
+
+                    {/* Warning Callout Box */}
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-200 text-xs font-semibold leading-relaxed">
+                        <p className="font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5 text-[11px]">
+                            <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                            Staff Responsibility Notice
+                        </p>
+                        <p>
+                            You are about to submit official medical vitals under your authenticated account: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "RHU Staff"}</strong>.
+                        </p>
+                        <p className="text-[11px] text-rose-300">
+                            Falsifying or inputting incorrect vital signs can affect patient diagnosis and treatment safety. Your name and timestamp will be permanently logged in the official medical audit trail.
+                        </p>
+                    </div>
+
+                    {/* Vitals Summary Card */}
+                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Vitals Summary Review</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                            <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
+                            <div><span className="text-slate-400">Encoder:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "RHU Staff"}</strong></div>
+                            <div><span className="text-slate-400">BP:</span> <strong className="text-white font-bold">{vitals.systolic}/{vitals.diastolic} mmHg</strong></div>
+                            <div><span className="text-slate-400">Height:</span> <strong className="text-white font-bold">{vitals.height} cm</strong></div>
+                            <div><span className="text-slate-400">Weight:</span> <strong className="text-white font-bold">{vitals.weight} kg</strong></div>
+                            <div><span className="text-slate-400">Temp / Pulse:</span> <strong className="text-white font-bold">{vitals.temperature}°C / {vitals.pulseRate} bpm</strong></div>
+                            {vitals.philhealthNumber && <div><span className="text-slate-400">PhilHealth No.:</span> <strong className="text-emerald-400 font-bold">{vitals.philhealthNumber}</strong></div>}
+                            {vitals.konsultationNumber && <div><span className="text-slate-400">Konsultation No.:</span> <strong className="text-emerald-400 font-bold">{vitals.konsultationNumber}</strong></div>}
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <DialogFooter className="flex gap-2 justify-end pt-2 shrink-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setConfirmCheckInDialogOpen(false)}
+                            className="h-11 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white hover:bg-white/5"
+                        >
+                            Go Back & Review
+                        </Button>
+                        <Button
+                            disabled={submitting}
+                            onClick={executeCheckInSubmission}
+                            className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-2"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {submitting ? "Saving..." : "Yes, I Confirm Data Is Correct"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Audit & Clinical Accountability Warning Confirmation Dialog */}
+            <Dialog open={confirmDeosDialogOpen} onOpenChange={setConfirmDeosDialogOpen}>
+                <DialogContent className="sm:max-w-[700px] max-h-[88vh] overflow-y-auto overflow-x-hidden bg-[#0f172a] border border-rose-500/40 text-white rounded-3xl shadow-2xl p-6 space-y-5 custom-scrollbar">
+                    <DialogTitle className="sr-only">Confirm Clinical Diagnosis & Prescription Accuracy</DialogTitle>
+
+                    {/* Warning Header */}
+                    <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-rose-500 animate-pulse" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">LEGAL & MEDICAL ACCOUNTABILITY AUDIT</p>
+                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Clinical Record Before Submitting</h3>
+                        </div>
+                    </div>
+
+                    {/* Warning Callout Box */}
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-200 text-xs font-semibold leading-relaxed">
+                        <p className="font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5 text-[11px]">
+                            <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                            Prescribing Physician Responsibility Notice
+                        </p>
+                        <p>
+                            You are about to issue official clinical diagnosis and medical prescriptions under your authenticated license: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "Attending Physician"}</strong>.
+                        </p>
+                        <p className="text-[11px] text-rose-300">
+                            Issuing improper or inaccurate medical orders carries strict medical-legal accountability. Your name, email, and timestamp will be permanently attached as the prescribing physician.
+                        </p>
+                    </div>
+
+                    {/* Clinical Summary Card */}
+                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Prescription & Clinical Summary Review</p>
+                        <div className="grid grid-cols-2 gap-2 font-medium">
+                            <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
+                            <div><span className="text-slate-400">Doctor:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "Attending Physician"}</strong></div>
+                        </div>
+                        <div className="space-y-1.5 pt-1 border-t border-white/5">
+                            <div>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Diagnosis (D):</span>
+                                <p className="text-white font-bold text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.diagnosis}</p>
+                            </div>
+                            <div>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Examination Findings (E):</span>
+                                <p className="text-slate-200 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.examinationFindings}</p>
+                            </div>
+                            <div>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-rose-400">Orders / Prescribed Medicines (O):</span>
+                                <p className="text-rose-200 font-bold text-xs bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 mt-0.5 whitespace-pre-wrap max-h-36 overflow-y-auto break-words custom-scrollbar">{deos.orders}</p>
+                            </div>
+                            {deos.status && (
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Status / Notes (S):</span>
+                                    <p className="text-slate-300 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-20 overflow-y-auto break-words custom-scrollbar">{deos.status}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <DialogFooter className="flex gap-2 justify-end pt-2 shrink-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setConfirmDeosDialogOpen(false)}
+                            className="h-11 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white hover:bg-white/5"
+                        >
+                            Go Back & Edit Notes
+                        </Button>
+                        <Button
+                            disabled={submitting}
+                            onClick={executePrescriptionSubmission}
+                            className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-2"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {submitting ? "Prescribing..." : "Yes, I Confirm Clinical Record Is Correct"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Audit & Pharmacy Accountability Warning Confirmation Dialog */}
+            <Dialog open={confirmDispenseDialogOpen} onOpenChange={setConfirmDispenseDialogOpen}>
+                <DialogContent className="sm:max-w-[700px] max-h-[88vh] overflow-y-auto overflow-x-hidden bg-[#0f172a] border border-rose-500/40 text-white rounded-3xl shadow-2xl p-6 space-y-5 custom-scrollbar">
+                    <DialogTitle className="sr-only">Confirm Medicine Dispensing & Inventory Deduction</DialogTitle>
+
+                    {/* Warning Header */}
+                    <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-rose-500 animate-pulse" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">PHARMACY INVENTORY ACCOUNTABILITY AUDIT</p>
+                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Dispensing & Stock Deduction</h3>
+                        </div>
+                    </div>
+
+                    {/* Warning Callout Box */}
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-200 text-xs font-semibold leading-relaxed">
+                        <p className="font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5 text-[11px]">
+                            <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                            Dispensing Staff Responsibility Notice
+                        </p>
+                        <p>
+                            You are about to authorize official medicine dispensing and deduct inventory stock under your authenticated account: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "RHU Pharmacy Staff"}</strong>.
+                        </p>
+                        <p className="text-[11px] text-rose-300">
+                            Please verify that the physical medicines handed to patient <strong className="text-white uppercase font-bold">{patientName}</strong> match Dr. <strong className="text-white font-bold">{addData.deos?.attendingPhysician || "Attending Physician"}</strong>&apos;s prescription. Inventory stock will be permanently deducted and your name logged as the dispensing staff.
+                        </p>
+                    </div>
+
+                    {/* Dispense & Inventory Summary Card */}
+                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Dispensing Summary Review</p>
+                        <div className="grid grid-cols-2 gap-2 font-medium">
+                            <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
+                            <div><span className="text-slate-400">Dispensing Staff:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "RHU Pharmacy Staff"}</strong></div>
+                            <div><span className="text-slate-400">Prescribing Doctor:</span> <strong className="text-teal-300 uppercase font-black">{addData.deos?.attendingPhysician || "Attending Physician"}</strong></div>
+                        </div>
+                        <div className="space-y-1.5 pt-2 border-t border-white/5">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-rose-400">Medicines to Dispense & Deduct:</span>
+                            <div className="space-y-1.5 pt-1 max-h-36 overflow-y-auto custom-scrollbar">
+                                {dispenseItems.filter(i => Number(i.qtyToDispense) > 0).map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs">
+                                        <span className="font-bold text-white">{item.name}</span>
+                                        <span className="font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-md">
+                                            Deduct: {item.qtyToDispense} {item.unit}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <DialogFooter className="flex gap-2 justify-end pt-2 shrink-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setConfirmDispenseDialogOpen(false)}
+                            className="h-11 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white hover:bg-white/5"
+                        >
+                            Go Back & Review Quantities
+                        </Button>
+                        <Button
+                            disabled={submitting}
+                            onClick={executeDispenseSubmission}
+                            className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-2"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {submitting ? "Dispensing..." : "Yes, I Confirm Dispensing Is Correct"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Audit & Center Admin Approval Warning Confirmation Dialog */}
+            <Dialog open={confirmApprovePoDialogOpen} onOpenChange={setConfirmApprovePoDialogOpen}>
+                <DialogContent className="sm:max-w-[680px] max-h-[88vh] overflow-y-auto overflow-x-hidden bg-[#0f172a] border border-rose-500/40 text-white rounded-3xl shadow-2xl p-6 space-y-5 custom-scrollbar">
+                    <DialogTitle className="sr-only">Confirm Purchase Order Approval & Completion</DialogTitle>
+
+                    {/* Warning Header */}
+                    <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-rose-500 animate-pulse" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">ADMINISTRATIVE & MEDICAL ACCOUNTABILITY AUDIT</p>
+                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Final PO Approval & Completion</h3>
+                        </div>
+                    </div>
+
+                    {/* Warning Callout Box */}
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-200 text-xs font-semibold leading-relaxed">
+                        <p className="font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5 text-[11px]">
+                            <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                            Center Admin Final Approval Responsibility Notice
+                        </p>
+                        <p>
+                            You are about to authorize final executive approval and mark this Purchase Order as <strong className="text-white font-black uppercase underline decoration-rose-500">COMPLETED</strong> under your authenticated account: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "Center Admin"}</strong>.
+                        </p>
+                        <p className="text-[11px] text-rose-300">
+                            Please verify that all clinical notes and pharmacy medicine dispensing items for patient <strong className="text-white uppercase font-bold">{patientName}</strong> are accurate. Once approved, this consultation cycle will be officially completed and logged in the municipal audit trail.
+                        </p>
+                    </div>
+
+                    {/* PO & Dispensing Summary Card */}
+                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Purchase Order Approval Summary Review</p>
+                        <div className="grid grid-cols-2 gap-2 font-medium">
+                            <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
+                            <div><span className="text-slate-400">Center Admin Approver:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "Center Admin"}</strong></div>
+                            <div><span className="text-slate-400">Prescribing Doctor:</span> <strong className="text-teal-300 uppercase font-black">{addData?.deos?.attendingPhysician || "Attending Physician"}</strong></div>
+                            <div><span className="text-slate-400">Dispensing Staff:</span> <strong className="text-teal-300 uppercase font-black">{addData?.dispenseInfo?.dispensedBy || "RHU Pharmacy Staff"}</strong></div>
+                        </div>
+                        {addData?.dispenseInfo?.items && Array.isArray(addData.dispenseInfo.items) && addData.dispenseInfo.items.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-white/5">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Actual Pharmacy Dispensed Items:</span>
+                                <div className="space-y-1.5 pt-1 max-h-32 overflow-y-auto custom-scrollbar">
+                                    {addData.dispenseInfo.items.map((item: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 text-xs">
+                                            <span className="font-bold text-white">{item.name}</span>
+                                            <span className="font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                                {item.quantity} {item.unit || "pcs"}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <DialogFooter className="flex gap-2 justify-end pt-2 shrink-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setConfirmApprovePoDialogOpen(false)}
+                            className="h-11 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white hover:bg-white/5"
+                        >
+                            Go Back & Review Record
+                        </Button>
+                        <Button
+                            disabled={submitting}
+                            onClick={executePoApprovalSubmission}
+                            className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-2"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {submitting ? "Approving..." : "Yes, I Confirm Final Approval"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1569,6 +2102,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 border-b border-white/5 pb-2">Vitals at Check-In</p>
                                         <div className="grid grid-cols-2 gap-2">
                                             {[
+                                                { label: "Recorded By Staff", value: addData.vitals?.recordedBy || addData.checkedInBy || "RHU Check-In Staff" },
                                                 { label: "Height", value: addData.vitals.height ? `${addData.vitals.height} cm` : null },
                                                 { label: "Weight", value: addData.vitals.weight ? `${addData.vitals.weight} kg` : null },
                                                 { 
@@ -1583,8 +2117,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 { label: "PhilHealth No.", value: addData.vitals.philhealthNumber || null },
                                                 { label: "Konsultation No.", value: addData.vitals.konsultationNumber || null },
                                             ].filter(v => v.value).map((item, i) => (
-                                                <div key={i} className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl space-y-0.5">
-                                                    <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400">{item.label}</p>
+                                                <div key={i} className={`p-3 rounded-xl space-y-0.5 ${item.label === "Recorded By Staff" ? "col-span-2 bg-rose-500/10 border border-rose-500/20" : "bg-indigo-500/10 border border-indigo-500/20"}`}>
+                                                    <p className={`text-[8px] font-black uppercase tracking-widest ${item.label === "Recorded By Staff" ? "text-rose-400" : "text-indigo-400"}`}>{item.label}</p>
                                                     <p className="text-[11px] font-black text-white uppercase">{item.value}</p>
                                                 </div>
                                             ))}
@@ -1630,6 +2164,20 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 {activeTab === "deos" && (
                                     <div className="space-y-4">
                                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Diagnosis · Examination · Orders · Status</p>
+
+                                        {/* Attending Physician (Read-only Authenticated Display) */}
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attending Physician / Prescribing Doctor</Label>
+                                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs font-bold text-teal-300">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <Stethoscope className="w-4 h-4 text-teal-400 shrink-0" />
+                                                    <span className="truncate text-white font-black">{currentUser?.name || "Attending Physician"}</span>
+                                                </div>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md shrink-0 border border-teal-500/20">
+                                                    AUTHENTICATED
+                                                </span>
+                                            </div>
+                                        </div>
 
                                         <div className="space-y-1.5">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">D — Diagnosis <span className="text-rose-500">*</span></Label>
@@ -1718,9 +2266,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                             </div>
                                                         ) : (
                                                             filteredMeds.map((item) => {
-                                                                const expInfo = formatExpiryDate(item.expirationDate);
-                                                                const isOutOfStock = (item.quantity || 0) <= 0;
-                                                                const isExpired = expInfo.isExpired;
+                                                                const expInfo = getItemDisplayExpiry(item);
+                                                                const usableStock = getUnexpiredStock(item);
+                                                                const isOutOfStock = usableStock <= 0;
+                                                                const isExpired = usableStock <= 0 && expInfo.isExpired;
 
                                                                 return (
                                                                     <div
@@ -1749,11 +2298,11 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                                                 <div>
                                                                                     {isOutOfStock ? (
                                                                                         <Badge className="text-[10px] uppercase font-black px-2.5 py-1 bg-red-600 text-white border border-red-500 shadow-md">
-                                                                                            OUT OF STOCK (EXTERNAL)
+                                                                                            {isExpired ? "OUT OF STOCK (EXPIRED)" : "OUT OF STOCK (EXTERNAL)"}
                                                                                         </Badge>
                                                                                     ) : (
                                                                                         <Badge className="text-[10px] uppercase font-black px-2.5 py-1 bg-emerald-600 text-white border border-emerald-500 shadow-md">
-                                                                                            IN STOCK: {item.quantity} {item.unit}
+                                                                                            IN STOCK: {usableStock} {item.unit}
                                                                                         </Badge>
                                                                                     )}
                                                                                 </div>
@@ -1912,7 +2461,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             </Dialog>
 
             {/* Referral Dialog */}
-            <Dialog open={referralModalOpen} onOpenChange={setReferralModalOpen}>
+            <Dialog open={referralModalOpen} onOpenChange={(open) => {
+                setReferralModalOpen(open);
+                if (!open) { setHospitalSearchQuery(""); setHospitalDropdownOpen(false); }
+            }}>
                 <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-8">
                     <DialogHeader className="space-y-2">
                         <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-fuchsia-600 dark:text-fuchsia-400">
@@ -1920,16 +2472,135 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         </DialogTitle>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Official Medical Referral Record</p>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-5 py-4">
+                        {/* Step 1: Search from registered centers */}
                         <div className="space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referral Hospital / Facility Name *</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Search Registered Health Centers
+                            </p>
+                            <div className="relative">
+                                <div className="relative">
+                                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    <Input
+                                        id="hospital-search-input"
+                                        placeholder="Search available center..."
+                                        value={hospitalSearchQuery}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setHospitalSearchQuery(val);
+                                            setHospitalDropdownOpen(val.length > 0);
+                                        }}
+                                        onFocus={() => setHospitalDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setHospitalDropdownOpen(false), 180)}
+                                        className="h-11 pl-10 rounded-xl bg-slate-50 dark:bg-white/5 font-bold text-xs border-slate-200 dark:border-white/10"
+                                        autoComplete="off"
+                                    />
+                                </div>
+
+                                {/* Dropdown */}
+                                {hospitalDropdownOpen && (
+                                    <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+                                        {loadingCenters && (
+                                            <div className="p-3 space-y-2">
+                                                {[1, 2, 3].map(i => (
+                                                    <div key={i} className="flex items-center gap-3 px-2 py-1.5 animate-pulse">
+                                                        <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-white/10 shrink-0" />
+                                                        <div className="flex-1 space-y-1.5">
+                                                            <div className="h-3 w-3/4 bg-slate-200 dark:bg-white/10 rounded-lg" />
+                                                            <div className="h-2 w-1/2 bg-slate-100 dark:bg-white/5 rounded-lg" />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {!loadingCenters && filteredHospitals.length > 0 && (
+                                            <>
+                                                <div className="px-4 py-2 bg-fuchsia-500/5 border-b border-slate-100 dark:border-white/5">
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-fuchsia-500">
+                                                        Registered Health Centers ({filteredHospitals.length})
+                                                    </p>
+                                                </div>
+                                                {filteredHospitals.map((center: any) => (
+                                                    <button
+                                                        key={center.id}
+                                                        type="button"
+                                                        onMouseDown={() => {
+                                                            setReferralFacility(center.name);
+                                                            setHospitalSearchQuery(center.name);
+                                                            setHospitalDropdownOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-3 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10 transition-colors border-b border-slate-100 dark:border-white/5 last:border-b-0 flex items-start gap-2.5"
+                                                    >
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 shrink-0 mt-1.5" />
+                                                        <div>
+                                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 leading-tight">
+                                                                {center.name}
+                                                            </p>
+                                                            {(center.barangay || center.location) && (
+                                                                <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                                                    📍 {center.barangay ? `Brgy. ${center.barangay}` : center.location}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+                                        {!loadingCenters && filteredHospitals.length === 0 && hospitalSearchQuery.length > 0 && (
+                                            <div className="px-4 py-3 flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                    No registered center found
+                                                </p>
+                                            </div>
+                                        )}
+                                        {!loadingCenters && filteredHospitals.length === 0 && !hospitalSearchQuery && (
+                                            <div className="px-4 py-3 text-[10px] font-bold text-slate-400">
+                                                Start typing to search available centers
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1 h-px bg-slate-200 dark:bg-white/10" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">or enter manually</span>
+                            <div className="flex-1 h-px bg-slate-200 dark:bg-white/10" />
+                        </div>
+
+                        {/* Step 2: Manual input */}
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Referral Hospital / Facility Name <span className="text-rose-500">*</span>
+                            </p>
                             <Input
                                 placeholder="e.g. Region 1 Medical Center, Pangasinan Provincial Hospital..."
                                 value={referralFacility}
-                                onChange={(e) => setReferralFacility(e.target.value)}
-                                className="h-12 rounded-xl bg-slate-50 dark:bg-white/5 font-bold text-xs"
+                                onChange={(e) => {
+                                    setReferralFacility(e.target.value);
+                                    setHospitalSearchQuery(e.target.value);
+                                }}
+                                className="h-12 rounded-xl bg-slate-50 dark:bg-white/5 font-bold text-xs border-slate-200 dark:border-white/10"
                             />
+                            {referralFacility.trim() && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl">
+                                    <span className="w-2 h-2 rounded-full bg-fuchsia-500 shrink-0" />
+                                    <span className="text-[11px] font-black text-fuchsia-600 dark:text-fuchsia-400 truncate">{referralFacility}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setReferralFacility(""); setHospitalSearchQuery(""); }}
+                                        className="ml-auto text-[10px] font-black text-slate-400 hover:text-rose-500 transition-colors shrink-0"
+                                    >
+                                        ✕ Clear
+                                    </button>
+                                </div>
+                            )}
                         </div>
+
+                        {/* Reason for Referral */}
                         <div className="space-y-2">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason for Referral</p>
                             <Input
@@ -1940,6 +2611,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             />
                         </div>
                     </div>
+
                     <DialogFooter className="flex gap-2 justify-end">
                         <Button
                             variant="ghost"
@@ -2063,8 +2735,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                     {/* Prescribed Orders Summary */}
                     <div className="space-y-2 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Doctor Prescribed Orders</p>
-                        <p className="text-xs font-semibold text-teal-300 whitespace-pre-wrap leading-relaxed">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Doctor Prescribed Orders</p>
+                            <span className="text-[10px] font-black text-teal-300 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                                <UserCheck className="w-3.5 h-3.5 text-teal-400" />
+                                Prescribed By: <strong className="text-white font-black uppercase">{addData.deos?.attendingPhysician || "Attending Physician"}</strong>
+                            </span>
+                        </div>
+                        <p className="text-xs font-semibold text-teal-300 whitespace-pre-wrap leading-relaxed pt-1">
                             {addData.deos?.orders || addData.deos?.diagnosis || "No specific orders encoded."}
                         </p>
                     </div>
@@ -2098,8 +2776,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         ) : (
                             dispenseItems.map((item, idx) => {
                                 const numQty = Number(item.qtyToDispense);
-                                const isOverStock = numQty > item.currentStock;
-                                const isInvalid = item.qtyToDispense !== "" && (isNaN(numQty) || numQty <= 0);
+                                const isOutOfStockItem = item.currentStock <= 0;
+                                const isOverStock = isOutOfStockItem || numQty > item.currentStock;
+                                const isInvalid = !isOutOfStockItem && item.qtyToDispense !== "" && (isNaN(numQty) || numQty <= 0);
                                 return (
                                     <div key={item.id || idx} className="space-y-1">
                                         <div className={`flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border gap-3 ${
@@ -2107,9 +2786,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         }`}>
                                             <div className="min-w-0 flex-1 space-y-0.5">
                                                 <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                                                <p className="text-[10px] font-mono text-emerald-400">
+                                                <p className={`text-[10px] font-mono ${isOutOfStockItem ? "text-red-400 font-bold" : "text-emerald-400"}`}>
                                                     Current Stock: <span className="font-bold">{item.currentStock} {item.unit}</span>
-                                                    {!isOverStock && numQty > 0 && (
+                                                    {isOutOfStockItem && <span className="ml-2 text-red-400 font-bold">(NO VALID STOCK)</span>}
+                                                    {!isOutOfStockItem && !isOverStock && numQty > 0 && (
                                                         <span className="text-slate-400 ml-2">
                                                             → New Stock: <span className="text-amber-400 font-bold">{item.currentStock - numQty} {item.unit}</span>
                                                         </span>
@@ -2121,7 +2801,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 <Input
                                                     type="number"
                                                     min={1}
-                                                    max={item.currentStock}
+                                                    max={Math.max(0, item.currentStock)}
+                                                    disabled={isOutOfStockItem}
                                                     placeholder="0"
                                                     value={item.qtyToDispense}
                                                     onChange={(e) => {
@@ -2143,16 +2824,19 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 </Button>
                                             </div>
                                         </div>
-                                        {isInvalid && (
+                                        {isOutOfStockItem ? (
+                                            <p className="text-[10px] text-red-500 font-medium px-2">
+                                                This item has no non-expired stock in inventory and cannot be dispensed.
+                                            </p>
+                                        ) : isInvalid ? (
                                             <p className="text-[10px] text-red-500 font-medium px-2">
                                                 Please enter the quantity to dispense.
                                             </p>
-                                        )}
-                                        {isOverStock && (
+                                        ) : isOverStock ? (
                                             <p className="text-[10px] text-red-500 font-medium px-2">
                                                 Cannot dispense more than available stock ({item.currentStock} {item.unit}).
                                             </p>
-                                        )}
+                                        ) : null}
                                     </div>
                                 );
                             })
@@ -2181,6 +2865,30 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Printable Official Medical Referral Slip */}
+            <PrintReferralSlip
+                controlNumber={transaction.controlNumber || transaction.id}
+                patientId={transaction.userId || transaction.controlNumber || transaction.id}
+                patientName={patientName}
+                gender={resident.gender}
+                dateOfBirth={resident.dateOfBirth || addData.dateOfBirth}
+                barangay={resident.barangay || addData.barangay}
+                contactNumber={resident.contactNumber || addData.phoneNumber}
+                philhealthNumber={addData.vitals?.philhealthNumber}
+                referringFacility={addData.healthCenterName || currentCenterName || "Mapandan Rural Health Unit"}
+                destinationFacility={addData.referralFacility || "Pangasinan Provincial Hospital / Main RHU"}
+                referredAt={addData.referredAt || transaction.updatedAt || new Date()}
+                checkupType={checkupDisplay}
+                symptoms={addData.customCheckupType || addData.notes || transaction.notes}
+                vitals={addData.vitals}
+                clinicalDiagnosis={addData.deos?.diagnosis}
+                examinationFindings={addData.deos?.examinationFindings}
+                reasonForReferral={addData.referralReason}
+                attendingPhysician={addData.deos?.attendingPhysician || currentUser?.name}
+                triggerPrint={triggerPrintReferral}
+                onPrintCompleted={() => setTriggerPrintReferral(false)}
+            />
         </div>
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import {
     Pill,
@@ -185,10 +185,10 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     // Staff and Doctor accounts have read-only access to inventory. Only RHU Pharmacy, RHU Admin, RHU Center Admin, or Pharmacy accounts can edit.
     const isStaff = role === "RHU_STAFF" || role === "RHU_DOCTOR" || role === "ADMIN_AIDE";
     const canManageInventory = !isStaff && (
-        role === "ADMIN" || 
-        role === "RHU_ADMIN" || 
-        role === "RHU_PHARMACY" || 
-        role === "RHU_CENTER_ADMIN" || 
+        role === "ADMIN" ||
+        role === "RHU_ADMIN" ||
+        role === "RHU_PHARMACY" ||
+        role === "RHU_CENTER_ADMIN" ||
         userEmail.includes("pharmacy")
     );
 
@@ -224,7 +224,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
     const [deletingItemName, setDeletingItemName] = useState<string>("");
-    
+
     const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
     const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
     const [deletingBatchNo, setDeletingBatchNo] = useState<string>("");
@@ -295,6 +295,48 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         });
     };
 
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [lastSyncedTime, setLastSyncedTime] = useState<string>("Just now");
+
+    // Realtime background auto-update polling (every 5 seconds)
+    useEffect(() => {
+        const performSilentSync = async () => {
+            if (document.visibilityState === "hidden") return;
+            setIsSyncing(true);
+            try {
+                const res = await getRHUInventoryItems({
+                    category: categoryTab,
+                    search: searchQuery,
+                    stockStatus: stockFilter,
+                    healthCenterId: centerFilter
+                });
+                if (res.success && res.data) {
+                    setItems(res.data as any);
+                    setLastSyncedTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+                }
+            } catch (err) {
+                console.warn("[Realtime Inventory Sync Warning]:", err);
+            } finally {
+                setIsSyncing(false);
+            }
+        };
+
+        const intervalId = setInterval(performSilentSync, 5000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                performSilentSync();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [categoryTab, searchQuery, stockFilter, centerFilter]);
+
     const handleOpenCreateModal = () => {
         setEditingItem(null);
         setFormErrors({});
@@ -357,7 +399,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
 
     const handleSaveItem = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const errors: { name?: string; unit?: string; category?: string } = {};
         if (!formData.name || !formData.name.trim()) {
             errors.name = "Item name is required";
@@ -413,6 +455,14 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         }
         if (!stockInFormData.expirationDate || !stockInFormData.expirationDate.trim()) {
             errors.expirationDate = "Expiration date is required for batch tracking";
+        } else {
+            const exp = new Date(stockInFormData.expirationDate);
+            exp.setHours(23, 59, 59, 999);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (exp.getTime() < today.getTime()) {
+                errors.expirationDate = "Cannot add an expired product to stock";
+            }
         }
 
         if (Object.keys(errors).length > 0) {
@@ -426,11 +476,14 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             if (res.success) {
                 toast.success(`Batch #${stockInFormData.batchNumber} logged successfully!`);
                 setIsStockInModalOpen(false);
-                setExpandedItemIds(prev => 
+                setExpandedItemIds(prev =>
                     prev.includes(stockInFormData.itemId) ? prev : [...prev, stockInFormData.itemId]
                 );
                 await refreshData();
             } else {
+                if (res.error?.toLowerCase().includes("expired")) {
+                    setStockInFormErrors({ expirationDate: res.error });
+                }
                 toast.error(res.error || "Failed to log stock batch");
             }
         });
@@ -536,11 +589,11 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             }
             const filteredBatches = rawBatches.filter(b => b.healthCenterId === centerFilter);
             const totalQty = filteredBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-            
+
             const activeExp = filteredBatches
                 .filter(b => (b.quantity || 0) > 0 && b.expirationDate)
                 .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
-            
+
             let earliestExp = null;
             if (activeExp.length > 0) {
                 earliestExp = activeExp[0].expirationDate;
@@ -560,7 +613,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     // Filtered items in memory based on category, stock status, search, and scoped center
     const filteredItems = centerScopedItems.filter(item => {
         if (categoryTab !== "ALL" && item.category !== categoryTab) return false;
-        
+
         if (centerFilter !== "ALL") {
             const matchesItemCenter = (item as any).healthCenterId === centerFilter;
             const hasBatchesForCenter = item.batches && item.batches.length > 0;
@@ -612,14 +665,23 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     </p>
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-xs h-10">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span className="uppercase tracking-wider text-[10px]">Realtime Live ({lastSyncedTime})</span>
+                        {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-emerald-500 ml-0.5" />}
+                    </div>
+
                     <Button
                         onClick={refreshData}
                         variant="outline"
                         size="sm"
-                        disabled={isPending}
+                        disabled={isPending || isSyncing}
                         className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold h-10 px-3.5"
                     >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isPending ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isPending || isSyncing ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
                     {!canManageInventory && (
@@ -697,8 +759,8 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                             {lowStockCount + outOfStockCount}
                         </div>
                         <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
-                            {outOfStockCount === 0 && lowStockCount === 0 
-                                ? "Stock levels healthy" 
+                            {outOfStockCount === 0 && lowStockCount === 0
+                                ? "Stock levels healthy"
                                 : `${outOfStockCount} Out of Stock${lowStockCount > 0 ? `, ${lowStockCount} Low Stock` : ''}`}
                         </p>
                     </CardContent>
@@ -729,32 +791,29 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     <div className="flex bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl w-full md:w-auto">
                         <button
                             onClick={() => setCategoryTab("ALL")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                                categoryTab === "ALL"
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${categoryTab === "ALL"
                                     ? "bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm"
                                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                            }`}
+                                }`}
                         >
                             All Items ({items.length})
                         </button>
                         <button
                             onClick={() => setCategoryTab("MEDICINE")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                                categoryTab === "MEDICINE"
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${categoryTab === "MEDICINE"
                                     ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
                                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                            }`}
+                                }`}
                         >
                             <Pill className="w-3.5 h-3.5" />
                             Medicines ({totalMedicines})
                         </button>
                         <button
                             onClick={() => setCategoryTab("MEDICAL_SUPPLY")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                                categoryTab === "MEDICAL_SUPPLY"
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${categoryTab === "MEDICAL_SUPPLY"
                                     ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
                                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                            }`}
+                                }`}
                         >
                             <Stethoscope className="w-3.5 h-3.5" />
                             Medical Supplies ({totalSupplies})
@@ -1119,21 +1178,21 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                                                                                 {canManageInventory ? (
                                                                                                     <>
                                                                                                         <Button
-                                                                                                             onClick={() => handleOpenBatchAdjustModal(
-                                                                                                                 batch.id,
-                                                                                                                 batch.batchNumber,
-                                                                                                                 item.name,
-                                                                                                                 item.unit,
-                                                                                                                 batch.quantity
-                                                                                                             )}
-                                                                                                             variant="outline"
-                                                                                                             size="sm"
-                                                                                                             className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 gap-1.5"
-                                                                                                             title="Adjust batch stock quantity"
-                                                                                                         >
-                                                                                                             <ArrowUpDown className="w-3.5 h-3.5" />
-                                                                                                             Adjust Stock
-                                                                                                         </Button>
+                                                                                                            onClick={() => handleOpenBatchAdjustModal(
+                                                                                                                batch.id,
+                                                                                                                batch.batchNumber,
+                                                                                                                item.name,
+                                                                                                                item.unit,
+                                                                                                                batch.quantity
+                                                                                                            )}
+                                                                                                            variant="outline"
+                                                                                                            size="sm"
+                                                                                                            className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 gap-1.5"
+                                                                                                            title="Adjust batch stock quantity"
+                                                                                                        >
+                                                                                                            <ArrowUpDown className="w-3.5 h-3.5" />
+                                                                                                            Adjust Stock
+                                                                                                        </Button>
                                                                                                         <Button
                                                                                                             onClick={() => handleOpenDeleteBatchModal(batch.id, batch.batchNumber)}
                                                                                                             variant="ghost"
@@ -1388,6 +1447,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                             <Label className="text-xs font-semibold">Expiration Date *</Label>
                             <Input
                                 type="date"
+                                min={new Date().toISOString().split("T")[0]}
                                 value={stockInFormData.expirationDate || ""}
                                 onChange={(e) => setStockInFormData({ ...stockInFormData, expirationDate: e.target.value })}
                                 className={cn("h-9 text-xs rounded-xl", stockInFormErrors.expirationDate && "border-red-500 focus-visible:ring-red-500")}
@@ -1636,7 +1696,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                         <span className={cn(
                                             "font-bold text-xs px-2 py-0.5 rounded-md",
                                             diff > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
-                                            diff < 0 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                                                diff < 0 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                         )}>
                                             {diff > 0 ? `+${diff.toLocaleString()}` : diff < 0 ? diff.toLocaleString() : "No Change"}
                                         </span>

@@ -124,26 +124,23 @@ export async function getRHUAdminTransactions(params?: {
 
         // Status Filter
         if (status === "CANCELLED") {
-            andConditions.push({ OR: [{ isCancelled: true }, { status: "REJECTED" }] });
+            andConditions.push({ OR: [{ isCancelled: true }, { status: { in: ["CANCELLED", "REJECTED"] as any } }] });
         } else if (status === "APPOINTMENT_BOOKED") {
-            andConditions.push({ status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] } });
+            andConditions.push({ status: { in: ["BOOKED", "FOR_INSPECTION", "FOR_REQUESTING"] as any } });
         } else if (status === "CHECK_IN") {
-            andConditions.push({ status: "EVALUATED" });
+            andConditions.push({ status: { in: ["CHECK_IN", "EVALUATED"] as any } });
         } else if (status === "IN_CONSULTATION") {
-            andConditions.push({ status: "FOR_PROCESSING" });
+            andConditions.push({ status: { in: ["IN_CONSULTATION", "FOR_PROCESSING"] as any } });
         } else if (status === "PRESCRIBED") {
-            andConditions.push({ status: "FOR_CLAIM" });
+            andConditions.push({ status: { in: ["PRESCRIBED", "FOR_CLAIM"] as any } });
         } else if (status === "REFERRED") {
-            andConditions.push({ additionalData: { path: ["rhuStatus"], equals: "REFERRED" } });
+            andConditions.push({ status: { in: ["REFERRED"] as any } });
         } else if (status === "COMPLETED") {
             andConditions.push({
                 OR: [
-                    { status: { in: ["RELEASED", "DELIVERED"] } },
-                    { additionalData: { path: ["rhuStatus"], equals: "COMPLETED" } },
-                    { additionalData: { path: ["rhuStatus"], equals: "DISPENSED" } },
-                    { additionalData: { path: ["rhuStatus"], equals: "RELEASED" } }
+                    { status: { in: ["COMPLETED", "RELEASED", "DELIVERED"] as any } },
                 ],
-                NOT: { additionalData: { path: ["rhuStatus"], equals: "REFERRED" } }
+                NOT: { status: { in: ["REFERRED"] as any } }
             });
         } else if (status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
             andConditions.push({ status: status as any });
@@ -349,12 +346,14 @@ export async function updateRHUAppointmentStatus(
         pulseRate?: string;
         philhealthNumber?: string;
         konsultationNumber?: string;
+        recordedBy?: string;
     },
     deosData?: {
         diagnosis?: string;
         examinationFindings?: string;
         orders?: string;
         status?: string;
+        attendingPhysician?: string;
     },
     extraAdditionalData?: Record<string, any>
 ) {
@@ -420,6 +419,8 @@ export async function updateRHUAppointmentStatus(
                 else calculatedCategory = "Obese";
             }
 
+            const encoderStaffName = vitalsData.recordedBy?.trim() || user?.name || user?.email || "Staff Encoder";
+
             additionalData.vitals = {
                 height: vitalsData.height || null,
                 weight: vitalsData.weight || null,
@@ -434,16 +435,24 @@ export async function updateRHUAppointmentStatus(
                 pulseRate: vitalsData.pulseRate || null,
                 philhealthNumber: vitalsData.philhealthNumber || null,
                 konsultationNumber: vitalsData.konsultationNumber || null,
+                recordedBy: encoderStaffName,
+                recordedByEmail: user?.email || null,
+                recordedById: user?.id || null,
             };
+            additionalData.checkedInBy = encoderStaffName;
             additionalData.checkedInAt = new Date().toISOString();
         }
 
         if (deosData) {
+            const physicianName = deosData.attendingPhysician?.trim() || user?.name || "Attending Physician";
             additionalData.deos = {
                 diagnosis: deosData.diagnosis || null,
                 examinationFindings: deosData.examinationFindings || null,
                 orders: deosData.orders || null,
                 status: deosData.status || null,
+                attendingPhysician: physicianName,
+                attendingPhysicianEmail: user?.email || null,
+                attendingPhysicianId: user?.id || null,
             };
             additionalData.prescribedAt = new Date().toISOString();
         }
@@ -467,15 +476,15 @@ export async function updateRHUAppointmentStatus(
         }
 
         const dbStatusMap: Record<string, any> = {
-            "APPOINTMENT_BOOKED": "FOR_INSPECTION",
-            "CHECK_IN": "EVALUATED",
-            "IN_CONSULTATION": "FOR_PROCESSING",
-            "PRESCRIBED": "FOR_PROCESSING",
+            "APPOINTMENT_BOOKED": "BOOKED",
+            "CHECK_IN": "CHECK_IN",
+            "IN_CONSULTATION": "IN_CONSULTATION",
+            "PRESCRIBED": "PRESCRIBED",
             "PO_APPROVED": "FOR_CLAIM",
             "DISPENSED": "FOR_CLAIM",
-            "REFERRED": "RELEASED",
-            "COMPLETED": "RELEASED",
-            "CANCELLED": "REJECTED"
+            "REFERRED": "REFERRED",
+            "COMPLETED": "COMPLETED",
+            "CANCELLED": "CANCELLED"
         };
         const targetDbStatus = dbStatusMap[status] || (isCancelled ? "REJECTED" : (status as any));
 
@@ -576,30 +585,50 @@ export async function getRHUDashboardStats() {
         const [total, booked, checkedIn, inConsultation, prescribed, referred, completed, cancelled] = await Promise.all([
             prisma.transaction.count({ where: baseWhere }),
             prisma.transaction.count({
-                where: { ...baseWhere, isCancelled: false, status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] } }
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["BOOKED", "FOR_INSPECTION", "FOR_REQUESTING"] as any }
+                }
             }),
             prisma.transaction.count({
-                where: { ...baseWhere, isCancelled: false, status: "EVALUATED" }
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["CHECK_IN", "EVALUATED"] as any }
+                }
             }),
             prisma.transaction.count({
-                where: { ...baseWhere, isCancelled: false, status: "FOR_PROCESSING" }
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["IN_CONSULTATION", "FOR_PROCESSING"] as any }
+                }
             }),
             prisma.transaction.count({
-                where: { ...baseWhere, isCancelled: false, status: "FOR_CLAIM" }
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["PRESCRIBED", "FOR_CLAIM"] as any }
+                }
             }),
             prisma.transaction.count({
-                where: { ...baseWhere, isCancelled: false, additionalData: { path: ["rhuStatus"], equals: "REFERRED" } }
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["REFERRED"] as any }
+                }
+            }),
+            prisma.transaction.count({
+                where: {
+                    ...baseWhere, isCancelled: false,
+                    status: { in: ["COMPLETED", "RELEASED", "DELIVERED"] as any },
+                    NOT: { status: { in: ["REFERRED"] as any } }
+                }
             }),
             prisma.transaction.count({
                 where: {
                     ...baseWhere,
-                    isCancelled: false,
-                    status: { in: ["RELEASED", "DELIVERED"] },
-                    NOT: { additionalData: { path: ["rhuStatus"], equals: "REFERRED" } }
+                    OR: [
+                        { isCancelled: true },
+                        { status: { in: ["CANCELLED", "REJECTED"] as any } }
+                    ]
                 }
-            }),
-            prisma.transaction.count({
-                where: { ...baseWhere, OR: [{ isCancelled: true }, { status: "REJECTED" }] }
             })
         ]);
 
@@ -709,5 +738,30 @@ export async function getRHUPurchaseOrders({
     } catch (error: any) {
         console.error("getRHUPurchaseOrders error:", error);
         return { success: false, error: error.message || "Failed to fetch purchase orders." };
+    }
+}
+
+export async function getRHUHealthCenters() {
+    try {
+        const centers: any[] = await prisma.$queryRaw`
+            SELECT "id", "name", "code", "location", "barangay", "contactNumber", "status"
+            FROM "RHUHealthCenter"
+            WHERE "status" = 'ACTIVE'
+            ORDER BY "name" ASC
+        `;
+        return {
+            success: true,
+            data: centers.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                code: c.code || null,
+                location: c.location || null,
+                barangay: c.barangay || null,
+                contactNumber: c.contactNumber || null,
+            }))
+        };
+    } catch (error: any) {
+        console.error("getRHUHealthCenters error:", error);
+        return { success: false, error: error.message || "Failed to fetch health centers.", data: [] };
     }
 }

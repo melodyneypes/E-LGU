@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import CounterSelectorHeader from "@/components/admin/CounterSelectorHeader";
 import { getRHUAdminTransactions, getRHUDashboardStats } from "./actions";
 import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
+import { supabase } from "@/lib/supabase";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -50,8 +51,8 @@ export default function RHUDashboard() {
     const [centerName, setCenterName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
+    const loadData = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const [statsRes, recentRes] = await Promise.all([
                 getRHUDashboardStats(),
@@ -68,12 +69,39 @@ export default function RHUDashboard() {
         } catch {
             toast.error("Error connecting to server.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
+    // Supabase Real-time + 30-second Polling Fallback
     useEffect(() => {
-        loadData();
+        loadData(false);
+
+        const pollInterval = setInterval(() => {
+            loadData(true);
+        }, 30000);
+
+        let channel: any = null;
+        if (supabase) {
+            channel = supabase
+                .channel("realtime-rhu-dashboard")
+                .on(
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "Transaction" },
+                    (payload: any) => {
+                        console.log("RHU Dashboard Realtime Update: Transaction change detected", payload);
+                        loadData(true);
+                    }
+                )
+                .subscribe();
+        }
+
+        return () => {
+            clearInterval(pollInterval);
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+        };
     }, [loadData]);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -83,7 +111,7 @@ export default function RHUDashboard() {
             if (result.success && result.data) {
                 const txData: any = result.data;
                 toast.success(`Now Calling Ticket #${txData.controlNumber || txData.id.slice(0, 8)}`);
-                loadData();
+                loadData(false);
             } else {
                 toast.info(result.error || "No waiting patients in queue.");
             }

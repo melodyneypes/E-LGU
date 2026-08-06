@@ -109,6 +109,7 @@ interface RHUCentersClientProps {
     currentUser?: any;
     isCenterAdmin?: boolean;
     matchedCenter?: any;
+    allActiveCentersCount?: number;
 }
 
 export default function RHUCentersClient({
@@ -116,7 +117,9 @@ export default function RHUCentersClient({
     initialPersonnel,
     currentUser,
     isCenterAdmin = false,
-    matchedCenter
+    matchedCenter,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    allActiveCentersCount
 }: RHUCentersClientProps) {
     const [activeTab, setActiveTab] = useState<"centers" | "personnel">("centers");
     const [centers, setCenters] = useState<any[]>(initialCenters);
@@ -255,6 +258,8 @@ export default function RHUCentersClient({
 
     // Metrics
     const totalCentersCount = centers.length;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const activeCentersCount = centers.filter(c => (c.status || "ACTIVE").toUpperCase() === "ACTIVE").length;
 
     const totalDoctorsCount = personnelList.filter(p => p.role === "DOCTOR").length;
     const totalNursesCount = personnelList.filter(p => p.role === "NURSE").length;
@@ -671,15 +676,27 @@ export default function RHUCentersClient({
             </div>
 
             {/* Metric Overview Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
                 <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                {isCenterAdmin ? "Center Status" : "Total Centers"}
-                            </p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Center Status</p>
                             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                                {isCenterAdmin ? (myCenter?.status || "ACTIVE") : totalCentersCount}
+                                {isCenterAdmin ? (myCenter?.status || "ACTIVE") : "ACTIVE"}
+                            </h3>
+                        </div>
+                        <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-2xl">
+                            <Building2 className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
+                    <CardContent className="p-4 flex items-center justify-between">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Centers</p>
+                            <h3 className="text-xl font-black text-rose-600 dark:text-rose-400">
+                                {totalCentersCount}
                             </h3>
                         </div>
                         <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-2xl">
