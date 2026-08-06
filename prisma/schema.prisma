@@ -1213,11 +1213,6 @@ model VehicleClassification {
   updatedAt   DateTime @updatedAt
 }
 
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
-}
-
 enum MedicalRole {
   DOCTOR
   NURSE
