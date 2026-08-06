@@ -126,7 +126,7 @@ export function CedulaAppointmentClient({
     });
 
     useEffect(() => {
-        if (applicantType === "JURIDICAL" && formState.incomeSource === "PROFESSION") {
+        if (applicantType === "JURIDICAL" && (formState.incomeSource === "PROFESSION" || formState.incomeSource === "UNEMPLOYED")) {
             setFormState(prev => ({ ...prev, incomeSource: "BUSINESS" }));
         }
     }, [applicantType, formState.incomeSource]);
@@ -315,6 +315,7 @@ export function CedulaAppointmentClient({
                 if (hasActiveJuridical && applicantType === "JURIDICAL") return false;
                 return !!activeType?.id;
             case "TAX_DECLARATION":
+                if (formState.incomeSource === "UNEMPLOYED") return true;
                 const isIncomeValid = !!formState.income.trim();
                 if (applicantType === "JURIDICAL") {
                     return isIncomeValid && !!formState.businessName.trim();
@@ -679,38 +680,51 @@ export function CedulaAppointmentClient({
                                                 </div>
                                             )}
 
-                                            <div className="space-y-2 md:space-y-3">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">
-                                                    Annual Gross Income
-                                                </Label>
-                                                <div className="relative">
-                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg md:text-xl font-black text-slate-350 italic">₱</span>
-                                                    <Input
-                                                        ref={incomeInputRef}
-                                                        type="text"
-                                                        value={formState.income}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                            if (val === '') {
-                                                                 setFormState(p => ({ ...p, income: '' }));
-                                                                 return;
-                                                            }
-                                                            const parts = val.split('.');
-                                                            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-                                                            const formatted = parts.length > 1 ? `${parts[0]}.${parts[1].slice(0, 2)}` : parts[0];
-                                                            setFormState(p => ({ ...p, income: formatted }));
-                                                            if (incomeError) setIncomeError(false); // Reset error state on change
-                                                        }}
-                                                        placeholder="0.00"
-                                                        className={cn(
-                                                            "h-12 md:h-16 pl-10 rounded-xl md:rounded-2xl dark:bg-white/5 text-lg md:text-xl font-black italic bg-white transition-all",
-                                                            incomeError
-                                                                ? "border-red-500 ring-2 ring-red-500/20 dark:border-red-500"
-                                                                : "border-slate-200 dark:border-white/10"
-                                                        )}
-                                                    />
+                                            {formState.incomeSource === "UNEMPLOYED" ? (
+                                                <div className="p-5 rounded-2xl bg-primary/10 border border-primary/20 animate-in fade-in duration-300">
+                                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                                                        Annual gross income declaration for Unemployed applications only the standard ₱5.00 basic tax applies.
+                                                    </p>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div className="space-y-2 md:space-y-3">
+                                                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">
+                                                        Annual Gross Income
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg md:text-xl font-black text-slate-350 italic">₱</span>
+                                                        <Input
+                                                            ref={incomeInputRef}
+                                                            type="text"
+                                                            value={formState.income}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                                if (val === '') {
+                                                                    setFormState(p => ({ ...p, income: '' }));
+                                                                    return;
+                                                                }
+                                                                const parts = val.split('.');
+                                                                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                                                const formatted = parts.length > 1 ? `${parts[0]}.${parts[1].slice(0, 2)}` : parts[0];
+                                                                setFormState(p => ({ ...p, income: formatted }));
+                                                                if (incomeError) setIncomeError(false); // Reset error state on change
+                                                            }}
+                                                            placeholder="0.00"
+                                                            className={cn(
+                                                                "h-12 md:h-16 pl-10 rounded-xl md:rounded-2xl dark:bg-white/5 text-lg md:text-xl font-black italic bg-white transition-all",
+                                                                incomeError
+                                                                    ? "border-red-500 focus-visible:ring-red-500 dark:border-red-500"
+                                                                    : "border-slate-200 dark:border-white/10"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    {incomeError && (
+                                                        <p className="text-[10px] text-red-500 font-medium ml-1">
+                                                            Annual gross income is required.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             <div className="space-y-4">
                                                 <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic ml-1">
@@ -732,10 +746,15 @@ export function CedulaAppointmentClient({
                                                             id: "PROPERTY",
                                                             label: "Property",
                                                             desc: "Real Estate Rentals & Leases"
+                                                        },
+                                                        {
+                                                            id: "UNEMPLOYED",
+                                                            label: "Unemployed",
+                                                            desc: "Students & Non-earners"
                                                         }
                                                     ].filter(opt => {
                                                         if (applicantType === "JURIDICAL") {
-                                                            return opt.id !== "PROFESSION";
+                                                            return opt.id !== "PROFESSION" && opt.id !== "UNEMPLOYED";
                                                         }
                                                         return true;
                                                     }).map(opt => {
@@ -744,7 +763,14 @@ export function CedulaAppointmentClient({
                                                             <button
                                                                 key={opt.id}
                                                                 type="button"
-                                                                onClick={() => setFormState(p => ({ ...p, incomeSource: opt.id }))}
+                                                                onClick={() => {
+                                                                    setFormState(p => ({
+                                                                        ...p,
+                                                                        incomeSource: opt.id,
+                                                                        income: opt.id === "UNEMPLOYED" ? "0.00" : (p.incomeSource === "UNEMPLOYED" ? "" : p.income)
+                                                                    }));
+                                                                    if (incomeError) setIncomeError(false);
+                                                                }}
                                                                 className={cn(
                                                                     "px-5 py-4 rounded-xl border-2 transition-all duration-300 text-left relative overflow-hidden flex items-center justify-between gap-4 group select-none shadow-sm cursor-pointer",
                                                                     isSelected

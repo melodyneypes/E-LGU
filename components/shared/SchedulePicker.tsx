@@ -147,6 +147,12 @@ export default function SchedulePicker({
         today.setHours(0, 0, 0, 0);
         if (date < today) return true;
 
+        // Disable dates beyond 30-day rolling window
+        const maxRollingDate = new Date(today);
+        maxRollingDate.setDate(today.getDate() + 30);
+        maxRollingDate.setHours(23, 59, 59, 999);
+        if (date > maxRollingDate) return true;
+
         // Check if all slots are fully booked
         const totalMaxSlots = config.maxSlots;
         const bookedOnThisDay = bookedSlots.filter(b => {
@@ -161,6 +167,15 @@ export default function SchedulePicker({
 
         return false;
     };
+
+    const todayDate = new Date();
+    const currentMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    const maxRollingDate = new Date(todayDate);
+    maxRollingDate.setDate(todayDate.getDate() + 30);
+    const maxMonthStart = new Date(maxRollingDate.getFullYear(), maxRollingDate.getMonth(), 1);
+
+    const isPrevMonthDisabled = currentMonth <= currentMonthStart;
+    const isNextMonthDisabled = currentMonth >= maxMonthStart;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
@@ -194,15 +209,27 @@ export default function SchedulePicker({
                             <div className="flex items-center gap-1.5">
                                 <button
                                     type="button"
+                                    disabled={isPrevMonthDisabled}
                                     onClick={() => changeMonth(-1)}
-                                    className="w-8 h-8 rounded-full border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-650 dark:text-slate-400 flex items-center justify-center active:scale-90"
+                                    className={cn(
+                                        "w-8 h-8 rounded-full border transition-all flex items-center justify-center active:scale-90",
+                                        isPrevMonthDisabled
+                                            ? "border-slate-200/50 dark:border-white/5 text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-30"
+                                            : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-650 dark:text-slate-400"
+                                    )}
                                 >
                                     <ArrowLeft className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                     type="button"
+                                    disabled={isNextMonthDisabled}
                                     onClick={() => changeMonth(1)}
-                                    className="w-8 h-8 rounded-full border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-650 dark:text-slate-400 flex items-center justify-center active:scale-90"
+                                    className={cn(
+                                        "w-8 h-8 rounded-full border transition-all flex items-center justify-center active:scale-90",
+                                        isNextMonthDisabled
+                                            ? "border-slate-200/50 dark:border-white/5 text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-30"
+                                            : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-650 dark:text-slate-400"
+                                    )}
                                 >
                                     <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
