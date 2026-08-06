@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { searchPublicTicket, getPosoPortalSettings, ensureTicketTransaction, verifyAndSyncTicketPayment } from "../actions";
 
@@ -510,9 +511,29 @@ export default function TicketDetailsPublicPage() {
                                     <div className="flex justify-between items-center text-slate-300 gap-2">
                                         <span className="text-emerald-400 font-bold uppercase shrink-0">Payment Ref:</span>
                                         <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="font-mono text-white select-all truncate">
-                                                {ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE"}
-                                            </span>
+                                            {(() => {
+                                                const mainRef = ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE";
+
+                                                return (
+                                                    <TooltipProvider delayDuration={0}>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="font-mono text-white select-all truncate max-w-[130px] sm:max-w-[180px] underline decoration-dashed decoration-emerald-500/60 underline-offset-4 cursor-help hover:text-emerald-300 transition-colors">
+                                                                    {mainRef}
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top" className="bg-slate-900 border border-slate-700 text-slate-100 p-2.5 rounded-xl shadow-2xl text-xs max-w-xs z-[200]">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="text-[9px] font-sans font-bold text-emerald-400 uppercase tracking-wider">Payment Reference Number:</span>
+                                                                    <span className="text-white font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-emerald-500/30 select-all break-all text-[11px]">
+                                                                        {mainRef}
+                                                                    </span>
+                                                                </div>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                );
+                                            })()}
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -523,7 +544,7 @@ export default function TicketDetailsPublicPage() {
                                                     setTimeout(() => setCopiedRef(false), 2000);
                                                 }}
                                                 className="p-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 transition-colors shrink-0"
-                                                title="Copy Reference Number"
+                                                title="Copy Primary Reference Number"
                                             >
                                                 {copiedRef ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                             </button>
