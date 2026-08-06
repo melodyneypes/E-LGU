@@ -671,7 +671,7 @@ export default function TreasuryDetailPage() {
             if (res.success) {
                 toast.success("Rejected");
                 setIsRejecting(false);
-                router.push(backUrl);
+                router.push("/admin/treasury/queue");
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }

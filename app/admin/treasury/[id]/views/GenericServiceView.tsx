@@ -140,6 +140,18 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         : null;
     const fiscal = (transaction.fiscalSnapshot as any) || null;
 
+    const hasCheckIn = Boolean(
+        additional?.checkInData ||
+        additional?.checkIn ||
+        additional?.checkInTime ||
+        additional?.checkedInAt ||
+        additional?.scannedAt ||
+        additional?.checkInStatus ||
+        transaction?.checkIn ||
+        transaction?.checkedInAt ||
+        transaction?.checkInDetails
+    );
+
     // Calculate sum of fee line items currently entered in the UI
     const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
     const isEvaluating = transaction.status === "FOR_REQUESTING";
@@ -297,11 +309,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <div className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-xl flex items-center">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-sm select-none">
-                                                    {additional.incomeSource.substring(0, 2).toUpperCase()}
+                                                    {additional.incomeSource === "UNEMPLOYED" ? "UE" : additional.incomeSource === "PROFESSION" ? "PR" : additional.incomeSource === "BUSINESS" ? "BU" : "RP"}
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-black italic uppercase tracking-tight text-slate-800 dark:text-white leading-tight">
-                                                        {additional.incomeSource === "PROFESSION" ? "Profession" : additional.incomeSource === "BUSINESS" ? "Business" : "Real Property"}
+                                                        {additional.incomeSource === "UNEMPLOYED" ? "Unemployed" : additional.incomeSource === "PROFESSION" ? "Profession" : additional.incomeSource === "BUSINESS" ? "Business" : "Real Property"}
                                                     </p>
                                                 </div>
                                             </div>
@@ -833,6 +845,22 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         >
                                             {actionLoading ? "Processing..." : "Mark as Paid & Released"}
                                         </Button>
+
+                                        {hasCheckIn && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    if (setIsRejecting) {
+                                                        setIsRejecting(true);
+                                                    }
+                                                }}
+                                                disabled={actionLoading}
+                                                className="w-full h-14 border-2 border-rose-500/30 hover:border-rose-500 bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 font-black italic uppercase tracking-widest text-[11px] rounded-2xl transition-all active:scale-95 mt-3"
+                                            >
+                                                Reject Application
+                                            </Button>
+                                        )}
                                     </div>
                                 );
                             })()}

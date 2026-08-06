@@ -26,7 +26,6 @@ import {
 import { cn } from "@/lib/utils";
 import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { toast } from "sonner";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,10 +41,9 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import {
-    getTransactionById,
-    getSystemSettingAction,
-    cancelTransaction
-} from "@/app/admin/transactions/actions";
+    getAppointmentDetailsAction,
+    cancelAppointmentAction
+} from "./actions";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
@@ -79,19 +77,18 @@ export default function AppointmentDetailsPage() {
     const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
     const [printTriggered, setPrintTriggered] = useState(false);
     const [themeColor, setThemeColor] = useState("#2563eb");
-    const [branding, setBranding] = useState({
-        logo: "",
-        word1: "MUNICIPALITY",
-        word2: "PORTAL"
-    });
+
 
     const fetchAppointment = useCallback(async () => {
         try {
-            const res = await getTransactionById(id);
+            const res = await getAppointmentDetailsAction(id);
             if (res.success && res.data) {
                 setRequest(res.data);
+                if (res.themeColor) {
+                    setThemeColor(res.themeColor);
+                }
             } else {
-                toast.error("Failed to load appointment details.");
+                toast.error(res.error || "Failed to load appointment details.");
                 router.push("/user/appointment");
             }
         } catch (err) {
@@ -99,33 +96,14 @@ export default function AppointmentDetailsPage() {
         }
     }, [id, router]);
 
-    const fetchSettings = useCallback(async () => {
-        try {
-            const [themeRes, logoRes, word1Res, word2Res] = await Promise.all([
-                getSystemSettingAction("theme_color", "#2563eb"),
-                getSystemSettingAction("logo", ""),
-                getSystemSettingAction("brand_word_1", "MUNICIPALITY"),
-                getSystemSettingAction("brand_word_2", "PORTAL")
-            ]);
-            setThemeColor(themeRes.data);
-            setBranding({
-                logo: logoRes.data || "",
-                word1: word1Res.data || "MUNICIPALITY",
-                word2: word2Res.data || "PORTAL"
-            });
-        } catch (err) {
-            console.error("Fetch settings error:", err);
-        }
-    }, []);
-
     useEffect(() => {
-        async function initialize() {
-            setLoading(true);
-            await Promise.all([fetchAppointment(), fetchSettings()]);
-            setLoading(false);
-        }
-        initialize();
-    }, [fetchAppointment, fetchSettings]);
+        let isMounted = true;
+        setLoading(true);
+        fetchAppointment().finally(() => {
+            if (isMounted) setLoading(false);
+        });
+        return () => { isMounted = false; };
+    }, [fetchAppointment]);
 
     // Realtime Supabase updates
     useEffect(() => {
@@ -159,7 +137,7 @@ export default function AppointmentDetailsPage() {
     const handleCancel = async () => {
         setIsCancelling(true);
         try {
-            const res = await cancelTransaction(id);
+            const res = await cancelAppointmentAction(id);
             if (res.success) {
                 toast.success("Appointment successfully cancelled.");
                 await fetchAppointment();
@@ -192,7 +170,7 @@ export default function AppointmentDetailsPage() {
         if (request.isCancelled) {
             return { color: "text-red-500 bg-red-500/10 border-red-500/20", label: "CANCELLED", icon: X };
         }
-        
+
         const isRHU = request.type?.category === "Rural Health Unit" || request.type?.category === "RHU" || request.type?.code?.startsWith("RHU_");
         let addData: any = {};
         if (request.additionalData) {
@@ -339,18 +317,12 @@ export default function AppointmentDetailsPage() {
 
                             {/* Ticket Header */}
                             <div className="text-center space-y-2 pb-6 border-b border-dashed border-slate-800">
-                                {branding.logo ? (
-                                    <div className="relative w-12 h-12 mx-auto filter brightness-0 invert">
-                                        <Image src={branding.logo} alt="LGU Logo" fill className="object-contain" />
-                                    </div>
-                                ) : (
-                                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
-                                        <QrCode className="w-5 h-5 text-white" />
-                                    </div>
-                                )}
+                                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
+                                    <QrCode className="w-5 h-5 text-white" />
+                                </div>
                                 <div className="space-y-0.5">
                                     <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Mapandan Municipal Hall</p>
-                                    <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">{branding.word1} PORTAL</h4>
+                                    <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">MUNICIPALITY PORTAL</h4>
                                 </div>
                             </div>
 
@@ -396,7 +368,6 @@ export default function AppointmentDetailsPage() {
                                 appointmentDate={request.appointmentDate ? new Date(request.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
                                 appointmentSlot={request.appointmentSlot || "N/A"}
                                 isPriority={request.isPriority || false}
-                                branding={branding}
                                 themeColor={themeColor}
                                 triggerPrint={printTriggered}
                                 onPrintCompleted={() => setPrintTriggered(false)}
@@ -479,10 +450,10 @@ export default function AppointmentDetailsPage() {
                                                     : request.status === "PAID"
                                                         ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
                                                         : request.status === "UNPAID"
-                                                        ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
-                                                        : (request.status === "RELEASED" || request.status === "DELIVERED")
-                                                            ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
-                                                            : "Your booking status has changed. Please read any evaluation comments below."
+                                                            ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
+                                                            : (request.status === "RELEASED" || request.status === "DELIVERED")
+                                                                ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                                : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
                                 </div>

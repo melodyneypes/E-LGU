@@ -25,16 +25,18 @@ export async function submitOccupancyPermit(formData: FormData) {
     }
 
     // Extract basic form data
-    const descriptionOfWork = formData.get("descriptionOfWork") as string;
-    const occupancyUse = formData.get("occupancyUse") as string;
-    const estimatedCost = formData.get("estimatedCost") as string;
-    const locationOfConstruction = formData.get("locationOfConstruction") as string;
-    const isLotOwner = formData.get("isLotOwner") as string;
-    const houseNumber = formData.get("houseNumber") as string;
-    const street = formData.get("street") as string;
-    const barangay = formData.get("barangay") as string;
-    const totalFloorsVal = formData.get("totalFloors") as string;
-    const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
+    const occupancyApplicationType = formData.get("occupancyApplicationType") as string || "FULL";
+    const buildingPermitNo = formData.get("buildingPermitNo") as string;
+    const buildingPermitDateIssued = formData.get("buildingPermitDateIssued") as string;
+    const fsecNo = formData.get("fsecNo") as string;
+    const fsecDateIssued = formData.get("fsecDateIssued") as string;
+    const nameOfProject = formData.get("nameOfProject") as string;
+    const locationOfProject = formData.get("locationOfProject") as string;
+    const useCharacterOfOccupancy = formData.get("useCharacterOfOccupancy") as string;
+    const noOfStoreys = formData.get("noOfStoreys") as string;
+    const noOfUnits = formData.get("noOfUnits") as string;
+    const totalGrossFloorArea = formData.get("totalGrossFloorArea") as string;
+    const dateOfCompletion = formData.get("dateOfCompletion") as string;
 
     const customLabelsStr = formData.get("customLabels") as string;
     let customLabels = {};
@@ -48,15 +50,18 @@ export async function submitOccupancyPermit(formData: FormData) {
 
     // Prepare JSON for additional Data
     const additionalData: any = {
-      descriptionOfWork,
-      occupancyUse,
-      estimatedCost,
-      locationOfConstruction,
-      isLotOwner,
-      houseNumber,
-      street,
-      barangay,
-      totalFloors,
+      occupancyApplicationType,
+      buildingPermitNo,
+      buildingPermitDateIssued,
+      fsecNo,
+      fsecDateIssued,
+      nameOfProject,
+      locationOfProject,
+      useCharacterOfOccupancy,
+      noOfStoreys,
+      noOfUnits,
+      totalGrossFloorArea,
+      dateOfCompletion,
       documents: {},
       customLabels
     };
@@ -224,6 +229,18 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     }
 
     // Extract basic form data
+    const occupancyApplicationType = formData.get("occupancyApplicationType") as string;
+    const buildingPermitNo = formData.get("buildingPermitNo") as string;
+    const buildingPermitDateIssued = formData.get("buildingPermitDateIssued") as string;
+    const fsecNo = formData.get("fsecNo") as string;
+    const fsecDateIssued = formData.get("fsecDateIssued") as string;
+    const nameOfProject = formData.get("nameOfProject") as string;
+    const locationOfProject = formData.get("locationOfProject") as string;
+    const useCharacterOfOccupancy = formData.get("useCharacterOfOccupancy") as string;
+    const noOfStoreys = formData.get("noOfStoreys") as string;
+    const noOfUnits = formData.get("noOfUnits") as string;
+    const totalGrossFloorArea = formData.get("totalGrossFloorArea") as string;
+    const dateOfCompletion = formData.get("dateOfCompletion") as string;
     const descriptionOfWork = formData.get("descriptionOfWork") as string;
     const occupancyUse = formData.get("occupancyUse") as string;
     const estimatedCost = formData.get("estimatedCost") as string;
@@ -235,6 +252,18 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     const totalFloorsVal = formData.get("totalFloors") as string;
     const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
+    if (occupancyApplicationType) additionalData.occupancyApplicationType = occupancyApplicationType;
+    if (buildingPermitNo) additionalData.buildingPermitNo = buildingPermitNo;
+    if (buildingPermitDateIssued) additionalData.buildingPermitDateIssued = buildingPermitDateIssued;
+    if (fsecNo) additionalData.fsecNo = fsecNo;
+    if (fsecDateIssued) additionalData.fsecDateIssued = fsecDateIssued;
+    if (nameOfProject) additionalData.nameOfProject = nameOfProject;
+    if (locationOfProject) additionalData.locationOfProject = locationOfProject;
+    if (useCharacterOfOccupancy) additionalData.useCharacterOfOccupancy = useCharacterOfOccupancy;
+    if (noOfStoreys) additionalData.noOfStoreys = noOfStoreys;
+    if (noOfUnits) additionalData.noOfUnits = noOfUnits;
+    if (totalGrossFloorArea) additionalData.totalGrossFloorArea = totalGrossFloorArea;
+    if (dateOfCompletion) additionalData.dateOfCompletion = dateOfCompletion;
     if (descriptionOfWork) additionalData.descriptionOfWork = descriptionOfWork;
     if (occupancyUse) additionalData.occupancyUse = occupancyUse;
     if (estimatedCost) additionalData.estimatedCost = estimatedCost;
@@ -243,7 +272,7 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     if (houseNumber) additionalData.houseNumber = houseNumber;
     if (street) additionalData.street = street;
     if (barangay) additionalData.barangay = barangay;
-    if (totalFloors !== undefined) additionalData.totalFloors = totalFloors;
+    if (totalFloors !== undefined && totalFloors !== null) additionalData.totalFloors = totalFloors;
 
     // Helper to upload and store URL
     const processFile = async (key: string, folder: string) => {

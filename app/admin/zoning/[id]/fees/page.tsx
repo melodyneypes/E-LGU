@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect, use, useCallback, useRef } from "react";
+import React, { useState, useEffect, use, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -98,6 +98,16 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     const isViewOnly = !canEditZoningClearance;
     const showZoningClearanceUpload = zoningStatus === "EVALUATED" && !isEndorsed;
+
+    const totalZoningAmount = useMemo(() => {
+        return zoningMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    }, [zoningMunicipalCharges]);
+
+    const isZoningFeesValid = useMemo(() => {
+        if (zoningMunicipalCharges.length === 0) return false;
+        if (totalZoningAmount <= 0) return false;
+        return zoningMunicipalCharges.every(c => c.name.trim() !== "" && Number(c.amount) > 0);
+    }, [zoningMunicipalCharges, totalZoningAmount]);
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -236,6 +246,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const handleSubmitZoningClearance = async () => {
         if (!zoningClearanceUrl) {
             toast.error("Please upload the Zoning Clearance first.");
+            return;
+        }
+
+        if (!isZoningFeesValid || totalZoningAmount <= 0) {
+            toast.error("Please specify required zoning fees with positive amounts before endorsing.");
             return;
         }
 
@@ -479,32 +494,67 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 Application <span className="text-primary">Details</span>
                             </h2>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                        {transaction?.type?.code === "OCCUPANCY_PERMIT" ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Name of Project</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.nameOfProject || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Location of Project</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfProject || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Use/Character of Occupancy</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.useCharacterOfOccupancy || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">No. of Storey/s</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.noOfStoreys || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">No. of Units</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.noOfUnits || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Gross Floor Area</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalGrossFloorArea ? `${additional.totalGrossFloorArea} sqm` : "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Date of Completion</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">
+                                        {additional?.dateOfCompletion ? new Date(additional.dateOfCompletion).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "--"}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Zoning Clearance Upload */}
@@ -604,37 +654,65 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Zoning & Locational Clearance Charges</Label>
                                     </div>
 
-                                    {zoningMunicipalCharges.map((charge, index) => (
-                                        <div key={index} className="flex items-center gap-4">
-                                            <Input
-                                                type="text"
-                                                placeholder="Fee Name (e.g. Zoning Fee)"
-                                                value={charge.name}
-                                                onChange={(e) => {
-                                                    const newCharges = [...zoningMunicipalCharges];
-                                                    newCharges[index].name = e.target.value;
-                                                    setZoningMunicipalCharges(newCharges);
-                                                }}
-                                                disabled={isViewOnly || userRole !== "MPDC_ZONING"}
-                                                className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1 border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
-                                            />
-                                            <Input
-                                                type="text"
-                                                placeholder="0.00"
-                                                value={formatNumberWithCommas(charge.amount)}
-                                                onChange={(e) => {
-                                                    const cleanVal = cleanCommaNumber(e.target.value);
-                                                    const decimalCount = (cleanVal.match(/\./g) || []).length;
-                                                    if (decimalCount > 1) return;
-                                                    const newCharges = [...zoningMunicipalCharges];
-                                                    newCharges[index].amount = cleanVal;
-                                                    setZoningMunicipalCharges(newCharges);
-                                                }}
-                                                disabled={isViewOnly || userRole !== "MPDC_ZONING"}
-                                                className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px] border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
-                                            />
-                                        </div>
-                                    ))}
+                                    {zoningMunicipalCharges.map((charge, index) => {
+                                        const isNameEmpty = !isViewOnly && !charge.name.trim();
+                                        const isAmountInvalid = !isViewOnly && (!charge.amount || Number(charge.amount) <= 0);
+                                        return (
+                                            <div key={index} className="space-y-1">
+                                                <div className="flex items-start gap-4">
+                                                    <div className="flex-1 space-y-1">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Fee Name (e.g. Zoning Fee)"
+                                                            value={charge.name}
+                                                            onChange={(e) => {
+                                                                const newCharges = [...zoningMunicipalCharges];
+                                                                newCharges[index].name = e.target.value;
+                                                                setZoningMunicipalCharges(newCharges);
+                                                            }}
+                                                            disabled={isViewOnly || userRole !== "MPDC_ZONING"}
+                                                            className={`h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1 transition-all ${
+                                                                isNameEmpty
+                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5"
+                                                                    : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                                            }`}
+                                                        />
+                                                        {isNameEmpty && (
+                                                            <p className="text-[10px] text-red-500 font-medium ml-1">
+                                                                Fee Name is required
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="w-[150px] space-y-1">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="0.00"
+                                                            value={formatNumberWithCommas(charge.amount)}
+                                                            onChange={(e) => {
+                                                                const cleanVal = cleanCommaNumber(e.target.value);
+                                                                const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                                                if (decimalCount > 1) return;
+                                                                const newCharges = [...zoningMunicipalCharges];
+                                                                newCharges[index].amount = cleanVal;
+                                                                setZoningMunicipalCharges(newCharges);
+                                                            }}
+                                                            disabled={isViewOnly || userRole !== "MPDC_ZONING"}
+                                                            className={`h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-full transition-all ${
+                                                                isAmountInvalid
+                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5"
+                                                                    : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                                            }`}
+                                                        />
+                                                        {isAmountInvalid && (
+                                                            <p className="text-[10px] text-red-500 font-medium ml-1">
+                                                                Amount must be &gt; ₱0.00
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                     {!isViewOnly && userRole === "MPDC_ZONING" && (
                                         <Button
                                             type="button"
@@ -801,13 +879,21 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     {/* Executive Actions */}
                     <div className="space-y-4">
                         {!isViewOnly && userRole === "MPDC_ZONING" && (
-                            <Button
-                                onClick={handleSubmitZoningClearance}
-                                disabled={actionLoading || uploading || !zoningClearanceUrl}
-                                className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
-                            >
-                                <Check className="w-4 h-4 mr-2" /> Endorse Payment Fees + Zoning Clearance
-                            </Button>
+                            <div className="space-y-2">
+                                <Button
+                                    onClick={handleSubmitZoningClearance}
+                                    disabled={actionLoading || uploading || !zoningClearanceUrl || !isZoningFeesValid || totalZoningAmount <= 0}
+                                    className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:scale-100"
+                                >
+                                    <Check className="w-4 h-4 mr-2" /> Endorse Payment Fees + Zoning Clearance
+                                </Button>
+                                {(!isZoningFeesValid || totalZoningAmount <= 0) && (
+                                    <p className="text-[10px] font-semibold text-amber-500 italic flex items-center justify-center gap-1 text-center">
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                        Please specify the required zoning fees to enable endorsement.
+                                    </p>
+                                )}
+                            </div>
                         )}
                         {isEndorsed && userRole !== "MPDC_ZONING" && (
                             <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
