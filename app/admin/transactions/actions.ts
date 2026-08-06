@@ -3986,9 +3986,17 @@ export async function endorseBuildingPermitFees(
             department = "ENGINEERING";
             newZoningStatus = "FOR_REQUESTING";
         } else if (fees.actionType === "ZONING_TO_ENGINEER" || (!fees.actionType && user.role === "MPDC_ZONING")) {
+            const zoningCharges = fees.zoningMunicipalCharges || [];
+            const validCharges = zoningCharges.filter(c => c.name && c.name.trim() && Number(c.amount) > 0);
+            const totalZoningAmount = validCharges.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+            if (validCharges.length === 0 || totalZoningAmount <= 0) {
+                return { success: false, error: "Please specify required zoning fees with positive amounts before endorsing." };
+            }
+
             updatedFeeAssessment = {
                 ...updatedFeeAssessment,
-                zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
+                zoningMunicipalCharges: validCharges,
                 zoningEndorsed: true,
                 zoningEndorsedAt: new Date(),
                 zoningEndorsedBy: user.name || "MPDC Zoning Officer"
