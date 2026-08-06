@@ -10,6 +10,7 @@ import {
     ArrowLeft,
     BadgeCheck,
     Check,
+    RotateCcw,
     XCircle
 } from "lucide-react";
 
@@ -374,32 +375,67 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                 Application <span className="text-primary">Details</span>
                             </h2>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                        {transaction?.type?.code === "OCCUPANCY_PERMIT" ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Name of Project</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.nameOfProject || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Location of Project</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfProject || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Use/Character of Occupancy</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.useCharacterOfOccupancy || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">No. of Storey/s</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.noOfStoreys || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">No. of Units</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.noOfUnits || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Gross Floor Area</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalGrossFloorArea ? `${additional.totalGrossFloorArea} sqm` : "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Date of Completion</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">
+                                        {additional?.dateOfCompletion ? new Date(additional.dateOfCompletion).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "--"}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
+                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 
@@ -478,11 +514,11 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
 
                                 <Dialog open={isReinspecting} onOpenChange={setIsReinspecting}>
                                     <DialogTrigger asChild>
-                                        <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-blue-600/20 active:scale-95">
-                                            For Re-Inspection
+                                        <Button variant="outline" className="w-full h-16 rounded-2xl border-blue-500/20 text-blue-600 dark:text-blue-400 font-black italic uppercase tracking-widest text-xs hover:bg-blue-500/5 active:scale-95 transition-all">
+                                            <RotateCcw className="w-4 h-4 mr-2" /> Mark for Re-Inspection
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                                    <DialogContent className="sm:max-w-[500px] p-8 bg-white dark:bg-[#151b28] border-none rounded-[2rem]">
                                         <DialogHeader className="space-y-3">
                                             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
                                                 Mark for <span className="text-blue-600">Re-Inspection</span>
@@ -559,7 +595,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                         </Button>
                                     </DialogContent>
                                 </Dialog>
-
                             </div>
                         )}
                     </div>

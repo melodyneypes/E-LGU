@@ -35,8 +35,7 @@ import {
   Receipt,
   Check,
   Hash,
-  UserCheck,
-  ChevronDown
+  UserCheck
 } from "lucide-react";
 
 import {
@@ -58,16 +57,9 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import Link from "next/link";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
-import { submitOccupancyPermit, saveTransactionSignature, getExistingOccupancyPermits, resubmitOccupancyPermit, submitOccupancyPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction } from "./actions";
+import { submitOccupancyPermit, saveTransactionSignature, getExistingOccupancyPermits, resubmitOccupancyPermit, submitOccupancyPermitPaymentProof, checkActivePropertyPermit } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -75,7 +67,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { getSecureUploadUrlsAction } from "@/app/auth/actions";
@@ -89,259 +80,6 @@ const STEPS = [
   { id: "BFP", label: "BFP", icon: Landmark },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
-
-const OCCUPANCY_CATEGORIES = [
-  "Residential",
-  "Commercial",
-  "Industrial",
-  "Institutional",
-  "Agricultural",
-  "Street Furniture, Landscaping & Signboards",
-  "Other Construction"
-] as const;
-
-const OCCUPANCY_OPTIONS: Record<string, { label: string; code: string }[]> = {
-  "Residential": [
-    { label: "Single", code: "11" },
-    { label: "Duplex", code: "12" },
-    { label: "Rowhouse / Accessoria", code: "13" },
-    { label: "Others (Specify)", code: "10" }
-  ],
-  "Commercial": [
-    { label: "Bank", code: "21" },
-    { label: "Store", code: "22" },
-    { label: "Hotel/Motel, etc.", code: "23" },
-    { label: "Office Condominium/Business Office Building", code: "24" },
-    { label: "Restaurant etc.", code: "25" },
-    { label: "Shop (e.g. Dress Shop, Tailoring Shop, Barber Shop etc.)", code: "26" },
-    { label: "Gasoline Station", code: "27" },
-    { label: "Market", code: "28" },
-    { label: "Dormitory or Other Lodging House", code: "29" },
-    { label: "Others (Specify)", code: "20" }
-  ],
-  "Industrial": [
-    { label: "Factory/Plant", code: "31" },
-    { label: "Repair Shop, Machine Shop", code: "32" },
-    { label: "Refinery", code: "33" },
-    { label: "Printing Press", code: "34" },
-    { label: "Warehouse", code: "35" },
-    { label: "Others (Specify)", code: "30" }
-  ],
-  "Institutional": [
-    { label: "School", code: "41" },
-    { label: "Church and other religious structures", code: "42" },
-    { label: "Hospital or similar structures", code: "43" },
-    { label: "Welfare and charitable structures", code: "44" },
-    { label: "Theater, Auditorium, Gymnasium, Court", code: "45" },
-    { label: "Others (Specify)", code: "40" }
-  ],
-  "Agricultural": [
-    { label: "Barn(s), Poultry House(s), etc.", code: "51" },
-    { label: "Grain Mill", code: "52" },
-    { label: "Others (Specify)", code: "50" }
-  ],
-  "Street Furniture, Landscaping & Signboards": [
-    { label: "Parks, Plazas, Monuments, Pools, Plant Boxes etc.", code: "71" },
-    { label: "Sidewalks, Promenades, Terraces, Lamposts, Electric Poles, Telephone Poles, etc.", code: "72" },
-    { label: "Outdoor Ads, Signboard, etc.", code: "73" },
-    { label: "Fence Enclosure", code: "74" }
-  ],
-  "Other Construction": [
-    { label: "Specify", code: "60" }
-  ]
-};
-
-function parseDescriptionOfWork(desc: string) {
-  const result = {
-    newConstruction: false,
-    addition: false,
-    additionText: "",
-    repair: false,
-    repairText: "",
-    renovation: false,
-    renovationText: "",
-    demolition: false,
-    demolitionText: "",
-    others1: false,
-    others1Text1: "",
-    others1Text2: "",
-    others2: false,
-    others2Text1: "",
-    others2Text2: "",
-    legacyText: "",
-  };
-
-  if (!desc) return result;
-
-  if (!desc.includes("NEW CONSTRUCTION") && !desc.includes("ADDITION:") && !desc.includes("REPAIR:") && !desc.includes("RENOVATION:") && !desc.includes("DEMOLITION:") && !desc.includes("OTHERS:")) {
-    result.legacyText = desc;
-    return result;
-  }
-
-  if (desc.includes("NEW CONSTRUCTION")) result.newConstruction = true;
-
-  const addMatch = desc.match(/ADDITION:\s*([^;]+)/);
-  if (addMatch) {
-    result.addition = true;
-    result.additionText = addMatch[1].trim();
-  }
-
-  const repairMatch = desc.match(/REPAIR:\s*([^;]+)/);
-  if (repairMatch) {
-    result.repair = true;
-    result.repairText = repairMatch[1].trim();
-  }
-
-  const renoMatch = desc.match(/RENOVATION:\s*([^;]+)/);
-  if (renoMatch) {
-    result.renovation = true;
-    result.renovationText = renoMatch[1].trim();
-  }
-
-  const demoMatch = desc.match(/DEMOLITION:\s*([^;]+)/);
-  if (demoMatch) {
-    result.demolition = true;
-    result.demolitionText = demoMatch[1].trim();
-  }
-
-  const othersMatches = [...desc.matchAll(/OTHERS:\s*([^;]+)/g)];
-  if (othersMatches.length > 0) {
-    const processOthers = (matchStr: string) => {
-      const parts = matchStr.split(" OF ");
-      return {
-        text1: parts[0]?.trim() || "",
-        text2: parts[1]?.trim() || ""
-      };
-    };
-
-    if (othersMatches[0]) {
-      result.others1 = true;
-      const res = processOthers(othersMatches[0][1]);
-      result.others1Text1 = res.text1;
-      result.others1Text2 = res.text2;
-    }
-    if (othersMatches[1]) {
-      result.others2 = true;
-      const res = processOthers(othersMatches[1][1]);
-      result.others2Text1 = res.text1;
-      result.others2Text2 = res.text2;
-    }
-  }
-
-  return result;
-}
-
-function parseOccupancyUse(occupancyUse: string) {
-  let category = "Residential";
-  let subs: string[] = [];
-  let specify = "";
-
-  if (!occupancyUse) {
-    return { category, subs, specify };
-  }
-
-  if (occupancyUse.startsWith("Other Construction - ")) {
-    return {
-      category: "Other Construction",
-      subs: ["Specify"],
-      specify: occupancyUse.replace("Other Construction - ", ""),
-    };
-  } else if (occupancyUse === "Other Construction") {
-    return { category: "Other Construction", subs: ["Specify"], specify: "" };
-  }
-
-  const parts = occupancyUse.split(": ");
-  if (parts.length >= 2) {
-    category = parts[0];
-    let rest = parts.slice(1).join(": ");
-
-    const openParenIndex = rest.lastIndexOf(" (");
-    const closeParenIndex = rest.lastIndexOf(")");
-    if (openParenIndex !== -1 && closeParenIndex === rest.length - 1 && openParenIndex < closeParenIndex) {
-      specify = rest.substring(openParenIndex + 2, closeParenIndex);
-      rest = rest.substring(0, openParenIndex);
-    }
-
-    subs = rest.split(", ").map(s => s.trim()).filter(Boolean);
-  } else {
-    // Check if it matches category exactly, otherwise fallback
-    const matchedCategory = OCCUPANCY_CATEGORIES.find(c => c.toLowerCase() === occupancyUse.toLowerCase());
-    if (matchedCategory) {
-      category = matchedCategory;
-    } else {
-      // Legacy structure or format we don't recognize
-      if (occupancyUse.includes("Residential (Single Family)")) {
-        category = "Residential";
-        subs = ["Single"];
-      } else if (occupancyUse.includes("Residential (Multi-Family)")) {
-        category = "Residential";
-        subs = ["Duplex"];
-      } else if (occupancyUse.includes("Commercial - Retail")) {
-        category = "Commercial";
-        subs = ["Store"];
-      } else if (occupancyUse.includes("Commercial - Office")) {
-        category = "Commercial";
-        subs = ["Office Condominium/Business Office Building"];
-      } else if (occupancyUse.includes("Commercial - Hotel/Hospitality")) {
-        category = "Commercial";
-        subs = ["Hotel/Motel, etc."];
-      } else if (occupancyUse.includes("Industrial")) {
-        category = "Industrial";
-        subs = ["Factory/Plant"];
-      } else if (occupancyUse.includes("Agricultural")) {
-        category = "Agricultural";
-        subs = ["Barn(s), Poultry House(s), etc."];
-      } else if (occupancyUse.includes("Institutional")) {
-        category = "Institutional";
-        subs = ["School"];
-      } else {
-        category = "Other Construction";
-        subs = ["Specify"];
-        specify = occupancyUse;
-      }
-    }
-  }
-
-  return { category, subs, specify };
-}
-
-function formatWithCommas(val: string | number) {
-  if (val === undefined || val === null || val === "") return "";
-  const numStr = String(val).replace(/,/g, "");
-  if (isNaN(Number(numStr))) return String(val);
-  const parts = numStr.split(".");
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return parts.join(".");
-}
-
-function parseLocationString(loc: string) {
-  const result = { houseNumber: "", street: "", barangay: "" };
-  if (!loc) return result;
-  
-  const parts = loc.split(",").map(p => p.trim());
-  
-  const housePart = parts.find(p => p.toLowerCase().startsWith("no.") || /^\d+$/.test(p));
-  if (housePart) {
-    result.houseNumber = housePart.replace(/no\.\s*/i, "");
-  }
-  
-  const brgyPart = parts.find(p => p.toLowerCase().startsWith("brgy.") || p.toLowerCase().startsWith("barangay"));
-  if (brgyPart) {
-    result.barangay = brgyPart.replace(/brgy\.\s*/i, "").replace(/barangay\s*/i, "");
-  }
-  
-  const streetPart = parts.find(p => 
-    p !== housePart && 
-    p !== brgyPart && 
-    !p.toLowerCase().includes("mapandan") && 
-    !p.toLowerCase().includes("pangasinan")
-  );
-  if (streetPart) {
-    result.street = streetPart;
-  }
-  
-  return result;
-}
 
 const getEngineeringStatusLabel = (status: string) => {
   switch (status) {
@@ -419,24 +157,7 @@ export default function OccupancyPermitPage() {
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
-  const [barangayList, setBarangayList] = useState<string[]>([]);
-  const [brgySearchQuery, setBrgySearchQuery] = useState("");
-  const [isBrgyDropdownOpen, setIsBrgyDropdownOpen] = useState(false);
-  const brgyDropdownRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (brgyDropdownRef.current && !brgyDropdownRef.current.contains(event.target as Node)) {
-        setIsBrgyDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredBarangays = barangayList.filter(brgy =>
-    brgy.toLowerCase().includes(brgySearchQuery.toLowerCase())
-  );
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -533,38 +254,20 @@ export default function OccupancyPermitPage() {
   };
 
   const [formData, setFormData] = useState({
-    descriptionOfWork: "",
-    scopeNewConstruction: false,
-    scopeAddition: false,
-    scopeAdditionText: "",
-    scopeRepair: false,
-    scopeRepairText: "",
-    scopeRenovation: false,
-    scopeRenovationText: "",
-    scopeDemolition: false,
-    scopeDemolitionText: "",
-    scopeOthers1: false,
-    scopeOthers1Text1: "",
-    scopeOthers1Text2: "",
-    scopeOthers2: false,
-    scopeOthers2Text1: "",
-    scopeOthers2Text2: "",
-    descriptionOfWorkLegacyText: "",
-    occupancyCategory: "",
-    selectedSubOccupancies: [] as string[],
-    subOccupancyOthersSpecify: "",
-    estimatedCost: "",
-    locationOfConstruction: "",
-    locationHouseNumber: "",
-    locationStreet: "",
-    locationBarangay: "",
-    isLotOwner: "",
-    totalFloors: "",
+    occupancyApplicationType: "FULL", // "FULL" | "PARTIAL"
+    buildingPermitNo: "",
+    buildingPermitDateIssued: "",
+    fsecNo: "",
+    fsecDateIssued: "",
+    nameOfProject: "",
+    locationOfProject: "",
+    useCharacterOfOccupancy: "",
+    noOfStoreys: "",
+    noOfUnits: "",
+    totalGrossFloorArea: "",
+    dateOfCompletion: "",
     newIdFile: null as any | null,
     newIdFileBack: null as any | null,
-    tctFile: null as any | null,
-    occupancyUse: "Residential (Single Family)",
-    otherOccupancyUse: "",
   });
 
   const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
@@ -577,7 +280,7 @@ export default function OccupancyPermitPage() {
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
 
   useEffect(() => {
-    if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {
+    if (!formData.locationOfProject || formData.locationOfProject.trim().length < 5) {
       setDuplicatePropertyWarning(null);
       return;
     }
@@ -585,7 +288,7 @@ export default function OccupancyPermitPage() {
     const delayDebounceFn = setTimeout(async () => {
       try {
         const res = await checkActivePropertyPermit(
-          formData.locationOfConstruction,
+          formData.locationOfProject,
           selectedApplication?.id
         );
         if (res.success && res.isProcessing) {
@@ -602,31 +305,7 @@ export default function OccupancyPermitPage() {
     }, 600);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [formData.locationOfConstruction, selectedApplication?.id]);
-
-  useEffect(() => {
-    const parts = [
-      formData.locationHouseNumber ? `No. ${formData.locationHouseNumber}` : "",
-      formData.locationStreet ? formData.locationStreet.trim() : "",
-      formData.locationBarangay ? `Brgy. ${formData.locationBarangay}` : "",
-      "Mapandan, Pangasinan"
-    ].filter(Boolean);
-    
-    const combined = parts.join(", ");
-    setFormData(prev => {
-      if (combined !== prev.locationOfConstruction) {
-        return { ...prev, locationOfConstruction: combined };
-      }
-      return prev;
-    });
-  }, [formData.locationHouseNumber, formData.locationStreet, formData.locationBarangay]);
-
-  const hasTctFile = !!(
-    formData.tctFile ||
-    effectiveDocuments?.tctFile ||
-    (uploadedRequirements && uploadedRequirements[2]) ||
-    effectiveDocuments?.req_2
-  );
+  }, [formData.locationOfProject, selectedApplication?.id]);
 
   const [maxStepIdx, setMaxStepIdx] = useState(0);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -652,8 +331,8 @@ export default function OccupancyPermitPage() {
     }
   }, [currentStep, maxStepIdx]);
 
-  const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
-  const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
+  const isAffidavitOfConsentRequired = false;
+  const hasMultipleFloors = parseInt(formData.noOfStoreys || "0", 10) > 1;
   const requiredRequirementIndexes = [0, 1, 2, 3, 4];
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
@@ -683,10 +362,9 @@ export default function OccupancyPermitPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [res, permitsRes, brgyRes] = await Promise.all([
+        const [res, permitsRes] = await Promise.all([
           getCurrentUserResident(),
-          getExistingOccupancyPermits(),
-          getBarangaysAction()
+          getExistingOccupancyPermits()
         ]);
         if (res.success && res.data) {
           setResidentData(res.data);
@@ -694,9 +372,6 @@ export default function OccupancyPermitPage() {
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
           setCurrentStep("EXISTING");
-        }
-        if (brgyRes.success && brgyRes.data) {
-          setBarangayList(brgyRes.data);
         }
       } catch (err) {
         console.error(err);
@@ -710,42 +385,21 @@ export default function OccupancyPermitPage() {
   useEffect(() => {
     if (selectedApplication) {
       const addData = selectedApplication.additionalData as any || {};
-      const parsedOccupancy = parseOccupancyUse(addData.occupancyUse || "");
-      const parsedDesc = parseDescriptionOfWork(addData.descriptionOfWork || "");
-      const parsedLoc = parseLocationString(addData.locationOfConstruction || "");
       setFormData({
-        descriptionOfWork: addData.descriptionOfWork || "",
-        scopeNewConstruction: parsedDesc.newConstruction,
-        scopeAddition: parsedDesc.addition,
-        scopeAdditionText: parsedDesc.additionText,
-        scopeRepair: parsedDesc.repair,
-        scopeRepairText: parsedDesc.repairText,
-        scopeRenovation: parsedDesc.renovation,
-        scopeRenovationText: parsedDesc.renovationText,
-        scopeDemolition: parsedDesc.demolition,
-        scopeDemolitionText: parsedDesc.demolitionText,
-        scopeOthers1: parsedDesc.others1,
-        scopeOthers1Text1: parsedDesc.others1Text1,
-        scopeOthers1Text2: parsedDesc.others1Text2,
-        scopeOthers2: parsedDesc.others2,
-        scopeOthers2Text1: parsedDesc.others2Text1,
-        scopeOthers2Text2: parsedDesc.others2Text2,
-        descriptionOfWorkLegacyText: parsedDesc.legacyText,
-        occupancyCategory: parsedOccupancy.category,
-        selectedSubOccupancies: parsedOccupancy.subs,
-        subOccupancyOthersSpecify: parsedOccupancy.specify,
-        estimatedCost: addData.estimatedCost || "",
-        locationOfConstruction: addData.locationOfConstruction || "",
-        locationHouseNumber: parsedLoc.houseNumber,
-        locationStreet: parsedLoc.street,
-        locationBarangay: parsedLoc.barangay,
-        isLotOwner: addData.isLotOwner || "",
-        totalFloors: addData.totalFloors !== undefined ? String(addData.totalFloors) : "",
+        occupancyApplicationType: addData.occupancyApplicationType || "FULL",
+        buildingPermitNo: addData.buildingPermitNo || "",
+        buildingPermitDateIssued: addData.buildingPermitDateIssued || "",
+        fsecNo: addData.fsecNo || "",
+        fsecDateIssued: addData.fsecDateIssued || "",
+        nameOfProject: addData.nameOfProject || "",
+        locationOfProject: addData.locationOfProject || "",
+        useCharacterOfOccupancy: addData.useCharacterOfOccupancy || "",
+        noOfStoreys: addData.noOfStoreys || "",
+        noOfUnits: addData.noOfUnits || "",
+        totalGrossFloorArea: addData.totalGrossFloorArea || "",
+        dateOfCompletion: addData.dateOfCompletion || "",
         newIdFile: null,
         newIdFileBack: null,
-        tctFile: null,
-        occupancyUse: addData.occupancyUse || "",
-        otherOccupancyUse: parsedOccupancy.specify,
       });
       if (addData.signature) {
         setSignatureUrl(addData.signature);
@@ -840,12 +494,12 @@ export default function OccupancyPermitPage() {
     const toastId = toast.loading("Uploading Payment Receipt...");
     setIsSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append("paymentFile", paymentFile);
+      const paymentFormData = new FormData();
+      paymentFormData.append("paymentFile", paymentFile);
       if (gcashReferenceNo) {
-        formData.append("gcashReferenceNo", gcashReferenceNo.trim());
+        paymentFormData.append("gcashReferenceNo", gcashReferenceNo.trim());
       }
-      const res = await submitOccupancyPermitPaymentProof(selectedApplication.id, formData);
+      const res = await submitOccupancyPermitPaymentProof(selectedApplication.id, paymentFormData);
       if (res.success) {
         toast.success("Payment Receipt uploaded successfully! Waiting for Treasury verification.", { id: toastId });
         setIsPaymentModalOpen(false);
@@ -1253,16 +907,6 @@ export default function OccupancyPermitPage() {
         }
       }
 
-      // 2. Upload TCT
-      let tctFileUrl: string | null = null;
-      if (formData.tctFile instanceof File) {
-        queueUpload(formData.tctFile, "tct", "tctFile", url => { if (url) tctFileUrl = url; });
-      } else if (typeof formData.tctFile === 'string') {
-        tctFileUrl = formData.tctFile;
-      } else if (effectiveDocuments?.tctFile) {
-        tctFileUrl = effectiveDocuments.tctFile;
-      }
-
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
       for (let i = 0; i < 25; i++) {
@@ -1323,38 +967,25 @@ export default function OccupancyPermitPage() {
       });
 
       const data = new FormData();
-      const parts: string[] = [];
-      if (formData.scopeNewConstruction) parts.push("NEW CONSTRUCTION");
-      if (formData.scopeAddition) parts.push(`ADDITION: ${formData.scopeAdditionText}`);
-      if (formData.scopeRepair) parts.push(`REPAIR: ${formData.scopeRepairText}`);
-      if (formData.scopeRenovation) parts.push(`RENOVATION: ${formData.scopeRenovationText}`);
-      if (formData.scopeOthers1) parts.push(`OTHERS: ${formData.scopeOthers1Text1} OF ${formData.scopeOthers1Text2}`);
-      if (formData.scopeOthers2) parts.push(`OTHERS: ${formData.scopeOthers2Text1} OF ${formData.scopeOthers2Text2}`);
-      if (formData.descriptionOfWorkLegacyText) parts.push(formData.descriptionOfWorkLegacyText);
-      const finalDescription = parts.join("; ");
-      data.append("descriptionOfWork", finalDescription);
+      data.append("occupancyApplicationType", formData.occupancyApplicationType || "FULL");
+      data.append("buildingPermitNo", formData.buildingPermitNo);
+      data.append("buildingPermitDateIssued", formData.buildingPermitDateIssued);
+      data.append("fsecNo", formData.fsecNo);
+      data.append("fsecDateIssued", formData.fsecDateIssued);
 
-      const finalOccupancy = formData.occupancyCategory === "Other Construction"
-        ? `Other Construction - ${formData.subOccupancyOthersSpecify}`
-        : `${formData.occupancyCategory}: ${formData.selectedSubOccupancies.join(", ")}${formData.selectedSubOccupancies.includes("Others (Specify)") ? ` (${formData.subOccupancyOthersSpecify})` : ""}`;
-      data.append("occupancyUse", finalOccupancy);
-
-      data.append("estimatedCost", formData.estimatedCost);
-      data.append("locationOfConstruction", formData.locationOfConstruction);
-      data.append("isLotOwner", formData.isLotOwner);
-      data.append("houseNumber", formData.locationHouseNumber);
-      data.append("street", formData.locationStreet);
-      data.append("barangay", formData.locationBarangay);
-      data.append("totalFloors", formData.totalFloors);
+      data.append("nameOfProject", formData.nameOfProject);
+      data.append("locationOfProject", formData.locationOfProject);
+      data.append("useCharacterOfOccupancy", formData.useCharacterOfOccupancy);
+      data.append("noOfStoreys", formData.noOfStoreys);
+      data.append("noOfUnits", formData.noOfUnits);
+      data.append("totalGrossFloorArea", formData.totalGrossFloorArea);
+      data.append("dateOfCompletion", formData.dateOfCompletion);
 
       if (idFileUrl) {
         data.append("newIdFile", idFileUrl);
       }
       if (idBackFileUrl) {
         data.append("newIdFileBack", idBackFileUrl);
-      }
-      if (tctFileUrl) {
-        data.append("tctFile", tctFileUrl);
       }
 
       Object.entries(finalReqUrls).forEach(([key, url]) => {
@@ -1535,30 +1166,12 @@ export default function OccupancyPermitPage() {
                 We found existing Occupancy Permit records under your name.
               </p>
             </div>
-
             <div className="grid gap-4">
               {existingApplications.map((app, idx) => (
                 <div
                   key={app.id || idx}
                   onClick={() => {
                     setSelectedApplication(app);
-                    const parsedLoc = parseLocationString(app.additionalData?.locationOfConstruction || "");
-                    setFormData(prev => ({
-                      ...prev,
-                      descriptionOfWork: app.additionalData?.descriptionOfWork || "",
-                      occupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? "Other" : (app.additionalData?.occupancyUse || "Residential (Single Family)"),
-                      otherOccupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? app.additionalData.occupancyUse.replace("Other - ", "") : "",
-                      estimatedCost: app.additionalData?.estimatedCost || "",
-                      locationOfConstruction: app.additionalData?.locationOfConstruction || "",
-                      locationHouseNumber: parsedLoc.houseNumber,
-                      locationStreet: parsedLoc.street,
-                      locationBarangay: parsedLoc.barangay,
-                      isLotOwner: app.additionalData?.isLotOwner || "",
-                      totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
-                      newIdFile: null,
-                      newIdFileBack: null,
-                      tctFile: null
-                    }));
                     setIsRevision(false);
                     setIsZoningRevision(false);
                     let newMaxIdx = 3;
@@ -1589,7 +1202,6 @@ export default function OccupancyPermitPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* UPDATED: Dynamic styling kapag cancelled, rejected, or released yung application */}
                     {(() => {
                       const statusDetails = getDisplayStatusDetails(app);
                       return (
@@ -1632,38 +1244,20 @@ export default function OccupancyPermitPage() {
                   setSelectedApplication(null);
                   setSignatureUrl(null);
                   setFormData({
-                    descriptionOfWork: "",
-                    scopeNewConstruction: false,
-                    scopeAddition: false,
-                    scopeAdditionText: "",
-                    scopeRepair: false,
-                    scopeRepairText: "",
-                    scopeRenovation: false,
-                    scopeRenovationText: "",
-                    scopeDemolition: false,
-                    scopeDemolitionText: "",
-                    scopeOthers1: false,
-                    scopeOthers1Text1: "",
-                    scopeOthers1Text2: "",
-                    scopeOthers2: false,
-                    scopeOthers2Text1: "",
-                    scopeOthers2Text2: "",
-                    descriptionOfWorkLegacyText: "",
-                    occupancyCategory: "",
-                    selectedSubOccupancies: [],
-                    subOccupancyOthersSpecify: "",
-                    estimatedCost: "",
-                    locationOfConstruction: "",
-                    locationHouseNumber: "",
-                    locationStreet: "",
-                    locationBarangay: "",
-                    isLotOwner: "",
-                    totalFloors: "",
+                    occupancyApplicationType: "FULL",
+                    buildingPermitNo: "",
+                    buildingPermitDateIssued: "",
+                    fsecNo: "",
+                    fsecDateIssued: "",
+                    nameOfProject: "",
+                    locationOfProject: "",
+                    useCharacterOfOccupancy: "",
+                    noOfStoreys: "",
+                    noOfUnits: "",
+                    totalGrossFloorArea: "",
+                    dateOfCompletion: "",
                     newIdFile: null,
                     newIdFileBack: null,
-                    tctFile: null,
-                    occupancyUse: "Residential (Single Family)",
-                    otherOccupancyUse: "",
                   });
                   setUploadedRequirements({});
                   setUploadedPermits({});
@@ -1677,7 +1271,6 @@ export default function OccupancyPermitPage() {
             </div>
           </div>
         )}
-
 
         {!loading && currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -2111,6 +1704,136 @@ export default function OccupancyPermitPage() {
                     )}
                   </div>
 
+                  {/* Application Type & Reference Details */}
+                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary opacity-50 group-hover:opacity-100 transition-opacity rounded-l-2xl"></div>
+                    
+                    {/* 1. Application Type Toggle: Full vs. Partial Occupancy */}
+                    <div className="mb-8">
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider">
+                        Application Type <span className="text-red-500 text-lg">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-4 max-w-md">
+                        <button
+                          type="button"
+                          disabled={!isEditable}
+                          onClick={() => setFormData({ ...formData, occupancyApplicationType: "FULL" })}
+                          className={cn(
+                            "py-3.5 px-4 rounded-xl font-black text-xs md:text-sm uppercase tracking-wider transition-all border flex items-center justify-center gap-2",
+                            formData.occupancyApplicationType === "FULL"
+                              ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]"
+                              : "bg-white/50 dark:bg-black/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-primary/50"
+                          )}
+                        >
+                          Full Occupancy
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isEditable}
+                          onClick={() => setFormData({ ...formData, occupancyApplicationType: "PARTIAL" })}
+                          className={cn(
+                            "py-3.5 px-4 rounded-xl font-black text-xs md:text-sm uppercase tracking-wider transition-all border flex items-center justify-center gap-2",
+                            formData.occupancyApplicationType === "PARTIAL"
+                              ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]"
+                              : "bg-white/50 dark:bg-black/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-primary/50"
+                          )}
+                        >
+                          Partial Occupancy
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Reference Inputs */}
+                    <div className="pt-6 border-t border-slate-200/60 dark:border-white/10">
+                      <h4 className="font-bold text-slate-800 dark:text-white uppercase tracking-wider text-xs md:text-sm mb-4">
+                        Permit Reference Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Building Permit No. */}
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Building Permit No. <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className={cn(
+                              "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
+(showValidationErrors && !formData.buildingPermitNo) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                            )}
+                            value={formData.buildingPermitNo || ""}
+                            onChange={e => setFormData({ ...formData, buildingPermitNo: e.target.value })}
+                            disabled={!isEditable}
+                            placeholder="Enter Building Permit No."
+                          />
+                          {showValidationErrors && !formData.buildingPermitNo && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+
+                        {/* Building Permit Date Issued */}
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Building Permit Date Issued <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            className={cn(
+                              "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
+                              (showValidationErrors && !formData.buildingPermitDateIssued) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                            )}
+                            value={formData.buildingPermitDateIssued || ""}
+                            onChange={e => setFormData({ ...formData, buildingPermitDateIssued: e.target.value })}
+                            disabled={!isEditable}
+                          />
+                          {showValidationErrors && !formData.buildingPermitDateIssued && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+
+                        {/* FSEC No. */}
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            FSEC No. <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className={cn(
+                              "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
+                              (showValidationErrors && !formData.fsecNo) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                            )}
+                            value={formData.fsecNo || ""}
+                            onChange={e => setFormData({ ...formData, fsecNo: e.target.value })}
+                            disabled={!isEditable}
+                            placeholder="Enter FSEC No."
+                          />
+                          {showValidationErrors && !formData.fsecNo && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+
+                        {/* FSEC Date Issued */}
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            FSEC Date Issued <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            className={cn(
+                              "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
+                              (showValidationErrors && !formData.fsecDateIssued) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                            )}
+                            value={formData.fsecDateIssued || ""}
+                            onChange={e => setFormData({ ...formData, fsecDateIssued: e.target.value })}
+                            disabled={!isEditable}
+                          />
+                          {showValidationErrors && !formData.fsecDateIssued && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Additional Information */}
                   <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary opacity-50 group-hover:opacity-100 transition-opacity rounded-l-2xl"></div>
@@ -2122,503 +1845,36 @@ export default function OccupancyPermitPage() {
                     <div className="space-y-8">
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          a. Scope of Work <span className="text-red-500 text-lg">*</span>
-                        </label>
-
-                        <div className={cn("rounded-xl p-4 border bg-white/40 dark:bg-black/20 space-y-4", (showValidationErrors && (
-                          !formData.scopeNewConstruction &&
-                          !formData.scopeAddition &&
-                          !formData.scopeRepair &&
-                          !formData.scopeRenovation &&
-                          !formData.scopeOthers1 &&
-                          !formData.descriptionOfWorkLegacyText
-                        )) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
-
-                          {/* New Construction */}
-                          <div className="flex items-center space-x-3 py-1">
-                            <Checkbox
-                              id="scope-new-con"
-                              checked={formData.scopeNewConstruction}
-                              disabled={!isEditable}
-                              onCheckedChange={checked => {
-                                if (checked) {
-                                  setFormData({
-                                    ...formData,
-                                    scopeNewConstruction: true,
-                                    scopeAddition: false,
-                                    scopeAdditionText: "",
-                                    scopeRepair: false,
-                                    scopeRepairText: "",
-                                    scopeRenovation: false,
-                                    scopeRenovationText: "",
-                                    scopeDemolition: false,
-                                    scopeDemolitionText: "",
-                                    scopeOthers1: false,
-                                    scopeOthers1Text1: "",
-                                    scopeOthers1Text2: ""
-                                  });
-                                } else {
-                                  setFormData({ ...formData, scopeNewConstruction: false });
-                                }
-                              }}
-                            />
-                            <label htmlFor="scope-new-con" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                              New Construction
-                            </label>
-                          </div>
-
-                          {/* Addition Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
-                              <Checkbox
-                                id="scope-addition"
-                                checked={formData.scopeAddition}
-                                disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: true,
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeAddition: false });
-                                  }
-                                }}
-                              />
-                              <label htmlFor="scope-addition" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
-                                Addition of
-                              </label>
-                            </div>
-                            {formData.scopeAddition && (
-                              <input
-                                type="text"
-                                placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeAdditionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                value={formData.scopeAdditionText}
-                                onChange={e => setFormData({ ...formData, scopeAdditionText: e.target.value })}
-                                disabled={!isEditable}
-                              />
-                            )}
-                          </div>
-
-                          {/* Repair Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
-                              <Checkbox
-                                id="scope-repair"
-                                checked={formData.scopeRepair}
-                                disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: true,
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRepair: false });
-                                  }
-                                }}
-                              />
-                              <label htmlFor="scope-repair" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
-                                Repair of
-                              </label>
-                            </div>
-                            {formData.scopeRepair && (
-                              <input
-                                type="text"
-                                placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRepairText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                value={formData.scopeRepairText}
-                                onChange={e => setFormData({ ...formData, scopeRepairText: e.target.value })}
-                                disabled={!isEditable}
-                              />
-                            )}
-                          </div>
-
-                          {/* Renovation Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
-                              <Checkbox
-                                id="scope-renovation"
-                                checked={formData.scopeRenovation}
-                                disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: true,
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRenovation: false });
-                                  }
-                                }}
-                              />
-                              <label htmlFor="scope-renovation" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
-                                Renovation of
-                              </label>
-                            </div>
-                            {formData.scopeRenovation && (
-                              <input
-                                type="text"
-                                placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                value={formData.scopeRenovationText}
-                                onChange={e => setFormData({ ...formData, scopeRenovationText: e.target.value })}
-                                disabled={!isEditable}
-                              />
-                            )}
-                          </div>
-
-                          {/* Others Specify */}
-                          <div className="flex flex-col gap-2 py-1 border-t border-slate-100 dark:border-white/5 pt-2">
-                            <div className="flex items-center space-x-3">
-                              <Checkbox
-                                id="scope-others-1"
-                                checked={formData.scopeOthers1}
-                                disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: true
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeOthers1: false });
-                                  }
-                                }}
-                              />
-                              <label htmlFor="scope-others-1" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0 font-bold text-slate-500">
-                                Others (Specify)
-                              </label>
-                            </div>
-                            {formData.scopeOthers1 && (
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pl-6">
-                                <input
-                                  type="text"
-                                  placeholder="Specify item"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text1) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                  value={formData.scopeOthers1Text1}
-                                  onChange={e => setFormData({ ...formData, scopeOthers1Text1: e.target.value })}
-                                  disabled={!isEditable}
-                                />
-                                <span className="text-xs text-slate-400 self-center">OF</span>
-                                <input
-                                  type="text"
-                                  placeholder="Specify category/structure"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text2) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                  value={formData.scopeOthers1Text2}
-                                  onChange={e => setFormData({ ...formData, scopeOthers1Text2: e.target.value })}
-                                  disabled={!isEditable}
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Legacy Support Text Area */}
-                          {formData.descriptionOfWorkLegacyText && (
-                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
-                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                                Pre-existing Description (Legacy)
-                              </label>
-                              <textarea
-                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none min-h-[80px]"
-                                value={formData.descriptionOfWorkLegacyText}
-                                onChange={e => setFormData({ ...formData, descriptionOfWorkLegacyText: e.target.value })}
-                                disabled={!isEditable}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-red-500 text-lg">*</span>
-                        </label>
-                        <PremiumDocumentUpload
-                          label="Certified True Copy of TCT"
-                          required={true}
-                          file={typeof formData.tctFile === 'string' ? null : formData.tctFile}
-                          previewUrl={typeof formData.tctFile === 'string' ? formData.tctFile : undefined}
-                          existingUrl={effectiveDocuments?.tctFile}
-                          onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'tctFile')}
-                          onView={() => {
-                            if (formData.tctFile) {
-                              setViewerFile(formData.tctFile);
-                            } else if (effectiveDocuments?.tctFile) {
-                              setViewerUrl(effectiveDocuments.tctFile);
-                            }
-                            setViewerTitle("TCT Document");
-                            setViewerOpen(true);
-                          }}
-                          error={showValidationErrors && !hasTctFile}
-                          infoText="Upload TCT Document (PDF/JPG/PNG)"
-                          disabled={!isEditable || (isRevision && !isFieldRequested("tctFile"))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          c. The use of the occupancy for which the proposed work is intended <span className="text-red-500 text-lg">*</span>
-                        </label>
-                        <div className={cn("rounded-xl transition-all p-4 border bg-white/40 dark:bg-black/20", (showValidationErrors && (!formData.occupancyCategory || (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) || (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) || (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify))) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
-                          <Select
-                            value={formData.occupancyCategory}
-                            onValueChange={value => {
-                              setFormData({
-                                ...formData,
-                                occupancyCategory: value,
-                                selectedSubOccupancies: [],
-                                subOccupancyOthersSpecify: ""
-                              });
-                            }}
-                            disabled={!isEditable}
-                          >
-                            <SelectTrigger className="w-full h-auto bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer">
-                              <SelectValue placeholder="Select occupancy category" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
-                              {OCCUPANCY_CATEGORIES.map((cat) => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          {formData.occupancyCategory && (
-                            <div className="mt-4 space-y-3 pl-2">
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Select Specific Options:</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {OCCUPANCY_OPTIONS[formData.occupancyCategory]?.map((opt) => {
-                                  const isChecked = formData.selectedSubOccupancies.includes(opt.label) || (formData.occupancyCategory === "Other Construction" && opt.label === "Specify");
-                                  return (
-                                    <div key={opt.code} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                                      {formData.occupancyCategory !== "Other Construction" ? (
-                                        <Checkbox
-                                          id={`sub-occ-${opt.code}`}
-                                          checked={isChecked}
-                                          disabled={!isEditable}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              setFormData({
-                                                ...formData,
-                                                selectedSubOccupancies: [opt.label],
-                                                ...(opt.label !== "Others (Specify)" && { subOccupancyOthersSpecify: "" })
-                                              });
-                                            } else {
-                                              setFormData({ ...formData, selectedSubOccupancies: [] });
-                                            }
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="w-2.5 h-2.5 rounded bg-primary shrink-0" />
-                                      )}
-                                      <label htmlFor={`sub-occ-${opt.code}`} className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                                        {opt.label}
-                                      </label>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {(formData.selectedSubOccupancies.includes("Others (Specify)") || formData.occupancyCategory === "Other Construction") && (
-                                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
-                                  <input
-                                    type="text"
-                                    placeholder="Please specify occupancy use details"
-                                    className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.subOccupancyOthersSpecify) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                                    value={formData.subOccupancyOthersSpecify}
-                                    onChange={e => setFormData({ ...formData, subOccupancyOthersSpecify: e.target.value })}
-                                    disabled={!isEditable}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          Total Floor(s) <span className="text-red-500 text-lg">*</span>
+                          Name of Project <span className="text-red-500 text-lg">*</span>
                         </label>
                         <input
-                          type="number"
-                          min="1"
-                          placeholder="e.g. 2"
-                          className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.totalFloors || Number(formData.totalFloors) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                          value={formData.totalFloors || ""}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val === "" || /^\d*$/.test(val)) {
-                              setFormData({ ...formData, totalFloors: val });
-                            }
-                          }}
+                          type="text"
+                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.nameOfProject) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          value={formData.nameOfProject || ""}
+                          onChange={e => setFormData({ ...formData, nameOfProject: e.target.value })}
                           disabled={!isEditable}
+                          placeholder="Enter project name"
                         />
+                        {showValidationErrors && !formData.nameOfProject && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                        )}
                       </div>
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          d. Estimated cost of the proposal <span className="text-red-500 text-lg">*</span>
+                          Location of Project <span className="text-red-500 text-lg">*</span>
                         </label>
-                        <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">₱</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 pl-10 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.estimatedCost || Number(formData.estimatedCost) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                            value={formatWithCommas(formData.estimatedCost)}
-                            onChange={e => {
-                              const rawVal = e.target.value;
-                              const cleanVal = rawVal.replace(/,/g, "");
-                              if (cleanVal === "" || /^\d*$/.test(cleanVal)) {
-                                setFormData({ ...formData, estimatedCost: cleanVal });
-                              }
-                            }}
-                            disabled={!isEditable}
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          e. Location of Construction <span className="text-red-500 text-lg">*</span>
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-4 mb-3">
-                          {/* House/Lot Number Input */}
-                          <div className="flex-1 sm:flex-[0.25]">
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
-                              House/Lot No. <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              placeholder="e.g. 123"
-                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationHouseNumber) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                              value={formData.locationHouseNumber || ""}
-                              onChange={e => setFormData({ ...formData, locationHouseNumber: e.target.value })}
-                              disabled={!isEditable}
-                            />
-                          </div>
-
-                          {/* Street Name Input */}
-                          <div className="flex-1 sm:flex-[0.45]">
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
-                              Street <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Bonifacio St."
-                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationStreet) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                              value={formData.locationStreet || ""}
-                              onChange={e => setFormData({ ...formData, locationStreet: e.target.value })}
-                              disabled={!isEditable}
-                            />
-                          </div>
-
-                          {/* Barangay Dropdown */}
-                          <div className="flex-1 sm:flex-[0.3] relative" ref={brgyDropdownRef}>
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
-                              Barangay <span className="text-red-500">*</span>
-                            </label>
-                            
-                            <button
-                              type="button"
-                              onClick={() => isEditable && setIsBrgyDropdownOpen(!isBrgyDropdownOpen)}
-                              className={cn(
-                                "w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer flex items-center justify-between transition-all",
-                                (showValidationErrors && !formData.locationBarangay) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "border-slate-200 dark:border-white/10"
-                              )}
-                              disabled={!isEditable}
-                            >
-                              <span className={formData.locationBarangay ? "text-slate-900 dark:text-white" : "text-slate-400"}>
-                                {formData.locationBarangay || "Select Barangay"}
-                              </span>
-                              <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
-                            </button>
-
-                            {isBrgyDropdownOpen && (
-                              <div className="absolute z-[250] mt-2 w-full bg-white dark:bg-[#11131a] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden p-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                {/* Search Input */}
-                                <input
-                                  type="text"
-                                  placeholder="Search barangay..."
-                                  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary mb-2 text-slate-900 dark:text-white"
-                                  value={brgySearchQuery}
-                                  onChange={e => setBrgySearchQuery(e.target.value)}
-                                  autoFocus
-                                />
-                                {/* List */}
-                                <div className="max-h-[180px] overflow-y-auto space-y-0.5 custom-scrollbar">
-                                  {filteredBarangays.length > 0 ? (
-                                    filteredBarangays.map(brgy => (
-                                      <button
-                                        key={brgy}
-                                        type="button"
-                                        onClick={() => {
-                                          setFormData({ ...formData, locationBarangay: brgy });
-                                          setIsBrgyDropdownOpen(false);
-                                          setBrgySearchQuery("");
-                                        }}
-                                        className={cn(
-                                          "w-full text-left px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-between",
-                                          formData.locationBarangay === brgy
-                                            ? "bg-primary/10 text-primary font-bold"
-                                            : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
-                                        )}
-                                      >
-                                        <span>{brgy}</span>
-                                        {formData.locationBarangay === brgy && <Check className="w-3.5 h-3.5" />}
-                                      </button>
-                                    ))
-                                  ) : (
-                                    <div className="text-center py-4 text-xs text-slate-400 italic">No barangay found</div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <input
+                          type="text"
+                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationOfProject) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          value={formData.locationOfProject || ""}
+                          onChange={e => setFormData({ ...formData, locationOfProject: e.target.value })}
+                          disabled={!isEditable}
+                          placeholder="Enter exact location"
+                        />
+                        {showValidationErrors && !formData.locationOfProject && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                        )}
                         {duplicatePropertyWarning && duplicatePropertyWarning.isProcessing && (
                           <div className="mt-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3 text-amber-600 dark:text-amber-500 animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
@@ -2632,35 +1888,95 @@ export default function OccupancyPermitPage() {
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          f. Is the applicant the owner of the lot? <span className="text-red-500 text-lg">*</span>
+                          Use/Character of Occupancy <span className="text-red-500 text-lg">*</span>
                         </label>
-                        <Select
-                          value={formData.isLotOwner}
-                          onValueChange={value => {
-                            setFormData({ ...formData, isLotOwner: value });
-                            if (value === "Yes") {
-                              setUploadedRequirements(prev => {
-                                const next = { ...prev };
-                                delete next[7];
-                                delete next[10];
-                                delete next[11];
-                                delete next[12];
-                                delete next[13];
-                                delete next[14];
-                                return next;
-                              });
-                            }
-                          }}
+                        <input
+                          type="text"
+                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.useCharacterOfOccupancy) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          value={formData.useCharacterOfOccupancy || ""}
+                          onChange={e => setFormData({ ...formData, useCharacterOfOccupancy: e.target.value })}
                           disabled={!isEditable}
-                        >
-                          <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && !formData.isLotOwner) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
-                            <SelectValue placeholder="Select Yes or No" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          placeholder="e.g. Residential, Commercial"
+                        />
+                        {showValidationErrors && !formData.useCharacterOfOccupancy && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            No. of Storey/s <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.noOfStoreys) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                            value={formData.noOfStoreys || ""}
+                            onChange={e => setFormData({ ...formData, noOfStoreys: e.target.value })}
+                            disabled={!isEditable}
+                            placeholder="0"
+                          />
+                          {showValidationErrors && !formData.noOfStoreys && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            No. of Units <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.noOfUnits) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                            value={formData.noOfUnits || ""}
+                            onChange={e => setFormData({ ...formData, noOfUnits: e.target.value })}
+                            disabled={!isEditable}
+                            placeholder="0"
+                          />
+                          {showValidationErrors && !formData.noOfUnits && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Total Gross Floor Area <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 pr-12 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.totalGrossFloorArea) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                              value={formData.totalGrossFloorArea || ""}
+                              onChange={e => setFormData({ ...formData, totalGrossFloorArea: e.target.value })}
+                              disabled={!isEditable}
+                              placeholder="0.00"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">sqm</span>
+                          </div>
+                          {showValidationErrors && !formData.totalGrossFloorArea && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Date of Completion <span className="text-red-500 text-lg">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.dateOfCompletion) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          value={formData.dateOfCompletion || ""}
+                          onChange={e => setFormData({ ...formData, dateOfCompletion: e.target.value })}
+                          disabled={!isEditable}
+                        />
+                        {showValidationErrors && !formData.dateOfCompletion && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2678,64 +1994,18 @@ export default function OccupancyPermitPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const hasNoScopeSelected = !formData.scopeNewConstruction &&
-                          !formData.scopeAddition &&
-                          !formData.scopeRepair &&
-                          !formData.scopeRenovation &&
-                          !formData.scopeOthers1 &&
-                          !formData.scopeOthers2 &&
-                          !formData.descriptionOfWorkLegacyText;
-
-                        const hasMissingScopeTexts = (formData.scopeAddition && !formData.scopeAdditionText) ||
-                          (formData.scopeRepair && !formData.scopeRepairText) ||
-                          (formData.scopeRenovation && !formData.scopeRenovationText) ||
-                          (formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2));
-
-                        const hasMissingFields = hasNoScopeSelected ||
-                          hasMissingScopeTexts ||
-                          !formData.estimatedCost ||
-                          Number(formData.estimatedCost) <= 0 ||
-                          !formData.totalFloors ||
-                          Number(formData.totalFloors) <= 0 ||
-                          !formData.locationHouseNumber ||
-                          !formData.locationStreet ||
-                          !formData.locationBarangay ||
-                          !formData.isLotOwner ||
-                          !formData.occupancyCategory ||
-                          (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) ||
-                          (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) ||
-                          (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify) ||
-                          (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ||
-                          !hasTctFile;
-
-                        console.log("Validation Details:", {
-                          hasNoScopeSelected,
-                          hasMissingScopeTexts,
-                          estimatedCost: formData.estimatedCost,
-                          estimatedCostValid: !formData.estimatedCost || Number(formData.estimatedCost) <= 0,
-                          locationOfConstruction: formData.locationOfConstruction,
-                          isLotOwner: formData.isLotOwner,
-                          occupancyCategory: formData.occupancyCategory,
-                          selectedSubOccupancies: formData.selectedSubOccupancies,
-                          subOccupancyOthersSpecify: formData.subOccupancyOthersSpecify,
-                          idChoice,
-                          newIdFile: formData.newIdFile,
-                          hasTctFile,
-                          tctFile: formData.tctFile,
-                          uploadedReqs2: uploadedRequirements && uploadedRequirements[2],
-                          scopeOthers2: formData.scopeOthers2,
-                          scopeOthers2Text1: formData.scopeOthers2Text1,
-                          scopeOthers2Text2: formData.scopeOthers2Text2,
-                          hasMissingFields
-                        });
-
-                        console.log("Scope Texts details:", {
-                          addition: !!(formData.scopeAddition && !formData.scopeAdditionText),
-                          repair: !!(formData.scopeRepair && !formData.scopeRepairText),
-                          renovation: !!(formData.scopeRenovation && !formData.scopeRenovationText),
-                          others1: !!(formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2)),
-                          others2: !!(formData.scopeOthers2 && (!formData.scopeOthers2Text1 || !formData.scopeOthers2Text2))
-                        });
+                        const hasMissingFields = !formData.buildingPermitNo ||
+                          !formData.buildingPermitDateIssued ||
+                          !formData.fsecNo ||
+                          !formData.fsecDateIssued ||
+                          !formData.nameOfProject ||
+                          !formData.locationOfProject ||
+                          !formData.useCharacterOfOccupancy ||
+                          !formData.noOfStoreys ||
+                          !formData.noOfUnits ||
+                          !formData.totalGrossFloorArea ||
+                          !formData.dateOfCompletion ||
+                          (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile);
 
                         if (hasMissingFields) {
                           setShowValidationErrors(true);
@@ -2746,15 +2016,15 @@ export default function OccupancyPermitPage() {
                         setCurrentStep("DOCUMENTS");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                       className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
-                       style={{
-                         backgroundColor: themeColor,
-                         boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                       }}
-                     >
-                       Next: Upload Requirements & Documents
-                       <span className="text-xl leading-none">→</span>
-                     </button>
+                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
+                      style={{
+                        backgroundColor: themeColor,
+                        boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                      }}
+                    >
+                      Next: Upload Requirements & Documents
+                      <span className="text-xl leading-none">→</span>
+                    </button>
                   </div>
                 </>
               )}
@@ -2782,7 +2052,6 @@ export default function OccupancyPermitPage() {
                   <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
                 </p>
               </div>
-
             </div>
 
             <div className="flex justify-between items-center mb-6 mt-8">
