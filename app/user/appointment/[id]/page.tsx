@@ -78,11 +78,7 @@ export default function AppointmentDetailsPage() {
     const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
     const [printTriggered, setPrintTriggered] = useState(false);
     const [themeColor, setThemeColor] = useState("#2563eb");
-    const [branding, setBranding] = useState({
-        logo: "",
-        word1: "MUNICIPALITY",
-        word2: "PORTAL"
-    });
+
 
     const fetchAppointment = useCallback(async () => {
         try {
@@ -379,7 +375,6 @@ export default function AppointmentDetailsPage() {
                                 appointmentDate={request.appointmentDate ? new Date(request.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
                                 appointmentSlot={request.appointmentSlot || "N/A"}
                                 isPriority={request.isPriority || false}
-                                branding={branding}
                                 themeColor={themeColor}
                                 triggerPrint={printTriggered}
                                 onPrintCompleted={() => setPrintTriggered(false)}
