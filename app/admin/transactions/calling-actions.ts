@@ -165,6 +165,18 @@ export async function fetchAndCallNextTicket(counterName: string) {
     }
 }
 
+function parseAdditionalData(raw: any): Record<string, any> {
+    if (!raw) return {};
+    if (typeof raw === "string") {
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return {};
+        }
+    }
+    return raw;
+}
+
 export async function fetchAndCallNextBploTicket(counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
@@ -195,31 +207,40 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
                 appointmentDate: {
                     gte: startOfDay,
                     lte: endOfDay
-                },
-                additionalData: {
-                    path: ["checkedIn"],
-                    equals: true
                 }
             }
         });
 
-        if (transactions.length === 0) {
+        // Filter: Checked in AND not yet assigned to any counter
+        const unassignedWaiting = transactions.filter(tx => {
+            const addData = parseAdditionalData(tx.additionalData);
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+            return isCheckedIn && !hasCounter;
+        });
+
+        if (unassignedWaiting.length === 0) {
             return { success: false, error: "No commercial applicants are currently waiting in line." };
         }
 
-        // Sort: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
-        const sorted = transactions.sort((a, b) => {
-            if (a.isPriority && !b.isPriority) return -1;
-            if (!a.isPriority && b.isPriority) return 1;
+        // Sort: Priority (isPriority === true) first in FIFO order (checkedInAt ASC), then Standard FIFO
+        const sorted = unassignedWaiting.sort((a, b) => {
+            const aPriority = Boolean(a.isPriority);
+            const bPriority = Boolean(b.isPriority);
 
-            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
-            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
-            return aCheckedIn - bCheckedIn;
+            if (aPriority && !bPriority) return -1;
+            if (!aPriority && bPriority) return 1;
+
+            const aData = parseAdditionalData(a.additionalData);
+            const bData = parseAdditionalData(b.additionalData);
+            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
+            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
+            return aTime - bTime;
         });
 
         const nextTx = sorted[0];
 
-        const currentAdditionalData = (nextTx.additionalData as any) || {};
+        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
@@ -258,8 +279,8 @@ export async function getBploQueueTickets(counterName: string) {
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        // Fetch waiting tickets
-        const waiting = await prisma.transaction.findMany({
+        // Fetch all matching queue tickets for BPLO
+        const allBploTxs = await prisma.transaction.findMany({
             where: {
                 type: {
                     code: { startsWith: "BUSINESS_PERMIT" }
@@ -271,10 +292,6 @@ export async function getBploQueueTickets(counterName: string) {
                 appointmentDate: {
                     gte: startOfDay,
                     lte: endOfDay
-                },
-                additionalData: {
-                    path: ["checkedIn"],
-                    equals: true
                 }
             },
             include: {
@@ -282,43 +299,32 @@ export async function getBploQueueTickets(counterName: string) {
             }
         });
 
-        // Fetch currently serving at this counter
-        const serving = await prisma.transaction.findMany({
-            where: {
-                type: {
-                    code: { startsWith: "BUSINESS_PERMIT" }
-                },
-                status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
-                },
-                isCancelled: false,
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
-                additionalData: {
-                    path: ["counterName"],
-                    equals: counterName
-                }
-            },
-            include: {
-                businessPermit: true
-            }
+        // Filter waiting tickets: checkedIn === true AND no counter assigned yet
+        const waiting = allBploTxs.filter(tx => {
+            const addData = parseAdditionalData(tx.additionalData);
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+            return isCheckedIn && !hasCounter;
         });
 
-        // Sort waiting queue and filter out already called/assigned tickets
-        const filteredWaiting = waiting.filter(tx => {
-            const addData = tx.additionalData as any;
-            return !addData || !addData.counterName;
+        // Filter serving tickets: counterName matches active counter
+        const serving = allBploTxs.filter(tx => {
+            const addData = parseAdditionalData(tx.additionalData);
+            return addData.counterName === counterName;
         });
 
-        const sortedWaiting = filteredWaiting.sort((a, b) => {
-            if (a.isPriority && !b.isPriority) return -1;
-            if (!a.isPriority && b.isPriority) return 1;
+        const sortedWaiting = waiting.sort((a, b) => {
+            const aPriority = Boolean(a.isPriority);
+            const bPriority = Boolean(b.isPriority);
 
-            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
-            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
-            return aCheckedIn - bCheckedIn;
+            if (aPriority && !bPriority) return -1;
+            if (!aPriority && bPriority) return 1;
+
+            const aData = parseAdditionalData(a.additionalData);
+            const bData = parseAdditionalData(b.additionalData);
+            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
+            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
+            return aTime - bTime;
         });
 
         return {
