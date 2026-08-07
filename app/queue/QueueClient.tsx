@@ -11,6 +11,7 @@ import {
     Building2, 
     Scroll, 
     Ruler,
+    HardHat,
     Play,
     Lock,
     ShieldAlert,
@@ -33,7 +34,8 @@ const DEPT_ICONS: Record<string, any> = {
     "Treasury": Coins,
     "BPLO": Building2,
     "Registrar": Scroll,
-    "Engineering": Ruler
+    "Engineering": Ruler,
+    "Assessor": HardHat
 };
 
 const DEPT_THEMES: Record<string, { bg: string; border: string; glow: string; text: string }> = {
@@ -60,6 +62,12 @@ const DEPT_THEMES: Record<string, { bg: string; border: string; glow: string; te
         border: "border-amber-500/20",
         glow: "shadow-amber-500/10",
         text: "text-amber-400"
+    },
+    "Assessor": {
+        bg: "bg-rose-500/5",
+        border: "border-rose-500/20",
+        glow: "shadow-rose-500/10",
+        text: "text-rose-400"
     }
 };
 
@@ -626,8 +634,8 @@ export default function QueueClient({
             </header>
 
             {/* Main Queuing Board */}
-            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 z-10 min-h-0 overflow-hidden">
-                {queueData.filter(dept => dept.department !== "Engineering").map((dept) => {
+            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 z-10 min-h-0 overflow-hidden">
+                {queueData.map((dept) => {
                     const Icon = DEPT_ICONS[dept.department] || Coins;
                     const theme = DEPT_THEMES[dept.department] || DEPT_THEMES["Treasury"];
                     

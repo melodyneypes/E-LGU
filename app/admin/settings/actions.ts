@@ -27,7 +27,8 @@ async function verifyAppointmentConfigAccess() {
         role !== "BARANGAY_ADMIN" && 
         role !== "TREASURY_STAFF" && 
         role !== "ADMIN_AIDE" && 
-        role !== "ENGINEER"
+        role !== "ENGINEER" &&
+        role !== "ASSESSOR"
     )) {
         throw new Error("Unauthorized: Access denied.");
     }
@@ -477,6 +478,8 @@ export async function updateAppointmentConfig(
         revalidatePath("/user/services/civil-registry/appointment-death-certified-true-copy");
         revalidatePath("/user/services/civil-registry/appointment-marriage-certified-true-copy");
         revalidatePath("/admin/registrar/appointment-settings");
+        revalidatePath("/admin/assessor/appointment-settings");
+        revalidatePath("/user/services/rpt-appointment");
         return { success: true };
     } catch (error: any) {
         console.error("Error updating appointment config:", error);

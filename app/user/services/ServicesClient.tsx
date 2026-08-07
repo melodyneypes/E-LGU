@@ -50,6 +50,9 @@ const getAppointmentLink = (code: string, originalLink: string) => {
     if (c.includes("CEDULA")) {
         return "/user/services/cedula-appointment";
     }
+    if (c.includes("RPT") || c.includes("REAL_PROPERTY") || c.includes("AMILYAR")) {
+        return "/user/services/rpt-appointment";
+    }
     return originalLink;
 };
 
@@ -177,6 +180,15 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             accentBg = "bg-rose-500/10 dark:bg-rose-500/5";
             borderColor = "border-rose-500/10 dark:border-rose-500/5";
             buttonShadow = "shadow-rose-500/10";
+        } else if (categoryName === "RPT" || categoryName === "REAL PROPERTY TAX" || categoryName === "REAL_PROPERTY_TAX" || categoryName === "ASSESSOR") {
+            title = "RPT SERVICES";
+            department = "RPT Office";
+            description = "Access official municipality gateways and submit your digital applications securely.";
+            link = "/user/services/rpt-appointment";
+            icon = FileText;
+            accentBg = "bg-purple-500/10 dark:bg-purple-500/5";
+            borderColor = "border-purple-500/10 dark:border-purple-500/5";
+            buttonShadow = "shadow-purple-500/10";
         } else {
             // General or other office categories dynamically added to the DB in the future
             title = `${categoryName} SERVICES`;

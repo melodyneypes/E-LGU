@@ -1,7 +1,7 @@
 import { AuthLayout } from "@/components/shared/AuthLayout";
 import { LoginForm } from "@/components/auth/LoginForm";
 import prisma from "@/lib/db/prisma";
-import { HeroSlide, SystemSetting } from "@prisma/client"; // Import Prisma types
+import { HeroSlide, SystemSetting } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 

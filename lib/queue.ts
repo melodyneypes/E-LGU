@@ -5,14 +5,15 @@ interface GenerateQueueParams {
   isPriority: boolean;
   appointmentDate: Date;
   appointmentSlot?: string;
-  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | "RHU";
+  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | "RHU" | "RPT_TREASURY" | "RPT_ASSESSOR";
 }
 
 /**
  * Generates a shared format queue ticket number.
  * Format: [DATE]-[SHIFT]-[PREFIX][SEQUENCE]
  * E.g., 07072026-AM-T001 (Cedula Standard)
- * E.g., 07072026-AM-TP001 (Cedula Priority)
+ * E.g., 07072026-AM-TR001 (RPT Treasury Routine)
+ * E.g., 07072026-AM-A001 (RPT Assessor Inspection/Transfer)
  * 
  * Auto-increments sequentially regardless of the service selected.
  */
@@ -35,12 +36,11 @@ export async function generateQueueNumber({
   }).replace(/\//g, ""); // MMDDYYYY
 
   const isAM = appointmentSlot
-    ? (appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM"))
+    ? (appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM") || appointmentSlot.toUpperCase() === "MORNING")
     : true;
   const shiftStr = isAM ? "AM" : "PM";
 
   // Count existing transactions for this shift on target date
-  // using the direct isPriority column
   const shiftCount = await prisma.transaction.count({
     where: {
       appointmentDate: {
@@ -56,7 +56,7 @@ export async function generateQueueNumber({
   });
 
   let prefix = "";
-  if (category === "CEDULA") {
+  if (category === "CEDULA" || category === "RPT_TREASURY") {
     prefix = isPriority ? "TP" : "T";
   } else if (category === "CIVIL_REGISTRY") {
     prefix = isPriority ? "RP" : "R";
@@ -64,6 +64,8 @@ export async function generateQueueNumber({
     prefix = isPriority ? "BP" : "B";
   } else if (category === "RHU") {
     prefix = isPriority ? "HP" : "H";
+  } else if (category === "RPT_ASSESSOR") {
+    prefix = isPriority ? "AP" : "A";
   } else {
     prefix = isPriority ? "P" : "";
   }

@@ -179,6 +179,7 @@ model Announcement {
   expiryDate     DateTime?
   eventDate      DateTime?
   eventSchedule  String?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   barangay       String?
@@ -1018,15 +1019,7 @@ model AppointmentConfig {
   specialEvents Json?    @default("[]")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}
 
-// ------------------------------------------------------
-// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
-// ------------------------------------------------------
-
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
 }
 
 model RHUInventoryItem {
@@ -1211,6 +1204,11 @@ model VehicleClassification {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
 }
 
 enum MedicalRole {

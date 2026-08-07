@@ -324,7 +324,7 @@ export default function TreasuryDashboard() {
             refId.includes(searchUpper);
 
         // Category filter: match url category parameter if set
-        const matchesCategory = !categoryParam || categoryParam === "ALL" || tx.type?.category === categoryParam;
+        const matchesCategory = !categoryParam || categoryParam === "ALL" || tx.type?.category === categoryParam || (categoryParam === "Real Property Tax" && (tx.type?.category === "RPT" || tx.type?.code?.startsWith("RPT_")));
 
         // Specific service name filter: match selected service from dropdown if set
         let matchesService = !serviceFilter || serviceFilter === "ALL";

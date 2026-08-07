@@ -478,6 +478,7 @@ export function Sidebar({
             },
             subItems: [
                 { href: "/admin/treasury?category=CEDULA", label: "CEDULA" },
+                { href: "/admin/treasury?category=Real Property Tax", label: "Real Property Tax" },
                 { href: "/admin/treasury?category=Business Permit", label: "Business Permit" },
                 { href: "/admin/treasury?category=Civil Registry", label: "Civil Registry" },
                 { href: "/admin/treasury?category=Building Permit", label: "Building Permit" },
@@ -487,6 +488,18 @@ export function Sidebar({
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury Department" },
+        {
+            href: "/admin/assessor",
+            label: "Assessor Hub",
+            icon: HardHat,
+            category: "Assessor Office",
+            subItems: [
+                { href: "/admin/assessor?category=RPT_CAT2", label: "RPT Category 2 (New Property)" },
+                { href: "/admin/assessor?category=RPT_CAT3", label: "RPT Category 3 (Transfer Ownership)" },
+            ]
+        },
+        { href: "/admin/assessor/appointment-settings", label: "Assessor Appointment Settings", icon: Calendar, category: "Assessor Office" },
+        { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "BPLO Department" },
@@ -644,6 +657,21 @@ export function Sidebar({
         } else if (role === "MPDC_ZONING") {
             menuItems = [
                 { href: "/admin/zoning", label: "Zoning Hub", icon: HardHat, category: "Zoning" }
+            ];
+        } else if (role === "ASSESSOR") {
+            menuItems = [
+                { href: "/admin/assessor/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Assessor Office" },
+                {
+                    href: "/admin/assessor",
+                    label: "Assessor Hub",
+                    icon: HardHat,
+                    category: "Assessor Office",
+                    subItems: [
+                        { href: "/admin/assessor?category=RPT_CAT2", label: "RPT Category 2" },
+                        { href: "/admin/assessor?category=RPT_CAT3", label: "RPT Category 3" },
+                    ]
+                },
+                { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
             ];
         } else if (role === "BFP") {
             menuItems = [
