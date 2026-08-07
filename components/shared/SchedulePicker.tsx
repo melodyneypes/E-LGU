@@ -23,6 +23,43 @@ interface SchedulePickerProps {
     themeColor?: string;
 }
 
+function isSlotExpiredForToday(slot: string): boolean {
+    // Disabled for now during testing/QA phase to allow testing same-day bookings.
+    // Set testingPhase to false to reactivate real-time same-day time validation.
+    const testingPhase = true;
+    if (testingPhase) return false;
+
+    try {
+        // Example slot: "08:00 AM - 11:00 AM" or "01:00 PM - 04:00 PM"
+        const startTimeStr = slot.split("-")[0].trim().toLowerCase(); // e.g. "08:00 am" or "01:00 pm"
+        const timeMatch = startTimeStr.match(/(\d+):(\d+)\s*(am|pm)/);
+        if (!timeMatch) return false;
+
+        const hourStr = timeMatch[1];
+        const minuteStr = timeMatch[2];
+        const period = timeMatch[3];
+        let startHour = parseInt(hourStr, 10);
+        const startMinute = parseInt(minuteStr, 10);
+
+        if (period === "pm" && startHour < 12) {
+            startHour += 12;
+        } else if (period === "am" && startHour === 12) {
+            startHour = 0;
+        }
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        if (currentHour > startHour) return true;
+        if (currentHour === startHour && currentMinute >= startMinute) return true;
+        return false;
+    } catch (e) {
+        console.error("Error parsing slot time:", e);
+        return false;
+    }
+}
+
 export default function SchedulePicker({
     selectedDate,
     setSelectedDate,
@@ -41,6 +78,16 @@ export default function SchedulePicker({
         const today = new Date();
         return new Date(today.getFullYear(), today.getMonth(), 1);
     });
+
+    // Auto-clear selected slot if it becomes expired/closed for today
+    React.useEffect(() => {
+        if (selectedDate && selectedSlot) {
+            const isToday = selectedDate === formatDateString(new Date());
+            if (isToday && isSlotExpiredForToday(selectedSlot)) {
+                setSelectedSlot("");
+            }
+        }
+    }, [selectedDate, selectedSlot, setSelectedSlot]);
 
     const changeMonth = (offset: number) => {
         setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -328,7 +375,9 @@ export default function SchedulePicker({
                             {SLOTS.map((slot) => {
                                 const { booked, total } = getSlotDetails(selectedDate, slot);
                                 const isUnlimited = total >= 99999;
-                                const available = isUnlimited || booked < total;
+                                const isToday = selectedDate === formatDateString(new Date());
+                                const isExpired = isToday && isSlotExpiredForToday(slot);
+                                const available = (isUnlimited || booked < total) && !isExpired;
                                 const active = selectedSlot === slot;
                                 return (
                                     <button
@@ -342,7 +391,7 @@ export default function SchedulePicker({
                                                 ? "opacity-35 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5"
                                                 : active
                                                     ? "scale-[1.01]"
-                                                    : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-slate-350 dark:hover:border-white/20 hover:scale-[1.01]"
+                                                    : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-slate-355 dark:hover:border-white/20 hover:scale-[1.01]"
                                         )}
                                         style={active ? {
                                             borderColor: themeColor,
@@ -389,7 +438,7 @@ export default function SchedulePicker({
                                                 ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
                                                 : "bg-red-500/10 text-red-500 border border-red-500/20"
                                         )}>
-                                            {available ? "Available" : "Full"}
+                                            {available ? "Available" : (isExpired ? "Closed" : "Full")}
                                         </span>
                                     </button>
                                 );

@@ -262,6 +262,9 @@ export function MedicalConsultationForm({
     const validateDetailsStep = () => {
         const newErrors: Record<string, boolean> = {};
 
+        if (!selectedCenterId) {
+            newErrors.selectedCenterId = true;
+        }
         if (!additionalFields.checkupType) {
             newErrors.checkupType = true;
         }
@@ -569,6 +572,9 @@ export function MedicalConsultationForm({
                                                         errors.customRelationship && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                     )}
                                                 />
+                                                {errors.customRelationship && (
+                                                    <p className="text-[10px] text-red-500 font-medium mt-1">Relationship is required.</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -588,6 +594,9 @@ export function MedicalConsultationForm({
                                                     errors.firstName && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.firstName && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">First name is required.</p>
+                                            )}
                                         </div>
                                         <div className="space-y-1.5">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
@@ -603,6 +612,9 @@ export function MedicalConsultationForm({
                                                     errors.lastName && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.lastName && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Last name is required.</p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -617,21 +629,26 @@ export function MedicalConsultationForm({
                                                     className="h-10 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-xs font-bold"
                                                 />
                                             ) : (
-                                                <Select
-                                                    value={residentSnapshot.gender}
-                                                    onValueChange={v => setResidentSnapshot(prev => ({ ...prev, gender: v }))}
-                                                >
-                                                    <SelectTrigger className={cn(
-                                                        "h-10 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
-                                                        errors.gender && "border-red-500 dark:border-red-500 focus:outline-red-500"
-                                                    )}>
-                                                        <SelectValue placeholder="Select Gender" />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                        <SelectItem value="Male" className="text-xs font-bold rounded-lg">Male</SelectItem>
-                                                        <SelectItem value="Female" className="text-xs font-bold rounded-lg">Female</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <>
+                                                    <Select
+                                                        value={residentSnapshot.gender}
+                                                        onValueChange={v => setResidentSnapshot(prev => ({ ...prev, gender: v }))}
+                                                    >
+                                                        <SelectTrigger className={cn(
+                                                            "h-10 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
+                                                            errors.gender && "border-red-500 dark:border-red-500 focus:outline-red-500"
+                                                        )}>
+                                                            <SelectValue placeholder="Select Gender" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
+                                                            <SelectItem value="Male" className="text-xs font-bold rounded-lg">Male</SelectItem>
+                                                            <SelectItem value="Female" className="text-xs font-bold rounded-lg">Female</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {errors.gender && (
+                                                        <p className="text-[10px] text-red-500 font-medium mt-1">Gender is required.</p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         <div className="space-y-1.5">
@@ -648,6 +665,9 @@ export function MedicalConsultationForm({
                                                     errors.dateOfBirth && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.dateOfBirth && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Date of birth is required.</p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -664,6 +684,9 @@ export function MedicalConsultationForm({
                                                     errors.barangay && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.barangay && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Barangay is required.</p>
+                                            )}
                                         </div>
                                         <div className="space-y-1.5">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
@@ -677,6 +700,9 @@ export function MedicalConsultationForm({
                                                     errors.contactNumber && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.contactNumber && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Contact number is required.</p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -724,7 +750,10 @@ export function MedicalConsultationForm({
                                                     }
                                                 }}
                                             >
-                                                <SelectTrigger className="h-11 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus">
+                                                <SelectTrigger className={cn(
+                                                    "h-11 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
+                                                    errors.selectedCenterId && "border-red-500 dark:border-red-500 focus:outline-red-500"
+                                                )}>
                                                     <SelectValue placeholder="Select Health Center Location" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
@@ -735,8 +764,11 @@ export function MedicalConsultationForm({
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                            {errors.selectedCenterId && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Health center location is required.</p>
+                                            )}
                                         </div>
-
+ 
                                         {/* Center Location Map Preview Card — only show when a center is selected */}
                                         {selectedCenter && (
                                         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4 space-y-3">
@@ -761,7 +793,7 @@ export function MedicalConsultationForm({
                                                     Open Google Maps ↗
                                                 </a>
                                             </div>
-
+ 
                                             <div className="w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
                                                 <AllHealthCentersMap
                                                      centers={healthCenters.length > 0 ? healthCenters : [selectedCenter]}
@@ -769,7 +801,7 @@ export function MedicalConsultationForm({
                                                      onSelectCenter={(id) => setSelectedCenterId(id)}
                                                 />
                                             </div>
-
+ 
                                             <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400 pt-1">
                                                 {selectedCenter.operatingHours && (
                                                     <span className="flex items-center gap-1">
@@ -785,7 +817,7 @@ export function MedicalConsultationForm({
                                         </div>
                                         )}
                                     </div>
-
+ 
                                     {/* 2. Type of Check-up (Dynamically filtered by selected center) */}
                                     <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
                                         <div className="flex items-center justify-between">
@@ -821,9 +853,9 @@ export function MedicalConsultationForm({
                                                     const matched = offeredStr ? ALL_OPTIONS.filter(opt =>
                                                         opt.keywords.some(kw => offeredStr.includes(kw))
                                                     ) : ALL_OPTIONS;
-
+ 
                                                     const listToRender = matched.length > 0 ? matched : ALL_OPTIONS;
-
+ 
                                                     return listToRender.map(opt => (
                                                         <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold rounded-lg">
                                                             {opt.label}
@@ -832,8 +864,11 @@ export function MedicalConsultationForm({
                                                 })()}
                                             </SelectContent>
                                         </Select>
+                                        {errors.checkupType && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Type of check-up is required.</p>
+                                        )}
                                     </div>
-
+ 
                                     {additionalFields.checkupType === "OTHER" && (
                                         <div className="space-y-1.5 animate-fadeIn">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
@@ -848,9 +883,12 @@ export function MedicalConsultationForm({
                                                     errors.customCheckupTypeDetails && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                                 )}
                                             />
+                                            {errors.customCheckupTypeDetails && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1">Custom check-up type details are required.</p>
+                                            )}
                                         </div>
                                     )}
-
+ 
                                     {/* 3. Purpose / Symptoms / Remarks */}
                                     <div className="space-y-1.5">
                                         <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
@@ -865,6 +903,9 @@ export function MedicalConsultationForm({
                                                 errors.symptomsPurpose && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
                                             )}
                                         />
+                                        {errors.symptomsPurpose && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Purpose/Symptoms/Remarks details are required.</p>
+                                        )}
                                     </div>
                                 </div>
 

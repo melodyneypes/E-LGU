@@ -25,8 +25,8 @@ export async function getMatchedCenterForUser(user: any) {
     const userDept = (user.department || "").toLowerCase();
     const userIdStr = String(user.id);
 
-    // Global admin accounts (rhu@mapandan.gov.ph or main.rhu@mapandan.gov.ph) without medical personnel link see all centers
-    if (userEmail === "rhu@mapandan.gov.ph" || userEmail === "main.rhu@mapandan.gov.ph") {
+    // Global admin accounts (rhu@mapandan.gov.ph) without medical personnel link see all centers
+    if (userEmail === "rhu@mapandan.gov.ph") {
         return null;
     }
 

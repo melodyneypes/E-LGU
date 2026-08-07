@@ -103,6 +103,25 @@ export const STANDARD_HEALTH_SERVICES = [
     "Nutrition & Wellness Counseling"
 ];
 
+function formatPHPhoneNumber(value: string): string {
+    const clean = value.replace(/\D/g, "");
+    if (clean.startsWith("09")) {
+        // Mobile format: 0917-123-4567
+        const digits = clean.slice(0, 11);
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+        return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    } else if (clean.startsWith("0")) {
+        // Landline format: 075-123-4567
+        const digits = clean.slice(0, 10);
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+        return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    // Short codes or other formats: just raw digits up to 11 digits max
+    return clean.slice(0, 11);
+}
+
 interface RHUCentersClientProps {
     initialCenters: any[];
     initialPersonnel: any[];
@@ -118,11 +137,11 @@ export default function RHUCentersClient({
     currentUser,
     isCenterAdmin = false,
     matchedCenter,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    allActiveCentersCount
+    allActiveCentersCount = 0
 }: RHUCentersClientProps) {
     const [activeTab, setActiveTab] = useState<"centers" | "personnel">("centers");
     const [centers, setCenters] = useState<any[]>(initialCenters);
+    const [allActiveCount, setAllActiveCount] = useState(allActiveCentersCount);
     const [personnelList, setPersonnelList] = useState<any[]>(initialPersonnel);
     const [isPending, startTransition] = useTransition();
 
@@ -187,7 +206,7 @@ export default function RHUCentersClient({
     const [personnelErrors, setPersonnelErrors] = useState<Record<string, string>>({});
 
     const refreshData = async () => {
-        const [cRes, pRes] = await Promise.all([
+        const [cRes, pRes, unfilteredRes] = await Promise.all([
             getRHUHealthCenters({
                 search: searchQuery,
                 barangay: barangayFilter,
@@ -197,11 +216,17 @@ export default function RHUCentersClient({
                 search: personnelSearch,
                 role: roleFilter,
                 healthCenterId: personnelCenterFilter
-            })
+            }),
+            getRHUHealthCenters()
         ]);
 
         let fetchedCenters = cRes.success && cRes.data ? cRes.data : [];
         let fetchedPersonnel = pRes.success && pRes.data ? pRes.data : [];
+
+        if (unfilteredRes.success && unfilteredRes.data) {
+            const count = unfilteredRes.data.filter((c: any) => (c.status || "ACTIVE").toUpperCase() === "ACTIVE").length;
+            setAllActiveCount(count);
+        }
 
         if ((isCenterAdmin || matchedCenter) && currentUser) {
             const activeMatchedCenter = matchedCenter || fetchedCenters.find((c: any) =>
@@ -427,6 +452,40 @@ export default function RHUCentersClient({
         const errs: Record<string, string> = {};
         if (!formData.name || !formData.name.trim()) errs.name = "Health Center name is required";
         if (!formData.location || !formData.location.trim()) errs.location = "Location address is required";
+
+        // Validate Contact Hotline
+        if (formData.contactNumber && formData.contactNumber.trim()) {
+            const clean = formData.contactNumber.replace(/\D/g, "");
+            if (clean.startsWith("09")) {
+                if (clean.length !== 11) {
+                    errs.contactNumber = "Philippine mobile numbers must be exactly 11 digits (starts with 09)";
+                }
+            } else if (clean.startsWith("0")) {
+                if (clean.length !== 10) {
+                    errs.contactNumber = "Philippine landline numbers must be exactly 10 digits (starts with 0)";
+                }
+            } else {
+                if (clean.length < 3 || clean.length > 8) {
+                    errs.contactNumber = "Please enter a valid hotline number (e.g., 5-digit short code or 10-digit landline)";
+                }
+            }
+        }
+
+        // Validate Admin Account Password
+        if (formData.accountEmail && formData.accountEmail.trim()) {
+            const isNewInput = !editingCenter || 
+                               !editingCenter.accountEmail || 
+                               formData.accountEmail.trim().toLowerCase() !== editingCenter.accountEmail.trim().toLowerCase();
+                               
+            if (isNewInput) {
+                if (!formData.accountPassword || !formData.accountPassword.trim()) {
+                    errs.accountPassword = "Password is required for new admin accounts";
+                } else if (formData.accountPassword.trim().length < 6) {
+                    errs.accountPassword = "Password must be at least 6 characters long";
+                }
+            }
+        }
+
         setCenterErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -435,6 +494,25 @@ export default function RHUCentersClient({
         const errs: Record<string, string> = {};
         if (!personnelData.name || !personnelData.name.trim()) errs.name = "Personnel full name is required";
         if (!personnelData.role) errs.role = "Medical role selection is required";
+
+        // Validate Personnel Phone Number
+        if (personnelData.contactNumber && personnelData.contactNumber.trim()) {
+            const clean = personnelData.contactNumber.replace(/\D/g, "");
+            if (clean.startsWith("09")) {
+                if (clean.length !== 11) {
+                    errs.contactNumber = "Philippine mobile numbers must be exactly 11 digits (starts with 09)";
+                }
+            } else if (clean.startsWith("0")) {
+                if (clean.length !== 10) {
+                    errs.contactNumber = "Philippine landline numbers must be exactly 10 digits (starts with 0)";
+                }
+            } else {
+                if (clean.length < 3 || clean.length > 8) {
+                    errs.contactNumber = "Please enter a valid phone number (e.g. 11 digits starts with 09)";
+                }
+            }
+        }
+
         setPersonnelErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -696,7 +774,7 @@ export default function RHUCentersClient({
                         <div className="space-y-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Centers</p>
                             <h3 className="text-xl font-black text-rose-600 dark:text-rose-400">
-                                {totalCentersCount}
+                                {allActiveCount}
                             </h3>
                         </div>
                         <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-2xl">
@@ -1177,7 +1255,7 @@ export default function RHUCentersClient({
                                                         </div>
 
                                                         {centerPersonnel.length > 0 ? (
-                                                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
                                                                 {centerPersonnel.map((p: any) => {
                                                                     const badge = getRoleBadge(p.role);
                                                                     return (
@@ -1672,11 +1750,23 @@ export default function RHUCentersClient({
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Hotline</Label>
                                         <Input
                                             type="text"
-                                            placeholder="e.g., (075) 555-0102"
+                                            placeholder="e.g., 0917-123-4567 or 075-555-0102"
                                             value={formData.contactNumber}
-                                            onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                                            className="h-10 text-xs rounded-xl"
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, contactNumber: formatPHPhoneNumber(e.target.value) });
+                                                if (centerErrors.contactNumber) setCenterErrors(prev => ({ ...prev, contactNumber: "" }));
+                                            }}
+                                            className={`h-10 text-xs rounded-xl border ${
+                                                centerErrors.contactNumber
+                                                    ? "border-red-500 focus-visible:ring-red-500"
+                                                    : "border-slate-200 dark:border-slate-700"
+                                            }`}
                                         />
+                                        {centerErrors.contactNumber && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1 animate-fadeIn">
+                                                {centerErrors.contactNumber}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1828,15 +1918,37 @@ export default function RHUCentersClient({
                                         <div className="space-y-1">
                                             <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-between">
                                                 <span>Account Password</span>
-                                                {editingCenter && <span className="text-[9px] text-slate-400 font-normal">(Optional)</span>}
+                                                {formData.accountEmail && formData.accountEmail.trim() && (
+                                                    (!editingCenter || !editingCenter.accountEmail || formData.accountEmail.trim().toLowerCase() !== editingCenter.accountEmail.trim().toLowerCase())
+                                                ) ? (
+                                                    <span className="text-[9px] text-rose-500 font-semibold">*Required</span>
+                                                ) : (
+                                                    <span className="text-[9px] text-slate-400 font-normal">(Optional)</span>
+                                                )}
                                             </Label>
                                             <Input
                                                 type="password"
-                                                placeholder={editingCenter ? "Leave blank to keep current" : "Default: mapandan123"}
+                                                placeholder={
+                                                    formData.accountEmail && formData.accountEmail.trim() && (
+                                                        (!editingCenter || !editingCenter.accountEmail || formData.accountEmail.trim().toLowerCase() !== editingCenter.accountEmail.trim().toLowerCase())
+                                                    ) ? "Enter account password" : "Leave blank to keep current"
+                                                }
                                                 value={formData.accountPassword || ""}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, accountPassword: e.target.value }))}
-                                                className="h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                                onChange={(e) => {
+                                                    setFormData(prev => ({ ...prev, accountPassword: e.target.value }));
+                                                    if (centerErrors.accountPassword) setCenterErrors(prev => ({ ...prev, accountPassword: "" }));
+                                                }}
+                                                className={`h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border ${
+                                                    centerErrors.accountPassword
+                                                        ? "border-red-500 focus-visible:ring-red-500"
+                                                        : "border-slate-200 dark:border-slate-700"
+                                                }`}
                                             />
+                                            {centerErrors.accountPassword && (
+                                                <p className="text-[10px] text-red-500 font-medium mt-1 animate-fadeIn">
+                                                    {centerErrors.accountPassword}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
@@ -2036,20 +2148,36 @@ export default function RHUCentersClient({
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                        type="text"
-                                        placeholder="Phone"
-                                        value={personnelData.contactNumber}
-                                        onChange={(e) => setPersonnelData({ ...personnelData, contactNumber: e.target.value })}
-                                        className="h-10 text-xs rounded-xl"
-                                    />
-                                    <Input
-                                        type="email"
-                                        placeholder="Email"
-                                        value={personnelData.email}
-                                        onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
-                                        className="h-10 text-xs rounded-xl"
-                                    />
+                                    <div className="flex flex-col gap-1">
+                                        <Input
+                                            type="text"
+                                            placeholder="Phone (e.g. 0917-123-4567)"
+                                            value={personnelData.contactNumber}
+                                            onChange={(e) => {
+                                                setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
+                                                if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
+                                            }}
+                                            className={`h-10 text-xs rounded-xl border ${
+                                                personnelErrors.contactNumber
+                                                    ? "border-red-500 focus-visible:ring-red-500"
+                                                    : "border-slate-200 dark:border-slate-700"
+                                            }`}
+                                        />
+                                        {personnelErrors.contactNumber && (
+                                            <p className="text-[10px] text-red-500 font-medium leading-none mt-1 animate-fadeIn">
+                                                {personnelErrors.contactNumber}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <Input
+                                            type="email"
+                                            placeholder="Email"
+                                            value={personnelData.email}
+                                            onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
+                                            className="h-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
