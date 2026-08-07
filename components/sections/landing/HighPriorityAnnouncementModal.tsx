@@ -297,7 +297,7 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
 
                                         {/* Details Text & Metadata Column */}
                                         <div className="md:col-span-6 space-y-2.5 flex flex-col justify-between">
-                                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-none p-3.5 space-y-2 shadow-inner h-full flex items-center">
+                                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-none p-3.5 space-y-2 shadow-inner h-full max-h-[160px] sm:max-h-[240px] md:max-h-[320px] overflow-y-auto custom-scrollbar">
                                                 <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-line break-words">
                                                     {activeAnnouncement.content}
                                                 </p>
@@ -317,7 +317,7 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        <div className="bg-slate-900/90 border border-slate-800/90 rounded-none p-3.5 sm:p-4 space-y-2 shadow-inner">
+                                        <div className="bg-slate-900/90 border border-slate-800/90 rounded-none p-3.5 sm:p-4 space-y-2 shadow-inner max-h-[160px] sm:max-h-[240px] md:max-h-[320px] overflow-y-auto custom-scrollbar">
                                             <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed whitespace-pre-line break-words">
                                                 {activeAnnouncement.content}
                                             </p>
