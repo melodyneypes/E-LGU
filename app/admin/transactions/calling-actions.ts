@@ -820,3 +820,156 @@ export async function callSpecificRHUTicket(ticketId: string, counterName: strin
     }
 }
 
+// ----------------------------------------------------
+// ASSESSOR DEPARTMENT QUEUE ACTIONS
+// ----------------------------------------------------
+
+export async function getAssessorQueueTickets(counterName: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "ASSESSOR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const allAssessorTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "RPT_ASSESSOR" } },
+                    { type: { category: "Assessor" } },
+                    { type: { code: { startsWith: "RPT_ASSESSOR" } } },
+                    { type: { code: { startsWith: "ASSESSOR_" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_PROCESSING", "EVALUATED"] },
+                isCancelled: false
+            },
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
+        });
+
+        const waiting = allAssessorTxs.filter(tx => {
+            const addData = (tx.additionalData as any) || {};
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+            return isCheckedIn && !hasCounter;
+        });
+
+        const serving = allAssessorTxs.filter(tx => {
+            const addData = (tx.additionalData as any) || {};
+            return (tx.status === "FOR_PROCESSING" || tx.status === "EVALUATED") && addData.counterName === counterName;
+        });
+
+        const sortedWaiting = waiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        return { success: true, data: { waiting: sortedWaiting, serving } };
+    } catch (error) {
+        console.error("Failed to fetch Assessor queue tickets:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function fetchAndCallNextAssessorTicket(counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "ASSESSOR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
+
+        const allAssessorTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "RPT_ASSESSOR" } },
+                    { type: { category: "Assessor" } },
+                    { type: { code: { startsWith: "RPT_ASSESSOR" } } },
+                    { type: { code: { startsWith: "ASSESSOR_" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                isCancelled: false
+            }
+        });
+
+        const unassigned = allAssessorTxs.filter(tx => {
+            const addData = (tx.additionalData as any) || {};
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+            return isCheckedIn && !hasCounter;
+        });
+
+        if (unassigned.length === 0) {
+            return { success: false, error: "No applicants are currently waiting in the Assessor queue." };
+        }
+
+        const sorted = unassigned.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        const nextTx = sorted[0];
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: nextTx.id },
+            data: {
+                status: "FOR_PROCESSING",
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "Assessor" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/assessor");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to fetch and call next Assessor ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function callSpecificAssessorTicket(ticketId: string, counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "ASSESSOR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
+        if (!tx) return { success: false, error: "Ticket not found" };
+
+        const currentAdditionalData = (tx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: ticketId },
+            data: {
+                status: "FOR_PROCESSING",
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "Assessor" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/assessor");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to call specific Assessor ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
