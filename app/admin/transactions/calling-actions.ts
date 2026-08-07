@@ -6,62 +6,40 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sanitizeString } from "@/lib/validation";
 
-const ALLOWED_ROLES = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "ASSESSOR", "POSO_OFFICER"];
-
-async function verifyAuthUser() {
-    const session = await getServerSession(authOptions);
-    const user = session?.user as any;
-    if (!user || !ALLOWED_ROLES.includes(user.role)) {
-        return null;
-    }
-    return user;
-}
-
-function parseAdditionalData(raw: any): Record<string, any> {
-    if (!raw) return {};
-    if (typeof raw === "string") {
-        try {
-            return JSON.parse(raw);
-        } catch {
-            return {};
-        }
-    }
-    return raw;
-}
-
-// ----------------------------------------------------
-// GENERAL / GENERIC CALLING ACTIONS
-// ----------------------------------------------------
-
 export async function callTicketToCounter(id: string, counterName: string) {
     try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
-
         const sanitizedId = sanitizeString(id);
         const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
 
         const transaction = await prisma.transaction.findUnique({
             where: { id: sanitizedId },
             include: { type: true }
         });
 
-        if (!transaction) return { success: false, error: "Transaction not found" };
+        if (!transaction) {
+            return { success: false, error: "Transaction not found" };
+        }
 
+        // Avoid changing status if the transaction is already finalized
         const finalStatuses = ["RELEASED", "CANCELLED", "REJECTED", "DELIVERED"];
         if (finalStatuses.includes(transaction.status)) {
             return { success: true, message: "Transaction already finalized" };
         }
 
-        const currentAdditionalData = parseAdditionalData(transaction.additionalData);
-        const isAssessor = user.role === "ASSESSOR" || user.department?.toUpperCase() === "ASSESSOR";
+        const currentAdditionalData = (transaction.additionalData as any) || {};
         const isTreasury = user.role === "TREASURY_STAFF" || user.department?.toUpperCase() === "TREASURY";
-        const servingDept = isAssessor ? "Assessor" : isTreasury ? "Treasury" : "BPLO";
-
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
-            servingDepartment: servingDept
+            servingDepartment: isTreasury ? "Treasury" : "BPLO"
         };
 
         const updated = await prisma.transaction.update({
@@ -74,7 +52,6 @@ export async function callTicketToCounter(id: string, counterName: string) {
         });
 
         revalidatePath("/admin/treasury");
-        revalidatePath("/admin/assessor");
         revalidatePath("/queue");
 
         return { success: true, data: updated };
@@ -84,57 +61,85 @@ export async function callTicketToCounter(id: string, counterName: string) {
     }
 }
 
-// ----------------------------------------------------
-// TREASURY DEPARTMENT QUEUE ACTIONS
-// ----------------------------------------------------
-
 export async function fetchAndCallNextTicket(counterName: string) {
     try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
-
         const sanitizedCounterName = sanitizeString(counterName);
 
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Fetch all matching queue tickets waiting for Treasury
         const transactions = await prisma.transaction.findMany({
             where: {
                 OR: [
-                    { type: { category: "POSO" }, status: "UNPAID" },
-                    { type: { code: { startsWith: "POSO_" } }, status: "UNPAID" },
-                    { type: { processorRole: "TREASURY_STAFF", category: "CEDULA" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
-                    { type: { code: "RPT_CAT1" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
-                    { status: "UNPAID" }
+                    // CEDULA walk-ins
+                    {
+                        type: {
+                            processorRole: "TREASURY_STAFF",
+                            category: "CEDULA"
+                        },
+                        status: {
+                            in: ["FOR_REQUESTING", "FOR_INSPECTION"]
+                        }
+                    },
+                    // Standard UNPAID transactions
+                    {
+                        status: "UNPAID"
+                    },
+                    // PSA Appointment Endorsements awaiting Treasury counter payment
+                    {
+                        type: {
+                            code: {
+                                in: [
+                                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                                ]
+                            }
+                        },
+                        status: "UNPAID"
+                    }
                 ],
-                isCancelled: false
+                isCancelled: false,
+                appointmentDate: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                },
+                additionalData: {
+                    path: ["checkedIn"],
+                    equals: true
+                }
             }
         });
 
-        const unassignedWaiting = transactions.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
-        });
-
-        if (unassignedWaiting.length === 0) {
-            return { success: false, error: "No tickets currently waiting for Treasury." };
+        if (transactions.length === 0) {
+            return { success: false, error: "No citizens are currently waiting in line." };
         }
 
-        const sorted = unassignedWaiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
+        // Sort: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
+        const sorted = transactions.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
 
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         const nextTx = sorted[0];
-        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
+
+        // Call the next ticket using our existing function logic
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
@@ -155,91 +160,29 @@ export async function fetchAndCallNextTicket(counterName: string) {
 
         return { success: true, data: updated };
     } catch (error) {
-        console.error("Failed to fetch and call next Treasury ticket:", error);
+        console.error("Failed to fetch and call next ticket:", error);
         return { success: false, error: "Internal server error" };
     }
 }
-
-export async function getTreasuryQueueTickets(counterName: string) {
-    try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
-
-        const allRawWaiting = await prisma.transaction.findMany({
-            where: {
-                OR: [
-                    { type: { category: "POSO" }, status: "UNPAID" },
-                    { type: { code: { startsWith: "POSO_" } }, status: "UNPAID" },
-                    { type: { processorRole: "TREASURY_STAFF", category: "CEDULA" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
-                    { type: { code: "RPT_CAT1" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
-                    { status: "UNPAID" }
-                ],
-                isCancelled: false
-            },
-            include: {
-                type: true,
-                user: {
-                    include: {
-                        residentProfile: true
-                    }
-                }
-            }
-        });
-
-        const waiting = allRawWaiting.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
-        });
-
-        const serving = allRawWaiting.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            return tx.status === "FOR_PROCESSING" && addData.counterName === counterName;
-        });
-
-        const sortedWaiting = waiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
-        });
-
-        return {
-            success: true,
-            data: {
-                waiting: sortedWaiting,
-                serving: serving
-            }
-        };
-    } catch (error) {
-        console.error("Failed to fetch Treasury queue tickets:", error);
-        return { success: false, error: "Internal server error" };
-    }
-}
-
-// ----------------------------------------------------
-// BPLO DEPARTMENT QUEUE ACTIONS
-// ----------------------------------------------------
 
 export async function fetchAndCallNextBploTicket(counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
 
         const startOfDay = new Date();
         startOfDay.setUTCHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
+        // Fetch all matching queue tickets waiting for BPLO (Business Permits)
         const transactions = await prisma.transaction.findMany({
             where: {
                 type: {
@@ -252,38 +195,31 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
                 appointmentDate: {
                     gte: startOfDay,
                     lte: endOfDay
+                },
+                additionalData: {
+                    path: ["checkedIn"],
+                    equals: true
                 }
             }
         });
 
-        const unassignedWaiting = transactions.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
-        });
-
-        if (unassignedWaiting.length === 0) {
+        if (transactions.length === 0) {
             return { success: false, error: "No commercial applicants are currently waiting in line." };
         }
 
-        const sorted = unassignedWaiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
+        // Sort: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
+        const sorted = transactions.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
 
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         const nextTx = sorted[0];
 
-        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
@@ -310,15 +246,20 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
 
 export async function getBploQueueTickets(counterName: string) {
     try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
         const startOfDay = new Date();
         startOfDay.setUTCHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        const allBploTxs = await prisma.transaction.findMany({
+        // Fetch waiting tickets
+        const waiting = await prisma.transaction.findMany({
             where: {
                 type: {
                     code: { startsWith: "BUSINESS_PERMIT" }
@@ -330,6 +271,10 @@ export async function getBploQueueTickets(counterName: string) {
                 appointmentDate: {
                     gte: startOfDay,
                     lte: endOfDay
+                },
+                additionalData: {
+                    path: ["checkedIn"],
+                    equals: true
                 }
             },
             include: {
@@ -337,30 +282,43 @@ export async function getBploQueueTickets(counterName: string) {
             }
         });
 
-        const waiting = allBploTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
+        // Fetch currently serving at this counter
+        const serving = await prisma.transaction.findMany({
+            where: {
+                type: {
+                    code: { startsWith: "BUSINESS_PERMIT" }
+                },
+                status: {
+                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
+                },
+                isCancelled: false,
+                appointmentDate: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                },
+                additionalData: {
+                    path: ["counterName"],
+                    equals: counterName
+                }
+            },
+            include: {
+                businessPermit: true
+            }
         });
 
-        const serving = allBploTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            return addData.counterName === counterName;
+        // Sort waiting queue and filter out already called/assigned tickets
+        const filteredWaiting = waiting.filter(tx => {
+            const addData = tx.additionalData as any;
+            return !addData || !addData.counterName;
         });
 
-        const sortedWaiting = waiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
+        const sortedWaiting = filteredWaiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
 
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         return {
@@ -379,16 +337,23 @@ export async function getBploQueueTickets(counterName: string) {
 export async function callSpecificBploTicket(ticketId: string, counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
         const tx = await prisma.transaction.findUnique({
             where: { id: ticketId }
         });
 
-        if (!tx) return { success: false, error: "Ticket not found" };
+        if (!tx) {
+            return { success: false, error: "Ticket not found" };
+        }
 
-        const currentAdditionalData = parseAdditionalData(tx.additionalData);
+        const currentAdditionalData = (tx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
@@ -414,15 +379,145 @@ export async function callSpecificBploTicket(ticketId: string, counterName: stri
     }
 }
 
-// ----------------------------------------------------
-// REGISTRAR / CIVIL REGISTRY QUEUE ACTIONS
-// ----------------------------------------------------
+export async function getTreasuryQueueTickets(counterName: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const startOfDay = new Date();
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        // Fetch waiting tickets
+        const allRawWaiting = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    // POSO Citation Fine transactions waiting to pay at Treasury
+                    {
+                        type: {
+                            category: "POSO"
+                        },
+                        status: "UNPAID"
+                    },
+                    // CEDULA walk-ins waiting at treasury
+                    {
+                        type: {
+                            processorRole: "TREASURY_STAFF",
+                            category: "CEDULA"
+                        },
+                        status: {
+                            in: ["FOR_REQUESTING", "FOR_INSPECTION"]
+                        }
+                    },
+                    // Standard UNPAID transactions waiting to pay
+                    {
+                        status: "UNPAID",
+                        NOT: {
+                            type: {
+                                code: {
+                                    in: [
+                                        "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                        "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                        "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    // PSA Appointment Endorsements awaiting Treasury counter payment
+                    {
+                        type: {
+                            code: {
+                                in: [
+                                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                                ]
+                            }
+                        },
+                        status: "UNPAID",
+                        appointmentDate: {
+                            gte: startOfDay,
+                            lte: endOfDay
+                        }
+                    }
+                ],
+                isCancelled: false
+            },
+            include: {
+                type: true,
+                user: {
+                    include: {
+                        residentProfile: true
+                    }
+                }
+            }
+        });
+
+        // Filter in JS: checked-in tickets that have not yet been assigned to a counter
+        const waiting = allRawWaiting.filter(tx => {
+            const addData = (tx.additionalData as any) || {};
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            return isCheckedIn && !addData.counterName;
+        });
+
+        // Fetch currently serving at this counter
+        const serving = await prisma.transaction.findMany({
+            where: {
+                status: "FOR_PROCESSING",
+                isCancelled: false,
+                additionalData: {
+                    path: ["counterName"],
+                    equals: counterName
+                }
+            },
+            include: {
+                user: {
+                    include: {
+                        residentProfile: true
+                    }
+                }
+            }
+        });
+
+        // Sort waiting queue
+        const sortedWaiting = waiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        return {
+            success: true,
+            data: {
+                waiting: sortedWaiting,
+                serving: serving
+            }
+        };
+    } catch (error) {
+        console.error("Failed to fetch Treasury queue tickets:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
 
 export async function getRegistrarQueueTickets(counterName: string) {
     try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
+        // Fetch all Civil Registry tickets that are in a waiting status
         const allCivilTxs = await prisma.transaction.findMany({
             where: {
                 OR: [
@@ -431,7 +526,7 @@ export async function getRegistrarQueueTickets(counterName: string) {
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_CLAIM", "FOR_PICKING"] },
-                isCancelled: false
+                isCancelled: false,
             },
             include: {
                 type: true,
@@ -439,30 +534,40 @@ export async function getRegistrarQueueTickets(counterName: string) {
             }
         });
 
-        const waiting = allCivilTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
+        const filteredWaiting = allCivilTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            return addData && !!addData.checkedIn && !addData.counterName;
         });
 
-        const serving = allCivilTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            return (tx.status === "FOR_PROCESSING" || tx.status === "FOR_CLAIM" || tx.status === "FOR_PICKING") && addData.counterName === counterName;
+        // Fetch currently serving at this counter (all Civil Registry FOR_PROCESSING)
+        const allServing = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Civil Registry" } },
+                    { type: { code: { startsWith: "LCR_" } } },
+                    { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
+                ],
+                status: { in: ["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"] },
+                isCancelled: false,
+            },
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
         });
 
-        const sortedWaiting = waiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
+        // Filter in JS: only tickets at this specific counter
+        const serving = allServing.filter(tx => {
+            const addData = tx.additionalData as any;
+            return addData?.counterName === counterName;
+        });
 
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+        const sortedWaiting = filteredWaiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         return { success: true, data: { waiting: sortedWaiting, serving } };
@@ -475,8 +580,13 @@ export async function getRegistrarQueueTickets(counterName: string) {
 export async function fetchAndCallNextRegistrarTicket(counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
 
         const allCivilTxs = await prisma.transaction.findMany({
             where: {
@@ -486,15 +596,14 @@ export async function fetchAndCallNextRegistrarTicket(counterName: string) {
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_CLAIM", "FOR_PICKING"] },
-                isCancelled: false
+                isCancelled: false,
             }
         });
 
+        // Filter in JS: checked-in and no counter assigned yet
         const unassigned = allCivilTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
+            const addData = tx.additionalData as any;
+            return addData && !!addData.checkedIn && !addData.counterName;
         });
 
         if (unassigned.length === 0) {
@@ -502,21 +611,15 @@ export async function fetchAndCallNextRegistrarTicket(counterName: string) {
         }
 
         const sorted = unassigned.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         const nextTx = sorted[0];
-        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updated = await prisma.transaction.update({
             where: { id: nextTx.id },
             data: {
@@ -538,13 +641,18 @@ export async function fetchAndCallNextRegistrarTicket(counterName: string) {
 export async function callSpecificRegistrarTicket(ticketId: string, counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
         const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
         if (!tx) return { success: false, error: "Ticket not found" };
 
-        const currentAdditionalData = parseAdditionalData(tx.additionalData);
+        const currentAdditionalData = (tx.additionalData as any) || {};
         const updated = await prisma.transaction.update({
             where: { id: ticketId },
             data: {
@@ -563,14 +671,14 @@ export async function callSpecificRegistrarTicket(ticketId: string, counterName:
     }
 }
 
-// ----------------------------------------------------
-// RHU (RURAL HEALTH UNIT) QUEUE ACTIONS
-// ----------------------------------------------------
-
 export async function getRHUQueueTickets(counterName: string) {
     try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
         const allRHUTxs = await prisma.transaction.findMany({
             where: {
@@ -579,7 +687,7 @@ export async function getRHUQueueTickets(counterName: string) {
                     { type: { code: { startsWith: "RHU_" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "EVALUATED", "FOR_PROCESSING"] },
-                isCancelled: false
+                isCancelled: false,
             },
             include: {
                 type: true,
@@ -587,30 +695,23 @@ export async function getRHUQueueTickets(counterName: string) {
             }
         });
 
-        const waiting = allRHUTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = tx.status === "FOR_INSPECTION" || Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
+        const filteredWaiting = allRHUTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            const isCheckedIn = tx.status === "FOR_INSPECTION" || (addData && !!addData.checkedIn);
+            return isCheckedIn && (!addData || !addData.counterName);
         });
 
         const serving = allRHUTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            return (tx.status === "EVALUATED" || tx.status === "FOR_PROCESSING") && addData.counterName === counterName;
+            const addData = tx.additionalData as any;
+            return (tx.status === "EVALUATED" || tx.status === "FOR_PROCESSING") && addData?.counterName === counterName;
         });
 
-        const sortedWaiting = waiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+        const sortedWaiting = filteredWaiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         return { success: true, data: { waiting: sortedWaiting, serving } };
@@ -623,8 +724,13 @@ export async function getRHUQueueTickets(counterName: string) {
 export async function fetchAndCallNextRHUTicket(counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
 
         const allRHUTxs = await prisma.transaction.findMany({
             where: {
@@ -633,15 +739,14 @@ export async function fetchAndCallNextRHUTicket(counterName: string) {
                     { type: { code: { startsWith: "RHU_" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
-                isCancelled: false
+                isCancelled: false,
             }
         });
 
         const unassigned = allRHUTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = tx.status === "FOR_INSPECTION" || Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
+            const addData = tx.additionalData as any;
+            const isCheckedIn = tx.status === "FOR_INSPECTION" || (addData && !!addData.checkedIn);
+            return isCheckedIn && (!addData || !addData.counterName);
         });
 
         if (unassigned.length === 0) {
@@ -649,21 +754,15 @@ export async function fetchAndCallNextRHUTicket(counterName: string) {
         }
 
         const sorted = unassigned.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
         });
 
         const nextTx = sorted[0];
-        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updated = await prisma.transaction.update({
             where: { id: nextTx.id },
             data: {
@@ -685,13 +784,18 @@ export async function fetchAndCallNextRHUTicket(counterName: string) {
 export async function callSpecificRHUTicket(ticketId: string, counterName: string) {
     try {
         const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
 
         const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
         if (!tx) return { success: false, error: "Ticket not found" };
 
-        const currentAdditionalData = parseAdditionalData(tx.additionalData);
+        const currentAdditionalData = (tx.additionalData as any) || {};
         const updated = await prisma.transaction.update({
             where: { id: ticketId },
             data: {
@@ -710,149 +814,3 @@ export async function callSpecificRHUTicket(ticketId: string, counterName: strin
     }
 }
 
-// ----------------------------------------------------
-// POSO (PUBLIC ORDER & SAFETY OFFICE) QUEUE ACTIONS
-// ----------------------------------------------------
-
-export async function getPosoQueueTickets(counterName: string) {
-    try {
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
-
-        const allPosoTxs = await prisma.transaction.findMany({
-            where: {
-                OR: [
-                    { type: { category: "POSO" } },
-                    { type: { code: { startsWith: "POSO_" } } }
-                ],
-                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID", "FOR_PROCESSING"] },
-                isCancelled: false
-            },
-            include: {
-                type: true,
-                user: { include: { residentProfile: true } }
-            }
-        });
-
-        const waiting = allPosoTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
-        });
-
-        const serving = allPosoTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            return (tx.status === "FOR_PROCESSING" || tx.status === "UNPAID") && addData.counterName === counterName;
-        });
-
-        const sortedWaiting = waiting.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
-        });
-
-        return { success: true, data: { waiting: sortedWaiting, serving } };
-    } catch (error) {
-        console.error("Failed to fetch POSO queue tickets:", error);
-        return { success: false, error: "Internal server error" };
-    }
-}
-
-export async function fetchAndCallNextPosoTicket(counterName: string) {
-    try {
-        const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Forbidden: Unauthorized role" };
-
-        const allPosoTxs = await prisma.transaction.findMany({
-            where: {
-                OR: [
-                    { type: { category: "POSO" } },
-                    { type: { code: { startsWith: "POSO_" } } }
-                ],
-                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"] },
-                isCancelled: false
-            }
-        });
-
-        const unassigned = allPosoTxs.filter(tx => {
-            const addData = parseAdditionalData(tx.additionalData);
-            const isCheckedIn = Boolean(addData.checkedIn === true);
-            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
-            return isCheckedIn && !hasCounter;
-        });
-
-        if (unassigned.length === 0) {
-            return { success: false, error: "No tickets currently waiting in the POSO queue." };
-        }
-
-        const sorted = unassigned.sort((a, b) => {
-            const aPriority = Boolean(a.isPriority);
-            const bPriority = Boolean(b.isPriority);
-
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-
-            const aData = parseAdditionalData(a.additionalData);
-            const bData = parseAdditionalData(b.additionalData);
-            const aTime = new Date(aData.checkedInAt || a.createdAt).getTime();
-            const bTime = new Date(bData.checkedInAt || b.createdAt).getTime();
-            return aTime - bTime;
-        });
-
-        const nextTx = sorted[0];
-        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
-        const updated = await prisma.transaction.update({
-            where: { id: nextTx.id },
-            data: {
-                status: "FOR_PROCESSING",
-                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "POSO" },
-                updatedAt: new Date()
-            }
-        });
-
-        revalidatePath("/admin/poso");
-        revalidatePath("/queue");
-        return { success: true, data: updated };
-    } catch (error) {
-        console.error("Failed to fetch and call next POSO ticket:", error);
-        return { success: false, error: "Internal server error" };
-    }
-}
-
-export async function callSpecificPosoTicket(ticketId: string, counterName: string) {
-    try {
-        const sanitizedCounterName = sanitizeString(counterName);
-        const user = await verifyAuthUser();
-        if (!user) return { success: false, error: "Unauthorized" };
-
-        const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
-        if (!tx) return { success: false, error: "Ticket not found" };
-
-        const currentAdditionalData = parseAdditionalData(tx.additionalData);
-        const updated = await prisma.transaction.update({
-            where: { id: ticketId },
-            data: {
-                status: "FOR_PROCESSING",
-                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "POSO" },
-                updatedAt: new Date()
-            }
-        });
-
-        revalidatePath("/admin/poso");
-        revalidatePath("/queue");
-        return { success: true, data: updated };
-    } catch (error) {
-        console.error("Failed to call specific POSO ticket:", error);
-        return { success: false, error: "Internal server error" };
-    }
-}
