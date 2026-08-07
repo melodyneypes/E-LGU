@@ -61,10 +61,63 @@ export async function getAssessorTransactions() {
     }
 }
 
+export async function getAssessorTransactionById(id: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id },
+            include: {
+                user: { select: { name: true, email: true } },
+                type: true
+            }
+        });
+
+        if (!tx) {
+            return { success: false, error: "Transaction not found" };
+        }
+
+        const addData = (tx.additionalData as any) || {};
+        const combined = {
+            ...tx,
+            realPropertyTax: {
+                rptCategory: addData.categoryCode || tx.type?.code,
+                tdn: addData.tdn,
+                pin: addData.pin,
+                ownerName: addData.ownerName,
+                propertyAddress: addData.propertyAddress,
+                barangay: addData.barangay,
+                propertyType: addData.propertyType,
+                assessedValue: addData.assessedValue,
+                basicTax: addData.basicTax,
+                sefTax: addData.sefTax,
+                totalTaxDue: addData.totalTaxDue,
+                validIdUrl: addData.validIdUrl,
+                previousOrUrl: addData.previousOrUrl,
+                buildingPermitUrl: addData.buildingPermitUrl,
+                deedOfSaleUrl: addData.deedOfSaleUrl,
+                titleUrl: addData.titleUrl,
+                birEcarUrl: addData.birEcarUrl,
+                assessorStatus: addData.assessorStatus || "PENDING",
+                treasuryStatus: addData.treasuryStatus || "PENDING"
+            }
+        };
+
+        return { success: true, data: JSON.parse(JSON.stringify(combined)) };
+    } catch (err: any) {
+        console.error("Error fetching Assessor transaction by ID:", err);
+        return { success: false, error: err?.message || "Failed to fetch transaction" };
+    }
+}
+
 export async function evaluateAssessorTransaction(
     id: string,
     action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION",
-    remarks?: string
+    remarks?: string,
+    inspectionDetails?: { date: string; time: string }
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -81,52 +134,54 @@ export async function evaluateAssessorTransaction(
             return { success: false, error: "Transaction not found" };
         }
 
+        const currentAddData = (tx.additionalData as any) || {};
+        let nextStatus = tx.status;
+        let assessorStatus = currentAddData.assessorStatus || "PENDING";
+        const extraAddData: any = {};
+
         if (action === "APPROVE") {
-            // Once approved by Assessor, advance status to FOR_REQUESTING so Treasury can bill/issue OR
-            await prisma.transaction.update({
-                where: { id },
-                data: {
-                    status: "FOR_REQUESTING",
-                    processedBy: session.user.name || session.user.email || "Assessor Staff"
-                }
-            });
-            await (prisma as any).realPropertyTax.updateMany({
-                where: { transactionId: id },
-                data: { assessorStatus: "APPROVED" }
-            });
+            nextStatus = "FOR_REQUESTING";
+            assessorStatus = "APPROVED";
         } else if (action === "REJECT") {
-            await prisma.transaction.update({
-                where: { id },
-                data: {
-                    status: "REJECTED",
-                    rejectionRemarks: remarks || "Application rejected by Municipal Assessor",
-                    processedBy: session.user.name || session.user.email || "Assessor Staff"
-                }
-            });
-            await (prisma as any).realPropertyTax.updateMany({
-                where: { transactionId: id },
-                data: { assessorStatus: "REJECTED" }
-            });
+            nextStatus = "REJECTED";
+            assessorStatus = "REJECTED";
         } else if (action === "SCHEDULE_INSPECTION") {
-            await prisma.transaction.update({
-                where: { id },
-                data: {
-                    status: "FOR_INSPECTION",
-                    processedBy: session.user.name || session.user.email || "Assessor Staff"
-                }
-            });
-            await (prisma as any).realPropertyTax.updateMany({
-                where: { transactionId: id },
-                data: { assessorStatus: "FOR_INSPECTION" }
-            });
+            nextStatus = "FOR_INSPECTION";
+            assessorStatus = "FOR_INSPECTION";
+            if (inspectionDetails) {
+                extraAddData.inspectionDate = inspectionDetails.date;
+                extraAddData.inspectionTime = inspectionDetails.time;
+            }
         }
 
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: nextStatus,
+                rejectionRemarks: action === "REJECT" ? (remarks || "Application rejected by Municipal Assessor") : tx.rejectionRemarks,
+                processedBy: session.user.name || session.user.email || "Assessor Staff",
+                additionalData: {
+                    ...currentAddData,
+                    ...extraAddData,
+                    assessorStatus
+                }
+            }
+        });
+
+        // Keep realPropertyTax table in sync for assessor status
+        await (prisma as any).realPropertyTax.updateMany({
+            where: { transactionId: id },
+            data: { assessorStatus }
+        });
+
         revalidatePath("/admin/assessor");
+        revalidatePath(`/admin/assessor/${id}`);
+        revalidatePath("/admin/treasury");
         revalidatePath("/admin/treasury");
 
         return { success: true };
     } catch (err: any) {
         console.error("Error evaluating Assessor transaction:", err);
-        return { success: false, error: err?.message || "Evaluation failed" };
+        return { success: false, error: err?.message || "Failed to evaluate transaction" };
     }
 }

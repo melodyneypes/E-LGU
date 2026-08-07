@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { getAssessorTransactions, evaluateAssessorTransaction } from "@/app/admin/transactions/rpt-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function AssessorDashboard() {
     const searchParams = useSearchParams();
@@ -27,20 +28,50 @@ export default function AssessorDashboard() {
     const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
     const [isActionPending, setIsActionPending] = useState<boolean>(false);
 
-    const fetchTransactions = async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         const res = await getAssessorTransactions();
         if (res.success && res.data) {
             setTransactions(res.data);
-        } else {
+        } else if (!silent) {
             toast.error(res.error || "Failed to load transactions.");
         }
-        setLoading(false);
-    };
+        if (!silent) setLoading(false);
+    }, []);
 
     useEffect(() => {
         fetchTransactions();
-    }, []);
+
+        // Supabase Real-Time Live Subscription
+        const channel = supabase
+            .channel("admin-assessor-realtime-channel")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction"
+                },
+                (payload: any) => {
+                    console.log("[AssessorDashboard] Realtime change detected:", payload);
+                    toast.info("⚡ Realtime Update: Assessor applications updated live.", { id: "realtime-update-assessor" });
+                    fetchTransactions(true);
+                }
+            )
+            .subscribe();
+
+        // 10s Fallback Polling
+        const interval = setInterval(() => {
+            fetchTransactions(true);
+        }, 10000);
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+            clearInterval(interval);
+        };
+    }, [fetchTransactions]);
 
     const filtered = transactions.filter((tx) => {
         const query = search.toLowerCase();
@@ -54,7 +85,11 @@ export default function AssessorDashboard() {
         return matchesCategory && (name.includes(query) || tdn.includes(query) || queueNum.includes(query));
     });
 
-    const pendingReviewCount = transactions.filter(t => t.realPropertyTax?.assessorStatus === "PENDING" || t.status === "FOR_INSPECTION").length;
+    const pendingReviewCount = transactions.filter(t =>
+        t.realPropertyTax?.assessorStatus === "PENDING" ||
+        t.status === "FOR_INSPECTION" ||
+        (t.status === "FOR_REQUESTING" && t.realPropertyTax?.assessorStatus !== "APPROVED")
+    ).length;
     const approvedCount = transactions.filter(t => t.realPropertyTax?.assessorStatus === "APPROVED" || t.status === "FOR_REQUESTING" || t.status === "PAID").length;
 
     const handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
@@ -126,6 +161,7 @@ export default function AssessorDashboard() {
                     <div className="flex items-center gap-2 flex-wrap">
                         {[
                             { code: null, label: "All Categories" },
+{ code: "RPT_CAT1", label: "Cat 1: Routine Tax (Viewing Only)" },
                             { code: "RPT_CAT2", label: "Cat 2: New Property" },
                             { code: "RPT_CAT3", label: "Cat 3: Transfer Ownership" },
                         ].map((cat) => {
@@ -144,7 +180,7 @@ export default function AssessorDashboard() {
                     </div>
 
                     <Button
-                        onClick={fetchTransactions}
+                        onClick={() => fetchTransactions()}
                         variant="outline"
                         className="h-10 rounded-xl text-xs font-bold"
                     >
@@ -186,7 +222,11 @@ export default function AssessorDashboard() {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
-                                        <TableRow key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
+<TableRow
+                                            key={tx.id}
+                                            onClick={() => router.push(`/admin/assessor/${tx.id}`)}
+                                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 cursor-pointer"
+                                        >
                                             <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
                                                 {tx.queueNumber || "N/A"}
                                             </TableCell>
@@ -217,11 +257,11 @@ export default function AssessorDashboard() {
                                                     {tx.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-right">
+<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={() => setSelectedTx(tx)}
+                                                    onClick={() => router.push(`/admin/assessor/${tx.id}`)}
                                                     className="h-8 text-xs font-bold rounded-lg"
                                                 >
                                                     <Eye className="w-3.5 h-3.5 mr-1" /> Review
@@ -235,7 +275,6 @@ export default function AssessorDashboard() {
                     </Table>
                 </div>
             </div>
-
             {/* Review Dialog */}
             <Dialog open={!!selectedTx} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
                 <DialogContent className="max-w-2xl bg-white dark:bg-[#1e293b] rounded-3xl p-6">

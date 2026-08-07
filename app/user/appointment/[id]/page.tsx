@@ -9,7 +9,6 @@ import {
     FileText,
     Activity,
     DollarSign,
-    Search,
     UserCheck,
     X,
     AlertCircle,
@@ -21,7 +20,8 @@ import {
     MapPin,
     Building2,
     ExternalLink,
-    ClipboardList
+    ClipboardList,
+    Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
@@ -165,6 +165,36 @@ export default function AppointmentDetailsPage() {
             : request.additionalData) || {};
     }, [request]);
 
+    const applicantName = useMemo(() => {
+        if (!request) return "N/A";
+        const res = request.residentSnapshot || request.user?.residentProfile || {};
+        if (res.firstName || res.lastName) {
+            const fullName = `${res.firstName || ""} ${res.middleName ? res.middleName.charAt(0) + "." : ""} ${res.lastName || ""}`.trim();
+            if (fullName) return fullName.toUpperCase();
+        }
+        if (res.name) return res.name.toUpperCase();
+        if (additionalData.ownerName) return additionalData.ownerName.toUpperCase();
+        if (additionalData.applicantName) return additionalData.applicantName.toUpperCase();
+        if (request.user?.name) return request.user.name.toUpperCase();
+        if (request.user?.email) return request.user.email;
+        return "N/A";
+    }, [request, additionalData]);
+
+    const contactDetails = useMemo(() => {
+        if (!request) return "N/A";
+        const res = request.residentSnapshot || request.user?.residentProfile || {};
+        return res.contactNumber ||
+               res.phone ||
+               res.phoneNumber ||
+               additionalData.contactNumber ||
+               additionalData.phoneNumber ||
+               additionalData.ownerPhone ||
+               request.user?.contactNumber ||
+               request.user?.phone ||
+               request.user?.email ||
+               "N/A";
+    }, [request, additionalData]);
+
     const statusConfig = useMemo(() => {
         if (!request) return null;
         if (request.isCancelled) {
@@ -218,10 +248,13 @@ export default function AppointmentDetailsPage() {
                 };
             }
             case "FOR_INSPECTION": {
+                const date = addData.inspectionDate;
+                const time = addData.inspectionTime;
+                const dateStr = date ? formatPHDate(date) : "";
                 return {
                     color: "text-white bg-blue-600 border-transparent",
-                    label: addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN",
-                    icon: Search
+                    label: dateStr ? (time ? `FIELD INSPECTION SCHEDULED: ${dateStr} @ ${time}` : `FIELD INSPECTION SCHEDULED: ${dateStr}`) : "UNDER FIELD INSPECTION",
+                    icon: Calendar
                 };
             }
             case "EVALUATED":
@@ -238,7 +271,7 @@ export default function AppointmentDetailsPage() {
             default: return { color: "text-white bg-primary border-transparent", label: status.replace("_", " "), icon: Clock };
         }
     }, [request]);
-    if (loading || !request || !residentData) {
+    if (loading || !request) {
         return (
             <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24">
                 <div className="max-w-4xl mx-auto px-4 md:px-0 pt-4 md:pt-10 space-y-6 md:space-y-10 animate-pulse">
@@ -421,7 +454,24 @@ export default function AppointmentDetailsPage() {
                             </div>
                         )}
 
-                        {/* Status Alert Banner */}
+                        {/* Field Inspection Scheduled Alert Banner */}
+                        {request.status === "FOR_INSPECTION" && (
+                            <div className="p-5 border border-blue-500/30 bg-blue-500/10 text-blue-300 rounded-2xl flex gap-4 items-start animate-in slide-in-from-top-2 duration-300">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+                                    <Calendar className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h4 className="text-xs font-black uppercase tracking-widest italic leading-none text-blue-400">
+                                        Field Inspection Scheduled
+                                    </h4>
+                                    <p className="text-xs leading-relaxed font-medium text-slate-200">
+                                        The Municipal Assessor Office has scheduled an ocular field inspection for your property on{" "}
+                                        <span className="font-bold text-white font-mono">{additionalData.inspectionDate ? formatPHDate(additionalData.inspectionDate) : "TBD"}</span>
+                                        {additionalData.inspectionTime ? ` at ${additionalData.inspectionTime}` : ""}. Please ensure an authorized representative is present during the visit.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         {statusConfig && !isCedula && (request.status !== "FOR_INSPECTION" || isRHU) && request.status !== "REJECTED" && (
                             <div className={cn("p-5 border rounded-2xl", statusConfig.color)}>
                                 <div className="space-y-1">
@@ -479,12 +529,12 @@ export default function AppointmentDetailsPage() {
                                         <div className="space-y-1">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Applicant Full Name</span>
                                             <p className="font-black text-slate-850 dark:text-white uppercase">
-                                                {residentData.firstName} {residentData.middleName ? `${residentData.middleName.charAt(0)}.` : ""} {residentData.lastName}
+                                                {applicantName}
                                             </p>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Contact Details</span>
-                                            <p className="font-black text-slate-850 dark:text-white">{residentData.contactNumber || "N/A"}</p>
+                                            <p className="font-black text-slate-850 dark:text-white">{contactDetails}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Transaction Type</span>

@@ -101,7 +101,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 if (additionalData.servingDepartment === "Registrar" || counterName.includes("REGISTRAR") || counterName.includes("CIVIL")) {
                     return 2; // Registrar
                 }
-                if (additionalData.servingDepartment === "Assessor" || counterName.includes("ASSESSOR")) {
+                if (additionalData?.servingDepartment === "Assessor" || counterName.includes("ASSESSOR")) {
                     return 3; // Assessor
                 }
             }

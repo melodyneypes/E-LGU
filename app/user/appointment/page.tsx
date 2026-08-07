@@ -311,14 +311,14 @@ export default function UserAppointmentsPage() {
                                         router.push(`/user/appointment/${req.id}`);
                                     }
                                 }}
-                                className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-3 md:p-5 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row items-center gap-4 md:gap-8"
+                                className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-4 md:p-6 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6"
                             >
-                                <div className="flex items-center gap-4 md:gap-6 flex-1 w-full">
+                                <div className="flex items-center gap-4 md:gap-6 min-w-0 flex-1">
                                     <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-500 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white">
                                         <FileText className="w-5 h-5 md:w-7 md:h-7 transition-colors" />
                                     </div>
-                                    <div className="space-y-0.5 md:space-y-1 min-w-0">
-                                        <h3 className="text-lg md:text-2xl font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary py-1 pr-4 leading-normal">
+                                    <div className="space-y-1 min-w-0 flex-1">
+                                        <h3 className="text-base md:text-xl font-black uppercase tracking-tighter italic transition-colors text-slate-900 dark:text-white group-hover:text-primary py-0.5 leading-snug break-words">
                                             {req.type?.name || "Service Appointment"}
                                         </h3>
                                         <div className="flex flex-wrap items-center gap-2 md:gap-4 text-slate-400">
@@ -327,8 +327,8 @@ export default function UserAppointmentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5">
-                                    <div className="text-left md:text-right">
+                                <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5 shrink-0 md:ml-auto">
+                                    <div className="text-left md:text-right shrink-0">
                                         {(req.type?.category === "Rural Health Unit" || req.type?.category === "RHU" || req.type?.code?.startsWith("RHU_")) ? null : req.isCancelled ? (
                                             <div className="py-0.5">
                                                 <p className="text-[7px] md:text-[8px] font-black text-red-500/40 uppercase tracking-widest italic leading-none">Status</p>
@@ -337,7 +337,7 @@ export default function UserAppointmentsPage() {
                                         ) : req.status !== "FOR_REQUESTING" ? (
                                             <>
                                                 <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Assessment</p>
-                                                <p className="text-base md:text-2xl font-black text-slate-900 dark:text-white italic">₱{(req.totalAmount || 0).toLocaleString()}</p>
+                                                <p className="text-base md:text-xl font-black text-slate-900 dark:text-white italic tracking-tighter">₱{(req.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             </>
                                         ) : (
                                             <div className="py-0.5">
@@ -346,8 +346,8 @@ export default function UserAppointmentsPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex flex-col items-center gap-1.5 min-w-[100px] md:min-w-[140px] shrink-0">
-                                        <Badge className={cn("inline-flex items-center gap-1.5 font-black uppercase tracking-widest text-[7px] md:text-[9px] italic px-3 md:px-5 py-1.5 md:py-2.5 rounded-full border border-opacity-20 w-full justify-center shadow-sm bg-primary/10 border-primary/20", style.color, style.bg, style.border)}>
+                                    <div className="flex flex-col items-center gap-1.5 min-w-[110px] md:min-w-[140px] shrink-0">
+                                        <Badge className={cn("inline-flex items-center gap-1.5 font-black uppercase tracking-widest text-[8px] md:text-[10px] italic px-3 md:px-5 py-1.5 md:py-2.5 rounded-full border border-opacity-20 w-full justify-center shadow-sm bg-primary/10 border-primary/20 whitespace-nowrap", style.color, style.bg, style.border)}>
                                             <style.icon className="w-3 h-3 hidden md:block" />
                                             {style.label}
                                         </Badge>

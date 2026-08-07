@@ -15,6 +15,9 @@ interface GenerateQueueParams {
  * E.g., 08072026-AM-T001 (Cedula Standard)
  * E.g., 08072026-AM-H001 (RHU Standard)
  * E.g., 08072026-AM-BP001 (Business Permit Priority)
+ * E.g., 07072026-AM-T001 (Cedula Standard)
+ * E.g., 07072026-AM-TR001 (RPT Treasury Routine)
+ * E.g., 07072026-AM-A001 (RPT Assessor Inspection/Transfer)
  * 
  * Auto-increments sequentially per category without overlapping.
  */
