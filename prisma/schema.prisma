@@ -177,16 +177,15 @@ model Announcement {
   isPinned       Boolean   @default(false)
   isActive       Boolean   @default(true)
   expiryDate     DateTime?
-  eventDate      DateTime?
-  eventSchedule  String?
-
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   barangay       String?
   imageUrl       String?
-  authorEmail    String?
   authorId       String?
+  authorEmail    String?
   healthCenterId String?
+  eventDate      DateTime?
+  eventSchedule  String?
 }
 
 model Job {
@@ -568,6 +567,8 @@ model TransactionType {
   formSchema           Json          @default("{}")
   logicCode            String?
   defaultFees          Json          @default("[]")
+  pickupAddress        String?
+  processingTime       String?
   slaDays              Int           @default(3)
   processorRole        UserRole      @default(TREASURY_STAFF)
   isActive             Boolean       @default(true)
@@ -575,8 +576,6 @@ model TransactionType {
   lateFee              Float?        @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
-  pickupAddress        String?
-  processingTime       String?
   transactions         Transaction[]
 }
 
@@ -602,6 +601,7 @@ model Transaction {
   eCopyUrl                      String?
   orUrl                         String?
   isStudent                     Boolean                        @default(false)
+  isPaid                        Boolean                        @default(false)
   processedBy                   String?
   rejectionRemarks              String?
   podUrl                        String?
@@ -611,14 +611,13 @@ model Transaction {
   disputeReason                 String?
   disputeRemarks                String?
   disputeProofUrl               String?
+  appointmentDate               DateTime?
+  appointmentSlot               String?
+  queueNumber                   String?                        @unique
+  isPriority                    Boolean                        @default(false)
   isCancelled                   Boolean                        @default(false)
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
-  appointmentDate               DateTime?
-  appointmentSlot               String?
-  isPaid                        Boolean                        @default(false)
-  isPriority                    Boolean                        @default(false)
-  queueNumber                   String?
   birthCertificateRegistry      BirthCertificateRegistry?
   birthCertificateRequest       BirthCertificateRequest?
   birthPsaEndorsementRequest    BirthPsaEndorsementRequest?
@@ -956,10 +955,10 @@ model Payment {
   method        PaymentType   @default(CASH)
   status        PaymentStatus @default(PENDING)
   reference     String?
+  orNumber      String?
   meta          Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  orNumber      String?
   userId        String?
   transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
@@ -1016,10 +1015,9 @@ model AppointmentConfig {
   pmTimeLabel   String   @default("01:00 PM - 04:00 PM")
   blockedDates  String[] @default([])
   activeDays    Int[]    @default([1, 2, 3, 4, 5])
-  specialEvents Json?    @default("[]")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
+  specialEvents Json?    @default("[]")
 }
 
 model RHUInventoryItem {
@@ -1027,7 +1025,6 @@ model RHUInventoryItem {
   name           String
   genericName    String?
   brandName      String?
-  category       InventoryCategory   @default(MEDICINE)
   dosage         String?
   unit           String              @default("pcs")
   quantity       Int                 @default(0)
@@ -1037,6 +1034,8 @@ model RHUInventoryItem {
   remarks        String?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+  category       InventoryCategory   @default(MEDICINE)
+  healthCenterId String?
   batches        RHUInventoryBatch[]
 
   @@index([category])
@@ -1068,8 +1067,6 @@ model RHUHealthCenter {
   name            String
   code            String?
   location        String
-  latitude        Float?
-  longitude       Float?
   barangay        String?
   contactNumber   String?
   operatingHours  String?               @default("Mon-Fri 8:00 AM - 5:00 PM")
@@ -1077,12 +1074,14 @@ model RHUHealthCenter {
   servicesOffered String?
   status          String                @default("ACTIVE")
   remarks         String?
-  userId          String?
-  accountEmail    String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-  pharmacyEmail   String?
+  latitude        Float?
+  longitude       Float?
+  userId          String?
+  accountEmail    String?
   pharmacyUserId  String?
+  pharmacyEmail   String?
   personnel       RHUMedicalPersonnel[]
 
   @@index([name])
@@ -1093,7 +1092,6 @@ model RHUHealthCenter {
 model RHUMedicalPersonnel {
   id               String           @id @default(cuid())
   name             String
-  role             MedicalRole      @default(DOCTOR)
   specialization   String?
   licenseNumber    String?
   contactNumber    String?
@@ -1102,10 +1100,11 @@ model RHUMedicalPersonnel {
   assignedServices String?
   status           String           @default("ACTIVE")
   healthCenterId   String?
-  userId           String?
-  accountEmail     String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+  userId           String?
+  accountEmail     String?
+  role             MedicalRole      @default(DOCTOR)
   healthCenter     RHUHealthCenter? @relation(fields: [healthCenterId], references: [id])
 
   @@index([role])
@@ -1242,13 +1241,12 @@ enum UserRole {
   MPDC_ZONING
   BFP
   POSO_OFFICER
-  RHU_STAFF
-  RHU_DOCTOR
   RHU_CENTER_ADMIN
-  MAYOR
+  RHU_DOCTOR
+  RHU_STAFF
   RHU_PHARMACY
   RHU_ADMIN
-  ASSESSOR
+  MAYOR
 }
 
 enum ResidentStatus {

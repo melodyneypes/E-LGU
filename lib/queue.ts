@@ -9,13 +9,14 @@ interface GenerateQueueParams {
 }
 
 /**
- * Generates a shared format queue ticket number.
+ * Generates an independent per-category queue ticket number.
  * Format: [DATE]-[SHIFT]-[PREFIX][SEQUENCE]
- * E.g., 07072026-AM-T001 (Cedula Standard)
- * E.g., 07072026-AM-TR001 (RPT Treasury Routine)
- * E.g., 07072026-AM-A001 (RPT Assessor Inspection/Transfer)
+ * E.g., 08072026-AM-B001 (Business Permit Standard)
+ * E.g., 08072026-AM-T001 (Cedula Standard)
+ * E.g., 08072026-AM-H001 (RHU Standard)
+ * E.g., 08072026-AM-BP001 (Business Permit Priority)
  * 
- * Auto-increments sequentially regardless of the service selected.
+ * Auto-increments sequentially per category without overlapping.
  */
 export async function generateQueueNumber({
   isPriority,
@@ -23,12 +24,9 @@ export async function generateQueueNumber({
   appointmentSlot,
   category,
 }: GenerateQueueParams): Promise<string> {
-  const startOfDay = new Date(appointmentDate);
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const endOfDay = new Date(appointmentDate);
-  endOfDay.setUTCHours(23, 59, 59, 999);
+  const targetDate = new Date(appointmentDate);
 
-  const dateStr = startOfDay.toLocaleDateString("en-US", {
+  const dateStr = targetDate.toLocaleDateString("en-US", {
     timeZone: "Asia/Manila",
     month: "2-digit",
     day: "2-digit",
@@ -39,21 +37,6 @@ export async function generateQueueNumber({
     ? (appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM") || appointmentSlot.toUpperCase() === "MORNING")
     : true;
   const shiftStr = isAM ? "AM" : "PM";
-
-  // Count existing transactions for this shift on target date
-  const shiftCount = await prisma.transaction.count({
-    where: {
-      appointmentDate: {
-        gte: startOfDay,
-        lte: endOfDay
-      },
-      appointmentSlot: {
-        contains: shiftStr
-      },
-      isCancelled: false,
-      isPriority: isPriority,
-    } as any
-  });
 
   let prefix = "";
   if (category === "CEDULA" || category === "RPT_TREASURY") {
@@ -70,6 +53,40 @@ export async function generateQueueNumber({
     prefix = isPriority ? "P" : "";
   }
 
-  const seqNum = String(shiftCount + 1).padStart(3, "0");
-  return `${dateStr}-${shiftStr}-${prefix}${seqNum}`;
+  const prefixPattern = `${dateStr}-${shiftStr}-${prefix}`;
+
+  // 1. Initial count of existing transactions matching this exact date, shift, and category prefix
+  const categoryCount = await prisma.transaction.count({
+    where: {
+      queueNumber: {
+        startsWith: prefixPattern
+      },
+      isCancelled: false,
+    }
+  });
+
+  let sequence = categoryCount + 1;
+  let candidateQueueNumber = `${prefixPattern}${String(sequence).padStart(3, "0")}`;
+  let attempts = 0;
+  const maxAttempts = 50;
+
+  // 2. Collision resolution loop: if candidate queue number exists in DB, increment +1 until unique
+  while (attempts < maxAttempts) {
+    const existing = await prisma.transaction.findFirst({
+      where: { queueNumber: candidateQueueNumber },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      return candidateQueueNumber;
+    }
+
+    sequence++;
+    candidateQueueNumber = `${prefixPattern}${String(sequence).padStart(3, "0")}`;
+    attempts++;
+  }
+
+  return candidateQueueNumber;
 }
+
+

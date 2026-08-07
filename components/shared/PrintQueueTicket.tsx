@@ -53,7 +53,6 @@ export default function PrintQueueTicket({
     appointmentDate,
     appointmentSlot,
     dateGenerated = new Date(),
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     branding,
     triggerPrint = false,
     onPrintCompleted

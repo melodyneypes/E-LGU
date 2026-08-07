@@ -15,7 +15,7 @@ export function AccountSetupSection({ data }: AccountSetupSectionProps) {
             <div className="space-y-2">
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic flex items-center gap-3">
                     <UserCheck className="w-8 h-8 text-blue-600" />
-                    Account Setup
+                    Account Setup 
                 </h3>
                 <p className="text-slate-500 font-medium">Configure the login credentials for this resident.</p>
             </div>

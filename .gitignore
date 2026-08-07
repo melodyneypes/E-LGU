@@ -55,3 +55,7 @@ seed-custom-users.ts
 seed-engineer.ts
 reset-user.ts
 
+# local agent rules
+.agents/
+
+
