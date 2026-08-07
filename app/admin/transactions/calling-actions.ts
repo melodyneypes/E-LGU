@@ -82,64 +82,53 @@ export async function fetchAndCallNextTicket(counterName: string) {
         const transactions = await prisma.transaction.findMany({
             where: {
                 OR: [
-                    // CEDULA walk-ins
-                    {
-                        type: {
-                            processorRole: "TREASURY_STAFF",
-                            category: "CEDULA"
-                        },
-                        status: {
-                            in: ["FOR_REQUESTING", "FOR_INSPECTION"]
-                        }
-                    },
-                    // Standard UNPAID transactions
-                    {
-                        status: "UNPAID"
-                    },
-                    // PSA Appointment Endorsements awaiting Treasury counter payment
-                    {
-                        type: {
-                            code: {
-                                in: [
-                                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
-                                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
-                                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
-                                ]
-                            }
-                        },
-                        status: "UNPAID"
-                    }
+                    { type: { category: "POSO" }, status: "UNPAID" },
+                    { type: { code: { startsWith: "POSO_" } }, status: "UNPAID" },
+                    { type: { processorRole: "TREASURY_STAFF", category: "CEDULA" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
+                    { type: { code: "RPT_CAT1" }, status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] } },
+                    { status: "UNPAID" }
                 ],
-                isCancelled: false,
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
-                additionalData: {
-                    path: ["checkedIn"],
-                    equals: true
-                }
+                isCancelled: false
+            },
+            include: {
+                type: true
             }
         });
 
-        if (transactions.length === 0) {
-            return { success: false, error: "No citizens are currently waiting in line." };
+        // Filter: Must be checkedIn, not assigned to a counter, and Business Permits MUST be UNPAID
+        const unassignedWaiting = transactions.filter(tx => {
+            const addData = parseAdditionalData(tx.additionalData);
+            const isCheckedIn = Boolean(addData.checkedIn === true);
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+
+            const isBusinessPermit = tx.type?.code?.startsWith("BUSINESS_PERMIT");
+            if (isBusinessPermit && tx.status !== "UNPAID") {
+                return false;
+            }
+
+            return isCheckedIn && !hasCounter;
+        });
+
+        if (unassignedWaiting.length === 0) {
+            return { success: false, error: "No tickets currently waiting for Treasury." };
         }
 
-        // Sort: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
-        const sorted = transactions.sort((a, b) => {
-            if (a.isPriority && !b.isPriority) return -1;
-            if (!a.isPriority && b.isPriority) return 1;
+        const sorted = unassignedWaiting.sort((a, b) => {
+            const aPriority = Boolean(a.isPriority);
+            const bPriority = Boolean(b.isPriority);
 
-            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
-            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            if (aPriority && !bPriority) return -1;
+            if (!aPriority && bPriority) return 1;
+
+            const aData = parseAdditionalData(a.additionalData);
+            const bData = parseAdditionalData(b.additionalData);
+            const aCheckedIn = new Date(aData.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date(bData.checkedInAt || b.createdAt).getTime();
             return aCheckedIn - bCheckedIn;
         });
 
         const nextTx = sorted[0];
-
-        // Call the next ticket using our existing function logic
-        const currentAdditionalData = (nextTx.additionalData as any) || {};
+        const currentAdditionalData = parseAdditionalData(nextTx.additionalData);
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
@@ -201,7 +190,7 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
                     code: { startsWith: "BUSINESS_PERMIT" }
                 },
                 status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
+                    in: ["FOR_INSPECTION", "FOR_CLAIM"]
                 },
                 isCancelled: false,
                 appointmentDate: {
@@ -286,7 +275,7 @@ export async function getBploQueueTickets(counterName: string) {
                     code: { startsWith: "BUSINESS_PERMIT" }
                 },
                 status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
+                    in: ["FOR_INSPECTION", "FOR_CLAIM"]
                 },
                 isCancelled: false,
                 appointmentDate: {
@@ -466,21 +455,25 @@ export async function getTreasuryQueueTickets(counterName: string) {
         });
 
         // Filter in JS: checked-in tickets that have not yet been assigned to a counter
+        // Business Permit tickets MUST be UNPAID to enter Treasury queue
         const waiting = allRawWaiting.filter(tx => {
-            const addData = (tx.additionalData as any) || {};
+            const addData = parseAdditionalData(tx.additionalData);
             const isCheckedIn = Boolean(addData.checkedIn === true);
-            return isCheckedIn && !addData.counterName;
+            const hasCounter = Boolean(addData.counterName && String(addData.counterName).trim() !== "");
+
+            const isBusinessPermit = tx.type?.code?.startsWith("BUSINESS_PERMIT");
+            if (isBusinessPermit && tx.status !== "UNPAID") {
+                return false;
+            }
+
+            return isCheckedIn && !hasCounter;
         });
 
-        // Fetch currently serving at this counter
-        const serving = await prisma.transaction.findMany({
+        // Fetch currently serving at this counter specifically for Treasury
+        const rawServing = await prisma.transaction.findMany({
             where: {
                 status: "FOR_PROCESSING",
-                isCancelled: false,
-                additionalData: {
-                    path: ["counterName"],
-                    equals: counterName
-                }
+                isCancelled: false
             },
             include: {
                 user: {
@@ -489,6 +482,11 @@ export async function getTreasuryQueueTickets(counterName: string) {
                     }
                 }
             }
+        });
+
+        const serving = rawServing.filter(tx => {
+            const addData = parseAdditionalData(tx.additionalData);
+            return addData.counterName === counterName && addData.servingDepartment === "Treasury";
         });
 
         // Sort waiting queue
