@@ -322,7 +322,7 @@ export default function RegistrarQueuePage() {
                                                 </Button>
                                                 <Button
                                                     className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]"
-                                                    onClick={() => router.push(`/admin/registrar/${currentlyServing.id}`)}
+                                                    onClick={() => router.push(`/admin/registrar/${currentlyServing.id}?from=queue`)}
                                                 >
                                                     Process Request
                                                 </Button>

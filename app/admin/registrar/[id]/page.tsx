@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -245,6 +245,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const routeParams = useParams();
     const id = routeParams?.id as string;
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const fromQueue = searchParams?.get("from") === "queue";
     const { data: session } = useSession();
     const rawUserRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department;
@@ -253,7 +255,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
     const [transaction, setTransaction] = useState<any>(null);
     const typeCodeForBack = (transaction?.type?.code || "").toUpperCase();
-    const backUrl = typeCodeForBack === "LCR_BIRTH_REG"
+    const backUrl = (fromQueue || transaction?.additionalData?.counterName)
+        ? "/admin/registrar/queue"
+        : typeCodeForBack === "LCR_BIRTH_REG"
         ? "/admin/registrar?category=Birth%20Registration"
         : typeCodeForBack === "LCR_BIRTH"
             ? "/admin/registrar?category=Birth%20Certificate"

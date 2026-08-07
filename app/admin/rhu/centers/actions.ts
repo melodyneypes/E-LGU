@@ -550,6 +550,41 @@ export async function deleteRHUHealthCenter(id: string) {
             return { success: false, error: "Health center ID is required" };
         }
 
+        // 1. Fetch the center to get linked user accounts
+        let center: any = null;
+        try {
+            const raw: any[] = await prisma.$queryRaw`SELECT * FROM "RHUHealthCenter" WHERE "id" = ${id}`;
+            center = raw[0];
+        } catch (err) {
+            console.error("Error fetching center for deletion:", err);
+        }
+
+        // 2. Fetch all personnel assigned to this center to get their user accounts
+        let personnelList: any[] = [];
+        try {
+            personnelList = await prisma.$queryRaw`SELECT * FROM "RHUMedicalPersonnel" WHERE "healthCenterId" = ${id}`;
+        } catch (err) {
+            console.error("Error fetching personnel for deletion:", err);
+        }
+
+        // 3. Collect all user IDs to delete
+        const userIdsToDelete = new Set<string>();
+        if (center) {
+            if (center.userId) userIdsToDelete.add(center.userId);
+            if (center.pharmacyUserId) userIdsToDelete.add(center.pharmacyUserId);
+        }
+        for (const p of personnelList) {
+            if (p.userId) userIdsToDelete.add(p.userId);
+        }
+
+        // 4. Delete the medical personnel records first (due to foreign key constraint)
+        try {
+            await prisma.$executeRaw`DELETE FROM "RHUMedicalPersonnel" WHERE "healthCenterId" = ${id}`;
+        } catch (err) {
+            console.error("Error deleting personnel records:", err);
+        }
+
+        // 5. Delete the health center record
         let deleteSuccess = false;
         const model = getCenterModel();
 
@@ -564,6 +599,15 @@ export async function deleteRHUHealthCenter(id: string) {
 
         if (!deleteSuccess) {
             await prisma.$executeRaw`DELETE FROM "RHUHealthCenter" WHERE "id" = ${id}`;
+        }
+
+        // 6. Delete the linked User accounts
+        for (const uid of userIdsToDelete) {
+            try {
+                await prisma.$executeRaw`DELETE FROM "User" WHERE "id" = ${uid}`;
+            } catch (err) {
+                console.error(`Failed to delete user account ${uid}:`, err);
+            }
         }
 
         revalidatePath("/admin/rhu/centers");

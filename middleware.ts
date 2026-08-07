@@ -25,6 +25,16 @@ export default withAuth(
     const requestTarget = `${url.pathname}${url.search}`;
     const token = req.nextauth.token;
 
+    // Guard: Force logout if token is deactivated or expired
+    if (token && ((token as any).deactivated || (token as any).exp === 1)) {
+      const redirectUrl = new URL("/auth/login", req.url);
+      const response = NextResponse.redirect(redirectUrl);
+      response.cookies.delete("next-auth.session-token");
+      response.cookies.delete("__Secure-next-auth.session-token");
+      response.cookies.delete("active_portal");
+      return response;
+    }
+
     const isPublicUserPath = 
       url.pathname.startsWith("/user/dining") ||
       url.pathname.startsWith("/user/accommodation") ||

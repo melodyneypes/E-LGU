@@ -8,7 +8,8 @@ import {
     ArrowLeft, CheckCircle2, XCircle, Printer,
     Activity, Stethoscope, ClipboardList,
     ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
-    Search, Pill, Clock, UserCheck, ShieldAlert
+    Search, Pill, Clock, UserCheck, ShieldAlert,
+    Syringe, FileText, Building
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -192,6 +193,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const router = useRouter();
     const [submitting, setSubmitting] = useState(false);
 
+    const resident = getResidentSnapshot(transaction);
+    const addData = getAdditionalData(transaction);
+
     const userRole = currentUser?.role || "";
     const userEmail = (currentUser?.email || "").toLowerCase();
     const isPharmacyAccount = userRole === "ADMIN" || 
@@ -205,8 +209,12 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
     // Referral modal state
     const [referralModalOpen, setReferralModalOpen] = useState(false);
-    const [referralFacility, setReferralFacility] = useState("");
-    const [referralReason, setReferralReason] = useState("");
+    const [referralFacility, setReferralFacility] = useState(() => {
+        return addData.referralFacility || "";
+    });
+    const [referralReason, setReferralReason] = useState(() => {
+        return addData.referralReason || "";
+    });
     const [hospitalSearchQuery, setHospitalSearchQuery] = useState("");
     const [hospitalDropdownOpen, setHospitalDropdownOpen] = useState(false);
     const [healthCenters, setHealthCenters] = useState<any[]>([]);
@@ -272,13 +280,13 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
     // Doctor's Clinical Notes (DEOS) modal state
     const [deosModalOpen, setDeosModalOpen] = useState(false);
-    const [deos, setDeos] = useState({
-        diagnosis: "",
-        examinationFindings: "",
-        orders: "",
-        status: "",
-        attendingPhysician: currentUser?.name || "",
-    });
+    const [deos, setDeos] = useState(() => ({
+        diagnosis: addData.deos?.diagnosis || "",
+        examinationFindings: addData.deos?.examinationFindings || "",
+        orders: addData.deos?.orders || "",
+        status: addData.deos?.status || "",
+        attendingPhysician: addData.deos?.attendingPhysician || currentUser?.name || "",
+    }));
     const [deosErrors, setDeosErrors] = useState<Record<string, boolean>>({});
     const [confirmDeosDialogOpen, setConfirmDeosDialogOpen] = useState(false);
 
@@ -347,18 +355,22 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     };
 
     // Vaccine batch encoder state
-    const [vaccines, setVaccines] = useState([{
-        name: "", batchNumber: "", doseNumber: "", dateAdministered: "", site: ""
-    }]);
+    const [vaccines, setVaccines] = useState(() => {
+        if (addData.vaccines && Array.isArray(addData.vaccines) && addData.vaccines.length > 0) {
+            return addData.vaccines;
+        }
+        return [{
+            name: "", batchNumber: "", doseNumber: "", dateAdministered: "", site: ""
+        }];
+    });
 
     // Active console tab
     const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx">("deos");
 
     // Prescription / referral inline state
-    const [rxText, setRxText] = useState("");
-
-    const resident = getResidentSnapshot(transaction);
-    const addData = getAdditionalData(transaction);
+    const [rxText, setRxText] = useState(() => {
+        return addData.rxText || "";
+    });
 
     const patientName = resident.firstName
         ? `${resident.firstName} ${resident.middleName ? resident.middleName + ' ' : ''}${resident.lastName}`
@@ -385,11 +397,12 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         remarks?: string,
         refData?: { facility?: string; reason?: string },
         vitalsData?: typeof vitals,
-        deosData?: typeof deos
+        deosData?: typeof deos,
+        extraData?: Record<string, any>
     ) => {
         setSubmitting(true);
         try {
-            const res = await updateRHUAppointmentStatus(transaction.id, newStatus, remarks, refData, vitalsData, deosData);
+            const res = await updateRHUAppointmentStatus(transaction.id, newStatus, remarks, refData, vitalsData, deosData, extraData);
             if (res.success) {
                 toast.success(`Appointment status updated to ${newStatus.replace(/_/g, " ")}`);
                 setCancelModalOpen(false);
@@ -470,7 +483,18 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             ...deos,
             attendingPhysician: currentUser?.name || "Attending Physician"
         };
-        handleUpdateStatus("PRESCRIBED", undefined, undefined, undefined, deosDataToSave);
+        
+        const validVaccines = vaccines.filter((v: any) => v.name.trim() !== "");
+        const extraData = {
+            vaccines: validVaccines,
+            rxText: rxText.trim()
+        };
+
+        const referralDataToSave = (referralFacility.trim() || referralReason.trim())
+            ? { facility: referralFacility.trim(), reason: referralReason.trim() }
+            : undefined;
+
+        handleUpdateStatus("PRESCRIBED", undefined, referralDataToSave, undefined, deosDataToSave, extraData);
     };
 
     const autoPopulateDispenseItems = (items: any[]) => {
@@ -1123,6 +1147,66 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <div className="space-y-1 flex-1 min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Status / Notes</p>
                                             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{addData.deos.status}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {addData.vaccines && Array.isArray(addData.vaccines) && addData.vaccines.length > 0 && (
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex flex-col gap-2">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 font-mono font-black text-sm">
+                                                VAC
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Vaccine Batch Administered</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 mt-1">
+                                            {addData.vaccines.map((vax: any, idx: number) => (
+                                                <div key={idx} className="p-3.5 rounded-2xl bg-white/5 border border-white/5 text-xs space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <strong className="text-white font-bold">{vax.name}</strong>
+                                                        <span className="text-[10px] font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-md border border-teal-500/20">
+                                                            Dose: {vax.doseNumber || "N/A"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-400">
+                                                        <div><span className="font-semibold text-slate-500">Batch:</span> {vax.batchNumber || "N/A"}</div>
+                                                        <div><span className="font-semibold text-slate-500">Date:</span> {vax.dateAdministered || "N/A"}</div>
+                                                        <div><span className="font-semibold text-slate-500">Site:</span> {vax.site || "N/A"}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {addData.rxText && (
+                                    <div className="group relative p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-[#1a202c]/30 hover:border-teal-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 shrink-0 font-mono font-black text-sm">
+                                            Rx
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Rx / Referral Formulations</p>
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{addData.rxText}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {(addData.referralFacility || addData.referralReason) && (
+                                    <div className="group relative p-4 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-[#1a202c]/30 hover:border-fuchsia-500/30 transition-all duration-300 shadow-sm flex gap-4">
+                                        <div className="w-9 h-9 rounded-xl bg-fuchsia-500/10 dark:bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center text-fuchsia-500 shrink-0 font-mono font-black text-sm">
+                                            REF
+                                        </div>
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-fuchsia-600 dark:text-fuchsia-400">Referral Details</p>
+                                            {addData.referralFacility && (
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                    <span className="text-slate-400">Facility:</span> {addData.referralFacility}
+                                                </p>
+                                            )}
+                                            {addData.referralReason && (
+                                                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 whitespace-pre-wrap leading-relaxed">
+                                                    <span className="text-slate-400">Reason:</span> {addData.referralReason}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1842,29 +1926,114 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                     </div>
 
                     {/* Clinical Summary Card */}
-                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Prescription & Clinical Summary Review</p>
-                        <div className="grid grid-cols-2 gap-2 font-medium">
-                            <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
-                            <div><span className="text-slate-400">Doctor:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "Attending Physician"}</strong></div>
+                    <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-4 text-xs">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prescription & Clinical Summary Review</p>
+                            <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">Draft Review</span>
                         </div>
-                        <div className="space-y-1.5 pt-1 border-t border-white/5">
-                            <div>
-                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Diagnosis (D):</span>
-                                <p className="text-white font-bold text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.diagnosis}</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 font-semibold text-slate-300">
+                            <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Patient Name</span>
+                                <strong className="text-white uppercase text-xs font-black">{patientName}</strong>
                             </div>
-                            <div>
-                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Examination Findings (E):</span>
-                                <p className="text-slate-200 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.examinationFindings}</p>
+                            <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Attending Physician</span>
+                                <strong className="text-rose-400 uppercase text-xs font-black">{currentUser?.name || "Attending Physician"}</strong>
                             </div>
-                            <div>
-                                <span className="text-[9px] font-black uppercase tracking-wider text-rose-400">Orders / Prescribed Medicines (O):</span>
-                                <p className="text-rose-200 font-bold text-xs bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 mt-0.5 whitespace-pre-wrap max-h-36 overflow-y-auto break-words custom-scrollbar">{deos.orders}</p>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                            {/* D-E-O-S Section */}
+                            <div className="space-y-2.5 bg-slate-950/40 border border-white/5 p-3 rounded-2xl">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-1.5 mb-1">
+                                    <ClipboardList className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">Clinical Consultation Details</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Diagnosis (D)</span>
+                                        <p className="text-white font-bold text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.diagnosis}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Examination Findings (E)</span>
+                                        <p className="text-slate-200 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 max-h-24 overflow-y-auto break-words custom-scrollbar">{deos.examinationFindings}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-1 pt-1.5">
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-400">Orders / Prescribed Medicines (O)</span>
+                                    <p className="text-rose-200 font-bold text-xs bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 whitespace-pre-wrap max-h-32 overflow-y-auto break-words custom-scrollbar">{deos.orders}</p>
+                                </div>
+                                {deos.status && (
+                                    <div className="space-y-1 pt-1.5">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Status / Notes (S)</span>
+                                        <p className="text-slate-300 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 max-h-20 overflow-y-auto break-words custom-scrollbar">{deos.status}</p>
+                                    </div>
+                                )}
                             </div>
-                            {deos.status && (
-                                <div>
-                                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Status / Notes (S):</span>
-                                    <p className="text-slate-300 font-medium text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 mt-0.5 max-h-20 overflow-y-auto break-words custom-scrollbar">{deos.status}</p>
+
+                            {/* Vaccine Batch Review */}
+                            {vaccines.some((v: any) => v.name.trim() !== "") && (
+                                <div className="relative overflow-hidden bg-slate-950/40 border border-teal-500/20 p-3.5 rounded-2xl space-y-2.5">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-teal-500 to-emerald-500" />
+                                    <div className="flex items-center gap-2 border-b border-white/5 pb-1.5">
+                                        <Syringe className="w-4 h-4 text-teal-400 shrink-0" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-teal-400">Vaccine Batch Administered</span>
+                                    </div>
+                                    <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+                                        {vaccines.filter((v: any) => v.name.trim() !== "").map((v: any, idx: number) => (
+                                            <div key={idx} className="bg-white/[0.03] p-3 rounded-xl border border-white/5 text-[11px] space-y-1.5 relative overflow-hidden group">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-white font-bold text-xs truncate max-w-[65%]">{v.name}</span>
+                                                    <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20 shrink-0">
+                                                        Dose: {v.doseNumber || "N/A"}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-1.5 text-[9px] text-slate-400 leading-tight bg-black/10 p-1.5 rounded-lg border border-white/5">
+                                                    <div><span className="text-slate-500 block font-semibold uppercase text-[7px] tracking-wider mb-0.5">Batch</span> {v.batchNumber || "N/A"}</div>
+                                                    <div><span className="text-slate-500 block font-semibold uppercase text-[7px] tracking-wider mb-0.5">Date</span> {v.dateAdministered || "N/A"}</div>
+                                                    <div><span className="text-slate-500 block font-semibold uppercase text-[7px] tracking-wider mb-0.5">Injection Site</span> {v.site || "N/A"}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Rx / Referral Review */}
+                            {rxText.trim() && (
+                                <div className="relative overflow-hidden bg-slate-950/40 border border-teal-500/20 p-3.5 rounded-2xl space-y-2">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-teal-500" />
+                                    <div className="flex items-center gap-2 border-b border-white/5 pb-1.5">
+                                        <FileText className="w-4 h-4 text-teal-400 shrink-0" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-teal-400">Rx / Referral Formulations</span>
+                                    </div>
+                                    <p className="text-teal-200 font-medium text-xs bg-teal-500/10 p-3 rounded-xl border border-teal-500/20 whitespace-pre-wrap max-h-36 overflow-y-auto break-words custom-scrollbar leading-relaxed">{rxText}</p>
+                                </div>
+                            )}
+
+                            {/* Referral Review */}
+                            {(referralFacility.trim() || referralReason.trim()) && (
+                                <div className="relative overflow-hidden bg-slate-950/40 border border-fuchsia-500/20 p-3.5 rounded-2xl space-y-2.5">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-fuchsia-500 to-purple-500" />
+                                    <div className="flex items-center gap-2 border-b border-white/5 pb-1.5">
+                                        <Building className="w-4 h-4 text-fuchsia-400 shrink-0" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-fuchsia-400">Referral Details Review</span>
+                                    </div>
+                                    <div className="bg-fuchsia-500/5 p-3 rounded-xl border border-fuchsia-500/20 text-xs space-y-2.5">
+                                        {referralFacility.trim() && (
+                                            <div>
+                                                <span className="text-slate-400 font-bold uppercase text-[8px] tracking-widest block mb-0.5">Destination Facility</span>
+                                                <strong className="text-fuchsia-300 font-black text-xs uppercase">{referralFacility}</strong>
+                                            </div>
+                                        )}
+                                        {referralReason.trim() && (
+                                            <div>
+                                                <span className="text-slate-400 font-bold uppercase text-[8px] tracking-widest block mb-0.5">Reason for Referral</span>
+                                                <p className="text-slate-200 text-xs mt-0.5 leading-relaxed bg-black/10 p-2 rounded-lg border border-white/5">{referralReason}</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -2363,40 +2532,40 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <div className="flex items-center justify-between">
                                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Vaccine Batch Encoder</p>
                                             <button
-                                                onClick={() => setVaccines(v => [...v, { name: "", batchNumber: "", doseNumber: "", dateAdministered: "", site: "" }])}
+                                                onClick={() => setVaccines((v: any[]) => [...v, { name: "", batchNumber: "", doseNumber: "", dateAdministered: "", site: "" }])}
                                                 className="text-[10px] font-black uppercase text-teal-400 hover:text-teal-300 bg-teal-500/10 border border-teal-500/20 px-3 py-1 rounded-lg transition-colors"
                                             >
                                                 + Add Vaccine
                                             </button>
                                         </div>
-                                        {vaccines.map((vax, idx) => (
+                                        {vaccines.map((vax: any, idx: number) => (
                                             <div key={idx} className="border border-white/10 p-4 rounded-xl space-y-3 bg-white/[0.02]">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[9px] font-black uppercase tracking-widest text-teal-400">Vaccine #{idx + 1}</p>
                                                     {vaccines.length > 1 && (
-                                                        <button onClick={() => setVaccines(v => v.filter((_, i) => i !== idx))} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Remove</button>
+                                                        <button onClick={() => setVaccines((v: any[]) => v.filter((_: any, i: number) => i !== idx))} className="text-[9px] font-black uppercase text-rose-400 hover:text-rose-300">Remove</button>
                                                     )}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="space-y-1">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Vaccine Name</Label>
-                                                        <Input value={vax.name} onChange={(e) => setVaccines(v => v.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))} placeholder="e.g. Flu Vaccine" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
+                                                        <Input value={vax.name} onChange={(e) => setVaccines((v: any[]) => v.map((x: any, i: number) => i === idx ? { ...x, name: e.target.value } : x))} placeholder="e.g. Flu Vaccine" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
                                                     </div>
                                                     <div className="space-y-1">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Batch Number</Label>
-                                                        <Input value={vax.batchNumber} onChange={(e) => setVaccines(v => v.map((x, i) => i === idx ? { ...x, batchNumber: e.target.value } : x))} placeholder="e.g. BN-2026-001" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
+                                                        <Input value={vax.batchNumber} onChange={(e) => setVaccines((v: any[]) => v.map((x: any, i: number) => i === idx ? { ...x, batchNumber: e.target.value } : x))} placeholder="e.g. BN-2026-001" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
                                                     </div>
                                                     <div className="space-y-1">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Dose No.</Label>
-                                                        <Input value={vax.doseNumber} onChange={(e) => setVaccines(v => v.map((x, i) => i === idx ? { ...x, doseNumber: e.target.value } : x))} placeholder="e.g. 1st, 2nd" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
+                                                        <Input value={vax.doseNumber} onChange={(e) => setVaccines((v: any[]) => v.map((x: any, i: number) => i === idx ? { ...x, doseNumber: e.target.value } : x))} placeholder="e.g. 1st, 2nd" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
                                                     </div>
                                                     <div className="space-y-1">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Date Administered</Label>
-                                                        <Input type="date" value={vax.dateAdministered} onChange={(e) => setVaccines(v => v.map((x, i) => i === idx ? { ...x, dateAdministered: e.target.value } : x))} className="h-9 rounded-xl bg-white/5 text-white text-xs border-white/10" />
+                                                        <Input type="date" value={vax.dateAdministered} onChange={(e) => setVaccines((v: any[]) => v.map((x: any, i: number) => i === idx ? { ...x, dateAdministered: e.target.value } : x))} className="h-9 rounded-xl bg-white/5 text-white text-xs border-white/10" />
                                                     </div>
                                                     <div className="col-span-2 space-y-1">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Site of Injection</Label>
-                                                        <Input value={vax.site} onChange={(e) => setVaccines(v => v.map((x, i) => i === idx ? { ...x, site: e.target.value } : x))} placeholder="e.g. Left deltoid" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
+                                                        <Input value={vax.site} onChange={(e) => setVaccines((v: any[]) => v.map((x: any, i: number) => i === idx ? { ...x, site: e.target.value } : x))} placeholder="e.g. Left deltoid" className="h-9 rounded-xl bg-white/5 text-white placeholder:text-slate-600 text-xs border-white/10" />
                                                     </div>
                                                 </div>
                                             </div>

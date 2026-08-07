@@ -553,7 +553,7 @@ export async function getRegistrarQueueTickets(counterName: string) {
                     { type: { code: { startsWith: "LCR_" } } },
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
-                status: { in: ["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"] },
+                status: "FOR_PROCESSING",
                 isCancelled: false,
             },
             include: {
