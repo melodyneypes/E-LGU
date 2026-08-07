@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 
 interface AppointmentSettingsClientProps {
     themeColor?: string;
+    title?: string;
+    description?: string;
     appointmentConfig: {
         id: string;
         department: string;
@@ -28,15 +30,18 @@ interface AppointmentSettingsClientProps {
 
 export default function AppointmentSettingsClient({ 
     themeColor = "#2563eb",
+    title,
+    description,
     appointmentConfig
 }: AppointmentSettingsClientProps) {
+    const config = appointmentConfig || ({} as any);
     // Appointment Settings State
-    const [maxSlotsAM, setMaxSlotsAM] = useState<number>(appointmentConfig.maxSlotsAM ?? 25);
-    const [maxSlotsPM, setMaxSlotsPM] = useState<number>(appointmentConfig.maxSlotsPM ?? 25);
-    const [amTimeLabel, setAmTimeLabel] = useState<string>(appointmentConfig.amTimeLabel ?? "08:00 AM - 11:00 AM");
-    const [pmTimeLabel, setPmTimeLabel] = useState<string>(appointmentConfig.pmTimeLabel ?? "01:00 PM - 04:00 PM");
-    const [activeDays, setActiveDays] = useState<number[]>(appointmentConfig.activeDays);
-    const [blockedDates, setBlockedDates] = useState<string[]>(appointmentConfig.blockedDates);
+    const [maxSlotsAM, setMaxSlotsAM] = useState<number>(config?.maxSlotsAM ?? 25);
+    const [maxSlotsPM, setMaxSlotsPM] = useState<number>(config?.maxSlotsPM ?? 25);
+    const [amTimeLabel, setAmTimeLabel] = useState<string>(config?.amTimeLabel ?? "08:00 AM - 11:00 AM");
+    const [pmTimeLabel, setPmTimeLabel] = useState<string>(config?.pmTimeLabel ?? "01:00 PM - 04:00 PM");
+    const [activeDays, setActiveDays] = useState<number[]>(config?.activeDays || [1, 2, 3, 4, 5]);
+    const [blockedDates, setBlockedDates] = useState<string[]>(config?.blockedDates || []);
     const [newBlockedDate, setNewBlockedDate] = useState("");
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
@@ -65,7 +70,8 @@ export default function AppointmentSettingsClient({
     const handleSaveAppointmentConfig = async () => {
         setIsSavingConfig(true);
         try {
-            const res = await updateAppointmentConfig("TREASURY", {
+            const targetDept = config.department || "TREASURY";
+            const res = await updateAppointmentConfig(targetDept, {
                 maxSlots: maxSlotsAM + maxSlotsPM,
                 maxSlotsAM,
                 maxSlotsPM,
@@ -74,13 +80,14 @@ export default function AppointmentSettingsClient({
                 amTimeLabel,
                 pmTimeLabel
             });
+
             if (res.success) {
-                toast.success("Treasury Cedula Appointment settings updated successfully!");
+                toast.success("Appointment settings updated successfully!");
             } else {
-                toast.error(res.error || "Failed to update configuration");
+                toast.error(res.error || "Failed to update appointment settings.");
             }
-        } catch {
-            toast.error("An error occurred while saving appointment settings");
+        } catch (err: any) {
+            toast.error(err.message || "An unexpected error occurred.");
         } finally {
             setIsSavingConfig(false);
         }
@@ -105,10 +112,10 @@ export default function AppointmentSettingsClient({
                     <div className="space-y-1">
                         <CardTitle className="flex items-center gap-3 text-2xl font-black italic uppercase tracking-tighter">
                             <Calendar className="w-6 h-6" style={{ color: themeColor }} />
-                            Cedula Appointment Configuration
+                            {title || "Appointment Configuration"}
                         </CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">
-                            Configure booking slot limits, active weekdays, and blocked dates for Cedula appointments.
+                        <CardDescription className="text-xs uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
+                            {description || "Configure booking slot limits, active weekdays, and blocked dates."}
                         </CardDescription>
                     </div>
                 </CardHeader>

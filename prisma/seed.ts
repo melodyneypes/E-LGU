@@ -400,6 +400,16 @@ async function main() {
       department: "RHU",
       isEmailVerified: true,
       emailVerified: new Date(),
+    },
+    {
+      name: "Municipal Assessor Admin",
+      email: "assessor@admin.com",
+      password: commonHashedPassword,
+      role: "ASSESSOR" as any,
+      department: "ASSESSOR",
+      isEmailVerified: true,
+      emailVerified: new Date(),
+      isPasswordChanged: true,
     }
   ];
 

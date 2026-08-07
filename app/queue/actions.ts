@@ -22,25 +22,34 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        // Fetch all active transactions (no date restriction — rely on checkedIn flag for queue)
-        const allTxs = await prisma.transaction.findMany({
-            where: {
-                isCancelled: false
-            },
-            orderBy: {
-                updatedAt: "desc"
-            },
-            include: {
-                type: true,
-                user: {
-                    include: {
-                        residentProfile: true
-                    }
-                }
-            }
-        });
+        // Fetch all active transactions using raw SQL to safely handle null userId values
+        const rawTxs: any[] = await prisma.$queryRaw`
+            SELECT 
+                t."id", t."userId", t."typeId", t."status"::text as "status", 
+                t."appointmentDate", t."appointmentSlot", t."queueNumber", 
+                t."totalAmount", t."isPaid", t."isPriority", t."isCancelled", 
+                t."residentSnapshot", t."additionalData", t."createdAt", t."updatedAt",
+                tt."code" as "typeCode", tt."name" as "typeName", tt."category" as "typeCategory",
+                r."firstName", r."lastName"
+            FROM "Transaction" t
+            LEFT JOIN "TransactionType" tt ON t."typeId" = tt."id"
+            LEFT JOIN "User" u ON t."userId" = u."id"
+            LEFT JOIN "Resident" r ON u."id" = r."userId"
+            WHERE t."isCancelled" = false
+            ORDER BY t."updatedAt" DESC
+        `;
 
-        const deptNames = ["Treasury", "BPLO", "Registrar", "Engineering"];
+        const allTxs = rawTxs.map(t => ({
+            ...t,
+            type: {
+                code: t.typeCode,
+                name: t.typeName,
+                category: t.typeCategory
+            },
+            user: t.firstName ? { residentProfile: { firstName: t.firstName, lastName: t.lastName } } : null
+        }));
+
+        const deptNames = ["Treasury", "BPLO", "Registrar", "Assessor"];
         const queueData: QueueDepartmentData[] = deptNames.map(name => ({
             department: name,
             nowServing: [],
@@ -80,16 +89,18 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 if (additionalData?.servingDepartment === "Registrar" || counterName.includes("REGISTRAR") || counterName.includes("CIVIL")) {
                     return 2; // Registrar
                 }
-                if (additionalData?.servingDepartment === "Engineering" || counterName.includes("ENGINEER")) {
-                    return 3; // Engineering
+                if (additionalData?.servingDepartment === "Assessor" || counterName.includes("ASSESSOR")) {
+                    return 3; // Assessor
                 }
             }
 
-            // Fallback by original category or code prefix
+            // Category matching
+            if (code === "RPT_CAT1") return 0; // Routine Tax Payment -> Treasury
+            if (code === "RPT_CAT2" || code === "RPT_CAT3" || category === "RPT_ASSESSOR" || counterName.includes("ASSESSOR")) return 3; // Assessor
             if (["CEDULA", "Treasurer", "POSO"].includes(category) || code.startsWith("CEDULA") || code.startsWith("POSO")) return 0;
             if (["Business Permit"].includes(category) || code.startsWith("BUSINESS_PERMIT")) return 1;
             if (["Civil Registry"].includes(category) || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) return 2;
-            if (["Building Permit", "Engineer"].includes(category) || code.startsWith("ENGINEER") || code.startsWith("BUILDING")) return 3;
+            if (["Assessor"].includes(category) || code.startsWith("RPT_CAT2") || code.startsWith("RPT_CAT3")) return 3;
 
             return -1;
         };
@@ -205,6 +216,10 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                     return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID", "FOR_CLAIM", "FOR_PICKING"].includes(tx.status);
                 }
                 return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"].includes(tx.status);
+            }
+
+            if (code === "RPT_CAT2" || code === "RPT_CAT3" || category === "RPT_ASSESSOR") {
+                return ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_PROCESSING"].includes(tx.status);
             }
 
             return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);

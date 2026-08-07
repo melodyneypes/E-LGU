@@ -28,6 +28,9 @@ export function getPostLoginDestination(
     if (role === "BFP" || department === "BFP") {
         return "/admin/bfp";
     }
+    if (role === "ASSESSOR" || department === "ASSESSOR") {
+        return "/admin/assessor";
+    }
     if (role === "ENGINEER") return "/admin/engineer";
     if (role === "MPDC_ZONING") return "/admin/zoning";
     if (department === "REGISTRAR" || department === "CIVIL_REGISTRY") {

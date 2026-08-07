@@ -30,7 +30,8 @@ export default async function AdminLayout({
         "RHU_CENTER_ADMIN",
         "RHU_DOCTOR",
         "RHU_STAFF",
-        "RHU_PHARMACY"
+        "RHU_PHARMACY",
+        "ASSESSOR"
     ].includes(role || "");
 
     if (!isAllowedAdmin) {

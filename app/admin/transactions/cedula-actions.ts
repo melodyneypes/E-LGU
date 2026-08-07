@@ -743,7 +743,8 @@ export async function getTreasuryTransactions(params?: string | {
 
         // Category filter
         if (category && category !== "ALL") {
-            where.type.category = category;
+            const mappedCat = (category === "Real Property Tax" || category === "RealPropertyTax") ? "RPT" : category;
+            where.type.category = mappedCat;
         }
 
         // Service filter

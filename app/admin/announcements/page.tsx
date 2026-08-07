@@ -108,6 +108,12 @@ export default async function Page({
             priority={priority}
             currentBarangay={isBarangayAdmin ? user.managedBarangay : barangayParam || undefined}
             activeBarangays={activeBarangays.map((b) => b.name)}
+            currentUser={user ? {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                matchedCenterId: undefined
+            } : undefined}
         />
     );
 }

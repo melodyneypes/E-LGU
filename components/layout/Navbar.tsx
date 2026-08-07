@@ -55,6 +55,7 @@ export function Navbar({
         { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction & Electrical Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
         { name: "Occupancy", href: "/user/services/occupancy", desc: "Occupancy Permits & Clearances", icon: FileText, color: "text-cyan-500 bg-cyan-500/10" },
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
+        { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
     ], []);
 
@@ -64,6 +65,7 @@ export function Navbar({
         "Building Permit",
         "Occupancy",
         "Cedula (CTC)",
+        "Real Property Tax (RPT)",
         "Rural Health Unit (RHU)"
     ]);
 
@@ -87,6 +89,9 @@ export function Navbar({
                 }
                 if (activeCodes.some(code => code.startsWith("CEDULA"))) {
                     categoriesToShow.push("Cedula (CTC)");
+                }
+                if (activeCodes.some(code => code.startsWith("RPT_")) || true) {
+                    categoriesToShow.push("Real Property Tax (RPT)");
                 }
                 if (activeCodes.some(code => code.startsWith("RHU_")) || true) {
                     categoriesToShow.push("Rural Health Unit (RHU)");
