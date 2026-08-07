@@ -14,6 +14,18 @@ export interface QueueDepartmentData {
     }[];
     waiting: string[];
 }
+function parseAdditionalData(raw: any): Record<string, any> {
+    if (!raw) return {};
+    if (typeof raw === "string") {
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return {};
+        }
+    }
+    return raw;
+}
+
 export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
     noStore();
     try {
@@ -60,8 +72,8 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             const category = tx.type?.category || "";
             const code = tx.type?.code || "";
             const status = tx.status;
-            const additionalData = tx.additionalData as any;
-            const counterName = (additionalData?.counterName || "").toUpperCase();
+            const additionalData = parseAdditionalData(tx.additionalData);
+            const counterName = (additionalData.counterName || "").toUpperCase();
 
             // If status is UNPAID, they are waiting to pay -> Treasury
             if (isWaiting && status === "UNPAID") {
@@ -80,16 +92,16 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
             // If serving (status: FOR_PROCESSING), determine by counterName or servingDepartment if available
             if (!isWaiting && status === "FOR_PROCESSING") {
-                if (additionalData?.servingDepartment === "Treasury" || counterName.includes("TREASURY") || counterName.includes("CASHIER")) {
+                if (additionalData.servingDepartment === "Treasury" || counterName.includes("TREASURY") || counterName.includes("CASHIER")) {
                     return 0; // Treasury
                 }
-                if (additionalData?.servingDepartment === "BPLO" || counterName.includes("BPLO")) {
+                if (additionalData.servingDepartment === "BPLO" || counterName.includes("BPLO")) {
                     return 1; // BPLO
                 }
-                if (additionalData?.servingDepartment === "Registrar" || counterName.includes("REGISTRAR") || counterName.includes("CIVIL")) {
+                if (additionalData.servingDepartment === "Registrar" || counterName.includes("REGISTRAR") || counterName.includes("CIVIL")) {
                     return 2; // Registrar
                 }
-                if (additionalData?.servingDepartment === "Assessor" || counterName.includes("ASSESSOR")) {
+                if (additionalData.servingDepartment === "Assessor" || counterName.includes("ASSESSOR")) {
                     return 3; // Assessor
                 }
             }
@@ -109,7 +121,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         const servingTxs = allTxs.filter(tx => {
             const category = tx.type?.category || "";
             const code = tx.type?.code || "";
-            const additionalData = tx.additionalData as any;
+            const additionalData = parseAdditionalData(tx.additionalData);
             
             const isPsaAppt = [
                 "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
@@ -122,20 +134,15 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 additionalData.counterName.trim() !== "" &&
                 (!isPsaAppt || !["FOR_CLAIM", "FOR_PICKING"].includes(tx.status) || additionalData.servingDepartment === "Registrar");
 
-            if (tx.status === "FOR_PROCESSING") {
-                if (category === "Business Permit") {
-                    // For Business Permits (BPLO), background processing (FOR_PROCESSING without counter) should not show on queue TV
-                    return hasCounter;
-                }
-                return true;
+            if (category === "Business Permit" || code.startsWith("BUSINESS_PERMIT")) {
+                const allowedBploServing = ["FOR_INSPECTION", "FOR_CLAIM"];
+                return hasCounter && allowedBploServing.includes(tx.status);
             }
 
-            if (category === "Business Permit") {
-                const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"];
-                if (allowedBploServing.includes(tx.status)) {
-                    return hasCounter;
-                }
+            if (tx.status === "FOR_PROCESSING") {
+                return hasCounter;
             }
+
             if (category === "Civil Registry" || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) {
                 const allowedRegistrarServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_CLAIM", "FOR_PICKING"];
                 if (allowedRegistrarServing.includes(tx.status)) {
@@ -145,23 +152,21 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             return false;
         });
 
-
-
         for (const tx of servingTxs) {
             const deptIdx = getDeptIndex(tx, false);
             if (deptIdx === -1) continue;
 
             const deptName = deptNames[deptIdx];
-            const additionalData = tx.additionalData as any;
-            const counterName = additionalData?.counterName || `${deptName} Counter`;
+            const additionalData = parseAdditionalData(tx.additionalData);
+            const counterName = additionalData.counterName || `${deptName} Counter`;
 
             let residentName = "N/A";
             if (tx.user?.residentProfile) {
                 const profile = tx.user.residentProfile;
                 residentName = `${profile.firstName} ${profile.lastName}`;
             } else if (tx.residentSnapshot) {
-                const snapshot = tx.residentSnapshot as any;
-                residentName = `${snapshot.firstName} ${snapshot.lastName}`;
+                const snapshot = typeof tx.residentSnapshot === "string" ? JSON.parse(tx.residentSnapshot) : tx.residentSnapshot;
+                residentName = `${snapshot.firstName || ""} ${snapshot.lastName || ""}`.trim();
             }
 
             queueData[deptIdx].nowServing.push({
@@ -174,8 +179,8 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
         // Partition waiting tickets
         const waitingTxsRaw = allTxs.filter(tx => {
-            const additionalData = tx.additionalData as any;
-            const isCheckedIn = additionalData && !!additionalData.checkedIn;
+            const additionalData = parseAdditionalData(tx.additionalData);
+            const isCheckedIn = Boolean(additionalData.checkedIn === true);
             if (!isCheckedIn) return false;
 
             const code = tx.type?.code || "";
@@ -198,7 +203,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             }
 
             if (category === "Business Permit" || code.startsWith("BUSINESS_PERMIT")) {
-                return ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "UNPAID"].includes(tx.status);
+                return ["FOR_INSPECTION", "FOR_CLAIM", "UNPAID"].includes(tx.status);
             }
 
             if (category === "CEDULA" || code.startsWith("CEDULA")) {
