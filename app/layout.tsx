@@ -63,14 +63,21 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const settings = await getMultipleSystemSettings(["maintenance_mode"]);
+  const settings = await getMultipleSystemSettings(["maintenance_mode", "theme_color"]);
   const isMaintenanceActive = settings.get("maintenance_mode") === "true";
+  const themeColor = settings.get("theme_color") || "#2563eb";
 
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      style={{ "--primary-theme": themeColor } as React.CSSProperties}
+    >
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
+        style={{ "--primary-theme": themeColor } as React.CSSProperties}
       >
         <Providers isMaintenanceActive={isMaintenanceActive}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

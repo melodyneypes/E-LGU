@@ -6,6 +6,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { getSystemSetting, getMultipleSystemSettings } from "@/lib/settings";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { generateQueueNumber } from "@/lib/queue";
@@ -1568,11 +1569,8 @@ export async function updateBarangayLogistics(id: string, data: { deliveryFee: n
  */
 export async function getSystemSettingAction(key: string, defaultValue: string = "") {
     try {
-        await assertSessionUser();
-        const setting = await prisma.systemSetting.findUnique({
-            where: { key }
-        });
-        return { success: true, data: setting?.value || defaultValue };
+        const value = await getSystemSetting(key, defaultValue);
+        return { success: true, data: value };
     } catch (error) {
         console.error(`Error fetching system setting ${key}:`, error);
         return { success: false, error: "Failed to fetch setting", data: defaultValue };
@@ -1584,13 +1582,10 @@ export async function getSystemSettingAction(key: string, defaultValue: string =
  */
 export async function getSystemSettingsAction(keys: string[]): Promise<{ success: boolean; error?: string; data: Record<string, string> }> {
     try {
-        await assertSessionUser();
-        const settings = await prisma.systemSetting.findMany({
-            where: { key: { in: keys } }
-        });
+        const settingsMap = await getMultipleSystemSettings(keys);
         const result: Record<string, string> = {};
-        settings.forEach(s => {
-            result[s.key] = s.value;
+        settingsMap.forEach((val, k) => {
+            result[k] = val;
         });
         return { success: true, data: result };
     } catch (error) {
