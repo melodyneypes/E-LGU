@@ -770,10 +770,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 headerAction={
                     <div>
                         <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                            Executive Dashboard
+                            Dashboard
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                             <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
+                            <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
                         </p>
                     </div>
                 }
