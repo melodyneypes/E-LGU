@@ -177,6 +177,10 @@ model Announcement {
   isPinned       Boolean   @default(false)
   isActive       Boolean   @default(true)
   expiryDate     DateTime?
+  eventDate      DateTime?
+  eventSchedule  String?
+
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   barangay       String?
@@ -184,8 +188,6 @@ model Announcement {
   authorId       String?
   authorEmail    String?
   healthCenterId String?
-  eventDate      DateTime?
-  eventSchedule  String?
 }
 
 model Job {

@@ -660,7 +660,7 @@ export function Sidebar({
             ];
         } else if (role === "ASSESSOR") {
             menuItems = [
-                { href: "/admin/assessor/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Assessor Office" },
+{ href: "/admin/assessor/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Assessor Office" },
                 {
                     href: "/admin/assessor",
                     label: "Assessor Hub",
