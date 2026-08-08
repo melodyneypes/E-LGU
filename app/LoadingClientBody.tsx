@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Landmark, ShieldCheck, Database, Activity } from "lucide-react";
+import { Landmark, ShieldCheck, Activity } from "lucide-react";
 
 interface LoadingProps {
     logoUrl?: string;
@@ -13,9 +13,9 @@ interface LoadingProps {
 
 export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor }: LoadingProps) {
     const [phase, setPhase] = useState(0);
+    const fullBrand = `${brand1 || "E"}${brand2 || "Mapandan"}`;
     const phrases = [
-        `Accessing ${brand1 || "Mapandan"} Gateway...`,
-        "Ready to Connect."
+        `Accessing ${fullBrand} `
     ];
 
     useEffect(() => {
@@ -124,9 +124,8 @@ export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor 
                                     className="flex items-center gap-2"
                                 >
                                     {phase === 0 && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
-                                    {phase === 1 && <Database className="w-4 h-4 text-blue-500 animate-bounce" />}
-                                    {phase === 2 && <Landmark className="w-4 h-4 text-primary animate-pulse" />}
-                                    {phase === 3 && <Activity className="w-4 h-4 text-white animate-spin" />}
+                                    {phase === 1 && <Landmark className="w-4 h-4 text-primary animate-pulse" />}
+                                    {phase === 2 && <Activity className="w-4 h-4 text-white animate-spin" />}
                                     <p className="text-[12px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400 italic">
                                         {phrases[phase]}
                                     </p>

@@ -320,6 +320,12 @@ export function UsersPage({
                 >
                   Municipal Mayor
                 </SelectItem>
+                <SelectItem
+                  value="ASSESSOR"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  Municipal Assessor
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

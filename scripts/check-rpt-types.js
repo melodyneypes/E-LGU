@@ -1,2 +1,2 @@
 // Type check helper
-export {};
+export { };

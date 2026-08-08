@@ -1249,6 +1249,7 @@ enum UserRole {
   RHU_PHARMACY
   RHU_ADMIN
   MAYOR
+  ASSESSOR
 }
 
 enum ResidentStatus {

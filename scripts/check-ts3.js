@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 exec('npx tsc --noEmit', (error, stdout, stderr) => {
-  const output = stdout || stderr;
-  fs.writeFileSync(path.join(__dirname, 'tsc-output3.txt'), output);
-  console.log('TypeScript check 3 finished.');
+    const output = stdout || stderr;
+    fs.writeFileSync(path.join(__dirname, 'tsc-output3.txt'), output);
+    console.log('TypeScript check 3 finished.');
 });

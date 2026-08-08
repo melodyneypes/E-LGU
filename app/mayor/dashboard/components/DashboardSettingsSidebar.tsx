@@ -175,7 +175,7 @@ export function DashboardSettingsSidebar({
                     <SheetHeader className="space-y-2 text-left">
                         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400 italic">
                             <LayoutGrid className="w-4 h-4" />
-                            <span>Executive Dashboard Configuration</span>
+                            <span>Dashboard Configuration</span>
                         </div>
                         <SheetTitle className="text-xl font-black italic uppercase text-white tracking-tight">
                             Layout & Visibility Controls
@@ -208,11 +208,9 @@ export function DashboardSettingsSidebar({
                                     setDraggedSectionKey(null);
                                     setDragOverSectionKey(null);
                                 }}
-                                className={`space-y-3 pt-3 pb-2 border-t border-slate-800/60 transition-all rounded-2xl p-3 ${
-                                    isBeingDragged ? "opacity-30 border-2 border-dashed border-indigo-500 bg-indigo-500/10" : ""
-                                } ${
-                                    isOver ? "ring-2 ring-indigo-500 bg-slate-900/90 scale-[1.01]" : ""
-                                }`}
+                                className={`space-y-3 pt-3 pb-2 border-t border-slate-800/60 transition-all rounded-2xl p-3 ${isBeingDragged ? "opacity-30 border-2 border-dashed border-indigo-500 bg-indigo-500/10" : ""
+                                    } ${isOver ? "ring-2 ring-indigo-500 bg-slate-900/90 scale-[1.01]" : ""
+                                    }`}
                             >
                                 {/* Section Drag Handle & Title Header */}
                                 <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-800/40 cursor-grab active:cursor-grabbing group/sec">
@@ -235,11 +233,10 @@ export function DashboardSettingsSidebar({
                                         return (
                                             <div
                                                 key={key}
-                                                className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                                                    isVisible
+                                                className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${isVisible
                                                         ? "bg-slate-900/80 border-slate-800 hover:border-slate-700"
                                                         : "bg-slate-900/30 border-slate-800/40 opacity-50"
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="min-w-0 space-y-0.5">
                                                     <div className="flex items-center gap-2">
@@ -258,11 +255,10 @@ export function DashboardSettingsSidebar({
                                                 <button
                                                     type="button"
                                                     onClick={() => onToggleVisibility(key)}
-                                                    className={`p-2 rounded-xl transition-all border shrink-0 ${
-                                                        isVisible
+                                                    className={`p-2 rounded-xl transition-all border shrink-0 ${isVisible
                                                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
                                                             : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
-                                                    }`}
+                                                        }`}
                                                     title={isVisible ? "Hide Card" : "Show Card"}
                                                 >
                                                     {isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}

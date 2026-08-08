@@ -1,2 +1,2 @@
 // Database helper
-export {};
+export { };
