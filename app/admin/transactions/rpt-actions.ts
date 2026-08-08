@@ -140,8 +140,12 @@ export async function evaluateAssessorTransaction(
         const extraAddData: any = {};
 
         if (action === "APPROVE") {
-            nextStatus = "FOR_REQUESTING";
+            nextStatus = "UNPAID";
             assessorStatus = "APPROVED";
+            extraAddData.checkedIn = false;
+            extraAddData.checkedInAt = null;
+            extraAddData.counterName = null;
+            extraAddData.servingDepartment = null;
         } else if (action === "REJECT") {
             nextStatus = "REJECTED";
             assessorStatus = "REJECTED";
@@ -168,11 +172,12 @@ export async function evaluateAssessorTransaction(
             }
         });
 
-        // Keep realPropertyTax table in sync for assessor status
-        await (prisma as any).realPropertyTax.updateMany({
-            where: { transactionId: id },
-            data: { assessorStatus }
-        });
+        if ((prisma as any).realPropertyTax) {
+            await (prisma as any).realPropertyTax.updateMany({
+                where: { transactionId: id },
+                data: { assessorStatus }
+            });
+        }
 
         revalidatePath("/admin/assessor");
         revalidatePath(`/admin/assessor/${id}`);

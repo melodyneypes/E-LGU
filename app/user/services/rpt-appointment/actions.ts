@@ -264,8 +264,8 @@ export async function submitRptAppointment(formData: FormData) {
             customQueueNum = `${format(apptDate, "MMddyyyy")}-${shiftPrefix}-${ticketPrefix}001`;
         }
 
-        // Initial Status: Category 1 goes directly to FOR_REQUESTING for Treasury; Category 2 & 3 go to FOR_INSPECTION for Assessor
-        const initialStatus = categoryCode === "RPT_CAT1" ? "FOR_REQUESTING" : "FOR_INSPECTION";
+        // Initial Status: Category 1 starts at UNPAID (Direct to Treasury), Category 2 & 3 start at FOR_REQUESTING (Assessor first)
+        const initialStatus = categoryCode === "RPT_CAT1" ? "UNPAID" : "FOR_REQUESTING";
 
         const newTransaction = await prisma.transaction.create({
             data: {
