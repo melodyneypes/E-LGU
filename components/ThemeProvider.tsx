@@ -7,5 +7,5 @@ export function ThemeProvider({
     children,
     ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
-    return <NextThemesProvider script={false} {...props}>{children}</NextThemesProvider>
+    return <NextThemesProvider {...(props as any)}>{children}</NextThemesProvider>
 }
