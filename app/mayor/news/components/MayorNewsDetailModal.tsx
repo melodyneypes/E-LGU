@@ -3,7 +3,6 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import {
-    Newspaper,
     Calendar,
     Tag,
     MapPin,
@@ -38,7 +37,6 @@ interface MayorNewsDetailModalProps {
 export function MayorNewsDetailModal({
     item,
     onClose,
-    themeColor = "#2563eb",
 }: MayorNewsDetailModalProps) {
     // Lock body scroll when modal is open & close on Escape key
     useEffect(() => {

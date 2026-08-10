@@ -3,9 +3,7 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import {
-    Megaphone,
     Calendar,
-    Tag,
     MapPin,
     User,
     Pin,
@@ -45,7 +43,6 @@ interface MayorAnnouncementDetailModalProps {
 export function MayorAnnouncementDetailModal({
     announcement,
     onClose,
-    themeColor = "#2563eb",
 }: MayorAnnouncementDetailModalProps) {
     // Lock body scroll when modal is open & close on Escape key
     useEffect(() => {
