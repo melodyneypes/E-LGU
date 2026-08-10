@@ -607,7 +607,11 @@ export async function getTreasuryTransactions(params?: string | {
         const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
-            type: { processorRole: "TREASURY_STAFF" }
+            OR: [
+                { type: { processorRole: "TREASURY_STAFF" } },
+                { type: { category: "RPT" } },
+                { type: { code: { startsWith: "RPT_" } } }
+            ]
         };
 
         if (status && status !== "ALL") {
@@ -646,6 +650,13 @@ export async function getTreasuryTransactions(params?: string | {
             ]
         };
 
+        const rptCategory23Filter = {
+            OR: [
+                { type: { code: "RPT_CAT2" } },
+                { type: { code: "RPT_CAT3" } }
+            ]
+        };
+
         if (!ledgerType) {
             where.AND = [
                 {
@@ -654,6 +665,18 @@ export async function getTreasuryTransactions(params?: string | {
                             AND: [
                                 { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
                                 { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
+                            ]
+                        }
+                    ]
+                },
+                // RPT Category 2 & 3 Conditions: Treasury only sees UNPAID, PAID, FOR_PROCESSING, RELEASED
+                {
+                    OR: [
+                        { NOT: rptCategory23Filter },
+                        {
+                            AND: [
+                                rptCategory23Filter,
+                                { status: { in: ["UNPAID", "PAID", "FOR_PROCESSING", "RELEASED"] } }
                             ]
                         }
                     ]
@@ -744,6 +767,7 @@ export async function getTreasuryTransactions(params?: string | {
         // Category filter
         if (category && category !== "ALL") {
             const mappedCat = (category === "Real Property Tax" || category === "RealPropertyTax") ? "RPT" : category;
+            if (!where.type) where.type = {};
             where.type.category = mappedCat;
         }
 

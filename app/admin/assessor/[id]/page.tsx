@@ -165,7 +165,7 @@ export default function AssessorTransactionDetailPage() {
                         TICKET: {tx.queueNumber || "N/A"}
                     </Badge>
                     <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest italic">
-                        TYPE OF REQUEST: {tx.status}
+                        TYPE OF REQUEST: {rpt.assessorStatus === "APPROVED" ? "APPROVED" : tx.status === "FOR_REQUESTING" ? "SUBMITTED" : tx.status}
                     </Badge>
                 </div>
             </div>
@@ -428,7 +428,7 @@ export default function AssessorTransactionDetailPage() {
                                     </div>
 
                                     <div className="space-y-2.5 pt-2">
-                                        {tx.status === "FOR_INSPECTION" && (
+                                        {tx.status === "FOR_INSPECTION" ? (
                                             <Button
                                                 onClick={() => handleAction("APPROVE")}
                                                 disabled={actionPending}
@@ -436,23 +436,18 @@ export default function AssessorTransactionDetailPage() {
                                             >
                                                 <CheckCircle2 className="w-4 h-4 mr-2" /> Approve & Send to Treasury
                                             </Button>
+                                        ) : (
+                                            <Button
+                                                onClick={() => {
+                                                    setInspectionError("");
+                                                    setIsInspectionDialogOpen(true);
+                                                }}
+                                                disabled={actionPending}
+                                                className="w-full bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider italic shadow-lg shadow-rose-600/20"
+                                            >
+                                                <Calendar className="w-4 h-4 mr-2" /> Schedule Field Inspection
+                                            </Button>
                                         )}
-
-                                        <Button
-                                            onClick={() => {
-                                                setInspectionError("");
-                                                setIsInspectionDialogOpen(true);
-                                            }}
-                                            disabled={actionPending}
-                                            variant={tx.status === "FOR_INSPECTION" ? "outline" : "default"}
-                                            className={`w-full rounded-xl h-11 text-xs font-black uppercase tracking-wider italic ${
-                                                tx.status === "FOR_INSPECTION" 
-                                                    ? "border-white/10 text-slate-200 hover:bg-white/5 font-bold" 
-                                                    : "bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20"
-                                            }`}
-                                        >
-                                            <Calendar className="w-4 h-4 mr-2" /> {tx.status === "FOR_INSPECTION" ? "Reschedule Field Inspection" : "Schedule Field Inspection"}
-                                        </Button>
 
                                         <Button
                                             onClick={() => handleAction("REJECT")}
