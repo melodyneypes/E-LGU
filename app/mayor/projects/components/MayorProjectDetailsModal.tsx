@@ -1,5 +1,3 @@
-"use client";
-
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MayorProject } from "./MayorProjectsProvider";
@@ -7,6 +5,7 @@ import {
     Calendar, MapPin, Building2, Tag, X,
     DollarSign, Briefcase,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function formatDate(dateInput: Date | string | null | undefined) {
     if (!dateInput) return "N/A";
@@ -44,62 +43,106 @@ export function MayorProjectDetailsModal({
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
             <DialogContent
                 showCloseButton={false}
-                className="sm:max-w-2xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl"
+                className="sm:max-w-2xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl"
             >
-                <div className="relative flex flex-col max-h-[85vh]">
-                    {/* Header */}
-                    <DialogHeader
-                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-start justify-between gap-4"
-                        style={{ backgroundColor: `${themeColor}14` }}
-                    >
-                        <div className="flex items-start gap-3">
-                            <div
-                                className="p-2.5 rounded-xl shadow-lg shrink-0"
-                                style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
+                <div className="relative flex flex-col max-h-[90vh]">
+                    {/* Header Banner (Only shown if imageUrl exists) */}
+                    {project.imageUrl ? (
+                        <div className="relative h-48 sm:h-56 w-full bg-slate-100 dark:bg-[#1e2330] shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={project.imageUrl}
+                                alt={project.title}
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+
+                            {/* Explicit X close button on top right of banner */}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={onClose}
+                                className="absolute top-4 right-4 z-20 h-8 w-8 rounded-full bg-slate-950/50 backdrop-blur-md text-white hover:bg-slate-900 border border-white/20 shrink-0"
                             >
-                                <Tag className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="min-w-0">
-                                <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
-                                    {project.title}
-                                </DialogTitle>
-                                <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium mt-0.5 flex items-center gap-2">
-                                    <span className="inline-flex items-center gap-1">
-                                        <Briefcase className="w-3 h-3" />
+                                <X className="w-4 h-4" />
+                            </Button>
+
+                            {/* Banner Badges & Title */}
+                            <div className="absolute bottom-4 left-6 right-6 z-10">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span className="px-3 py-1 rounded-full bg-purple-600/90 backdrop-blur-md text-white text-[10px] font-black uppercase italic tracking-widest shadow">
                                         {project.category}
                                     </span>
-                                    <span>·</span>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${statusClass}`}>
+                                    <span className="px-3 py-1 rounded-full bg-slate-800/80 backdrop-blur-md text-slate-200 text-[10px] font-black uppercase italic tracking-widest shadow">
                                         {project.status}
                                     </span>
-                                </DialogDescription>
+                                </div>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DialogTitle className="text-lg sm:text-xl font-black text-white uppercase italic tracking-tight drop-shadow-md line-clamp-1 cursor-pointer block" title={project.title}>
+                                                <span className="cursor-pointer truncate block">{project.title}</span>
+                                            </DialogTitle>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold uppercase italic text-xs p-3 rounded-xl shadow-2xl z-[99999]">
+                                            {project.title}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         </div>
-                        {/* Explicit X close button */}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={onClose}
-                            className="h-8 w-8 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shrink-0"
+                    ) : (
+                        /* Collapsed Text Header when no image is present */
+                        <DialogHeader
+                            className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-start justify-between gap-4 shrink-0 bg-slate-50/50 dark:bg-[#1a202c]/50"
                         >
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </DialogHeader>
+                            <div className="flex items-start gap-3 min-w-0">
+                                <div
+                                    className="p-2.5 rounded-xl shadow-lg shrink-0"
+                                    style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
+                                >
+                                    <Tag className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="min-w-0">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <DialogTitle className="text-lg sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight cursor-pointer line-clamp-1" title={project.title}>
+                                                    <span className="cursor-pointer truncate block">{project.title}</span>
+                                                </DialogTitle>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold uppercase italic text-xs p-3 rounded-xl shadow-2xl z-[99999]">
+                                                {project.title}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium mt-1 flex items-center gap-2">
+                                        <span className="inline-flex items-center gap-1">
+                                            <Briefcase className="w-3 h-3" />
+                                            {project.category}
+                                        </span>
+                                        <span>·</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${statusClass}`}>
+                                            {project.status}
+                                        </span>
+                                    </DialogDescription>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={onClose}
+                                className="h-8 w-8 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shrink-0"
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </DialogHeader>
+                    )}
 
                     {/* Scrollable Body */}
-                    <div className="overflow-y-auto custom-scrollbar p-6 pb-8 space-y-5">
-                        {/* Project Image */}
-                        {project.imageUrl && (
-                            <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-[#2a3040]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={project.imageUrl}
-                                    alt={project.title}
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        )}
+                    <div className="overflow-y-auto custom-scrollbar p-6 pb-8 space-y-5 flex-1">
 
                         {/* Progress Bar Container */}
                         <div className="p-4 rounded-2xl border border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2e]/40 space-y-2">

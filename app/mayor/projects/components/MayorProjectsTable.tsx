@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { FolderKanban, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { MayorProjectDetailsModal } from "./MayorProjectDetailsModal";
@@ -27,6 +27,31 @@ export function MayorProjectsTable() {
     const searchParams = useSearchParams();
 
     const [selectedProject, setSelectedProject] = useState<MayorProject | null>(null);
+    const projectIdParam = searchParams.get("projectId");
+
+    // Auto-open modal when projectId URL parameter is present
+    useEffect(() => {
+        if (!projectIdParam) return;
+        const found = projects.find((p) => p.id === projectIdParam);
+        if (found) {
+            setSelectedProject(found);
+        } else {
+            // Fetch directly from API if project is not in current initial page
+            (async () => {
+                try {
+                    const res = await fetch(`/api/projects/${projectIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.project) {
+                            setSelectedProject(data.project);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch project details:", err);
+                }
+            })();
+        }
+    }, [projectIdParam, projects]);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -93,7 +118,14 @@ export function MayorProjectsTable() {
             <MayorProjectDetailsModal
                 project={selectedProject}
                 open={!!selectedProject}
-                onClose={() => setSelectedProject(null)}
+                onClose={() => {
+                    setSelectedProject(null);
+                    if (searchParams.get("projectId")) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete("projectId");
+                        router.push(`${pathname}?${params.toString()}`);
+                    }
+                }}
                 themeColor={themeColor}
             />
 
