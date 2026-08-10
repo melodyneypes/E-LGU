@@ -7,6 +7,8 @@ import { Calendar, Pin, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { MayorAnnouncementDetailModal, AnnouncementDetailItem } from "./MayorAnnouncementDetailModal";
+import React, { useState, useEffect } from "react";
 
 export function MayorAnnouncementTable() {
     const {
@@ -22,6 +24,33 @@ export function MayorAnnouncementTable() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+
+    const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementDetailItem | null>(null);
+    const announcementIdParam = searchParams.get("announcementId");
+
+    // Auto-open modal when announcementId URL parameter is present
+    useEffect(() => {
+        if (!announcementIdParam) return;
+        const found = announcements.find((a) => a.id === announcementIdParam);
+        if (found) {
+            setSelectedAnnouncement(found as any);
+        } else {
+            // Fetch if not present in initial page batch
+            (async () => {
+                try {
+                    const res = await fetch(`/api/announcements/${announcementIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.announcement) {
+                            setSelectedAnnouncement(data.announcement);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch announcement details:", err);
+                }
+            })();
+        }
+    }, [announcementIdParam, announcements]);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -81,12 +110,17 @@ export function MayorAnnouncementTable() {
                 </TableHeader>
                 <TableBody>
                     {announcements.map((item) => (
-                        <TableRow key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]">
+                        <TableRow
+                            key={item.id}
+                            onClick={() => setSelectedAnnouncement(item as any)}
+                            className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
+                            title="Click to view full notice details"
+                        >
                             <TableCell className="pl-8 py-5">
                                 <div className="flex flex-col space-y-1.5">
                                     <div className="flex items-center gap-2">
                                         {item.isPinned && <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />}
-                                        <span className="dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
+                                        <span className="dark:text-white font-black uppercase italic tracking-tight leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                             {item.title}
                                         </span>
                                     </div>
@@ -196,6 +230,20 @@ export function MayorAnnouncementTable() {
                     )}
                 </div>
             </div>
+
+            {/* Read-Only Mayor Detail Modal */}
+            <MayorAnnouncementDetailModal
+                announcement={selectedAnnouncement}
+                onClose={() => {
+                    setSelectedAnnouncement(null);
+                    if (searchParams.get("announcementId")) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete("announcementId");
+                        router.push(`${pathname}?${params.toString()}`);
+                    }
+                }}
+                themeColor={themeColor}
+            />
         </div>
     );
 }

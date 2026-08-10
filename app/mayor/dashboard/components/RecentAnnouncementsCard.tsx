@@ -63,7 +63,7 @@ export function RecentAnnouncementsCard({ announcements, rowSpan = 1 }: RecentAn
             return (
               <Link
                 key={item.id}
-                href="/mayor/announcements"
+                href={`/mayor/announcements?announcementId=${item.id}`}
                 className="flex-1 flex items-center gap-4 py-3 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-2 px-3 rounded-xl transition-colors"
               >
                 {/* Priority Badge */}

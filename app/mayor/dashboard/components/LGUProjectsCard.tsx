@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Hammer, ArrowRight, MapPin } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProjectItem {
   id: string;
@@ -65,14 +66,23 @@ export function LGUProjectsCard({ projects, rowSpan = 1 }: LGUProjectsCardProps)
             return (
               <Link
                 key={item.id}
-                href="/mayor/projects"
+                href={`/mayor/projects?projectId=${item.id}`}
                 className="block py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
               >
                 {/* Title + Status */}
                 <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                    {item.title}
-                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" title={item.title}>
+                          {item.title}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs font-bold uppercase italic bg-slate-900 text-white p-2.5 rounded-xl shadow-xl z-[99999]">
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase italic tracking-wider ${badgeClass}`}>
                     {item.status}
                   </div>

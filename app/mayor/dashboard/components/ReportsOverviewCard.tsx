@@ -144,7 +144,14 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                                 return (
                                     <tr
                                         key={report.id}
-                                        className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
+                                        onClick={() => {
+                                            const params = new URLSearchParams();
+                                            if (barangay) params.set("barangay", barangay);
+                                            params.set("reportId", report.id);
+                                            window.location.href = `/mayor/reports?${params.toString()}`;
+                                        }}
+                                        className="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                                        title="Click to view details in Reports management"
                                     >
                                         {/* # */}
                                         <td className="py-4 px-3">

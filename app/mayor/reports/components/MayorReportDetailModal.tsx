@@ -20,6 +20,12 @@ import {
     DialogContent,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -134,9 +140,18 @@ export function MayorReportDetailModal({ report, onClose, themeColor = "#2563eb"
                                     {report.category}
                                 </Badge>
                             </div>
-                            <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2">
-                                <span>Report Overview</span>
-                            </DialogTitle>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2 cursor-pointer">
+                                            <span>Report Overview ({report.category})</span>
+                                        </DialogTitle>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold uppercase italic text-xs p-3 rounded-xl shadow-2xl z-[110]">
+                                        Report Category: {report.category}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                         <div className="shrink-0 flex items-center gap-2">
                             <span className="text-xs text-slate-400 font-medium mr-1 hidden sm:inline">Status:</span>
