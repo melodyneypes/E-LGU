@@ -58,7 +58,7 @@ export function LatestNewsCard({ news, rowSpan = 1 }: LatestNewsCardProps) {
             return (
               <Link
                 key={item.id}
-                href="/mayor/news"
+                href={`/mayor/news?newsId=${item.id}`}
                 className="flex-1 flex items-center gap-4 py-3 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-2 px-3 rounded-xl transition-colors"
               >
                 {/* Thumbnail / Placeholder */}

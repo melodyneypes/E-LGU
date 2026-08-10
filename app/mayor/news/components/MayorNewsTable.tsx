@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Calendar, Newspaper, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { MayorNewsDetailModal, MayorNewsDetailItem } from "./MayorNewsDetailModal";
+import React, { useState, useEffect } from "react";
 
 export function MayorNewsTable() {
     const {
@@ -23,6 +25,33 @@ export function MayorNewsTable() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+
+    const [selectedNews, setSelectedNews] = useState<MayorNewsDetailItem | null>(null);
+    const newsIdParam = searchParams.get("newsId");
+
+    // Auto-open modal when newsId URL parameter is present
+    useEffect(() => {
+        if (!newsIdParam) return;
+        const found = newsData.find((n) => n.id === newsIdParam);
+        if (found) {
+            setSelectedNews(found as any);
+        } else {
+            // Fetch directly from server if article is not in current initial page
+            (async () => {
+                try {
+                    const res = await fetch(`/api/news/${newsIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.news) {
+                            setSelectedNews(data.news);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch news details:", err);
+                }
+            })();
+        }
+    }, [newsIdParam, newsData]);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -109,7 +138,9 @@ export function MayorNewsTable() {
                         {newsData.map((item: MayorNews) => (
                             <TableRow
                                 key={item.id}
-                                className="group hover:bg-[color-mix(in_srgb,var(--primary-theme)_8%,transparent)] transition-colors border-b border-slate-200 dark:border-[#2a3040]"
+                                onClick={() => setSelectedNews(item as any)}
+                                className="group hover:bg-[color-mix(in_srgb,var(--primary-theme)_8%,transparent)] transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
+                                title="Click to view full article details"
                             >
                                 {/* Image */}
                                 <TableCell className="pl-8">
@@ -130,7 +161,7 @@ export function MayorNewsTable() {
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <p className="text-slate-900 dark:text-white font-black uppercase italic tracking-tight leading-tight m-0 cursor-default">
+                                                    <p className="text-slate-900 dark:text-white font-black uppercase italic tracking-tight leading-tight m-0 cursor-default group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                                         {item.title.length > 60
                                                             ? item.title.slice(0, 60) + "..."
                                                             : item.title}
@@ -232,28 +263,40 @@ export function MayorNewsTable() {
                     <Button
                         variant="outline"
                         size="sm"
-                        disabled={page <= 1}
+                        disabled={page === 1 || isPending}
                         onClick={() => handlePageChange(page - 1)}
-                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1"
+                        className="rounded-xl border-slate-200 dark:border-[#2a3040] text-xs font-bold"
                     >
-                        <ChevronLeft className="w-4 h-4" />
-                        Prev
+                        <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                     </Button>
-                    <span className="text-xs font-black px-3 py-1 bg-slate-200/60 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-slate-200">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 px-2">
                         {page} / {totalPages}
                     </span>
                     <Button
                         variant="outline"
                         size="sm"
-                        disabled={page >= totalPages}
+                        disabled={page === totalPages || isPending}
                         onClick={() => handlePageChange(page + 1)}
-                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1"
+                        className="rounded-xl border-slate-200 dark:border-[#2a3040] text-xs font-bold"
                     >
-                        Next
-                        <ChevronRight className="w-4 h-4" />
+                        Next <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                 </div>
             </div>
+
+            {/* Read-Only News Detail Modal */}
+            <MayorNewsDetailModal
+                item={selectedNews}
+                onClose={() => {
+                    setSelectedNews(null);
+                    if (searchParams.get("newsId")) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete("newsId");
+                        router.push(`${pathname}?${params.toString()}`);
+                    }
+                }}
+                themeColor={themeColor}
+            />
         </>
     );
 }
