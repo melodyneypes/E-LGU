@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-    Calendar, MapPin, ChevronLeft, ChevronRight,
+    Calendar, MapPin, ChevronLeft,
     Phone, Clock, Building2, Tag, X, Map as MapIcon, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
