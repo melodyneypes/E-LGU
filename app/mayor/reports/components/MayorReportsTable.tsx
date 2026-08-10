@@ -65,6 +65,31 @@ export function MayorReportsTable({
 
     const currentPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
+    const reportIdParam = searchParams.get("reportId");
+
+    // Auto-open modal when reportId parameter is present in the URL
+    useEffect(() => {
+        if (!reportIdParam) return;
+
+        const foundInInitial = initialReports.find((r) => r.id === reportIdParam);
+        if (foundInInitial) {
+            handleSelectReport(foundInInitial);
+        } else {
+            // Fetch directly from server if report is on another page or not in initialReports list
+            (async () => {
+                try {
+                    const { getMayorReportById } = await import("../actions");
+                    const res = await getMayorReportById(reportIdParam);
+                    if (res.success && res.report) {
+                        setSelectedReport(res.report as any);
+                    }
+                } catch (err) {
+                    console.error("Failed to auto-load report detail modal:", err);
+                }
+            })();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reportIdParam]);
 
     const handleSelectReport = async (report: MayorReportDetailItem) => {
         setSelectedReport(report);
@@ -312,7 +337,12 @@ export function MayorReportsTable({
             {/* Read-Only Mayor Detail Modal */}
             <MayorReportDetailModal
                 report={selectedReport}
-                onClose={() => setSelectedReport(null)}
+                onClose={() => {
+                    setSelectedReport(null);
+                    if (searchParams.get("reportId")) {
+                        updateParams({ reportId: null });
+                    }
+                }}
                 themeColor={themeColor}
             />
         </div>
