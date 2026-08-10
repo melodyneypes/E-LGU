@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMayorEvents, MayorEvent } from "./MayorEventsProvider";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -64,75 +64,136 @@ function EventDetailsModal({
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
             <DialogContent
                 showCloseButton={false}
-                className="sm:max-w-2xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl"
+                className="sm:max-w-2xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl"
             >
-                <div className="relative flex flex-col max-h-[85vh]">
+                <div className="relative flex flex-col max-h-[90vh]">
+                    {/* Header Banner (Only shown if imageUrl exists) */}
+                    {event.imageUrl ? (
+                        <div className="relative h-48 sm:h-56 w-full bg-slate-100 dark:bg-[#1e2330] shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={event.imageUrl}
+                                alt={event.title}
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
 
-                    {/* ── Sticky Header (AddEventModal pattern) ── */}
-                    <DialogHeader
-                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-start justify-between gap-4"
-                        style={{ backgroundColor: `${themeColor}14` }}
-                    >
-                        <div className="flex items-start gap-3">
-                            <div
-                                className="p-2.5 rounded-xl shadow-lg shrink-0"
-                                style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
+                            {/* Explicit X close button on top right of banner */}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={onClose}
+                                className="absolute top-4 right-4 z-20 h-8 w-8 rounded-full bg-slate-950/50 backdrop-blur-md text-white hover:bg-slate-900 border border-white/20 shrink-0"
                             >
-                                <Calendar className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="min-w-0">
-                                <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
-                                    {event.title}
-                                </DialogTitle>
-                                <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium mt-0.5 flex items-center gap-2">
-                                    <span className="inline-flex items-center gap-1">
-                                        <Tag className="w-3 h-3" />
+                                <X className="w-4 h-4" />
+                            </Button>
+
+                            {/* Banner Badges & Title */}
+                            <div className="absolute bottom-4 left-6 right-6 z-10">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span className="px-3 py-1 rounded-full bg-violet-600/90 backdrop-blur-md text-white text-[10px] font-black uppercase italic tracking-widest shadow">
                                         {event.category}
                                     </span>
-                                    <span>·</span>
                                     {status === "live" ? (
-                                        <span className="text-emerald-500 font-black uppercase text-[10px] tracking-wider animate-pulse">🔴 Live Now</span>
+                                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/90 backdrop-blur-md text-white text-[10px] font-black uppercase italic tracking-widest shadow">
+                                            🔴 Live Now
+                                        </span>
                                     ) : status === "ended" ? (
-                                        <span className="text-slate-400 font-black uppercase text-[10px] tracking-wider">Ended</span>
+                                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-800/90 backdrop-blur-md text-slate-300 text-[10px] font-black uppercase italic tracking-widest shadow">
+                                            Ended
+                                        </span>
                                     ) : (
-                                        <span className="text-amber-500 font-black uppercase text-[10px] tracking-wider">Upcoming</span>
+                                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500/90 backdrop-blur-md text-white text-[10px] font-black uppercase italic tracking-widest shadow">
+                                            Upcoming
+                                        </span>
                                     )}
-                                </DialogDescription>
+                                </div>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DialogTitle className="text-lg sm:text-xl font-black text-white uppercase italic tracking-tight drop-shadow-md line-clamp-1 cursor-pointer block" title={event.title}>
+                                                <span className="cursor-pointer truncate block">{event.title}</span>
+                                            </DialogTitle>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold uppercase italic text-xs p-3 rounded-xl shadow-2xl z-[99999]">
+                                            {event.title}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         </div>
-                        {/* Explicit X close button */}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={onClose}
-                            className="h-8 w-8 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shrink-0"
+                    ) : (
+                        /* Collapsed Text Header when no image is present */
+                        <DialogHeader
+                            className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-start justify-between gap-4 shrink-0 bg-slate-50/50 dark:bg-[#1a202c]/50"
                         >
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </DialogHeader>
-
-                    {/* ── Scrollable Body with modern scroll toggle / custom-scrollbar ── */}
-                    <div className="overflow-y-auto custom-scrollbar p-6 pb-8 space-y-5">
-
-                        {/* Event Image */}
-                        {event.imageUrl && (
-                            <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-[#2a3040]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={event.imageUrl}
-                                    alt={event.title}
-                                    className="w-full h-full object-cover"
-                                />
+                            <div className="flex items-start gap-3 min-w-0">
+                                <div
+                                    className="p-2.5 rounded-xl shadow-lg shrink-0"
+                                    style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
+                                >
+                                    <Calendar className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="min-w-0">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DialogTitle className="text-lg sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight cursor-pointer line-clamp-1" title={event.title}>
+                                                <span className="cursor-pointer truncate block">{event.title}</span>
+                                            </DialogTitle>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold uppercase italic text-xs p-3 rounded-xl shadow-2xl z-[99999]">
+                                            {event.title}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                    <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium mt-1 flex items-center gap-2">
+                                        <span className="inline-flex items-center gap-1">
+                                            <Tag className="w-3 h-3" />
+                                            {event.category}
+                                        </span>
+                                        <span>·</span>
+                                        {status === "live" ? (
+                                            <span className="text-emerald-500 font-black uppercase text-[10px] tracking-wider animate-pulse">🔴 Live Now</span>
+                                        ) : status === "ended" ? (
+                                            <span className="text-slate-400 font-black uppercase text-[10px] tracking-wider">Ended</span>
+                                        ) : (
+                                            <span className="text-amber-500 font-black uppercase text-[10px] tracking-wider">Upcoming</span>
+                                        )}
+                                    </DialogDescription>
+                                </div>
                             </div>
-                        )}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={onClose}
+                                className="h-8 w-8 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shrink-0"
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </DialogHeader>
+                    )}
+
+                    {/* ── Scrollable Body with custom-scrollbar ── */}
+                    <div className="overflow-y-auto custom-scrollbar p-6 pb-8 space-y-5 flex-1">
 
                         {/* Description */}
                         {event.description && (
-                            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed border-l-4 pl-4 italic"
-                                style={{ borderColor: themeColor }}>
-                                {event.description}
-                            </p>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed border-l-4 pl-4 italic cursor-pointer line-clamp-3"
+                                            style={{ borderColor: themeColor }}>
+                                            {event.description}
+                                        </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium italic text-xs p-3.5 rounded-xl shadow-2xl z-[110] whitespace-pre-wrap">
+                                        {event.description}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
 
                         {/* Details Grid */}
@@ -156,10 +217,19 @@ function EventDetailsModal({
                                 <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
                                     <Building2 className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Venue</p>
-                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{event.venueName}</p>
-                                    <p className="text-[10px] text-slate-500 font-medium italic">{event.address}</p>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate cursor-pointer">{event.venueName}</p>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-xs p-2.5 rounded-xl shadow-xl z-[110]">
+                                                {event.venueName}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <p className="text-[10px] text-slate-500 font-medium italic truncate">{event.address}</p>
                                 </div>
                             </div>
 
@@ -265,6 +335,31 @@ export function MayorEventsTable() {
     const searchParams = useSearchParams();
 
     const [selectedEvent, setSelectedEvent] = useState<MayorEvent | null>(null);
+    const eventIdParam = searchParams.get("eventId");
+
+    // Auto-open modal when eventId URL parameter is present
+    useEffect(() => {
+        if (!eventIdParam) return;
+        const found = events.find((e) => e.id === eventIdParam);
+        if (found) {
+            setSelectedEvent(found);
+        } else {
+            // Fetch directly from API if event is not in current initial page
+            (async () => {
+                try {
+                    const res = await fetch(`/api/events/${eventIdParam}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.event) {
+                            setSelectedEvent(data.event);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch event details:", err);
+                }
+            })();
+        }
+    }, [eventIdParam, events]);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -525,18 +620,23 @@ export function MayorEventsTable() {
                     <span className="text-xs font-black px-3 py-1 bg-slate-200/60 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-slate-200">
                         {page} / {totalPages}
                     </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => handlePageChange(page + 1)}
-                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1"
-                    >
-                        Next
-                        <ChevronRight className="w-4 h-4" />
-                    </Button>
                 </div>
             </div>
+
+            {/* Read-Only Event Details Modal */}
+            <EventDetailsModal
+                event={selectedEvent}
+                open={!!selectedEvent}
+                onClose={() => {
+                    setSelectedEvent(null);
+                    if (searchParams.get("eventId")) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete("eventId");
+                        router.push(`${pathname}?${params.toString()}`);
+                    }
+                }}
+                themeColor={themeColor}
+            />
         </>
     );
 }

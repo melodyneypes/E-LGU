@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, ArrowRight, MapPin, Zap, Clock, History } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EventItem {
   id: string;
@@ -84,14 +85,23 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
                 {happeningNow.map((item) => (
                   <Link
                     key={item.id}
-                    href="/admin/events"
+                    href={`/mayor/events?eventId=${item.id}`}
                     className="flex items-center gap-4 py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
                   >
                     <div className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                        {item.title}
-                      </p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                              {item.title}
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-xs font-bold uppercase italic bg-slate-900 text-white p-2.5 rounded-xl shadow-xl">
+                            {item.title}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 italic font-medium flex items-center gap-1">
                         <MapPin className="w-3 h-3 shrink-0" />
                         {item.venueName} · {formatDateRange(item.startDate, item.endDate)}
@@ -119,14 +129,23 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
                 {upcoming.map((item) => (
                   <Link
                     key={item.id}
-                    href="/admin/events"
+                    href={`/mayor/events?eventId=${item.id}`}
                     className="flex items-center gap-4 py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
                   >
                     <div className="shrink-0 w-2 h-2 rounded-full bg-blue-400" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                        {item.title}
-                      </p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                              {item.title}
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-xs font-bold uppercase italic bg-slate-900 text-white p-2.5 rounded-xl shadow-xl">
+                            {item.title}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 italic font-medium flex items-center gap-1">
                         <MapPin className="w-3 h-3 shrink-0" />
                         {item.venueName} · {formatDateRange(item.startDate, item.endDate)}
@@ -152,14 +171,23 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
                 {pastEvents.map((item) => (
                   <Link
                     key={item.id}
-                    href="/admin/events"
+                    href={`/mayor/events?eventId=${item.id}`}
                     className="flex items-center gap-4 py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
                   >
                     <div className="shrink-0 w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                        {item.title}
-                      </p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                              {item.title}
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-xs font-bold uppercase italic bg-slate-900 text-white p-2.5 rounded-xl shadow-xl">
+                            {item.title}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 italic font-medium flex items-center gap-1">
                         <MapPin className="w-3 h-3 shrink-0" />
                         {item.venueName} · {formatDateRange(item.startDate, item.endDate)}
