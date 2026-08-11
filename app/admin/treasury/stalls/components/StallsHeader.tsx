@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useStalls } from "./StallsProvider";
-import { Store, LayoutGrid, Table as TableIcon, Search } from "lucide-react";
+import { Store, Plus, LayoutGrid, Table as TableIcon, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -25,6 +26,7 @@ export function StallsHeader() {
         setSelectedStallType,
         viewMode,
         setViewMode,
+        setIsAddOpen,
     } = useStalls();
 
     const totalStalls = stalls.length;
@@ -51,6 +53,15 @@ export function StallsHeader() {
                         </p>
                     </div>
                 </div>
+
+                <Button
+                    onClick={() => setIsAddOpen(true)}
+                    className="h-12 px-6 rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg flex items-center gap-2 text-white transition-all active:scale-95 cursor-pointer"
+                    style={{ backgroundColor: themeColor }}
+                >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Stall</span>
+                </Button>
             </div>
 
             {/* Filter & Search Bar Toolbar */}

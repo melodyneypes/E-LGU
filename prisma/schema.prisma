@@ -1253,6 +1253,8 @@ enum UserRole {
   RHU_PHARMACY
   RHU_ADMIN
   ASSESSOR
+  VENDOR
+  COLLECTOR
 }
 
 enum ResidentStatus {
@@ -1343,30 +1345,19 @@ model StallType {
   stalls      Stall[]
 }
 
-model OtherFee {
-  id          String          @id @default(cuid())
-  code        String          @unique
-  name        String
-  amount      Float           @default(0)
-  description String?
-  createdAt   DateTime        @default(now())
-  createdBy   String?
-  updatedAt   DateTime        @updatedAt
-  updatedBy   String?
-  stalls      StallOtherFee[]
-}
-
 model StallOtherFee {
-  id         String   @id @default(cuid())
-  stallId    String
-  otherFeeId String
-  amount     Float?
-  createdAt  DateTime @default(now())
+  id        String            @id @default(cuid())
+  stallId   String
+  name      String            // e.g. "Garbage Collection Fee", "Electricity Fee"
+  amount    Float             @default(0)
+  feeType   StallFeeFrequency @default(DAILY)
+  remarks   String?
+  createdAt DateTime          @default(now())
+  createdBy String?
+  updatedAt DateTime          @updatedAt
+  updatedBy String?
 
-  stall    Stall    @relation(fields: [stallId], references: [id], onDelete: Cascade)
-  otherFee OtherFee @relation(fields: [otherFeeId], references: [id], onDelete: Cascade)
-
-  @@unique([stallId, otherFeeId])
+  stall Stall @relation(fields: [stallId], references: [id], onDelete: Cascade)
 }
 
 model Stall {
@@ -1384,10 +1375,10 @@ model Stall {
   updatedAt             DateTime          @updatedAt
   updatedBy             String?
 
-  stallType             StallType         @relation(fields: [stallTypeId], references: [id])
-  vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
-  otherFees             StallOtherFee[]
-  collections           StallCollection[]
+  stallType   StallType         @relation(fields: [stallTypeId], references: [id])
+  vendor      User?             @relation("VendorStalls", fields: [vendorId], references: [id])
+  otherFees   StallOtherFee[]
+  collections StallCollection[]
 }
 
 model StallCollection {
@@ -1431,6 +1422,11 @@ enum CollectionStatus {
 enum StallPaymentMethod {
   CASH
   EPAYMENT
+}
+
+enum StallFeeFrequency {
+  DAILY
+  MONTHLY
 }
 
 

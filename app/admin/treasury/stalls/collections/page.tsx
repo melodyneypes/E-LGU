@@ -55,11 +55,7 @@ export default async function CollectionsPage() {
             include: {
                 stallType: { select: { id: true, name: true } },
                 vendor: { select: { id: true, name: true, email: true } },
-                otherFees: {
-                    include: {
-                        otherFee: { select: { id: true, name: true, amount: true } },
-                    },
-                },
+                otherFees: true,
             },
             orderBy: { stallNumber: "asc" },
         }),

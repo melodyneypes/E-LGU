@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Receipt
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -70,6 +70,7 @@ export function Sidebar({
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
+    const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/treasury/stalls"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
@@ -485,8 +486,22 @@ export function Sidebar({
                 { href: "/admin/treasury?category=POSO", label: "POSO Traffic Citations" },
             ]
         },
-        { href: "/admin/treasury/stalls", label: "Market Stalls", icon: Store, category: "Treasury Department" },
-        { href: "/admin/treasury/stalls/collections", label: "Daily Ticket Collections", icon: Receipt, category: "Treasury Department" },
+        {
+            label: "Market Stalls",
+            icon: Store,
+            category: "Treasury Department",
+            isDropdown: true,
+            isOpen: isMarketStallsOpen,
+            onToggle: () => {
+                setIsMarketStallsOpen(!isMarketStallsOpen);
+            },
+            subItems: [
+                { href: "/admin/treasury/stalls", label: "All Market Stalls" },
+                { href: "/admin/treasury/stalls/types", label: "Market Sections" },
+                { href: "/admin/treasury/stalls/collections", label: "Daily Ticket Collections" },
+                { href: "/admin/treasury/stalls/registry", label: "Vendor & Collector Registry" },
+            ]
+        },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury Department" },
@@ -615,7 +630,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Market Stalls", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "POSO") {
@@ -642,7 +657,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Market Stalls", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
         } else if (role === "ADMIN_AIDE") {

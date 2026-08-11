@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export interface StallItem {
     id: string;
@@ -46,6 +47,10 @@ interface StallsContextType {
     vendors: VendorOption[];
     themeColor: string;
     search: string;
+    debouncedSearch: string;
+    isSearching: boolean;
+    isRefreshing: boolean;
+    triggerRefresh: () => void;
     setSearch: (val: string) => void;
     selectedStatus: string;
     setSelectedStatus: (val: string) => void;
@@ -53,6 +58,10 @@ interface StallsContextType {
     setSelectedStallType: (val: string) => void;
     viewMode: "grid" | "table";
     setViewMode: (mode: "grid" | "table") => void;
+    currentPage: number;
+    setCurrentPage: (page: number) => void;
+    pageSize: number;
+    setPageSize: (size: number) => void;
     selectedStall: StallItem | null;
     setSelectedStall: (stall: StallItem | null) => void;
     isAddOpen: boolean;
@@ -61,6 +70,10 @@ interface StallsContextType {
     setIsEditOpen: (open: boolean) => void;
     editingStall: StallItem | null;
     setEditingStall: (stall: StallItem | null) => void;
+    isDeleteOpen: boolean;
+    setIsDeleteOpen: (open: boolean) => void;
+    deletingStall: StallItem | null;
+    setDeletingStall: (stall: StallItem | null) => void;
 }
 
 const StallsContext = createContext<StallsContextType | undefined>(undefined);
@@ -78,16 +91,52 @@ export function StallsProvider({
     themeColor: string;
     children: React.ReactNode;
 }) {
-    const [stalls] = useState<StallItem[]>(initialStalls);
-    const [search, setSearch] = useState("");
+    const router = useRouter();
+    const [stalls, setStalls] = useState<StallItem[]>(initialStalls);
+    const [search, setSearchRaw] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
     const [selectedStatus, setSelectedStatus] = useState("ALL");
     const [selectedStallType, setSelectedStallType] = useState("ALL");
-    const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+    const [viewMode, setViewMode] = useState<"grid" | "table">("table"); // Default to Table List View
     
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
     const [selectedStall, setSelectedStall] = useState<StallItem | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingStall, setEditingStall] = useState<StallItem | null>(null);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [deletingStall, setDeletingStall] = useState<StallItem | null>(null);
+
+    // Sync state when initialStalls changes from server revalidation
+    React.useEffect(() => {
+        setStalls(initialStalls);
+    }, [initialStalls]);
+
+    const triggerRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 600);
+    };
+
+    // 400ms Debounce effect on search input
+    React.useEffect(() => {
+        setIsSearching(true);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setIsSearching(false);
+            setCurrentPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
 
     return (
         <StallsContext.Provider
@@ -97,13 +146,21 @@ export function StallsProvider({
                 vendors,
                 themeColor,
                 search,
-                setSearch,
+                debouncedSearch,
+                isSearching,
+                isRefreshing,
+                triggerRefresh,
+                setSearch: setSearchRaw,
                 selectedStatus,
                 setSelectedStatus,
                 selectedStallType,
                 setSelectedStallType,
                 viewMode,
                 setViewMode,
+                currentPage,
+                setCurrentPage,
+                pageSize,
+                setPageSize,
                 selectedStall,
                 setSelectedStall,
                 isAddOpen,
@@ -112,6 +169,10 @@ export function StallsProvider({
                 setIsEditOpen,
                 editingStall,
                 setEditingStall,
+                isDeleteOpen,
+                setIsDeleteOpen,
+                deletingStall,
+                setDeletingStall,
             }}
         >
             {children}

@@ -1,17 +1,36 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useStalls } from "./StallsProvider";
-import { User, X, CheckCircle2, ShieldAlert } from "lucide-react";
+import { User, X, CheckCircle2, ShieldAlert, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getStallDetails } from "../actions";
 
 export function StallDetailsModal() {
     const { selectedStall, setSelectedStall } = useStalls();
+    const [fullDetails, setFullDetails] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
 
-    // Lock body scroll when modal is open & close on Escape key
+    // Fetch full stall details (otherFees, timestamps, createdBy) on demand
     useEffect(() => {
-        if (!selectedStall) return;
+        if (!selectedStall) {
+            setFullDetails(null);
+            return;
+        }
+
+        let isMounted = true;
+        setLoading(true);
+
+        getStallDetails(selectedStall.id).then((res) => {
+            if (isMounted) {
+                setLoading(false);
+                if (res.success && res.data) {
+                    setFullDetails(res.data);
+                }
+            }
+        });
+
         const originalOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
 
@@ -21,12 +40,14 @@ export function StallDetailsModal() {
         document.addEventListener("keydown", handleEscape);
 
         return () => {
+            isMounted = false;
             document.body.style.overflow = originalOverflow;
             document.removeEventListener("keydown", handleEscape);
         };
     }, [selectedStall, setSelectedStall]);
 
     if (!selectedStall) return null;
+    const detailData = fullDetails || selectedStall;
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -89,13 +110,13 @@ export function StallDetailsModal() {
                         <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider mb-2">
                             <User size={14} className="text-blue-500" /> Assigned Vendor / Occupant
                         </div>
-                        {selectedStall.vendor ? (
+                        {detailData.vendor ? (
                             <div>
                                 <p className="text-base font-bold text-slate-900 dark:text-white">
-                                    {selectedStall.vendor.name || "Anonymous Vendor"}
+                                    {detailData.vendor.name || "Anonymous Vendor"}
                                 </p>
                                 <p className="text-xs text-slate-400 font-medium italic mt-0.5">
-                                    {selectedStall.vendor.email || "No email provided"}
+                                    {detailData.vendor.email || "No email provided"}
                                 </p>
                             </div>
                         ) : (
@@ -111,16 +132,57 @@ export function StallDetailsModal() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Daily Base Rate</span>
-                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{selectedStall.dailyRate.toLocaleString()}</p>
-                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{selectedStall.dailyRateOverdueFee.toLocaleString()} / day</span>
+                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.dailyRate?.toLocaleString()}</p>
+                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.dailyRateOverdueFee?.toLocaleString()} / day</span>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Monthly Base Rate</span>
-                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{selectedStall.monthlyRate.toLocaleString()}</p>
-                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{selectedStall.monthlyRateOverdueFee.toLocaleString()} / month</span>
+                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.monthlyRate?.toLocaleString()}</p>
+                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.monthlyRateOverdueFee?.toLocaleString()} / month</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Custom Fees Section */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400">
+                                Attached Custom Stall Fees
+                            </h4>
+                            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />}
+                        </div>
+
+                        {detailData.otherFees && detailData.otherFees.length > 0 ? (
+                            <div className="space-y-2">
+                                {detailData.otherFees.map((fee: any) => (
+                                    <div
+                                        key={fee.id}
+                                        className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                                                {fee.name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-medium italic">
+                                                {fee.feeType || "DAILY"} {fee.remarks && `· ${fee.remarks}`}
+                                            </span>
+                                        </div>
+                                        <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                            ₱{fee.amount?.toLocaleString()}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : loading ? (
+                            <div className="p-4 flex items-center justify-center text-xs font-bold text-slate-400 gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" /> Loading custom stall fees...
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 italic font-medium p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                No additional custom fees attached to this stall.
+                            </p>
+                        )}
                     </div>
 
                     {/* Metadata Timestamps */}
@@ -128,13 +190,13 @@ export function StallDetailsModal() {
                         <div>
                             <span className="block text-[9px] font-black uppercase tracking-wider">Registered On</span>
                             <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {format(new Date(selectedStall.createdAt), "MMMM d, yyyy")}
+                                {detailData.createdAt ? format(new Date(detailData.createdAt), "MMMM d, yyyy") : "N/A"}
                             </span>
                         </div>
                         <div>
-                            <span className="block text-[9px] font-black uppercase tracking-wider">Last Updated</span>
+                            <span className="block text-[9px] font-black uppercase tracking-wider">Last Updated By</span>
                             <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {format(new Date(selectedStall.updatedAt), "MMMM d, yyyy")}
+                                {detailData.updatedBy || detailData.createdBy || "System"}
                             </span>
                         </div>
                     </div>

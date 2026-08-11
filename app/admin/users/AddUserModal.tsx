@@ -153,6 +153,8 @@ export function AddUserModal({
 
                     <SelectContent className="rounded-xl border-slate-100 dark:border-white/10 bg-white dark:bg-[#151b2b]">
                       <SelectItem value="USER">Resident / User</SelectItem>
+                      <SelectItem value="VENDOR">Market Stall Vendor</SelectItem>
+                      <SelectItem value="COLLECTOR">Market Ticket Collector</SelectItem>
                       <SelectItem value="ADMIN">System Admin</SelectItem>
                       <SelectItem value="CONTENT_ADMIN">Content Admin</SelectItem>
                       <SelectItem value="BARANGAY_ADMIN">

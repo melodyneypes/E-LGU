@@ -10,6 +10,7 @@ import { StallsHeader } from "./components/StallsHeader";
 import { AddStallModal } from "./components/AddStallModal";
 import { EditStallModal } from "./components/EditStallModal";
 import { StallDetailsModal } from "./components/StallDetailsModal";
+import { DeleteStallModal } from "./components/DeleteStallModal";
 
 import { StallsMainView } from "./components/StallsMainView";
 
@@ -37,7 +38,16 @@ export default async function StallsPage() {
 
     const [stalls, stallTypes, vendors, themeColor] = await Promise.all([
         (prisma as any).stall.findMany({
-            include: {
+            select: {
+                id: true,
+                stallNumber: true,
+                stallTypeId: true,
+                vendorId: true,
+                status: true,
+                dailyRate: true,
+                monthlyRate: true,
+                dailyRateOverdueFee: true,
+                monthlyRateOverdueFee: true,
                 stallType: { select: { id: true, code: true, name: true } },
                 vendor: { select: { id: true, name: true, email: true } },
             },
@@ -48,9 +58,10 @@ export default async function StallsPage() {
             orderBy: { name: "asc" },
         }),
         prisma.user.findMany({
+            where: { role: "VENDOR" as any },
             select: { id: true, name: true, email: true },
             orderBy: { name: "asc" },
-            take: 200,
+            take: 300,
         }),
         getSystemSetting("theme_color", "#2563eb"),
     ]);
@@ -72,6 +83,7 @@ export default async function StallsPage() {
                 <AddStallModal />
                 <EditStallModal />
                 <StallDetailsModal />
+                <DeleteStallModal />
             </StallsProvider>
         </div>
     );

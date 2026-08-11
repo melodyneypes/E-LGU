@@ -10,7 +10,7 @@ import { Edit } from "lucide-react";
 import { updateStall } from "../actions";
 
 export function EditStallModal() {
-    const { isEditOpen, setIsEditOpen, editingStall, stallTypes, vendors, themeColor } = useStalls();
+    const { isEditOpen, setIsEditOpen, editingStall, stallTypes, vendors, themeColor, triggerRefresh } = useStalls();
 
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState("");
@@ -53,6 +53,7 @@ export function EditStallModal() {
         setLoading(false);
         if (res.success) {
             setIsEditOpen(false);
+            triggerRefresh();
         } else {
             alert(res.error || "Failed to update stall");
         }

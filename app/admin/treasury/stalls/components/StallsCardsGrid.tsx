@@ -4,25 +4,29 @@ import React from "react";
 import { useStalls } from "./StallsProvider";
 import { Store, User, Edit, Trash2, Eye, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { deleteStall } from "../actions";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function StallsCardsGrid() {
     const {
         stalls,
-        search,
+        debouncedSearch,
         selectedStatus,
         selectedStallType,
+        isSearching,
+        isRefreshing,
         setSelectedStall,
         setIsEditOpen,
         setEditingStall,
+        setIsDeleteOpen,
+        setDeletingStall,
     } = useStalls();
 
     // Filter stalls logic
     const filteredStalls = stalls.filter((stall) => {
         const matchesSearch =
-            stall.stallNumber.toLowerCase().includes(search.toLowerCase()) ||
-            (stall.vendor?.name && stall.vendor.name.toLowerCase().includes(search.toLowerCase())) ||
-            stall.stallType.name.toLowerCase().includes(search.toLowerCase());
+            stall.stallNumber.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            (stall.vendor?.name && stall.vendor.name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            stall.stallType.name.toLowerCase().includes(debouncedSearch.toLowerCase());
 
         const matchesStatus =
             selectedStatus === "ALL" || stall.status === selectedStatus;
@@ -48,14 +52,26 @@ export function StallsCardsGrid() {
         }
     };
 
-    const handleDelete = async (id: string, stallNumber: string) => {
-        if (confirm(`Are you sure you want to delete stall "${stallNumber}"?`)) {
-            const res = await deleteStall(id);
-            if (!res.success) {
-                alert(res.error || "Failed to delete stall");
-            }
-        }
-    };
+    if (isSearching || isRefreshing) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 8 }).map((_, idx) => (
+                    <div key={idx} className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-5 shadow-lg space-y-4">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-6 w-20 rounded-xl" />
+                            <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                        <Skeleton className="h-4 w-28 rounded-md" />
+                        <Skeleton className="h-12 w-full rounded-2xl" />
+                        <div className="grid grid-cols-2 gap-2">
+                            <Skeleton className="h-10 w-full rounded-xl" />
+                            <Skeleton className="h-10 w-full rounded-xl" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     if (filteredStalls.length === 0) {
         return (
@@ -140,7 +156,10 @@ export function StallsCardsGrid() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleDelete(item.id, item.stallNumber)}
+                                onClick={() => {
+                                    setDeletingStall(item);
+                                    setIsDeleteOpen(true);
+                                }}
                                 className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                                 title="Delete Stall"
                             >
