@@ -10,7 +10,7 @@ import { Edit } from "lucide-react";
 import { updateStallType } from "../actions";
 
 export function EditStallTypeModal() {
-    const { isEditOpen, setIsEditOpen, editingStallType, themeColor } = useStallTypes();
+    const { isEditOpen, setIsEditOpen, editingStallType, themeColor, triggerRefresh } = useStallTypes();
 
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
@@ -38,6 +38,7 @@ export function EditStallTypeModal() {
         setLoading(false);
         if (res.success) {
             setIsEditOpen(false);
+            triggerRefresh();
         } else {
             alert(res.error || "Failed to update section");
         }

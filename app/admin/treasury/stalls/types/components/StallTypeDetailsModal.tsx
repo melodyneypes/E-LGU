@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useStallTypes } from "./StallTypesProvider";
-import { Store, X } from "lucide-react";
+import { X } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -74,16 +74,7 @@ export function StallTypeDetailsModal() {
                         </p>
                     </div>
 
-                    {/* Total Attached Stalls */}
-                    <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-wider">
-                            <Store className="w-4 h-4" />
-                            <span>Total Assigned Stalls</span>
-                        </div>
-                        <span className="text-xl font-black text-blue-600 dark:text-blue-400">
-                            {selectedStallType._count?.stalls || selectedStallType.stalls?.length || 0} stalls
-                        </span>
-                    </div>
+
 
                     {/* Metadata Timestamps */}
                     <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-400 pt-2 border-t border-slate-100 dark:border-[#2a3040]">

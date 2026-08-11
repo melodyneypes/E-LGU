@@ -10,7 +10,7 @@ import { Tag } from "lucide-react";
 import { createStallType } from "../actions";
 
 export function AddStallTypeModal() {
-    const { isAddOpen, setIsAddOpen, themeColor } = useStallTypes();
+    const { isAddOpen, setIsAddOpen, themeColor, triggerRefresh } = useStallTypes();
 
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
@@ -37,6 +37,7 @@ export function AddStallTypeModal() {
             setCode("");
             setName("");
             setDescription("");
+            triggerRefresh();
         } else {
             alert(res.error || "Failed to create section");
         }

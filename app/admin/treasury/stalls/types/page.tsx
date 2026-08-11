@@ -36,10 +36,6 @@ export default async function StallTypesPage() {
 
     const [stallTypes, themeColor] = await Promise.all([
         (prisma as any).stallType.findMany({
-            include: {
-                _count: { select: { stalls: true } },
-                stalls: { select: { id: true, stallNumber: true, status: true } },
-            },
             orderBy: { name: "asc" },
         }),
         getSystemSetting("theme_color", "#2563eb"),

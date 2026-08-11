@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export interface StallTypeItem {
     id: string;
@@ -23,9 +24,17 @@ interface StallTypesContextType {
     stallTypes: StallTypeItem[];
     themeColor: string;
     search: string;
+    debouncedSearch: string;
+    isSearching: boolean;
+    isRefreshing: boolean;
+    triggerRefresh: () => void;
     setSearch: (val: string) => void;
     viewMode: "grid" | "table";
     setViewMode: (mode: "grid" | "table") => void;
+    currentPage: number;
+    setCurrentPage: (page: number) => void;
+    pageSize: number;
+    setPageSize: (size: number) => void;
     selectedStallType: StallTypeItem | null;
     setSelectedStallType: (item: StallTypeItem | null) => void;
     isAddOpen: boolean;
@@ -47,14 +56,47 @@ export function StallTypesProvider({
     themeColor: string;
     children: React.ReactNode;
 }) {
-    const [stallTypes] = useState<StallTypeItem[]>(initialStallTypes);
-    const [search, setSearch] = useState("");
-    const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+    const router = useRouter();
+    const [stallTypes, setStallTypes] = useState<StallTypeItem[]>(initialStallTypes);
+    const [search, setSearchRaw] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+
+    // Sync state when initialStallTypes changes from server revalidation
+    React.useEffect(() => {
+        setStallTypes(initialStallTypes);
+    }, [initialStallTypes]);
+
+    const triggerRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 600);
+    };
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const [selectedStallType, setSelectedStallType] = useState<StallTypeItem | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingStallType, setEditingStallType] = useState<StallTypeItem | null>(null);
+
+    // 400ms Debounce effect on search input
+    React.useEffect(() => {
+        setIsSearching(true);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setIsSearching(false);
+            setCurrentPage(1); // Reset to page 1 on search
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
 
     return (
         <StallTypesContext.Provider
@@ -62,9 +104,17 @@ export function StallTypesProvider({
                 stallTypes,
                 themeColor,
                 search,
-                setSearch,
+                debouncedSearch,
+                isSearching,
+                isRefreshing,
+                triggerRefresh,
+                setSearch: setSearchRaw,
                 viewMode,
                 setViewMode,
+                currentPage,
+                setCurrentPage,
+                pageSize,
+                setPageSize,
                 selectedStallType,
                 setSelectedStallType,
                 isAddOpen,
