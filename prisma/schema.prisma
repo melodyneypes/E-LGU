@@ -1253,6 +1253,8 @@ enum UserRole {
   RHU_ADMIN
   MAYOR
   ASSESSOR
+  VENDOR
+  COLLECTOR
 }
 
 enum ResidentStatus {

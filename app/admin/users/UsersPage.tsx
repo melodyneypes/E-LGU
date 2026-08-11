@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { deleteUser } from "../actions";
 
+import { useSearchParams } from "next/navigation";
 import { UserRole } from "@prisma/client";
 
 type UserWithProfile = {
@@ -125,9 +126,12 @@ export function UsersPage({
     }
   };
 
+  const searchParams = useSearchParams();
+  const initialRoleParam = searchParams.get("role") || "ALL";
+
   // Search, Filter, Sort, and Pagination States
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRole, setSelectedRole] = useState("ALL");
+  const [selectedRole, setSelectedRole] = useState(initialRoleParam);
   const [selectedVerification, setSelectedVerification] = useState("ALL");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -146,7 +150,11 @@ export function UsersPage({
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
     const matchesSearch = searchQuery === "" || nameMatch || emailMatch;
 
-    const matchesRole = selectedRole === "ALL" || user.role === selectedRole;
+    const matchesRole =
+      selectedRole === "ALL" ||
+      (selectedRole === "MARKET_STAFF"
+        ? (user.role as string) === "VENDOR" || (user.role as string) === "COLLECTOR"
+        : (user.role as string) === selectedRole);
 
     const matchesVerification =
       selectedVerification === "ALL" ||
@@ -259,6 +267,24 @@ export function UsersPage({
                   className="text-[10px] font-black uppercase italic"
                 >
                   All Roles
+                </SelectItem>
+                <SelectItem
+                  value="MARKET_STAFF"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  All Market Personnel (Vendor & Collector)
+                </SelectItem>
+                <SelectItem
+                  value="VENDOR"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  Market Stall Vendor
+                </SelectItem>
+                <SelectItem
+                  value="COLLECTOR"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  Market Ticket Collector
                 </SelectItem>
                 <SelectItem
                   value="USER"
