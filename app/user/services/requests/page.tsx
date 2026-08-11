@@ -282,7 +282,7 @@ export default function UserServiceRequestsPage() {
                                 onClick={() => {
                                     const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
                                     if (engineeringPermitRoute && req.status !== "UNPAID") {
-                                        router.push(engineeringPermitRoute);
+                                        router.push(`${engineeringPermitRoute}?id=${req.id}`);
                                     } else {
                                         router.push(`/user/services/requests/${req.id}`);
                                     }

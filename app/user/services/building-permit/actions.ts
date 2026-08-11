@@ -46,8 +46,7 @@ export async function submitBuildingPermit(formData: FormData) {
       }
     }
 
-    const isOwnerDeceasedVal = formData.get("isOwnerDeceased") as string;
-    const isOwnerDeceased = isOwnerDeceasedVal === "true";
+    const propertyRelationship = formData.get("propertyRelationship") as string;
 
     // Prepare JSON for additional Data
     const additionalData: any = {
@@ -56,7 +55,7 @@ export async function submitBuildingPermit(formData: FormData) {
       estimatedCost,
       locationOfConstruction,
       isLotOwner,
-      isOwnerDeceased,
+      propertyRelationship,
       houseNumber,
       street,
       barangay,
@@ -246,15 +245,14 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const totalFloorsVal = formData.get("totalFloors") as string;
     const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
-    const isOwnerDeceasedVal = formData.get("isOwnerDeceased") as string;
-
+    const propertyRelationship = formData.get("propertyRelationship") as string;
     if (descriptionOfWork) additionalData.descriptionOfWork = descriptionOfWork;
     if (occupancyUse) additionalData.occupancyUse = occupancyUse;
     if (estimatedCost) additionalData.estimatedCost = estimatedCost;
     if (locationOfConstruction) additionalData.locationOfConstruction = locationOfConstruction;
     if (isLotOwner) additionalData.isLotOwner = isLotOwner;
-    if (isOwnerDeceasedVal !== null && isOwnerDeceasedVal !== undefined) {
-      additionalData.isOwnerDeceased = isOwnerDeceasedVal === "true";
+    if (propertyRelationship !== null && propertyRelationship !== undefined) {
+      additionalData.propertyRelationship = propertyRelationship;
     }
     if (houseNumber) additionalData.houseNumber = houseNumber;
     if (street) additionalData.street = street;
@@ -453,8 +451,7 @@ export async function checkActivePropertyPermit(location: string, currentTransac
       },
       select: {
         id: true,
-        additionalData: true,
-        residentSnapshot: true
+        additionalData: true
       }
     });
 
@@ -471,12 +468,9 @@ export async function checkActivePropertyPermit(location: string, currentTransac
     });
 
     if (duplicate) {
-      const residentSnapshot = duplicate.residentSnapshot as any;
-      const applicantName = residentSnapshot ? `${residentSnapshot.firstName} ${residentSnapshot.lastName}` : "Another resident";
       return { 
         success: true, 
         isProcessing: true, 
-        applicantName,
         transactionId: duplicate.id 
       };
     }

@@ -532,7 +532,7 @@ export default function BuildingPermitPage() {
     locationStreet: "",
     locationBarangay: "",
     isLotOwner: "",
-    isOwnerDeceased: false,
+    propertyRelationship: "",
     totalFloors: "",
     newIdFile: null as File | null,
     newIdFileBack: null as File | null,
@@ -548,7 +548,7 @@ export default function BuildingPermitPage() {
   const [customDocName, setCustomDocName] = useState("");
 
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
+  const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean } | null>(null);
 
   useEffect(() => {
     const handleUnload = () => {
@@ -574,8 +574,7 @@ export default function BuildingPermitPage() {
         );
         if (res.success && res.isProcessing) {
           setDuplicatePropertyWarning({
-            isProcessing: true,
-            applicantName: res.applicantName
+            isProcessing: true
           });
         } else {
           setDuplicatePropertyWarning(null);
@@ -636,15 +635,38 @@ export default function BuildingPermitPage() {
     }
   }, [currentStep, maxStepIdx]);
 
-  const isOwnerDeceased = formData.isOwnerDeceased === true;
-  const isAffidavitOfConsentRequired = formData.isLotOwner === "No" && !isOwnerDeceased;
+  const rel = formData.propertyRelationship;
+  const isNotOwner = formData.isLotOwner === "No";
+  
   const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
   const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
     .filter(index => {
+      // Always skip these as per existing logic
       if ([2, 5, 8].includes(index)) return false;
-      if (!isOwnerDeceased && [13, 14].includes(index)) return false;
-      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12].includes(index)) return false;
-      if (isAffidavitOfConsentRequired && [21, 22].includes(index)) return false;
+      
+      // If user is owner or hasn't selected a relationship yet
+      if (!isNotOwner) {
+        if ([7, 10, 11, 12, 13, 14].includes(index)) return false;
+      } else if (!rel) {
+        // If they said they aren't the owner but haven't selected a relationship
+        if ([7, 10, 11, 12, 13, 14].includes(index)) return false;
+      } else {
+        // If not owner, logic depends on relationship
+        if (rel === "Heir") {
+          if ([7, 10].includes(index)) return false; // Skip Consent/Lease
+          if ([11, 12].includes(index)) return false; // Skip owner's ID
+        } else {
+          // Lessee, Representative, Buyer
+          if ([13, 14].includes(index)) return false; // Skip Death/Birth certs
+          
+          if (rel === "Representative" && [10].includes(index)) return false; // Skip Lease/Sale
+          if (rel !== "Representative" && [7].includes(index)) return false; // Skip Consent/SPA if not rep
+          
+          // Skip applicant's ID for these, require owner's ID (which is index 11, 12 and already kept)
+          if ([21, 22].includes(index)) return false; 
+        }
+      }
+
       if (!hasMultipleFloors && [23, 24].includes(index)) return false;
       return true;
     });
@@ -678,7 +700,7 @@ export default function BuildingPermitPage() {
     "Latest Tax Receipts",
     "Adjoining Owners Confirmation",
     "Locational Clearance",
-    "Affidavit of Consent",
+    "Affidavit of Consent / Special Power of Attorney (SPA)",
     "Affidavit of Adjoining Owners",
     "Signed & Sealed Plans",
     "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
@@ -726,7 +748,33 @@ export default function BuildingPermitPage() {
         }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
-          setCurrentStep("EXISTING");
+          
+          const urlParams = new URLSearchParams(window.location.search);
+          const targetId = urlParams.get("id");
+          let autoSelected = false;
+          
+          if (targetId) {
+            const targetApp = permitsRes.data.find((app: any) => app.id === targetId);
+            if (targetApp) {
+              setSelectedApplication(targetApp);
+              let newMaxIdx = 3;
+              let initialStep = "EVALUATION";
+              if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(targetApp.status)) {
+                newMaxIdx = 5;
+                initialStep = "SUBMIT";
+              } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(targetApp.status)) {
+                newMaxIdx = 4;
+                initialStep = "BFP";
+              }
+              setMaxStepIdx(newMaxIdx);
+              setCurrentStep(initialStep);
+              autoSelected = true;
+            }
+          }
+          
+          if (!autoSelected) {
+            setCurrentStep("EXISTING");
+          }
         }
         if (brgyRes.success && brgyRes.data) {
           setBarangayList(brgyRes.data);
@@ -775,7 +823,7 @@ export default function BuildingPermitPage() {
         locationStreet: parsedLoc.street,
         locationBarangay: parsedLoc.barangay,
         isLotOwner: addData.isLotOwner || "",
-        isOwnerDeceased: addData.isOwnerDeceased || false,
+        propertyRelationship: addData.propertyRelationship || "",
         totalFloors: addData.totalFloors !== undefined ? String(addData.totalFloors) : "",
         newIdFile: null,
         newIdFileBack: null,
@@ -1299,10 +1347,7 @@ export default function BuildingPermitPage() {
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
       for (let i = 0; i < 25; i++) {
-        if (i === 5) continue;
-        if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(i)) continue;
-        if (isAffidavitOfConsentRequired && [21, 22].includes(i)) continue;
-        if (!hasMultipleFloors && [23, 24].includes(i)) continue;
+        if (!requiredRequirementIndexes.includes(i)) continue;
 
         const file = uploadedRequirements[i];
         if (file) {
@@ -1429,7 +1474,7 @@ export default function BuildingPermitPage() {
       data.append("estimatedCost", formData.estimatedCost);
       data.append("locationOfConstruction", formData.locationOfConstruction);
       data.append("isLotOwner", formData.isLotOwner);
-      data.append("isOwnerDeceased", formData.isOwnerDeceased ? "true" : "false");
+      data.append("propertyRelationship", formData.propertyRelationship);
       data.append("houseNumber", formData.locationHouseNumber);
       data.append("street", formData.locationStreet);
       data.append("barangay", formData.locationBarangay);
@@ -1647,7 +1692,7 @@ export default function BuildingPermitPage() {
               locationStreet: "",
               locationBarangay: "",
               isLotOwner: "",
-              isOwnerDeceased: false,
+              propertyRelationship: "",
               totalFloors: "",
               newIdFile: null,
               newIdFileBack: null,
@@ -1740,7 +1785,7 @@ export default function BuildingPermitPage() {
                           locationStreet: parsedLoc.street,
                           locationBarangay: parsedLoc.barangay,
                           isLotOwner: app.additionalData?.isLotOwner || "",
-                          isOwnerDeceased: app.additionalData?.isOwnerDeceased || false,
+                          propertyRelationship: app.additionalData?.propertyRelationship || "",
                           totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
                           newIdFile: null,
                           newIdFileBack: null,
@@ -2798,7 +2843,7 @@ export default function BuildingPermitPage() {
                             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
                             <div className="text-xs">
                               <span className="font-bold uppercase tracking-wider block mb-1">⚠️ Warning: Property Currently Processing</span>
-                              An active building permit application for this property location is currently being processed (submitted by {duplicatePropertyWarning.applicantName}). You can still proceed if this is a separate permit for the same property.
+                              An active building permit application for this property location is currently being processed. You can still proceed if this is a separate permit for the same property.
                             </div>
                           </div>
                         )}
@@ -2811,7 +2856,7 @@ export default function BuildingPermitPage() {
                         <Select
                           value={formData.isLotOwner}
                           onValueChange={value => {
-                            setFormData({ ...formData, isLotOwner: value, isOwnerDeceased: value === "Yes" ? false : formData.isOwnerDeceased });
+                            setFormData({ ...formData, isLotOwner: value, propertyRelationship: value === "Yes" ? "" : formData.propertyRelationship });
                             if (value === "Yes") {
                               setUploadedRequirements(prev => {
                                 const next = { ...prev };
@@ -2837,36 +2882,38 @@ export default function BuildingPermitPage() {
                         </Select>
 
                         {formData.isLotOwner === "No" && (
-                          <div className="flex items-center space-x-3 py-1 mt-4">
-                            <Checkbox
-                              id="is-owner-deceased"
-                              checked={formData.isOwnerDeceased}
-                              disabled={!isEditable}
-                              onCheckedChange={checked => {
-                                const isChecked = !!checked;
-                                setFormData({ ...formData, isOwnerDeceased: isChecked });
-                                if (!isChecked) {
-                                  setUploadedRequirements(prev => {
-                                    const next = { ...prev };
-                                    delete next[13];
-                                    delete next[14];
-                                    return next;
-                                  });
-                                } else {
-                                  setUploadedRequirements(prev => {
-                                    const next = { ...prev };
-                                    delete next[7];
-                                    delete next[10];
-                                    delete next[11];
-                                    delete next[12];
-                                    return next;
-                                  });
-                                }
-                              }}
-                            />
-                            <label htmlFor="is-owner-deceased" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                              The registered lot owner is deceased (Applicant is an heir)
+                          <div className="mt-4">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                              Since you are not the registered owner, please indicate your relationship to the property <span className="text-red-500 text-lg">*</span>
                             </label>
+                            <Select
+                              value={formData.propertyRelationship}
+                              onValueChange={value => {
+                                setFormData({ ...formData, propertyRelationship: value });
+                                // Clear requirements that might become invalid on change
+                                setUploadedRequirements(prev => {
+                                  const next = { ...prev };
+                                  delete next[7];
+                                  delete next[10];
+                                  delete next[11];
+                                  delete next[12];
+                                  delete next[13];
+                                  delete next[14];
+                                  return next;
+                                });
+                              }}
+                              disabled={!isEditable}
+                            >
+                              <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && formData.isLotOwner === "No" && !formData.propertyRelationship) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
+                                <SelectValue placeholder="Select Relationship" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
+                                <SelectItem value="Lessee">Lessee / Renter</SelectItem>
+                                <SelectItem value="Heir">Heir / Land is registered to a deceased ancestor</SelectItem>
+                                <SelectItem value="Representative">Authorized Representative</SelectItem>
+                                <SelectItem value="Buyer">Buyer (Title not yet transferred)</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         )}
                       </div>
@@ -2982,9 +3029,6 @@ export default function BuildingPermitPage() {
               requiredRequirementsCount={requiredRequirementsCount}
               documentRequirementsList={documentRequirementsList}
               customRequirements={customRequirements}
-              isAffidavitOfConsentRequired={isAffidavitOfConsentRequired}
-              isOwnerDeceased={formData.isOwnerDeceased}
-              hasMultipleFloors={hasMultipleFloors}
               permitTypesList={permitTypesList}
               customPermits={customPermits}
               effectiveDocuments={effectiveDocuments}

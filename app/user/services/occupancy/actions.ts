@@ -339,6 +339,8 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
   }
 }
 
+
+
 export async function submitOccupancyPermitPaymentProof(transactionId: string, formData: FormData) {
   try {
     const session = await getServerSession(authOptions);
@@ -466,8 +468,7 @@ export async function checkActivePropertyPermit(location: string, currentTransac
       },
       select: {
         id: true,
-        additionalData: true,
-        residentSnapshot: true
+        additionalData: true
       }
     });
 
@@ -484,12 +485,9 @@ export async function checkActivePropertyPermit(location: string, currentTransac
     });
 
     if (duplicate) {
-      const residentSnapshot = duplicate.residentSnapshot as any;
-      const applicantName = residentSnapshot ? `${residentSnapshot.firstName} ${residentSnapshot.lastName}` : "Another resident";
       return { 
         success: true, 
         isProcessing: true, 
-        applicantName,
         transactionId: duplicate.id 
       };
     }
