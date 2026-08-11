@@ -277,7 +277,7 @@ export default function OccupancyPermitPage() {
   const [customDocName, setCustomDocName] = useState("");
 
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
+  const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean } | null>(null);
 
   useEffect(() => {
     if (!formData.locationOfProject || formData.locationOfProject.trim().length < 5) {
@@ -293,8 +293,7 @@ export default function OccupancyPermitPage() {
         );
         if (res.success && res.isProcessing) {
           setDuplicatePropertyWarning({
-            isProcessing: true,
-            applicantName: res.applicantName
+            isProcessing: true
           });
         } else {
           setDuplicatePropertyWarning(null);
@@ -1880,7 +1879,7 @@ export default function OccupancyPermitPage() {
                             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
                             <div className="text-xs">
                               <span className="font-bold uppercase tracking-wider block mb-1">⚠️ Warning: Property Currently Processing</span>
-                              An active occupancy permit application for this property location is currently being processed (submitted by {duplicatePropertyWarning.applicantName}). You can still proceed if this is a separate permit for the same property.
+                              An active occupancy permit application for this property location is currently being processed. You can still proceed if this is a separate permit for the same property.
                             </div>
                           </div>
                         )}

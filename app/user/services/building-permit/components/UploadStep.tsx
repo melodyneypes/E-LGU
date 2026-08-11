@@ -18,9 +18,6 @@ interface UploadStepProps {
   requiredRequirementsCount: number;
   documentRequirementsList: readonly string[];
   customRequirements: { label: string }[];
-  isAffidavitOfConsentRequired: boolean;
-  isOwnerDeceased?: boolean;
-  hasMultipleFloors: boolean;
   permitTypesList: readonly string[];
   customPermits: { label: string }[];
   effectiveDocuments: any;
@@ -63,9 +60,6 @@ export function UploadStep({
   requiredRequirementsCount,
   documentRequirementsList,
   customRequirements,
-  isAffidavitOfConsentRequired,
-  isOwnerDeceased,
-  hasMultipleFloors,
   permitTypesList,
   customPermits,
   effectiveDocuments,
@@ -250,12 +244,7 @@ export function UploadStep({
               ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
             ].filter(({ idx, kind }) => {
               if (kind === "custom") return true;
-              if (idx === 5) return false;
-              if (!isOwnerDeceased && [13, 14].includes(idx)) return false;
-              if (!isAffidavitOfConsentRequired && [7, 10, 11, 12].includes(idx)) return false;
-              if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
-              if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-              return true;
+              return requiredRequirementIndexes.includes(idx);
             })
           : [
               ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
