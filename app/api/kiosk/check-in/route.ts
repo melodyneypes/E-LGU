@@ -228,6 +228,8 @@ export async function POST(request: Request) {
         revalidatePath("/admin/treasury");
         revalidatePath("/admin/treasury/queue");
         revalidatePath("/admin/treasury/payments");
+        revalidatePath("/admin/assessor");
+        revalidatePath("/admin/assessor/queue");
         revalidatePath("/queue");
 
         return NextResponse.json({

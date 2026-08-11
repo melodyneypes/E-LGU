@@ -38,6 +38,7 @@ import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction } from "@/app/admin/transactions/marriage-license-actions";
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { releaseMarriageCertificate } from "@/app/admin/transactions/marriage-cert-actions";
+import { releaseRptTransaction } from "@/app/admin/transactions/rpt-actions";
 import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/student-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
 import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
@@ -66,6 +67,7 @@ import DeathPsaEndorsementView from "./views/DeathPsaEndorsement";
 import MarriagePsaEndorsementView from "./views/MarriagePsaEndorsement";
 import MarraigeCertificateView from "./views/MarraigeCertificateView";
 import PosoView from "./views/PosoView";
+import RealPropertyTaxView from "./views/RealPropertyTaxView";
 
 /*
 interface PageProps {
@@ -451,6 +453,7 @@ export default function TreasuryDetailPage() {
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const isCedula = transaction?.type?.code?.includes("CEDULA") ?? false;
     const typeCode = (transaction?.type?.code || "").toUpperCase();
+    const isRPT = typeCode.startsWith("RPT_") || (transaction?.type?.category || "").toUpperCase() === "RPT";
     const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate") || transaction.type.name.includes("Certified Copy"))) || false;
     const safeFormatDate = (dateStr: any) => {
         if (!dateStr) return "N/A";
@@ -749,29 +752,33 @@ export default function TreasuryDetailPage() {
                 }
             }
 
-            const res = isBusinessPermit
-                ? await treasuryReleaseBusinessPermit(transaction.id, orUrl)
-                : typeCode === "LCR_BIRTH"
-                    ? await releaseBirthCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                    : typeCode === "LCR_BIRTH_REG"
-                        ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                        : typeCode === "LCR_DEATH"
-                            ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : typeCode === "LCR_DEATH_REG"
-                                ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : typeCode === "LCR_MARRIAGE"
-                                    ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                    : typeCode === "LCR_MARRIAGE_REG"
-                                        ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                        : typeCode === "LCR_MARRIAGE_LICENSE"
-                                            ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                                ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                                    ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                                        ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                                        : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+            const isRPT = typeCode.startsWith("RPT_") || (transaction?.type?.category || "").toUpperCase() === "RPT";
+
+            const res = isRPT
+                ? await releaseRptTransaction(transaction.id, orSeriesNumber.trim(), orUrl)
+                : isBusinessPermit
+                    ? await treasuryReleaseBusinessPermit(transaction.id, orUrl)
+                    : typeCode === "LCR_BIRTH"
+                        ? await releaseBirthCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                        : typeCode === "LCR_BIRTH_REG"
+                            ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                            : typeCode === "LCR_DEATH"
+                                ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                : typeCode === "LCR_DEATH_REG"
+                                    ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                    : typeCode === "LCR_MARRIAGE"
+                                        ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                        : typeCode === "LCR_MARRIAGE_REG"
+                                            ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                            : typeCode === "LCR_MARRIAGE_LICENSE"
+                                                ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                    ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                    : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                        ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                        : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                            ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                            : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -805,7 +812,7 @@ export default function TreasuryDetailPage() {
             toast.error("An error occurred while releasing the document.");
             setActionLoading(false);
         }
-    }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrCertifiedCopy, typeCode, backUrl]);
+    }, [transaction, ctcNumber, eCopyFile, orFile, orSeriesNumber, router, isBusinessPermit, isLCR, isLcrCertifiedCopy, typeCode, backUrl]);
 
     const handleResolveDispute = async () => {
         if (!remarks) { toast.error("Remarks required for resolution"); return; }
@@ -988,6 +995,33 @@ export default function TreasuryDetailPage() {
             };
         }
 
+        if (isRPT) {
+            const rpt = (transaction as any).realPropertyTax || additional || {};
+            const totalTaxDue = Number(rpt.totalTaxDue || additional.totalTaxDue || transaction.totalAmount || 0);
+            const basicTax = Number(rpt.basicTax || additional.basicTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
+            const sefTax = Number(rpt.sefTax || additional.sefTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
+            const assessedValue = Number(rpt.assessedValue || additional.assessedValue || (basicTax > 0 ? basicTax / 0.01 : 0));
+
+            const lineItems: any[] = [];
+            if (assessedValue > 0) {
+                lineItems.push({ label: "Assessed Property Value", amount: assessedValue });
+            }
+            if (basicTax > 0) {
+                lineItems.push({ label: "Basic Real Property Tax (1% of Assessed Value)", amount: basicTax });
+            }
+            if (sefTax > 0) {
+                lineItems.push({ label: "Special Education Fund / SEF Tax (1% of Assessed Value)", amount: sefTax });
+            }
+            return {
+                basicTax: basicTax,
+                additionalTax: sefTax,
+                penalty: 0,
+                deliveryFee: 0,
+                totalAmount: totalTaxDue > 0 ? totalTaxDue : (basicTax + sefTax),
+                lineItems: lineItems
+            };
+        }
+
         if (isBusinessPermit || isBuildingPermit) {
             if (transaction.status === "FOR_REQUESTING" || (isBuildingPermit && transaction.status === "EVALUATED" && !fiscal)) {
                 const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
@@ -1073,13 +1107,20 @@ export default function TreasuryDetailPage() {
     // Also exclude CEDULA FOR_REQUESTING so additional fees reflect live in the total
     const displayTotal = Number((transaction.totalAmount && transaction.totalAmount > 0 && !((isBusinessPermit || isLCR || isCedula) && transaction.status === "FOR_REQUESTING")) ? transaction.totalAmount : (calcResult.totalAmount ?? 0));
 
-    const declaredValue = isBusinessPermit
-        ? (additional.businessType === "NEW" ? Number(additional.capitalInvestment || 0) : Number(additional.grossSales || 0))
-        : (transaction.isStudent ? "Student Request" : income);
+    const rptInfo = (transaction as any).realPropertyTax || additional || {};
+    const assessedVal = Number(rptInfo.assessedValue || additional.assessedValue || (calcResult.totalAmount > 0 ? calcResult.totalAmount / 0.02 : 0));
 
-    const declaredLabel = isBusinessPermit
-        ? (additional.businessType === "NEW" ? "Capital Investment" : "Declared Gross Sales")
-        : "Declared Gross";
+    const declaredValue = isRPT
+        ? assessedVal
+        : isBusinessPermit
+            ? (additional.businessType === "NEW" ? Number(additional.capitalInvestment || 0) : Number(additional.grossSales || 0))
+            : (transaction.isStudent ? "Student Request" : income);
+
+    const declaredLabel = isRPT
+        ? "Assessed Property Value"
+        : isBusinessPermit
+            ? (additional.businessType === "NEW" ? "Capital Investment" : "Declared Gross Sales")
+            : "Declared Gross";
 
     const baseSteps = (() => {
         if (isBusinessPermit) {
@@ -2111,7 +2152,9 @@ export default function TreasuryDetailPage() {
 
     let renderView = null;
 
-    if (isBusinessPermit) {
+    if (isRPT) {
+        renderView = <RealPropertyTaxView {...viewProps} />;
+    } else if (isBusinessPermit) {
         renderView = <BusinessPermitView {...viewProps} />;
     } else if (isBuildingPermit) {
         renderView = <BuildingPermitView {...viewProps} />;
