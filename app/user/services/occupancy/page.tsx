@@ -11,19 +11,14 @@ import {
   FileSignature,
   FileText,
   Flame,
-  Handshake,
   Home,
   CreditCard,
   Landmark,
   MapPin,
   PenTool,
   Ruler,
-  Scroll,
   UploadCloud,
   User,
-  Users,
-  Wallet,
-  Zap,
   Clock,
   AlertCircle,
   FileWarning,
@@ -35,7 +30,9 @@ import {
   Receipt,
   Check,
   Hash,
-  UserCheck
+  UserCheck,
+  Camera,
+  BadgeCheck
 } from "lucide-react";
 
 import {
@@ -266,6 +263,7 @@ export default function OccupancyPermitPage() {
     noOfUnits: "",
     totalGrossFloorArea: "",
     dateOfCompletion: "",
+    contactNumber: "",
     newIdFile: null as any | null,
     newIdFileBack: null as any | null,
   });
@@ -366,7 +364,12 @@ export default function OccupancyPermitPage() {
           getExistingOccupancyPermits()
         ]);
         if (res.success && res.data) {
-          setResidentData(res.data);
+          const resData = res.data;
+          setResidentData(resData);
+          setFormData(prev => ({
+            ...prev,
+            contactNumber: prev.contactNumber || resData.contactNumber || ""
+          }));
         }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
@@ -397,6 +400,7 @@ export default function OccupancyPermitPage() {
         noOfUnits: addData.noOfUnits || "",
         totalGrossFloorArea: addData.totalGrossFloorArea || "",
         dateOfCompletion: addData.dateOfCompletion || "",
+        contactNumber: addData.contactNumber || selectedApplication.residentSnapshot?.contactNumber || "",
         newIdFile: null,
         newIdFileBack: null,
       });
@@ -526,224 +530,123 @@ export default function OccupancyPermitPage() {
   const requirements = [
     {
       id: 1,
-      title: "Plans duly signed & sealed by licensed professional",
+      title: "Certificate of Completion",
       office: "Licensed Professionals",
-      icon: <Ruler className="w-5 h-5 text-slate-500" />,
+      icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
       steps: [
-        "Hire a licensed Architect for architectural plans and licensed Civil/Structural Engineer for structural plans.",
-        "Provide them with your lot survey, dimensions, and design preferences.",
-        "The professional will prepare the plans based on the National Building Code standards.",
-        "Ensure the plans are signed and have the official PRC seal (dry seal or digital).",
-        "Request multiple copies (usually 3 sets) for submission to different offices."
+        "Secure the official Certificate of Completion form from the Office of the Building Official.",
+        "Have the Architect or Civil Engineer in-charge of construction sign and seal the document upon full completion.",
+        "Ensure the owner or authorized representative signs the owner section.",
+        "Have the document duly notarized by a Notary Public.",
+        "Prepare 3 notarized original copies for submission."
       ],
-      infoType: "tip",
-      infoLabel: "Professional Fee",
-      infoText: "Varies based on floor area and complexity. Typically 3-5% of project cost."
+      infoType: "important",
+      infoLabel: "Mandatory Document",
+      infoText: "Must be fully accomplished and notarized prior to submission."
     },
     {
       id: 2,
-      title: "Certified true copy of Tax Declaration",
-      office: "Assessor's Office",
-      icon: <FileText className="w-5 h-5 text-slate-400" />,
+      title: "As-Built Plans & Specifications",
+      office: "Licensed Professionals",
+      icon: <Ruler className="w-5 h-5 text-slate-500" />,
       steps: [
-        "Go to the Municipal Assessor's Office at the Municipal Hall, Mapandan.",
-        "Request for a \"Certified True Copy of Tax Declaration\" for your property.",
-        "Provide the Tax Declaration number or the lot owner's name and location.",
-        "Pay the certification fee at the Treasury Office (usually ₱50-₱100).",
-        "Return to Assessor's Office with official receipt to claim the certified document."
+        "Request your licensed Architect / Civil Engineer to prepare As-Built Architectural & Structural plans reflecting the actual completed building.",
+        "Secure As-Built Sanitary/Plumbing plans signed and sealed by a licensed Sanitary Engineer or Master Plumber.",
+        "Secure As-Built Electrical plans signed and sealed by a Professional Electrical Engineer (PEE).",
+        "Ensure all sheets are duly signed by the owner and the respective licensed professionals with active PRC & PTR details.",
+        "Submit 3 complete sets of blueprinted/printed plans."
       ],
-      infoType: "time",
-      infoLabel: "Processing time",
-      infoText: "1-2 hours to 1 day. Bring a valid ID."
+      infoType: "tip",
+      infoLabel: "As-Built Compliance",
+      infoText: "Required whenever there are deviations or additions from the originally approved Building Permit plans."
     },
     {
       id: 3,
-      title: "Xerox copy of Land Title",
-      office: "Register of Deeds",
-      icon: <Home className="w-5 h-5 text-orange-400" />,
+      title: "Construction Logbook",
+      office: "Licensed Professionals",
+      icon: <Book className="w-5 h-5 text-blue-500" />,
       steps: [
-        "Go to the Registry of Deeds (usually located at the Provincial Capitol or nearby city).",
-        "Fill out a request form for a certified true copy of your Transfer Certificate of Title (TCT).",
-        "Provide the TCT number and lot details.",
-        "Pay the reproduction and certification fee (₱100-₱200 depending on pages).",
-        "Claim the certified true copy (processing may take 1-3 days)."
+        "Retrieve the daily Construction Logbook kept at the job site during the entire construction period.",
+        "Ensure all daily entries, inspection logs, and weather notes are duly signed by the Engineer/Architect in-charge.",
+        "Verify that the logbook cover contains complete project details and professional seals.",
+        "Submit the original logbook for verification by the Building Inspector."
       ],
       infoType: "note",
-      infoLabel: "Note",
-      infoText: "If you only have the owner's copy, you can have it photocopied and notarized as a substitute."
+      infoLabel: "Inspection Basis",
+      infoText: "Serves as official record of daily construction progress and structural testing."
     },
     {
       id: 4,
-      title: "Community Tax Certificate (Cedula)",
-      office: "Treasury Office",
-      icon: <ClipboardList className="w-5 h-5 text-red-400" />,
+      title: "Valid Professional Licenses (PRC IDs) & PTRs",
+      office: "Professional Regulation Commission / LGU",
+      icon: <BadgeCheck className="w-5 h-5 text-indigo-500" />,
       steps: [
-        "Go to the Municipal Treasury Office at the Mapandan Municipal Hall.",
-        "Request for a Community Tax Certificate (Cedula).",
-        "Provide your name, address, and declare your annual income (for tax classification).",
-        "Pay the community tax (₱5.00 basic + ₱1.00 for every ₱1,000 income, minimum ₱10-₱20).",
-        "Receive your Cedula immediately."
+        "Obtain clear photocopies of the valid PRC License IDs of the Architect, Civil Engineer, Professional Electrical Engineer, and Sanitary Engineer / Master Plumber.",
+        "Obtain photocopies of the current year Professional Tax Receipts (PTR) with official receipt details.",
+        "Ensure signatures and dry seals of each professional are affixed on the copies."
       ],
       infoType: "time",
-      infoLabel: "Processing time",
-      infoText: "5-10 minutes. Valid for one calendar year."
+      infoLabel: "Validity Check",
+      infoText: "PRC licenses and PTRs must be unexpired at the time of Occupancy Permit application."
     },
     {
       id: 5,
-      title: "Latest Tax receipts (Real Property Tax)",
-      office: "Treasury Office",
-      icon: <Wallet className="w-5 h-5 text-amber-500" />,
+      title: "Captioned Photographs of Completed Building",
+      office: "Applicant / Owner",
+      icon: <Camera className="w-5 h-5 text-amber-500" />,
       steps: [
-        "Go to the Municipal Treasury Office, Tax Payment Section.",
-        "Request for your real property tax account details using your Tax Declaration number.",
-        "Pay any outstanding real property tax for the current year.",
-        "Secure the Official Receipt as proof of payment.",
-        "Request for a Certified True Copy of Tax Clearance if needed (additional fee)."
+        "Take clear, high-resolution color photographs showing all sides of the completed structure (Front, Rear, Left, and Right elevations).",
+        "Take interior photographs highlighting key areas, electrical panels, sanitary fixtures, and exit routes.",
+        "Print photographs on standard bond paper or photo paper with descriptive captions indicating the view and date taken.",
+        "Attach to the application folder for pre-inspection audit."
       ],
       infoType: "important",
-      infoLabel: "Important",
-      infoText: "Taxes must be fully paid for the current year before permit issuance."
+      infoLabel: "Visual Verification",
+      infoText: "Helps inspectors verify full completion prior to scheduling on-site final inspection."
     },
     {
       id: 6,
-      title: "Electrical & Sanitary permit",
-      office: "Municipal Health Office",
-      icon: <Zap className="w-5 h-5 text-yellow-500" />,
-      steps: [
-        "Go to the Municipal Health Office (MHO) at the Municipal Hall.",
-        "Submit your Electrical and Sanitary/Plumbing plans (already signed by licensed professionals).",
-        "Fill out the application forms for Electrical and Sanitary permits.",
-        "The Health Officer/Sanitary Inspector will review the plans (checking for proper sewage, water lines).",
-        "Pay the corresponding fees at the Treasury Office and return the receipt to MHO.",
-        "Claim the approved Electrical and Sanitary permits."
-      ],
-      infoType: "note",
-      infoLabel: "Sanitary Fee",
-      infoText: "Based on number of plumbing fixtures. Electrical fee based on load/computation."
-    },
-    {
-      id: 7,
-      title: "Confirmation of adjoining lot owners",
-      office: "Adjoining Lot Owners",
-      icon: <Users className="w-5 h-5 text-blue-500" />,
-      steps: [
-        "Identify all adjacent property owners (left, right, rear, and front if applicable).",
-        "Prepare a document (Confirmation/Affidavit of Adjoining Owners) stating they have no objection to your construction.",
-        "Visit each adjoining owner personally to explain your planned construction.",
-        "Have them sign the document in the presence of a notary public or barangay official.",
-        "If any owner is unavailable or refuses, you may need to secure a barangay certification of posting instead."
-      ],
-    },
-    {
-      id: 8,
-      title: "Certification from Barangay Captain",
-      office: "Barangay Hall",
-      icon: <Scroll className="w-5 h-5 text-stone-500" />,
-      steps: [
-        "Go to the Barangay Hall where your property is located (e.g., Brgy. Poblacion).",
-        "Request for a \"Barangay Clearance for Building Construction\" or \"Certification\".",
-        "Fill out the application form and provide details of your construction project.",
-        "Pay the barangay clearance fee (usually ₱50-₱100 depending on barangay ordinance).",
-        "The Barangay Captain or Secretary will issue the certification after verification."
-      ],
-      infoType: "time",
-      infoLabel: "Validity",
-      infoText: "Usually valid for 30-60 days. Process within 1 day."
-    },
-    {
-      id: 9,
-      title: "Application for locational clearance",
-      office: "Zoning Office / MPDC",
-      icon: <MapPin className="w-5 h-5 text-red-500" />,
-      steps: [
-        "Go to the Municipal Planning & Development Coordinator (MPDC) / Zoning Office.",
-        "Secure and fill out the Locational Clearance application form.",
-        "Submit the following: lot plan, vicinity map, and proof of ownership.",
-        "The Zoning Officer will check if your project is compliant with the Comprehensive Land Use Plan (CLUP) and zoning ordinance.",
-        "Pay the zoning fee (varies based on floor area and classification).",
-        "Claim the Locational Clearance (processing may take 2-5 days)."
-      ],
-      infoType: "note",
-      infoLabel: "Note",
-      infoText: "Commercial and industrial projects have stricter zoning requirements."
-    },
-    {
-      id: 10,
-      title: "2 Affidavits",
-      office: "Notary Public",
-      icon: <FileSignature className="w-5 h-5 text-slate-500" />,
-      steps: [
-        "Prepare the draft affidavits (usually Affidavit of Non-Tenancy and Affidavit of Undertaking).",
-        "Look for a Notary Public near the Municipal Hall or in the town proper.",
-        "Bring your valid ID and the draft affidavits.",
-        "Sign the affidavits in the presence of the notary public.",
-        "Pay the notarization fee (₱100-₱200 per affidavit)."
-      ],
-      infoType: "important",
-      infoLabel: "Purpose",
-      infoText: "Affidavit of Non-Tenancy declares no tenants will be displaced; Affidavit of Undertaking promises to comply with building rules."
-    },
-    {
-      id: 11,
-      title: "Affidavit of consent (if applicant is not the owner)",
-      office: "Notary Public",
-      icon: <PenTool className="w-5 h-5 text-slate-500" />,
-      steps: [
-        "The lot owner must prepare a document authorizing you (the applicant) to apply for a occupancy permit.",
-        "Go together with the owner to a Notary Public (or the owner can go alone with your name/details).",
-        "The owner signs the Affidavit of Consent/Authority to Apply for Occupancy Permit.",
-        "The notary public notarizes the document after verifying the owner's identity.",
-        "Pay the notarization fee (₱100-₱200). Secure the original notarized copy."
-      ],
-      infoType: "important",
-      infoLabel: "Required if",
-      infoText: "You are a tenant, lessee, or developer building on someone else's land."
-    },
-    {
-      id: 12,
-      title: "Affidavit of adjoining lot owners",
-      office: "Adjoining Lot Owners / Notary",
-      icon: <Handshake className="w-5 h-5 text-blue-500" />,
-      steps: [
-        "Similar to the Confirmation of adjoining lot owners, but this is a formal sworn affidavit.",
-        "Prepare an \"Affidavit of Adjoining Lot Owners\" stating they have no objection.",
-        "Visit each adjoining owner and have them sign the affidavit.",
-        "Bring the signed document to a Notary Public for notarization.",
-        "The notary will administer oath and affix notarial seal."
-      ],
-      infoType: "note",
-      infoLabel: "Legal weight",
-      infoText: "A notarized affidavit is stronger evidence than a simple confirmation."
-    },
-    {
-      id: 13,
-      title: "Zoning Clearance (Post-Payment)",
-      office: "Zoning Office / MPDC",
-      icon: <MapPin className="w-5 h-5 text-emerald-500" />,
-      steps: [
-        "Go to the Zoning Office / MPDC at the Municipal Hall after your initial occupancy permit payment is verified.",
-        "Present your occupancy permit payment receipt (Official Receipt) to the Zoning Officer.",
-        "Submit the completed Locational Clearance form along with other required attachments.",
-        "Claim the signed Zoning Clearance certificate."
-      ],
-      infoType: "important",
-      infoLabel: "Post-Payment Requirement",
-      infoText: "Required for Engineering final approval. Zoning clearance must be obtained after paying your initial fees."
-    },
-    {
-      id: 14,
-      title: "BFP Fire Safety Clearance (FSEC) (Post-Payment)",
+      title: "Fire Safety Inspection Certificate (FSIC for Occupancy)",
       office: "Bureau of Fire Protection (BFP)",
       icon: <Flame className="w-5 h-5 text-red-500" />,
       steps: [
-        "Submit your building plans and sanitary plans to the Bureau of Fire Protection (BFP) office.",
-        "Pay the Fire Code Fee at the Municipal Treasury Office or directly to the BFP section.",
-        "BFP officers will evaluate the plans for compliance with the Fire Code of the Philippines.",
-        "Claim the Fire Safety Evaluation Clearance (FSEC) / BFP Clearance certificate."
+        "Submit a request for Final Fire Safety Inspection at the local Bureau of Fire Protection (BFP) station.",
+        "Present the approved Building Permit and Fire Safety Evaluation Clearance (FSEC).",
+        "Accommodate BFP Fire Safety Inspectors for on-site inspection of fire extinguishers, emergency exits, and alarm systems.",
+        "Pay the required Fire Code Fees at the BFP/Treasury Office.",
+        "Claim the official Fire Safety Inspection Certificate (FSIC) for Occupancy."
       ],
       infoType: "important",
-      infoLabel: "Post-Payment Requirement",
-      infoText: "Required for Engineering final approval. Ensure fire safety guidelines are properly integrated in the plans."
+      infoLabel: "Critical Prerequisite",
+      infoText: "The FSIC for Occupancy is strictly mandatory before the final Occupancy Permit can be released."
+    },
+    {
+      id: 7,
+      title: "Approved Building Permit & Ancillary Permits",
+      office: "Office of the Building Official (OBO)",
+      icon: <FileText className="w-5 h-5 text-slate-600" />,
+      steps: [
+        "Prepare a clear photocopy of the issued Building Permit.",
+        "Include copies of issued Electrical Permit, Sanitary/Plumbing Permit, and Mechanical Permit (if applicable).",
+        "Attach the approved original building plans reference number for cross-verification."
+      ],
+      infoType: "note",
+      infoLabel: "Reference Documents",
+      infoText: "Ensures the completed structure is matched against the originally granted permits."
+    },
+    {
+      id: 8,
+      title: "Duly Notarized Affidavit of Undertaking (If Applicable)",
+      office: "Notary Public",
+      icon: <FileSignature className="w-5 h-5 text-purple-500" />,
+      steps: [
+        "Draft an Affidavit of Undertaking for minor non-structural completions or conditional requirements if requested by the Building Official.",
+        "Sign the affidavit in the presence of a Notary Public.",
+        "Pay the notarization fee and attach the notarized document to the submission folder."
+      ],
+      infoType: "note",
+      infoLabel: "Conditional Submission",
+      infoText: "Only required if specific minor conditions were stipulated during pre-occupancy evaluation."
     }
   ];
 
@@ -825,9 +728,17 @@ export default function OccupancyPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || !signatureUrl || !privacyAccepted) {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const isFutureDatePresent =
+      formData.buildingPermitDateIssued > todayStr ||
+      formData.fsecDateIssued > todayStr ||
+      formData.dateOfCompletion > todayStr;
+
+    if (requirementsProgress < requiredRequirementsCount || !signatureUrl || !privacyAccepted || isFutureDatePresent) {
       setShowValidationErrors(true);
-      if (requirementsProgress < requiredRequirementsCount) {
+      if (isFutureDatePresent) {
+        toast.warning("Future dates are not allowed for permit issuance or project completion.");
+      } else if (requirementsProgress < requiredRequirementsCount) {
         toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
         setActiveDocTab("REQUIREMENTS");
       } else if (!signatureUrl) {
@@ -979,6 +890,9 @@ export default function OccupancyPermitPage() {
       data.append("noOfUnits", formData.noOfUnits);
       data.append("totalGrossFloorArea", formData.totalGrossFloorArea);
       data.append("dateOfCompletion", formData.dateOfCompletion);
+      if (formData.contactNumber) {
+        data.append("contactNumber", formData.contactNumber);
+      }
 
       if (idFileUrl) {
         data.append("newIdFile", idFileUrl);
@@ -1255,6 +1169,7 @@ export default function OccupancyPermitPage() {
                     noOfUnits: "",
                     totalGrossFloorArea: "",
                     dateOfCompletion: "",
+                    contactNumber: residentData?.contactNumber || "",
                     newIdFile: null,
                     newIdFileBack: null,
                   });
@@ -1493,8 +1408,23 @@ export default function OccupancyPermitPage() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
-                          <p className="font-bold text-slate-800 dark:text-slate-200 mt-1 text-sm">{displayResident?.contactNumber || "N/A"}</p>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                            Phone Number <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className={cn(
+                              "w-full bg-white dark:bg-black/20 border rounded-lg px-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary/20",
+                              showValidationErrors && !formData.contactNumber ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                            )}
+                            value={formData.contactNumber ?? (displayResident?.contactNumber || "")}
+                            onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
+                            disabled={!isEditable}
+                            placeholder="e.g. 09123456789"
+                          />
+                          {showValidationErrors && !formData.contactNumber && (
+                            <p className="text-[10px] text-red-500 font-medium mt-0.5">Contact number is required</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
@@ -1671,7 +1601,7 @@ export default function OccupancyPermitPage() {
                                 }}
                                 error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile}
                                 infoText="Upload Front Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile"))}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile") && !!effectiveDocuments?.newIdFile)}
                               />
                             </div>
 
@@ -1694,7 +1624,7 @@ export default function OccupancyPermitPage() {
                                   setViewerOpen(true);
                                 }}
                                 infoText="Upload Back Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack"))}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack") && !!effectiveDocuments?.newIdFileBack)}
                               />
                             </div>
                           </div>
@@ -1776,9 +1706,10 @@ export default function OccupancyPermitPage() {
                           </label>
                           <input
                             type="date"
+                            max={new Date().toISOString().split("T")[0]}
                             className={cn(
                               "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
-                              (showValidationErrors && !formData.buildingPermitDateIssued) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                              (showValidationErrors && (!formData.buildingPermitDateIssued || formData.buildingPermitDateIssued > new Date().toISOString().split("T")[0])) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
                             )}
                             value={formData.buildingPermitDateIssued || ""}
                             onChange={e => setFormData({ ...formData, buildingPermitDateIssued: e.target.value })}
@@ -1786,6 +1717,9 @@ export default function OccupancyPermitPage() {
                           />
                           {showValidationErrors && !formData.buildingPermitDateIssued && (
                             <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                          {showValidationErrors && formData.buildingPermitDateIssued > new Date().toISOString().split("T")[0] && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">Future dates are not allowed for permit issuance.</p>
                           )}
                         </div>
 
@@ -1817,9 +1751,10 @@ export default function OccupancyPermitPage() {
                           </label>
                           <input
                             type="date"
+                            max={new Date().toISOString().split("T")[0]}
                             className={cn(
                               "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
-                              (showValidationErrors && !formData.fsecDateIssued) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                              (showValidationErrors && (!formData.fsecDateIssued || formData.fsecDateIssued > new Date().toISOString().split("T")[0])) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
                             )}
                             value={formData.fsecDateIssued || ""}
                             onChange={e => setFormData({ ...formData, fsecDateIssued: e.target.value })}
@@ -1827,6 +1762,9 @@ export default function OccupancyPermitPage() {
                           />
                           {showValidationErrors && !formData.fsecDateIssued && (
                             <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                          )}
+                          {showValidationErrors && formData.fsecDateIssued > new Date().toISOString().split("T")[0] && (
+                            <p className="text-[10px] text-red-500 font-medium mt-1">Future dates are not allowed for permit issuance.</p>
                           )}
                         </div>
                       </div>
@@ -1968,13 +1906,17 @@ export default function OccupancyPermitPage() {
                         </label>
                         <input
                           type="date"
-                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.dateOfCompletion) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          max={new Date().toISOString().split("T")[0]}
+                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.dateOfCompletion || formData.dateOfCompletion > new Date().toISOString().split("T")[0])) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
                           value={formData.dateOfCompletion || ""}
                           onChange={e => setFormData({ ...formData, dateOfCompletion: e.target.value })}
                           disabled={!isEditable}
                         />
                         {showValidationErrors && !formData.dateOfCompletion && (
                           <p className="text-[10px] text-red-500 font-medium mt-1">This field is required</p>
+                        )}
+                        {showValidationErrors && formData.dateOfCompletion > new Date().toISOString().split("T")[0] && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1">Future completion dates are invalid.</p>
                         )}
                       </div>
                     </div>
@@ -1993,7 +1935,13 @@ export default function OccupancyPermitPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const hasMissingFields = !formData.buildingPermitNo ||
+                        const todayStr = new Date().toISOString().split("T")[0];
+                        const isBuildingPermitDateFuture = formData.buildingPermitDateIssued > todayStr;
+                        const isFsecDateFuture = formData.fsecDateIssued > todayStr;
+                        const isCompletionDateFuture = formData.dateOfCompletion > todayStr;
+
+                        const hasMissingFields = !formData.contactNumber ||
+                          !formData.buildingPermitNo ||
                           !formData.buildingPermitDateIssued ||
                           !formData.fsecNo ||
                           !formData.fsecDateIssued ||
@@ -2004,11 +1952,18 @@ export default function OccupancyPermitPage() {
                           !formData.noOfUnits ||
                           !formData.totalGrossFloorArea ||
                           !formData.dateOfCompletion ||
+                          isBuildingPermitDateFuture ||
+                          isFsecDateFuture ||
+                          isCompletionDateFuture ||
                           (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile);
 
                         if (hasMissingFields) {
                           setShowValidationErrors(true);
-                          toast.error("Please fill in all required fields marked with *.");
+                          if (isBuildingPermitDateFuture || isFsecDateFuture || isCompletionDateFuture) {
+                            toast.error("Future dates are not allowed for permit issuance or project completion.");
+                          } else {
+                            toast.error("Please fill in all required fields marked with *.");
+                          }
                           return;
                         }
 
@@ -2164,7 +2119,7 @@ export default function OccupancyPermitPage() {
                         }}
                         error={hasError}
                         infoText="PDF / Image (Max 5MB)"
-                        disabled={!isEditable || (isRevision && !isFieldRequested(key))}
+                        disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
                       />
                     </div>
                   </div>

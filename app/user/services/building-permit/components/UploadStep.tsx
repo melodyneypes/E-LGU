@@ -358,7 +358,7 @@ export function UploadStep({
                   }}
                   error={hasError}
                   infoText="PDF / Image (Max 5MB)"
-                  disabled={!isEditable || (isRevision && !isFieldRequested(key))}
+                  disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
                 />
               </div>
             </div>

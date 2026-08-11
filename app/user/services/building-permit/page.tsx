@@ -2298,7 +2298,7 @@ export default function BuildingPermitPage() {
                                 }}
                                 error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile}
                                 infoText="Upload Front Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile"))}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile") && !!effectiveDocuments?.newIdFile)}
                               />
                             </div>
 
@@ -2321,7 +2321,7 @@ export default function BuildingPermitPage() {
                                   setViewerOpen(true);
                                 }}
                                 infoText="Upload Back Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack"))}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack") && !!effectiveDocuments?.newIdFileBack)}
                               />
                             </div>
                           </div>

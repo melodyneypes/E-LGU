@@ -37,15 +37,12 @@ export async function submitOccupancyPermit(formData: FormData) {
     const noOfUnits = formData.get("noOfUnits") as string;
     const totalGrossFloorArea = formData.get("totalGrossFloorArea") as string;
     const dateOfCompletion = formData.get("dateOfCompletion") as string;
+    const contactNumber = formData.get("contactNumber") as string || "";
 
-    const customLabelsStr = formData.get("customLabels") as string;
-    let customLabels = {};
-    if (customLabelsStr) {
-      try {
-        customLabels = JSON.parse(customLabelsStr);
-      } catch (e) {
-        console.error("Error parsing customLabels", e);
-      }
+    const customLabelsRaw = formData.get("customLabels") as string;
+    let customLabels: Record<string, string> = {};
+    if (customLabelsRaw) {
+      try { customLabels = JSON.parse(customLabelsRaw); } catch (e) { console.error("Failed to parse customLabels JSON:", e); }
     }
 
     // Prepare JSON for additional Data
@@ -62,6 +59,7 @@ export async function submitOccupancyPermit(formData: FormData) {
       noOfUnits,
       totalGrossFloorArea,
       dateOfCompletion,
+      contactNumber,
       documents: {},
       customLabels
     };
@@ -241,6 +239,7 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     const noOfUnits = formData.get("noOfUnits") as string;
     const totalGrossFloorArea = formData.get("totalGrossFloorArea") as string;
     const dateOfCompletion = formData.get("dateOfCompletion") as string;
+    const contactNumber = formData.get("contactNumber") as string;
     const descriptionOfWork = formData.get("descriptionOfWork") as string;
     const occupancyUse = formData.get("occupancyUse") as string;
     const estimatedCost = formData.get("estimatedCost") as string;
@@ -264,6 +263,7 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     if (noOfUnits) additionalData.noOfUnits = noOfUnits;
     if (totalGrossFloorArea) additionalData.totalGrossFloorArea = totalGrossFloorArea;
     if (dateOfCompletion) additionalData.dateOfCompletion = dateOfCompletion;
+    if (contactNumber) additionalData.contactNumber = contactNumber;
     if (descriptionOfWork) additionalData.descriptionOfWork = descriptionOfWork;
     if (occupancyUse) additionalData.occupancyUse = occupancyUse;
     if (estimatedCost) additionalData.estimatedCost = estimatedCost;
