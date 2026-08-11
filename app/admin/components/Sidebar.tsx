@@ -499,7 +499,7 @@ export function Sidebar({
                 { href: "/admin/treasury/stalls", label: "All Market Stalls" },
                 { href: "/admin/treasury/stalls/types", label: "Market Sections" },
                 { href: "/admin/treasury/stalls/collections", label: "Daily Ticket Collections" },
-                { href: "/admin/users?role=MARKET_STAFF", label: "Vendor & Collector Registry" },
+                { href: "/admin/treasury/stalls/registry", label: "Vendor & Collector Registry" },
             ]
         },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
