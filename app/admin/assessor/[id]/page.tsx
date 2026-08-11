@@ -140,6 +140,9 @@ export default function AssessorTransactionDetailPage() {
     const catCode = rpt.rptCategory || tx.type?.code || "";
     const isCategory1 = catCode === "RPT_CAT1";
 
+    const addData = (typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData) || {};
+    const isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
+
     const attachments = [
         { label: "Valid Government ID", url: rpt.validIdUrl },
         { label: "Previous O.R. / SOA", url: rpt.previousOrUrl },
@@ -411,6 +414,15 @@ export default function AssessorTransactionDetailPage() {
                                     </div>
                                     <p className="text-[11px] leading-relaxed font-medium">
                                         This transaction was cancelled by the user. Action buttons are disabled.
+                                    </p>
+                                </div>
+                            ) : !isCheckedIn ? (
+                                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
+                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
+                                        <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed font-medium">
+                                        The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before the Assessor can evaluate or schedule field inspection.
                                     </p>
                                 </div>
                             ) : (

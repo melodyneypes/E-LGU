@@ -190,3 +190,53 @@ export async function evaluateAssessorTransaction(
         return { success: false, error: err?.message || "Failed to evaluate transaction" };
     }
 }
+
+export async function releaseRptTransaction(
+    id: string,
+    orSeriesNumber?: string,
+    orUrl?: string
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true }
+        });
+
+        if (!tx) {
+            return { success: false, error: "Transaction not found" };
+        }
+
+        const currentAddData = (tx.additionalData as any) || {};
+
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "RELEASED",
+                isPaid: true,
+                processedBy: session.user.name || session.user.email || "Treasury Staff",
+                additionalData: {
+                    ...currentAddData,
+                    orSeriesNumber: orSeriesNumber || currentAddData.orSeriesNumber,
+                    orUrl: orUrl || currentAddData.orUrl,
+                    treasuryStatus: "COMPLETED",
+                    releasedAt: new Date().toISOString()
+                }
+            }
+        });
+
+        revalidatePath("/admin/treasury");
+        revalidatePath("/admin/treasury/queue");
+        revalidatePath(`/admin/treasury/${id}`);
+        revalidatePath("/admin/assessor");
+
+        return { success: true, data: { status: "RELEASED" } };
+    } catch (err: any) {
+        console.error("Error releasing RPT transaction:", err);
+        return { success: false, error: err?.message || "Failed to release RPT transaction" };
+    }
+}

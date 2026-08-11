@@ -336,7 +336,7 @@ export default function AssessorQueuePage() {
                                                         </Button>
                                                         <Button
                                                             className="h-8.5 px-3 rounded-xl font-black uppercase tracking-widest text-[9px] w-full sm:w-auto"
-                                                            onClick={() => router.push(`/admin/assessor`)}
+                                                            onClick={() => router.push(`/admin/assessor/${ticket.id}`)}
                                                         >
                                                             Process
                                                         </Button>

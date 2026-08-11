@@ -117,31 +117,79 @@ export async function cleanupPastDueRptAppointments(userId?: string) {
 }
 
 export async function fetchPropertyByTdnOrPin(query: string) {
-    if (!query || query.trim().length < 3) return null;
+    if (!query || query.trim().length < 2) return null;
     const q = query.trim().toUpperCase();
 
     try {
-        const existingRpt = await (prisma as any).realPropertyTax.findFirst({
+        // 1. Search in realPropertyTax table if model exists
+        if ((prisma as any).realPropertyTax) {
+            try {
+                const existingRpt = await (prisma as any).realPropertyTax.findFirst({
+                    where: {
+                        OR: [
+                            { tdn: { contains: q, mode: "insensitive" } },
+                            { pin: { contains: q, mode: "insensitive" } }
+                        ]
+                    },
+                    orderBy: { createdAt: "desc" }
+                });
+
+                if (existingRpt) {
+                    return {
+                        found: true,
+                        tdn: existingRpt.tdn,
+                        pin: existingRpt.pin || "",
+                        ownerName: existingRpt.ownerName,
+                        propertyAddress: existingRpt.propertyAddress,
+                        barangay: existingRpt.barangay,
+                        propertyType: existingRpt.propertyType,
+                        assessedValue: existingRpt.assessedValue
+                    };
+                }
+            } catch (tblErr) {
+                console.warn("realPropertyTax table query fallback to additionalData:", tblErr);
+            }
+        }
+
+        // 2. Search in Transaction additionalData (JSON)
+        const transactions = await prisma.transaction.findMany({
             where: {
                 OR: [
-                    { tdn: { contains: q, mode: "insensitive" } },
-                    { pin: { contains: q, mode: "insensitive" } }
-                ]
+                    { type: { category: "RPT" } },
+                    { type: { code: { startsWith: "RPT_" } } }
+                ],
+                isCancelled: false
             },
-            orderBy: { createdAt: "desc" }
+            include: {
+                user: { include: { residentProfile: true } }
+            },
+            orderBy: { createdAt: "desc" },
+            take: 200
         });
 
-        if (existingRpt) {
-            return {
-                found: true,
-                tdn: existingRpt.tdn,
-                pin: existingRpt.pin || "",
-                ownerName: existingRpt.ownerName,
-                propertyAddress: existingRpt.propertyAddress,
-                barangay: existingRpt.barangay,
-                propertyType: existingRpt.propertyType,
-                assessedValue: existingRpt.assessedValue
-            };
+        for (const tx of transactions) {
+            const addData = (typeof tx.additionalData === "string"
+                ? JSON.parse(tx.additionalData || "{}")
+                : tx.additionalData) || {};
+            const tdnVal = (addData.tdn || "").toString().trim().toUpperCase();
+            const pinVal = (addData.pin || "").toString().trim().toUpperCase();
+
+            if ((tdnVal && tdnVal.includes(q)) || (pinVal && pinVal.includes(q))) {
+                const resName = tx.user?.residentProfile
+                    ? `${tx.user.residentProfile.firstName || ""} ${tx.user.residentProfile.lastName || ""}`.trim()
+                    : tx.user?.name || "";
+
+                return {
+                    found: true,
+                    tdn: addData.tdn || "",
+                    pin: addData.pin || "",
+                    ownerName: addData.ownerName || resName || "",
+                    propertyAddress: addData.propertyAddress || "",
+                    barangay: addData.barangay || "",
+                    propertyType: addData.propertyType || "RESIDENTIAL",
+                    assessedValue: addData.assessedValue || 0
+                };
+            }
         }
 
         return null;

@@ -831,7 +831,10 @@ export async function getAssessorQueueTickets(counterName: string) {
                     { type: { category: "RPT_ASSESSOR" } },
                     { type: { category: "Assessor" } },
                     { type: { code: { startsWith: "RPT_ASSESSOR" } } },
-                    { type: { code: { startsWith: "ASSESSOR_" } } }
+                    { type: { code: { startsWith: "ASSESSOR_" } } },
+                    { type: { code: "RPT_CAT2" } },
+                    { type: { code: "RPT_CAT3" } },
+                    { type: { code: { startsWith: "RPT_CAT" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_PROCESSING", "EVALUATED"] },
                 isCancelled: false
@@ -886,7 +889,10 @@ export async function fetchAndCallNextAssessorTicket(counterName: string) {
                     { type: { category: "RPT_ASSESSOR" } },
                     { type: { category: "Assessor" } },
                     { type: { code: { startsWith: "RPT_ASSESSOR" } } },
-                    { type: { code: { startsWith: "ASSESSOR_" } } }
+                    { type: { code: { startsWith: "ASSESSOR_" } } },
+                    { type: { code: "RPT_CAT2" } },
+                    { type: { code: "RPT_CAT3" } },
+                    { type: { code: { startsWith: "RPT_CAT" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
                 isCancelled: false
