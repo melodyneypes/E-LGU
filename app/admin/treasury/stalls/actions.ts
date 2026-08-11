@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function createStall(data: {
     stallNumber: string;
@@ -13,8 +15,17 @@ export async function createStall(data: {
     dailyRateOverdueFee: number;
     monthlyRateOverdueFee: number;
     imageUrl?: string | null;
+    otherFees?: {
+        name: string;
+        amount: number;
+        feeType: "DAILY" | "MONTHLY";
+        remarks?: string | null;
+    }[];
 }) {
     try {
+        const session = await getServerSession(authOptions);
+        const userName = session?.user?.name || session?.user?.email || null;
+
         const newStall = await (prisma as any).stall.create({
             data: {
                 stallNumber: data.stallNumber.trim(),
@@ -25,6 +36,17 @@ export async function createStall(data: {
                 monthlyRate: Number(data.monthlyRate) || 0,
                 dailyRateOverdueFee: Number(data.dailyRateOverdueFee) || 0,
                 monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) || 0,
+                ...(userName && { createdBy: userName, updatedBy: userName }),
+                ...(data.otherFees && data.otherFees.length > 0 && {
+                    otherFees: {
+                        create: data.otherFees.map((fee) => ({
+                            name: fee.name.trim(),
+                            amount: Number(fee.amount) || 0,
+                            feeType: fee.feeType,
+                            remarks: fee.remarks ? fee.remarks.trim() : null,
+                        })),
+                    },
+                }),
             },
         });
 
@@ -50,6 +72,9 @@ export async function updateStall(
     }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        const userName = session?.user?.name || session?.user?.email || null;
+
         const updated = await (prisma as any).stall.update({
             where: { id },
             data: {
@@ -61,6 +86,7 @@ export async function updateStall(
                 ...(data.monthlyRate !== undefined && { monthlyRate: Number(data.monthlyRate) }),
                 ...(data.dailyRateOverdueFee !== undefined && { dailyRateOverdueFee: Number(data.dailyRateOverdueFee) }),
                 ...(data.monthlyRateOverdueFee !== undefined && { monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) }),
+                ...(userName && { updatedBy: userName }),
             },
         });
 
@@ -123,6 +149,41 @@ export async function deleteStallOtherFee(id: string) {
     } catch (error: any) {
         console.error("Failed to delete stall fee:", error);
         return { success: false, error: error.message || "Failed to delete fee" };
+    }
+}
+
+export async function getStallDetails(id: string) {
+    try {
+        const stall = await (prisma as any).stall.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                stallNumber: true,
+                stallTypeId: true,
+                vendorId: true,
+                status: true,
+                dailyRate: true,
+                monthlyRate: true,
+                dailyRateOverdueFee: true,
+                monthlyRateOverdueFee: true,
+                createdAt: true,
+                updatedAt: true,
+                createdBy: true,
+                updatedBy: true,
+                stallType: { select: { id: true, code: true, name: true } },
+                vendor: { select: { id: true, name: true, email: true } },
+                otherFees: true,
+            },
+        });
+
+        if (!stall) {
+            return { success: false, error: "Stall not found" };
+        }
+
+        return { success: true, data: stall };
+    } catch (error: any) {
+        console.error("Failed to fetch stall details:", error);
+        return { success: false, error: error.message || "Failed to fetch stall details" };
     }
 }
 
