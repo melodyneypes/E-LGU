@@ -54,8 +54,8 @@ export function NetworkInterceptor() {
             try {
                 const response = await originalFetch.apply(this, args);
 
-                // Specifically intercept 401 Unauthorized and 403 Forbidden HTTP status codes
-                if (response.status === 401 || response.status === 403) {
+                // Specifically intercept 401 Unauthorized and 403 Forbidden HTTP status codes for non-auth APIs
+                if (shouldIntercept && (response.status === 401 || response.status === 403)) {
                     handleUnauthorizedSession("Session expired or unauthorized. Please log in again.");
                     return response;
                 }

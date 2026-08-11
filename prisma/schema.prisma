@@ -35,8 +35,11 @@ model User {
   residentProfile       Resident?
   reviews               Review[]
   sessions              Session[]
-  driverTransactions    Transaction[] @relation("DriverTransactions")
-  transactions          Transaction[] @relation("ResidentTransactions")
+  driverTransactions    Transaction[]     @relation("DriverTransactions")
+  transactions          Transaction[]     @relation("ResidentTransactions")
+  vendorStalls          Stall[]           @relation("VendorStalls")
+  vendorCollections     StallCollection[] @relation("VendorCollections")
+  collectorCollections  StallCollection[] @relation("CollectorCollections")
 }
 
 model Account {
@@ -1322,3 +1325,108 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
+// ==============================================
+// MARKET STALL COLLECTION MODULE MODELS
+// ==============================================
+
+model StallType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  createdBy   String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+  stalls      Stall[]
+}
+
+model OtherFee {
+  id          String          @id @default(cuid())
+  code        String          @unique
+  name        String
+  amount      Float           @default(0)
+  description String?
+  createdAt   DateTime        @default(now())
+  createdBy   String?
+  updatedAt   DateTime        @updatedAt
+  updatedBy   String?
+  stalls      StallOtherFee[]
+}
+
+model StallOtherFee {
+  id         String   @id @default(cuid())
+  stallId    String
+  otherFeeId String
+  amount     Float?
+  createdAt  DateTime @default(now())
+
+  stall    Stall    @relation(fields: [stallId], references: [id], onDelete: Cascade)
+  otherFee OtherFee @relation(fields: [otherFeeId], references: [id], onDelete: Cascade)
+
+  @@unique([stallId, otherFeeId])
+}
+
+model Stall {
+  id                    String            @id @default(cuid())
+  stallTypeId           String
+  stallNumber           String            @unique
+  vendorId              String?
+  status                StallStatus       @default(VACANT)
+  dailyRate             Float             @default(0)
+  monthlyRate           Float             @default(0)
+  dailyRateOverdueFee   Float             @default(0)
+  monthlyRateOverdueFee Float             @default(0)
+  createdAt             DateTime          @default(now())
+  createdBy             String?
+  updatedAt             DateTime          @updatedAt
+  updatedBy             String?
+
+  stallType             StallType         @relation(fields: [stallTypeId], references: [id])
+  vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
+  otherFees             StallOtherFee[]
+  collections           StallCollection[]
+}
+
+model StallCollection {
+  id              String             @id @default(cuid())
+  stallId         String
+  vendorId        String?
+  collectorId     String
+  collectedDate   DateTime           @default(now())
+  ticketNumber    String             @unique
+  baseAmount      Float              @default(0)
+  otherFeesPaid   Float              @default(0)
+  overdueFeePaid  Float              @default(0)
+  totalAmountPaid Float              @default(0)
+  paymentMethod   StallPaymentMethod @default(CASH)
+  status          CollectionStatus   @default(PAID)
+  remarks         String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  stall     Stall @relation(fields: [stallId], references: [id])
+  collector User  @relation("CollectorCollections", fields: [collectorId], references: [id])
+  vendor    User? @relation("VendorCollections", fields: [vendorId], references: [id])
+}
+
+enum StallStatus {
+  VACANT
+  OCCUPIED
+  MAINTENANCE
+  RESERVED
+}
+
+enum CollectionStatus {
+  PAID
+  PARTIAL
+  PENDING
+  CANCELLED
+}
+
+enum StallPaymentMethod {
+  CASH
+  EPAYMENT
+}
+
