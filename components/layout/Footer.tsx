@@ -147,7 +147,7 @@ export function Footer({
             <div className="pt-10 flex flex-col md:flex-row items-center justify-between gap-6 text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 text-center md:text-left">
                 <p className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
                     <span>© {new Date().getFullYear()} {brandWord1}{brandWord2}. All rights reserved.</span>
-                    <span className="text-[7px] bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-full font-extrabold tracking-widest text-slate-500/80">v1.0.3</span>
+                    <span className="text-[7px] bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-full font-extrabold tracking-widest text-slate-500/80">v1.0.4</span>
                 </p>
                 <div className="flex items-center gap-8">
                     <Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy</Link>
