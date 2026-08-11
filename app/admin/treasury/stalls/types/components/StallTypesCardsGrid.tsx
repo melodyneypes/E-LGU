@@ -4,7 +4,6 @@ import React from "react";
 import { useStallTypes } from "./StallTypesProvider";
 import { Tag, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { deleteStallType } from "../actions";
 
 export function StallTypesCardsGrid() {
     const {
@@ -15,6 +14,8 @@ export function StallTypesCardsGrid() {
         setSelectedStallType,
         setIsEditOpen,
         setEditingStallType,
+        setIsDeleteOpen,
+        setDeletingStallType,
     } = useStallTypes();
 
     const filtered = stallTypes.filter(
@@ -26,15 +27,6 @@ export function StallTypesCardsGrid() {
 
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedItems = filtered.slice(startIndex, startIndex + pageSize);
-
-    const handleDelete = async (id: string, name: string) => {
-        if (confirm(`Are you sure you want to delete section "${name}"?`)) {
-            const res = await deleteStallType(id);
-            if (!res.success) {
-                alert(res.error || "Failed to delete section");
-            }
-        }
-    };
 
     if (paginatedItems.length === 0) {
         return (
@@ -94,7 +86,8 @@ export function StallTypesCardsGrid() {
                                 size="icon"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDelete(item.id, item.name);
+                                    setDeletingStallType(item);
+                                    setIsDeleteOpen(true);
                                 }}
                                 className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                                 title="Delete Section"

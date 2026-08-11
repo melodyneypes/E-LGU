@@ -5,7 +5,6 @@ import { useStallTypes, StallTypeItem } from "./StallTypesProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tag, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { deleteStallType } from "../actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -22,6 +21,8 @@ export function StallTypesTable() {
         setSelectedStallType,
         setIsEditOpen,
         setEditingStallType,
+        setIsDeleteOpen,
+        setDeletingStallType,
     } = useStallTypes();
 
     const filtered = stallTypes.filter(
@@ -34,15 +35,6 @@ export function StallTypesTable() {
     const totalPages = Math.ceil(filtered.length / pageSize) || 1;
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedItems = filtered.slice(startIndex, startIndex + pageSize);
-
-    const handleDelete = async (id: string, name: string) => {
-        if (confirm(`Are you sure you want to delete section "${name}"?`)) {
-            const res = await deleteStallType(id);
-            if (!res.success) {
-                alert(res.error || "Failed to delete section");
-            }
-        }
-    };
 
     return (
         <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl flex flex-col">
@@ -136,7 +128,8 @@ export function StallTypesTable() {
                                                 size="icon"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleDelete(item.id, item.name);
+                                                    setDeletingStallType(item);
+                                                    setIsDeleteOpen(true);
                                                 }}
                                                 className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                                                 title="Delete Section"

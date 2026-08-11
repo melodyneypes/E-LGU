@@ -43,6 +43,10 @@ interface StallTypesContextType {
     setIsEditOpen: (open: boolean) => void;
     editingStallType: StallTypeItem | null;
     setEditingStallType: (item: StallTypeItem | null) => void;
+    isDeleteOpen: boolean;
+    setIsDeleteOpen: (open: boolean) => void;
+    deletingStallType: StallTypeItem | null;
+    setDeletingStallType: (item: StallTypeItem | null) => void;
 }
 
 const StallTypesContext = createContext<StallTypesContextType | undefined>(undefined);
@@ -85,6 +89,8 @@ export function StallTypesProvider({
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingStallType, setEditingStallType] = useState<StallTypeItem | null>(null);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [deletingStallType, setDeletingStallType] = useState<StallTypeItem | null>(null);
 
     // 400ms Debounce effect on search input
     React.useEffect(() => {
@@ -123,6 +129,10 @@ export function StallTypesProvider({
                 setIsEditOpen,
                 editingStallType,
                 setEditingStallType,
+                isDeleteOpen,
+                setIsDeleteOpen,
+                deletingStallType,
+                setDeletingStallType,
             }}
         >
             {children}

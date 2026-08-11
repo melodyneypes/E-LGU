@@ -10,6 +10,7 @@ import { StallTypesHeader } from "./components/StallTypesHeader";
 import { StallTypesMainView } from "./components/StallTypesMainView";
 import { AddStallTypeModal } from "./components/AddStallTypeModal";
 import { EditStallTypeModal } from "./components/EditStallTypeModal";
+import { DeleteStallTypeModal } from "./components/DeleteStallTypeModal";
 import { StallTypeDetailsModal } from "./components/StallTypeDetailsModal";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export default async function StallTypesPage() {
                 <StallTypesMainView />
                 <AddStallTypeModal />
                 <EditStallTypeModal />
+                <DeleteStallTypeModal />
                 <StallTypeDetailsModal />
             </StallTypesProvider>
         </div>
