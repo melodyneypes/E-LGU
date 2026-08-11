@@ -487,7 +487,6 @@ export function Sidebar({
         },
         { href: "/admin/treasury/stalls", label: "Market Stalls", icon: Store, category: "Treasury Department" },
         { href: "/admin/treasury/stalls/types", label: "Market Sections", icon: Tag, category: "Treasury Department" },
-        { href: "/admin/treasury/stalls/other-fees", label: "Other Market Fees", icon: DollarSign, category: "Treasury Department" },
         { href: "/admin/treasury/stalls/collections", label: "Daily Ticket Collections", icon: Receipt, category: "Treasury Department" },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
@@ -617,7 +616,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Market Stalls", "Market Sections", "Other Market Fees", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        ["Treasury Hub", "Market Stalls", "Market Sections", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "POSO") {
@@ -644,7 +643,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Market Stalls", "Market Sections", "Other Market Fees", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                ["Treasury Hub", "Market Stalls", "Market Sections", "Daily Ticket Collections", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
         } else if (role === "ADMIN_AIDE") {

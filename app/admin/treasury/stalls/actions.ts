@@ -85,3 +85,44 @@ export async function deleteStall(id: string) {
         return { success: false, error: error.message || "Failed to delete stall" };
     }
 }
+
+export async function addStallOtherFee(data: {
+    stallId: string;
+    name: string;
+    amount: number;
+    feeType: "DAILY" | "MONTHLY";
+    remarks?: string | null;
+}) {
+    try {
+        const newFee = await (prisma as any).stallOtherFee.create({
+            data: {
+                stallId: data.stallId,
+                name: data.name.trim(),
+                amount: Number(data.amount) || 0,
+                feeType: data.feeType,
+                remarks: data.remarks?.trim() || null,
+            },
+        });
+
+        revalidatePath("/admin/treasury/stalls");
+        return { success: true, data: newFee };
+    } catch (error: any) {
+        console.error("Failed to add stall fee:", error);
+        return { success: false, error: error.message || "Failed to add fee" };
+    }
+}
+
+export async function deleteStallOtherFee(id: string) {
+    try {
+        await (prisma as any).stallOtherFee.delete({
+            where: { id },
+        });
+
+        revalidatePath("/admin/treasury/stalls");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to delete stall fee:", error);
+        return { success: false, error: error.message || "Failed to delete fee" };
+    }
+}
+

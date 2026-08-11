@@ -123,6 +123,42 @@ export function StallDetailsModal() {
                         </div>
                     </div>
 
+                    {/* Custom Fees Section */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400">
+                                Attached Custom Stall Fees
+                            </h4>
+                        </div>
+
+                        {selectedStall.otherFees && selectedStall.otherFees.length > 0 ? (
+                            <div className="space-y-2">
+                                {selectedStall.otherFees.map((fee: any) => (
+                                    <div
+                                        key={fee.id}
+                                        className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                                                {fee.name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-medium italic">
+                                                {fee.feeType || "DAILY"} {fee.remarks && `· ${fee.remarks}`}
+                                            </span>
+                                        </div>
+                                        <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                            ₱{fee.amount.toLocaleString()}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 italic font-medium p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                No additional custom fees attached to this stall yet.
+                            </p>
+                        )}
+                    </div>
+
                     {/* Metadata Timestamps */}
                     <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-400 pt-2 border-t border-slate-100 dark:border-[#2a3040]">
                         <div>
