@@ -69,6 +69,13 @@ export async function updateStall(
         monthlyRate?: number;
         dailyRateOverdueFee?: number;
         monthlyRateOverdueFee?: number;
+        otherFees?: {
+            id?: string;
+            name: string;
+            amount: number;
+            feeType: "DAILY" | "MONTHLY";
+            remarks?: string | null;
+        }[];
     }
 ) {
     try {
@@ -89,6 +96,25 @@ export async function updateStall(
                 ...(userName && { updatedBy: userName }),
             },
         });
+
+        // Sync stall other fees if provided
+        if (data.otherFees !== undefined) {
+            await (prisma as any).stallOtherFee.deleteMany({
+                where: { stallId: id },
+            });
+
+            if (data.otherFees.length > 0) {
+                await (prisma as any).stallOtherFee.createMany({
+                    data: data.otherFees.map((fee) => ({
+                        stallId: id,
+                        name: fee.name.trim(),
+                        amount: Number(fee.amount) || 0,
+                        feeType: fee.feeType,
+                        remarks: fee.remarks ? fee.remarks.trim() : null,
+                    })),
+                });
+            }
+        }
 
         revalidatePath("/admin/treasury/stalls");
         return { success: true, data: updated };
