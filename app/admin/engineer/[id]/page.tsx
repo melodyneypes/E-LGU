@@ -520,9 +520,14 @@ export default function EngineerDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed");
+                setActionLoading(false);
             }
-            else toast.error(res.error || "Failed");
-        } finally { setActionLoading(false); }
+        } catch {
+            toast.error("An error occurred");
+            setActionLoading(false);
+        }
     };
 
     const handleReinspect = async () => {
@@ -541,9 +546,14 @@ export default function EngineerDetailPage({ params }: PageProps) {
                 setIsReinspecting(false);
                 setReinspectReason("");
                 router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed");
+                setActionLoading(false);
             }
-            else toast.error(res.error || "Failed");
-        } finally { setActionLoading(false); }
+        } catch {
+            toast.error("An error occurred");
+            setActionLoading(false);
+        }
     };
 
     const handleRelease = useCallback(async () => {
