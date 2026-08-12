@@ -100,7 +100,7 @@ export async function fetchAndCallNextTicket(counterName: string) {
             }
         });
 
-        // Filter: Must be checkedIn, not assigned to a counter, and Business Permits MUST be UNPAID
+        // Filter: Must be checkedIn, not assigned to a counter, Business Permits MUST be UNPAID, and date must be today
         const unassignedWaiting = transactions.filter(tx => {
             const addData = parseAdditionalData(tx.additionalData);
             const isCheckedIn = Boolean(addData.checkedIn === true);
@@ -111,7 +111,7 @@ export async function fetchAndCallNextTicket(counterName: string) {
                 return false;
             }
 
-            return isCheckedIn && !hasCounter;
+            return isCheckedIn && !hasCounter && isTicketForToday(tx);
         });
 
         if (unassignedWaiting.length === 0) {
@@ -169,6 +169,41 @@ function parseAdditionalData(raw: any): Record<string, any> {
         }
     }
     return raw;
+}
+
+function isSameCalendarDay(d1: Date, d2: Date): boolean {
+    return (
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate()
+    );
+}
+
+function isTicketForToday(tx: any): boolean {
+    const today = new Date();
+    const addData = parseAdditionalData(tx?.additionalData);
+
+    // Rule 1: Must have explicit checkIn details
+    const isCheckedIn = Boolean(addData.checkedIn === true);
+    if (!isCheckedIn || !addData.checkedInAt) {
+        return false;
+    }
+
+    // Rule 2: checkInAt date must equal today's date
+    const checkInDate = new Date(addData.checkedInAt);
+    if (isNaN(checkInDate.getTime()) || !isSameCalendarDay(checkInDate, today)) {
+        return false;
+    }
+
+    // Rule 3: If appointmentDate column is present, it must also equal today's date
+    if (tx?.appointmentDate) {
+        const apptDate = new Date(tx.appointmentDate);
+        if (isNaN(apptDate.getTime()) || !isSameCalendarDay(apptDate, today)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 export async function fetchAndCallNextBploTicket(counterName: string) {
@@ -449,7 +484,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
             }
         });
 
-        // Filter in JS: checked-in tickets that have not yet been assigned to a counter
+        // Filter in JS: checked-in tickets that have not yet been assigned to a counter and date must be today
         // Business Permit tickets MUST be UNPAID to enter Treasury queue
         const waiting = allRawWaiting.filter(tx => {
             const addData = parseAdditionalData(tx.additionalData);
@@ -461,7 +496,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
                 return false;
             }
 
-            return isCheckedIn && !hasCounter;
+            return isCheckedIn && !hasCounter && isTicketForToday(tx);
         });
 
         // Fetch currently serving at this counter specifically for Treasury
@@ -481,7 +516,11 @@ export async function getTreasuryQueueTickets(counterName: string) {
 
         const serving = rawServing.filter(tx => {
             const addData = parseAdditionalData(tx.additionalData);
-            return addData.counterName === counterName && addData.servingDepartment === "Treasury";
+            return (
+                addData.counterName === counterName &&
+                addData.servingDepartment === "Treasury" &&
+                isTicketForToday(tx)
+            );
         });
 
         // Sort waiting queue
