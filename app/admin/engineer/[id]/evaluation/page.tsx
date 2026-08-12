@@ -471,8 +471,10 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed");
+                setActionLoading(false);
             }
-        } finally {
+        } catch {
+            toast.error("An error occurred");
             setActionLoading(false);
         }
     };
@@ -505,8 +507,10 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed");
+                setActionLoading(false);
             }
-        } finally {
+        } catch {
+            toast.error("An error occurred");
             setActionLoading(false);
         }
     };

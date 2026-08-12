@@ -749,6 +749,47 @@ export default function OccupancyPermitPage() {
       return;
     }
 
+    if (isRevision || isZoningRevision) {
+      const revisionRequests = [
+        ...(isRevision ? (selectedApplication?.additionalData?.revisionRequests || []) : []),
+        ...(isZoningRevision ? (selectedApplication?.additionalData?.zoningRevisionRequests || []) : [])
+      ];
+
+      const missingRevisions = revisionRequests.filter((r: any) => {
+        if (!r?.key) return false;
+        const key = r.key;
+        if (key.startsWith("req_")) {
+          const idx = parseInt(key.replace("req_", ""), 10);
+          return !uploadedRequirements[idx] && typeof uploadedRequirements[idx] !== "string";
+        }
+        if (key.startsWith("permit_")) {
+          const idx = parseInt(key.replace("permit_", ""), 10);
+          return !uploadedPermits[idx] && typeof uploadedPermits[idx] !== "string";
+        }
+        if (key === "newIdFile") {
+          return idChoice === "UPLOAD" && !formData.newIdFile;
+        }
+        if (key === "newIdFileBack") {
+          return idChoice === "UPLOAD" && !formData.newIdFileBack;
+        }
+        return false;
+      });
+
+      if (missingRevisions.length > 0) {
+        setShowValidationErrors(true);
+        toast.warning("Please upload new files for all documents requested for revision.");
+        const firstMissing = missingRevisions[0].key;
+        if (firstMissing.startsWith("req_") || firstMissing.startsWith("permit_")) {
+          setActiveDocTab(firstMissing.startsWith("req_") ? "REQUIREMENTS" : "PERMITS");
+          setCurrentStep("SUBMIT");
+        } else {
+          setCurrentStep("PROFILE");
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       toast.loading("Submitting application...", { id: "op-upload-toast" });
