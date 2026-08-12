@@ -58,10 +58,17 @@ export function CollectionsHeader() {
 
     // Compute active filtered dataset for exports & stat cards
     const filteredExportData = collections.filter((item) => {
+        const s = search.trim().toLowerCase();
         const matchesSearch =
-            item.ticketNumber.toLowerCase().includes(search.toLowerCase()) ||
-            item.stall.stallNumber.toLowerCase().includes(search.toLowerCase()) ||
-            (item.vendor?.name && item.vendor.name.toLowerCase().includes(search.toLowerCase()));
+            !s ||
+            item.ticketNumber.toLowerCase().includes(s) ||
+            item.stall.stallNumber.toLowerCase().includes(s) ||
+            item.stall.stallType.name.toLowerCase().includes(s) ||
+            (item.vendor?.name && item.vendor.name.toLowerCase().includes(s)) ||
+            (item.collector?.name && item.collector.name.toLowerCase().includes(s)) ||
+            (item.collector?.email && item.collector.email.toLowerCase().includes(s)) ||
+            item.paymentMethod.toLowerCase().includes(s) ||
+            item.status.toLowerCase().includes(s);
 
         const matchesMethod =
             paymentMethodFilter === "ALL" || item.paymentMethod === paymentMethodFilter;

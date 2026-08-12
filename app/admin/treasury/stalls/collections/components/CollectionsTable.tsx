@@ -5,10 +5,9 @@ import { useCollections, CollectionRecord } from "./CollectionsProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Receipt, User, Ban, CheckCircle2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-
-const ITEMS_PER_PAGE = 10;
 
 export function CollectionsTable() {
     const {
@@ -23,18 +22,26 @@ export function CollectionsTable() {
     } = useCollections();
 
     const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // Reset pagination to page 1 whenever search or filters change
+    // Reset pagination to page 1 whenever search, filters, or itemsPerPage change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, paymentMethodFilter, statusFilter, startDate, endDate]);
+    }, [search, paymentMethodFilter, statusFilter, startDate, endDate, itemsPerPage]);
 
     // Filter collections logic
     const filteredCollections = collections.filter((item) => {
+        const s = search.trim().toLowerCase();
         const matchesSearch =
-            item.ticketNumber.toLowerCase().includes(search.toLowerCase()) ||
-            item.stall.stallNumber.toLowerCase().includes(search.toLowerCase()) ||
-            (item.vendor?.name && item.vendor.name.toLowerCase().includes(search.toLowerCase()));
+            !s ||
+            item.ticketNumber.toLowerCase().includes(s) ||
+            item.stall.stallNumber.toLowerCase().includes(s) ||
+            item.stall.stallType.name.toLowerCase().includes(s) ||
+            (item.vendor?.name && item.vendor.name.toLowerCase().includes(s)) ||
+            (item.collector?.name && item.collector.name.toLowerCase().includes(s)) ||
+            (item.collector?.email && item.collector.email.toLowerCase().includes(s)) ||
+            item.paymentMethod.toLowerCase().includes(s) ||
+            item.status.toLowerCase().includes(s);
 
         const matchesMethod =
             paymentMethodFilter === "ALL" || item.paymentMethod === paymentMethodFilter;
@@ -61,9 +68,9 @@ export function CollectionsTable() {
         return matchesSearch && matchesMethod && matchesStatus && matchesDateRange;
     });
 
-    const totalPages = Math.ceil(filteredCollections.length / ITEMS_PER_PAGE) || 1;
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedCollections = filteredCollections.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(filteredCollections.length / itemsPerPage) || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedCollections = filteredCollections.slice(startIndex, startIndex + itemsPerPage);
 
     if (!isLoading && filteredCollections.length === 0) {
         return (
@@ -206,13 +213,34 @@ export function CollectionsTable() {
 
             {/* Pagination Controls Footer */}
             <div className="px-8 py-4 bg-slate-50/50 dark:bg-[#1a1f2e] border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Showing <strong className="text-slate-900 dark:text-white">{startIndex + 1}</strong> to{" "}
-                    <strong className="text-slate-900 dark:text-white">
-                        {Math.min(startIndex + ITEMS_PER_PAGE, filteredCollections.length)}
-                    </strong>{" "}
-                    of <strong className="text-slate-900 dark:text-white">{filteredCollections.length}</strong> collections
-                </span>
+                <div className="flex flex-wrap items-center gap-4">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        Showing <strong className="text-slate-900 dark:text-white">{startIndex + 1}</strong> to{" "}
+                        <strong className="text-slate-900 dark:text-white">
+                            {Math.min(startIndex + itemsPerPage, filteredCollections.length)}
+                        </strong>{" "}
+                        of <strong className="text-slate-900 dark:text-white">{filteredCollections.length}</strong> collections
+                    </span>
+
+                    {/* Rows Per Page Dropdown */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-400">Rows per page:</span>
+                        <Select
+                            value={String(itemsPerPage)}
+                            onValueChange={(val) => setItemsPerPage(Number(val))}
+                        >
+                            <SelectTrigger className="h-8 w-[70px] bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
+                                <SelectValue placeholder="10" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b]">
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="25">25</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                                <SelectItem value="100">100</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
 
                 <div className="flex items-center gap-2">
                     <Button
