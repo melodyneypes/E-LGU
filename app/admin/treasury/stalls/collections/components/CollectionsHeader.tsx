@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useCollections, CollectionRecord } from "./CollectionsProvider";
+import { useCollections } from "./CollectionsProvider";
 import { DollarSign, CheckCircle2, Search, Calendar, X, FileText, FileSpreadsheet, Loader2, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
