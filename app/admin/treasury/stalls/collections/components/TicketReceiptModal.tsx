@@ -2,9 +2,8 @@
 
 import React, { useEffect } from "react";
 import { useCollections } from "./CollectionsProvider";
-import { Receipt, X, Printer } from "lucide-react";
+import { Receipt, X } from "lucide-react";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 
 export function TicketReceiptModal() {
     const { selectedReceipt, setSelectedReceipt, themeColor } = useCollections();
@@ -27,10 +26,6 @@ export function TicketReceiptModal() {
     }, [selectedReceipt, setSelectedReceipt]);
 
     if (!selectedReceipt) return null;
-
-    const handlePrint = () => {
-        window.print();
-    };
 
     return (
         <div
@@ -124,16 +119,6 @@ export function TicketReceiptModal() {
                         <p>Collector: {selectedReceipt.collector.name || selectedReceipt.collector.email}</p>
                         <p>Payment Method: {selectedReceipt.paymentMethod}</p>
                     </div>
-
-                    {/* Print Button */}
-                    <Button
-                        onClick={handlePrint}
-                        className="w-full h-11 rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg flex items-center justify-center gap-2 text-white cursor-pointer"
-                        style={{ backgroundColor: themeColor }}
-                    >
-                        <Printer size={16} />
-                        <span>Print Receipt</span>
-                    </Button>
                 </div>
             </div>
         </div>

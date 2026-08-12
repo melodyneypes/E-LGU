@@ -46,6 +46,45 @@ function getCitizenName(item: any): string {
     return "NON-RESIDENT / WALK-IN";
 }
 
+function isTicketForToday(tx: any): boolean {
+    const today = new Date();
+    const addData = typeof tx?.additionalData === "string" 
+        ? (() => { try { return JSON.parse(tx.additionalData); } catch { return {}; } })()
+        : (tx?.additionalData || {});
+
+    // Rule 1: Must have explicit checkIn details
+    const isCheckedIn = Boolean(addData.checkedIn === true);
+    if (!isCheckedIn || !addData.checkedInAt) {
+        return false;
+    }
+
+    // Rule 2: checkInAt date must equal today's date
+    const checkInDate = new Date(addData.checkedInAt);
+    if (
+        isNaN(checkInDate.getTime()) ||
+        checkInDate.getFullYear() !== today.getFullYear() ||
+        checkInDate.getMonth() !== today.getMonth() ||
+        checkInDate.getDate() !== today.getDate()
+    ) {
+        return false;
+    }
+
+    // Rule 3: If appointmentDate column is present, it must also equal today's date
+    if (tx?.appointmentDate) {
+        const apptDate = new Date(tx.appointmentDate);
+        if (
+            isNaN(apptDate.getTime()) ||
+            apptDate.getFullYear() !== today.getFullYear() ||
+            apptDate.getMonth() !== today.getMonth() ||
+            apptDate.getDate() !== today.getDate()
+        ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 export default function TreasuryQueuePage() {
     const router = useRouter();
     const [counterName, setCounterName] = useState<string | null>(null);
@@ -86,8 +125,10 @@ export default function TreasuryQueuePage() {
             }
             const res = await getTreasuryQueueTickets(counterName);
             if (res.success && res.data) {
-                setWaitingQueue(res.data.waiting || []);
-                setCurrentlyServingList(res.data.serving || []);
+                const todayWaiting = (res.data.waiting || []).filter(isTicketForToday);
+                const todayServing = (res.data.serving || []).filter(isTicketForToday);
+                setWaitingQueue(todayWaiting);
+                setCurrentlyServingList(todayServing);
                 hasFetchedRef.current = true;
             } else {
                 toast.error(res.error || "Failed to load queue tickets.");
