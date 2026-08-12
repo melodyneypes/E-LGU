@@ -36,7 +36,22 @@ export default async function CollectionsPage() {
 
     const [collections, stalls, themeColor] = await Promise.all([
         (prisma as any).stallCollection.findMany({
-            include: {
+            select: {
+                id: true,
+                stallId: true,
+                vendorId: true,
+                collectorId: true,
+                collectedDate: true,
+                ticketNumber: true,
+                baseAmount: true,
+                otherFeesPaid: true,
+                overdueFeePaid: true,
+                totalAmountPaid: true,
+                paymentMethod: true,
+                status: true,
+                remarks: true,
+                createdAt: true,
+                updatedAt: true,
                 stall: {
                     select: {
                         id: true,
@@ -52,10 +67,22 @@ export default async function CollectionsPage() {
         }),
         (prisma as any).stall.findMany({
             where: { status: "OCCUPIED" },
-            include: {
+            select: {
+                id: true,
+                stallNumber: true,
+                dailyRate: true,
+                monthlyRate: true,
+                dailyRateOverdueFee: true,
                 stallType: { select: { id: true, name: true } },
                 vendor: { select: { id: true, name: true, email: true } },
-                otherFees: true,
+                otherFees: {
+                    select: {
+                        id: true,
+                        name: true,
+                        amount: true,
+                        feeType: true,
+                    },
+                },
             },
             orderBy: { stallNumber: "asc" },
         }),

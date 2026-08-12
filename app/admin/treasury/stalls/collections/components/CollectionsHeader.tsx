@@ -2,9 +2,10 @@
 
 import React from "react";
 import { useCollections } from "./CollectionsProvider";
-import { DollarSign, CheckCircle2, CreditCard, Search } from "lucide-react";
+import { DollarSign, CheckCircle2, CreditCard, Search, Calendar, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export function CollectionsHeader() {
     const {
@@ -14,7 +15,22 @@ export function CollectionsHeader() {
         setSearch,
         paymentMethodFilter,
         setPaymentMethodFilter,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
     } = useCollections();
+
+    // Local search state for immediate UI feedback + 400ms debounce
+    const [searchInput, setSearchInput] = React.useState(search);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearch(searchInput);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [searchInput, setSearch]);
 
     // Calculate today's metrics
     const todayStr = new Date().toISOString().split("T")[0];
@@ -28,6 +44,8 @@ export function CollectionsHeader() {
     const totalPaidStallsToday = new Set(todayCollections.map((c) => c.stallId)).size;
     const totalOccupiedStalls = stalls.length;
     const pendingStallsToday = Math.max(0, totalOccupiedStalls - totalPaidStallsToday);
+
+    const hasDateFilter = Boolean(startDate || endDate);
 
     return (
         <div className="space-y-6">
@@ -68,19 +86,62 @@ export function CollectionsHeader() {
             </div>
 
             {/* Toolbar Filter */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] p-4 rounded-2xl shadow-md">
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search Ticket # or Stall #..."
-                        className="pl-10 h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-medium"
-                    />
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] p-4 rounded-2xl shadow-md">
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            placeholder="Search Ticket # or Stall #..."
+                            className="pl-10 h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-medium"
+                        />
+                    </div>
+
+                    {/* Start Date (From) */}
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] px-3 h-10 rounded-xl">
+                        <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
+                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">From:</span>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer [color-scheme:light_dark]"
+                        />
+                    </div>
+
+                    {/* End Date (To) */}
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] px-3 h-10 rounded-xl">
+                        <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
+                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">To:</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer [color-scheme:light_dark]"
+                        />
+                    </div>
+
+                    {/* Clear Dates Button */}
+                    {hasDateFilter && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setStartDate("");
+                                setEndDate("");
+                            }}
+                            className="h-10 px-3 rounded-xl text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                            <X className="w-3.5 h-3.5" /> Clear Dates
+                        </Button>
+                    )}
                 </div>
 
+                {/* Payment Method Select */}
                 <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-                    <SelectTrigger className="h-10 w-[160px] bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
+                    <SelectTrigger className="h-10 w-full sm:w-[160px] bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
                         <SelectValue placeholder="All Payment Methods" />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-[#151b2b]">

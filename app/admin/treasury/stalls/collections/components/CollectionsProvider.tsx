@@ -68,6 +68,10 @@ interface CollectionsContextType {
     setSearch: (val: string) => void;
     paymentMethodFilter: string;
     setPaymentMethodFilter: (val: string) => void;
+    startDate: string;
+    setStartDate: (val: string) => void;
+    endDate: string;
+    setEndDate: (val: string) => void;
     isIssueModalOpen: boolean;
     setIsIssueModalOpen: (open: boolean) => void;
     selectedReceipt: CollectionRecord | null;
@@ -92,6 +96,8 @@ export function CollectionsProvider({
     const [collections] = useState<CollectionRecord[]>(initialCollections);
     const [search, setSearch] = useState("");
     const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
     const [selectedReceipt, setSelectedReceipt] = useState<CollectionRecord | null>(null);
 
@@ -106,6 +112,10 @@ export function CollectionsProvider({
                 setSearch,
                 paymentMethodFilter,
                 setPaymentMethodFilter,
+                startDate,
+                setStartDate,
+                endDate,
+                setEndDate,
                 isIssueModalOpen,
                 setIsIssueModalOpen,
                 selectedReceipt,
