@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useCollections, CollectionRecord } from "./CollectionsProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, User, Ban, CheckCircle2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 
@@ -14,8 +15,10 @@ export function CollectionsTable() {
         collections,
         search,
         paymentMethodFilter,
+        statusFilter,
         startDate,
         endDate,
+        isLoading,
         setSelectedReceipt,
     } = useCollections();
 
@@ -24,7 +27,7 @@ export function CollectionsTable() {
     // Reset pagination to page 1 whenever search or filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, paymentMethodFilter, startDate, endDate]);
+    }, [search, paymentMethodFilter, statusFilter, startDate, endDate]);
 
     // Filter collections logic
     const filteredCollections = collections.filter((item) => {
@@ -35,6 +38,9 @@ export function CollectionsTable() {
 
         const matchesMethod =
             paymentMethodFilter === "ALL" || item.paymentMethod === paymentMethodFilter;
+
+        const matchesStatus =
+            statusFilter === "ALL" || item.status === statusFilter;
 
         const matchesDateRange = (() => {
             if (!startDate && !endDate) return true;
@@ -52,14 +58,14 @@ export function CollectionsTable() {
             return true;
         })();
 
-        return matchesSearch && matchesMethod && matchesDateRange;
+        return matchesSearch && matchesMethod && matchesStatus && matchesDateRange;
     });
 
     const totalPages = Math.ceil(filteredCollections.length / ITEMS_PER_PAGE) || 1;
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedCollections = filteredCollections.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    if (filteredCollections.length === 0) {
+    if (!isLoading && filteredCollections.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-16 bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] text-center">
                 <Receipt className="w-12 h-12 text-slate-300 mb-3" />
@@ -99,12 +105,25 @@ export function CollectionsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {paginatedCollections.map((item: CollectionRecord, index: number) => (
-                            <TableRow
-                                key={item.id}
-                                onClick={() => setSelectedReceipt(item)}
-                                className="group hover:bg-slate-100/80 dark:hover:bg-white/10 transition-colors border-b border-slate-100 dark:border-[#2a3040] cursor-pointer"
-                            >
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, idx) => (
+                                <TableRow key={`skel-${idx}`} className="border-b border-slate-100 dark:border-[#2a3040]">
+                                    <TableCell className="pl-8 py-5"><Skeleton className="h-4 w-4 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-32 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-36 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-20 rounded-full" /></TableCell>
+                                    <TableCell className="pr-8"><Skeleton className="h-4 w-16 rounded-full" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            paginatedCollections.map((item: CollectionRecord, index: number) => (
+                                <TableRow
+                                    key={item.id}
+                                    onClick={() => setSelectedReceipt(item)}
+                                    className="group hover:bg-slate-100/80 dark:hover:bg-white/10 transition-colors border-b border-slate-100 dark:border-[#2a3040] cursor-pointer"
+                                >
                                 {/* Row Index (#) */}
                                 <TableCell className="pl-8 py-4 font-black text-xs text-slate-400">
                                     {startIndex + index + 1}
@@ -179,7 +198,8 @@ export function CollectionsTable() {
                                     )}
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ))
+                    )}
                     </TableBody>
                 </Table>
             </div>

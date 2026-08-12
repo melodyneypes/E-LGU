@@ -68,10 +68,14 @@ interface CollectionsContextType {
     setSearch: (val: string) => void;
     paymentMethodFilter: string;
     setPaymentMethodFilter: (val: string) => void;
+    statusFilter: string;
+    setStatusFilter: (val: string) => void;
     startDate: string;
     setStartDate: (val: string) => void;
     endDate: string;
     setEndDate: (val: string) => void;
+    isLoading: boolean;
+    setIsLoading: (val: boolean) => void;
     isIssueModalOpen: boolean;
     setIsIssueModalOpen: (open: boolean) => void;
     selectedReceipt: CollectionRecord | null;
@@ -93,11 +97,15 @@ export function CollectionsProvider({
     themeColor: string;
     children: React.ReactNode;
 }) {
+    const todayStr = new Date().toISOString().split("T")[0];
+
     const [collections] = useState<CollectionRecord[]>(initialCollections);
     const [search, setSearch] = useState("");
     const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    const [statusFilter, setStatusFilter] = useState("ALL");
+    const [startDate, setStartDate] = useState(todayStr);
+    const [endDate, setEndDate] = useState(todayStr);
+    const [isLoading, setIsLoading] = useState(false);
     const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
     const [selectedReceipt, setSelectedReceipt] = useState<CollectionRecord | null>(null);
 
@@ -112,10 +120,14 @@ export function CollectionsProvider({
                 setSearch,
                 paymentMethodFilter,
                 setPaymentMethodFilter,
+                statusFilter,
+                setStatusFilter,
                 startDate,
                 setStartDate,
                 endDate,
                 setEndDate,
+                isLoading,
+                setIsLoading,
                 isIssueModalOpen,
                 setIsIssueModalOpen,
                 selectedReceipt,
