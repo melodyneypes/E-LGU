@@ -193,8 +193,10 @@ export default function QueueClient({
             }
         };
 
-        // Track realtime connection state without causing re-renders
+        // Track realtime connection state and voices without causing re-renders
         const realtimeConnectedRef = { current: false };
+        const voicesRef = { current: voices };
+        voicesRef.current = voices;
 
         // 1. WebSocket Realtime subscription to postgres changes on Transaction table
         let channel: any = null;
@@ -232,7 +234,7 @@ export default function QueueClient({
                                 utterance.rate = 0.85;
                                 utterance.pitch = 1.05;
 
-                                const femaleVoice = voices.find(voice => {
+                                const femaleVoice = voicesRef.current.find(voice => {
                                     const name = voice.name.toLowerCase();
                                     const lang = voice.lang.toLowerCase();
                                     return lang.startsWith("en") && (
@@ -277,6 +279,7 @@ export default function QueueClient({
             }
             clearInterval(fallbackInterval);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const playChime = () => {

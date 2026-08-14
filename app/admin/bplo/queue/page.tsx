@@ -17,7 +17,6 @@ import { supabase } from "@/lib/supabase";
 import {
     getBploQueueTickets,
     fetchAndCallNextBploTicket,
-    callSpecificBploTicket,
     recallBploTicketBroadcast
 } from "@/app/admin/transactions/calling-actions";
 

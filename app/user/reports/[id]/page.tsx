@@ -15,8 +15,7 @@ import {
     ArrowLeft,
     CheckCircle2,
     Clock,
-    PhoneCall,
-    FileText
+    PhoneCall
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
