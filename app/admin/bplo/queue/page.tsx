@@ -17,7 +17,8 @@ import { supabase } from "@/lib/supabase";
 import {
     getBploQueueTickets,
     fetchAndCallNextBploTicket,
-    callSpecificBploTicket
+    callSpecificBploTicket,
+    recallBploTicketBroadcast
 } from "@/app/admin/transactions/calling-actions";
 
 export default function BploQueuePage() {
@@ -143,12 +144,12 @@ export default function BploQueuePage() {
 
 
 
-    // Action: Recall a specific serving ticket
+    // Action: Recall a specific serving ticket (Broadcast only - no DB mutations)
     const handleRecall = async (ticket: any) => {
         if (!ticket || !counterName) return;
         setActionLoading(true);
         try {
-            const res = await callSpecificBploTicket(ticket.id, counterName);
+            const res = await recallBploTicketBroadcast(ticket.id, counterName);
             if (res.success) {
                 toast.success(`Re-calling ticket: ${ticket.queueNumber}`);
             } else {

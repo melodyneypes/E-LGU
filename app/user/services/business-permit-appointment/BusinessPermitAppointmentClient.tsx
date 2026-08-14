@@ -134,6 +134,36 @@ const HEALTH_CARD_REQUIRED_LINES = [
     "Eatery / Restaurant / Food Service",
 ];
 
+// Philippine Government ID Auto-Formatting Helpers
+const formatTinNumber = (val: string): string => {
+    const digits = val.replace(/\D/g, "").slice(0, 12);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
+const formatPhilhealthNumber = (val: string): string => {
+    const digits = val.replace(/\D/g, "").slice(0, 12);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 11) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 11)}-${digits.slice(11)}`;
+};
+
+const formatPagibigNumber = (val: string): string => {
+    const digits = val.replace(/\D/g, "").slice(0, 12);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 8) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8)}`;
+};
+
+const formatSssNumber = (val: string): string => {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 9)}-${digits.slice(9)}`;
+};
+
 type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
@@ -617,9 +647,9 @@ export function BusinessPermitAppointmentClient({
                                                 "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                     )}
                                     style={
-                                        isActive 
-                                            ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 0 20px ${themeColor}4d` } 
-                                            : isCompleted 
+                                        isActive
+                                            ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 0 20px ${themeColor}4d` }
+                                            : isCompleted
                                                 ? { backgroundColor: `${themeColor}1a`, color: themeColor, borderColor: `${themeColor}4d` }
                                                 : {}
                                     }
@@ -827,41 +857,41 @@ export function BusinessPermitAppointmentClient({
                                         </div>
                                     </div>
 
-                                     <div className="space-y-2">
-                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
-                                         <Input
-                                             id="appointment-building"
-                                             type="text"
-                                             value={formState.building}
-                                             onChange={e => handleInputChange("building", e.target.value)}
-                                             placeholder="e.g. Bldg 4A, Green Meadows"
-                                             className={cn(
-                                                 "rounded-xl h-12 border-slate-200",
-                                                 showValidationErrors && !formState.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                             )}
-                                         />
-                                         {showValidationErrors && !formState.building && (
-                                             <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
-                                         )}
-                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            id="appointment-building"
+                                            type="text"
+                                            value={formState.building}
+                                            onChange={e => handleInputChange("building", e.target.value)}
+                                            placeholder="e.g. Bldg 4A, Green Meadows"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200",
+                                                showValidationErrors && !formState.building && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                        {showValidationErrors && !formState.building && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Building/House No./Unit is required.</p>
+                                        )}
+                                    </div>
 
-                                     <div className="space-y-2">
-                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
-                                         <Input
-                                             id="appointment-street"
-                                             type="text"
-                                             value={formState.street}
-                                             onChange={e => handleInputChange("street", e.target.value)}
-                                             placeholder="e.g. Rizal Avenue"
-                                             className={cn(
-                                                 "rounded-xl h-12 border-slate-200",
-                                                 showValidationErrors && !formState.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                             )}
-                                         />
-                                         {showValidationErrors && !formState.street && (
-                                             <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
-                                         )}
-                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            id="appointment-street"
+                                            type="text"
+                                            value={formState.street}
+                                            onChange={e => handleInputChange("street", e.target.value)}
+                                            placeholder="e.g. Rizal Avenue"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200",
+                                                showValidationErrors && !formState.street && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                        {showValidationErrors && !formState.street && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Street address is required.</p>
+                                        )}
+                                    </div>
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Line of Business / Classification <span className="text-rose-500 ml-0.5">*</span></Label>
@@ -893,9 +923,9 @@ export function BusinessPermitAppointmentClient({
                                                     onChange={e => handleInputChange("lineOfBusiness", e.target.value)}
                                                     placeholder="Enter your custom line of business..."
                                                     className={cn(
-                                                         "rounded-xl h-12 border-slate-200 pr-10 font-bold",
-                                                         showValidationErrors && !formState.lineOfBusiness && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                                     )}
+                                                        "rounded-xl h-12 border-slate-200 pr-10 font-bold",
+                                                        showValidationErrors && !formState.lineOfBusiness && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                                 <button
                                                     type="button"
@@ -922,59 +952,59 @@ export function BusinessPermitAppointmentClient({
                                         />
                                     </div>
 
-                                     <div className="space-y-2">
-                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">
-                                             Number of Health Card Applications
-                                             {HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && (
-                                                 <span className="text-rose-500 ml-0.5">*</span>
-                                             )}
-                                         </Label>
-                                         <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
-                                             Required for all food-handling, hospitality, and medical personnel.
-                                         </p>
-                                         <Input
-                                             id="appointment-healthCardCount"
-                                             type="number"
-                                             value={formState.healthCardCount}
-                                             onChange={e => handleInputChange("healthCardCount", e.target.value)}
-                                             min={HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) ? "1" : "0"}
-                                             placeholder="e.g. 5"
-                                             className={cn(
-                                                 "rounded-xl h-12 border-slate-200",
-                                                 showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                             )}
-                                         />
-                                         {showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && (
-                                             <p className="text-[10px] text-red-500 font-medium mt-1">At least 1 health card application is required for food-handling businesses.</p>
-                                         )}
-                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">
+                                            Number of Health Card Applications
+                                            {HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && (
+                                                <span className="text-rose-500 ml-0.5">*</span>
+                                            )}
+                                        </Label>
+                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
+                                            Required for all food-handling, hospitality, and medical personnel.
+                                        </p>
+                                        <Input
+                                            id="appointment-healthCardCount"
+                                            type="number"
+                                            value={formState.healthCardCount}
+                                            onChange={e => handleInputChange("healthCardCount", e.target.value)}
+                                            min={HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) ? "1" : "0"}
+                                            placeholder="e.g. 5"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200",
+                                                showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                        {showValidationErrors && HEALTH_CARD_REQUIRED_LINES.includes(formState.lineOfBusiness) && parseInt(formState.healthCardCount, 10) < 1 && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">At least 1 health card application is required for food-handling businesses.</p>
+                                        )}
+                                    </div>
 
-                                     <div className="space-y-2">
-                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
-                                         <Input
-                                             id="appointment-businessArea"
-                                             type="number"
-                                             min="0.01"
-                                             step="any"
-                                             value={formState.businessArea}
-                                             onChange={e => handleInputChange("businessArea", e.target.value)}
-                                             onKeyDown={e => {
-                                                 const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
-                                                 if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
-                                             }}
-                                             placeholder="e.g. 120"
-                                             className={cn(
-                                                 "rounded-xl h-12 border-slate-200",
-                                                 showValidationErrors && (!formState.businessArea || parseFloat(formState.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                             )}
-                                         />
-                                         {showValidationErrors && !formState.businessArea && (
-                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
-                                         )}
-                                         {showValidationErrors && formState.businessArea && parseFloat(formState.businessArea) <= 0 && (
-                                             <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
-                                         )}
-                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            id="appointment-businessArea"
+                                            type="number"
+                                            min="0.01"
+                                            step="any"
+                                            value={formState.businessArea}
+                                            onChange={e => handleInputChange("businessArea", e.target.value)}
+                                            onKeyDown={e => {
+                                                const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "."];
+                                                if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                                            }}
+                                            placeholder="e.g. 120"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200",
+                                                showValidationErrors && (!formState.businessArea || parseFloat(formState.businessArea) <= 0) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                        {showValidationErrors && !formState.businessArea && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Store area is required.</p>
+                                        )}
+                                        {showValidationErrors && formState.businessArea && parseFloat(formState.businessArea) <= 0 && (
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Store area must be greater than 0.</p>
+                                        )}
+                                    </div>
 
                                     <div className="space-y-2 relative">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Total Business Assets (₱) <span className="text-rose-500 ml-0.5">*</span></Label>
@@ -1053,8 +1083,10 @@ export function BusinessPermitAppointmentClient({
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">TIN No. of the Business <span className="text-rose-500 ml-0.5">*</span></Label>
                                         <Input
                                             type="text"
+                                            inputMode="numeric"
+                                            maxLength={15}
                                             value={formState.tinNumber}
-                                            onChange={e => handleInputChange("tinNumber", e.target.value)}
+                                            onChange={e => handleInputChange("tinNumber", formatTinNumber(e.target.value))}
                                             placeholder="e.g. 123-456-789-000"
                                             className={cn(
                                                 "rounded-xl h-12 border-slate-200 font-bold",
@@ -1067,8 +1099,10 @@ export function BusinessPermitAppointmentClient({
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">PhilHealth Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
                                         <Input
                                             type="text"
+                                            inputMode="numeric"
+                                            maxLength={14}
                                             value={formState.philhealthNumber}
-                                            onChange={e => handleInputChange("philhealthNumber", e.target.value)}
+                                            onChange={e => handleInputChange("philhealthNumber", formatPhilhealthNumber(e.target.value))}
                                             placeholder="e.g. 12-345678901-2"
                                             className="rounded-xl h-12 border-slate-200 font-bold"
                                         />
@@ -1078,8 +1112,10 @@ export function BusinessPermitAppointmentClient({
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Pag-Ibig MID Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
                                         <Input
                                             type="text"
+                                            inputMode="numeric"
+                                            maxLength={14}
                                             value={formState.pagibigNumber}
-                                            onChange={e => handleInputChange("pagibigNumber", e.target.value)}
+                                            onChange={e => handleInputChange("pagibigNumber", formatPagibigNumber(e.target.value))}
                                             placeholder="e.g. 1234-5678-9012"
                                             className="rounded-xl h-12 border-slate-200 font-bold"
                                         />
@@ -1089,8 +1125,10 @@ export function BusinessPermitAppointmentClient({
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">SSS Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
                                         <Input
                                             type="text"
+                                            inputMode="numeric"
+                                            maxLength={12}
                                             value={formState.sssNumber}
-                                            onChange={e => handleInputChange("sssNumber", e.target.value)}
+                                            onChange={e => handleInputChange("sssNumber", formatSssNumber(e.target.value))}
                                             placeholder="e.g. 12-3456789-0"
                                             className="rounded-xl h-12 border-slate-200 font-bold"
                                         />
@@ -1135,24 +1173,24 @@ export function BusinessPermitAppointmentClient({
                                             </div>
 
                                             <div className="space-y-2">
-                                                 <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
-                                                 <Input
-                                                     type="date"
-                                                     max={new Date().toISOString().split("T")[0]}
-                                                     value={formState.dtiSecDate}
-                                                     onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                     className={cn(
-                                                         "rounded-xl h-12 border-slate-200 font-bold",
-                                                         showValidationErrors && (!formState.dtiSecDate || (formState.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
-                                                     )}
-                                                 />
-                                                 {showValidationErrors && !formState.dtiSecDate && (
-                                                     <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
-                                                 )}
-                                                 {showValidationErrors && formState.dtiSecDate && formState.dtiSecDate > new Date().toISOString().split("T")[0] && (
-                                                     <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
-                                                 )}
-                                             </div>
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType === "COA" ? "CDA" : formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Input
+                                                    type="date"
+                                                    max={new Date().toISOString().split("T")[0]}
+                                                    value={formState.dtiSecDate}
+                                                    onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                    className={cn(
+                                                        "rounded-xl h-12 border-slate-200 font-bold",
+                                                        showValidationErrors && (!formState.dtiSecDate || (formState.dtiSecDate > new Date().toISOString().split("T")[0])) && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
+                                                />
+                                                {showValidationErrors && !formState.dtiSecDate && (
+                                                    <p className="text-[10px] text-red-500 font-medium">Registration date is required.</p>
+                                                )}
+                                                {showValidationErrors && formState.dtiSecDate && formState.dtiSecDate > new Date().toISOString().split("T")[0] && (
+                                                    <p className="text-[10px] text-red-500 font-medium">Registration date cannot be in the future.</p>
+                                                )}
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">
@@ -1187,376 +1225,376 @@ export function BusinessPermitAppointmentClient({
                         )}
 
                         {/* STEP 4: CHECKLIST */}
-                    {currentStep === "CHECKLIST" && (
-                        <motion.div
-                            key="checklist-step"
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -15 }}
-                            className="space-y-8"
-                        >
-                            <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                                <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Required Document Checklist</h2>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide the required legal registrations and clearances to complete your submission</p>
+                        {currentStep === "CHECKLIST" && (
+                            <motion.div
+                                key="checklist-step"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                className="space-y-8"
+                            >
+                                <div className="border-b border-slate-100 dark:border-white/5 pb-4">
+                                    <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Required Document Checklist</h2>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide the required legal registrations and clearances to complete your submission</p>
 
-                                <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-500 animate-in fade-in duration-300">
-                                    <ShieldAlert className="w-5 h-5 shrink-0 animate-pulse" />
-                                    <div className="text-left">
-                                        <p className="text-[10px] font-black uppercase tracking-wider italic">Notice for Multiple Pages/Images</p>
-                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">If your document has more than 1 image/page, please compile them into a single PDF file before uploading.</p>
+                                    <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-500 animate-in fade-in duration-300">
+                                        <ShieldAlert className="w-5 h-5 shrink-0 animate-pulse" />
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-black uppercase tracking-wider italic">Notice for Multiple Pages/Images</p>
+                                            <p className="text-xs font-bold text-slate-600 dark:text-slate-400">If your document has more than 1 image/page, please compile them into a single PDF file before uploading.</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {((businessType === "NEW"
-                                    ? [
-                                        { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
-                                        { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
-                                        { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
-                                        { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
-                                        { label: "5. Barangay Clearance", field: "brgyClearanceFile", file: brgyClearanceFile, setter: setBrgyClearanceFile, optional: true },
-                                        { label: "6. Location Photo of Business", field: "locationPhotoFile", file: locationPhotoFile, setter: setLocationPhotoFile, optional: true },
-                                        { label: "7. Sanitary Permit", field: "sanitaryPermitFile", file: sanitaryPermitFile, setter: setSanitaryPermitFile, optional: true },
-                                        { label: "8. Fire Safety Inspection Certificate", field: "fireSafetyFile", file: fireSafetyFile, setter: setFireSafetyFile, optional: true }
-                                    ]
-                                    : [
-                                        { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
-                                        { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
-                                        { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
-                                        { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
-                                        { label: "5. Previous Business Permit", field: "previousPermitFile", file: previousPermitFile, setter: setPreviousPermitFile, optional: true }
-                                    ]
-                                ) as { label: string; field: string; file: File | null; setter: (f: File | null) => void; existingUrl?: string | null; optional?: boolean }[]).map(item => {
-                                    const hasFile = !!item.file || !!item.existingUrl;
-                                    return (
-                                        <div key={item.field} className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic flex items-center">
-                                                    <span>{item.label}</span>
-                                                    {!item.optional && <span className="text-rose-500 ml-0.5">*</span>}
-                                                </Label>
-                                                {item.optional && (
-                                                    <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase italic">
-                                                        (optional)
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className={cn(
-                                                "p-4 md:p-5 bg-slate-50/50 dark:bg-white/[0.02] rounded-3xl border border-dashed flex flex-col gap-4 relative overflow-hidden transition-all duration-300 hover:border-primary/40 shadow-sm",
-                                                hasFile ? "border-primary dark:border-primary/30 bg-primary/[0.01]" : "border-slate-200 dark:border-white/10"
-                                            )}>
-                                                <div className="flex items-center gap-3.5 w-full text-left">
-                                                    <div className={cn(
-                                                        "w-11 h-11 bg-white dark:bg-black/20 border rounded-xl flex items-center justify-center shadow-sm shrink-0",
-                                                        hasFile ? "border-primary/20 dark:border-primary/20 text-primary" : "border-slate-100 dark:border-white/5 text-primary"
-                                                    )}>
-                                                        <Upload className={cn("w-4 h-4", hasFile && "animate-bounce")} />
-                                                    </div>
-                                                    <div className="space-y-0.5 min-w-0">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white italic truncate pr-2">
-                                                            {item.label.replace(/^\d+\.\s*/, "")}
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter truncate">
-                                                            {item.file
-                                                                ? `Uploaded (${(item.file.size / 1024).toFixed(1)} KB)`
-                                                                : item.existingUrl
-                                                                    ? "Preloaded from Resident Profile"
-                                                                    : (item.optional ? "PDF / IMAGE (OPTIONAL)" : "PDF / IMAGE (MAX 5MB)")}
-                                                        </p>
-                                                    </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {((businessType === "NEW"
+                                        ? [
+                                            { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
+                                            { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
+                                            { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
+                                            { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
+                                            { label: "5. Barangay Clearance", field: "brgyClearanceFile", file: brgyClearanceFile, setter: setBrgyClearanceFile, optional: true },
+                                            { label: "6. Location Photo of Business", field: "locationPhotoFile", file: locationPhotoFile, setter: setLocationPhotoFile, optional: true },
+                                            { label: "7. Sanitary Permit", field: "sanitaryPermitFile", file: sanitaryPermitFile, setter: setSanitaryPermitFile, optional: true },
+                                            { label: "8. Fire Safety Inspection Certificate", field: "fireSafetyFile", file: fireSafetyFile, setter: setFireSafetyFile, optional: true }
+                                        ]
+                                        : [
+                                            { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
+                                            { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
+                                            { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
+                                            { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
+                                            { label: "5. Previous Business Permit", field: "previousPermitFile", file: previousPermitFile, setter: setPreviousPermitFile, optional: true }
+                                        ]
+                                    ) as { label: string; field: string; file: File | null; setter: (f: File | null) => void; existingUrl?: string | null; optional?: boolean }[]).map(item => {
+                                        const hasFile = !!item.file || !!item.existingUrl;
+                                        return (
+                                            <div key={item.field} className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic flex items-center">
+                                                        <span>{item.label}</span>
+                                                        {!item.optional && <span className="text-rose-500 ml-0.5">*</span>}
+                                                    </Label>
+                                                    {item.optional && (
+                                                        <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase italic">
+                                                            (optional)
+                                                        </span>
+                                                    )}
                                                 </div>
 
-                                                {/* Live File Preview Card */}
-                                                {item.file ? (
-                                                    <FilePreview file={item.file} onClick={() => handleViewFile(item.file, null, item.label)} />
-                                                ) : item.existingUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, item.existingUrl!, item.label)}
-                                                        className="relative rounded-2xl overflow-hidden border border-slate-100 dark:border-white/5 bg-slate-100 dark:bg-black/30 h-28 flex items-center justify-center group/preview cursor-pointer animate-in fade-in duration-200"
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={item.existingUrl}
-                                                            alt="Preloaded Document"
-                                                            className="object-cover w-full h-full group-hover/preview:scale-105 transition-transform duration-300"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                            <span className="text-[10px] text-white font-black uppercase tracking-widest bg-black/60 px-3.5 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 hover:bg-black/80 transition-colors">
-                                                                <Eye className="w-3.5 h-3.5" />
-                                                                CLICK TO VIEW FULL SIZE
-                                                            </span>
+                                                <div className={cn(
+                                                    "p-4 md:p-5 bg-slate-50/50 dark:bg-white/[0.02] rounded-3xl border border-dashed flex flex-col gap-4 relative overflow-hidden transition-all duration-300 hover:border-primary/40 shadow-sm",
+                                                    hasFile ? "border-primary dark:border-primary/30 bg-primary/[0.01]" : "border-slate-200 dark:border-white/10"
+                                                )}>
+                                                    <div className="flex items-center gap-3.5 w-full text-left">
+                                                        <div className={cn(
+                                                            "w-11 h-11 bg-white dark:bg-black/20 border rounded-xl flex items-center justify-center shadow-sm shrink-0",
+                                                            hasFile ? "border-primary/20 dark:border-primary/20 text-primary" : "border-slate-100 dark:border-white/5 text-primary"
+                                                        )}>
+                                                            <Upload className={cn("w-4 h-4", hasFile && "animate-bounce")} />
+                                                        </div>
+                                                        <div className="space-y-0.5 min-w-0">
+                                                            <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white italic truncate pr-2">
+                                                                {item.label.replace(/^\d+\.\s*/, "")}
+                                                            </h4>
+                                                            <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter truncate">
+                                                                {item.file
+                                                                    ? `Uploaded (${(item.file.size / 1024).toFixed(1)} KB)`
+                                                                    : item.existingUrl
+                                                                        ? "Preloaded from Resident Profile"
+                                                                        : (item.optional ? "PDF / IMAGE (OPTIONAL)" : "PDF / IMAGE (MAX 5MB)")}
+                                                            </p>
                                                         </div>
                                                     </div>
-                                                ) : null}
 
-                                                <div className="flex items-center justify-between w-full mt-1">
-                                                    <input
-                                                        type="file"
-                                                        onChange={(e) => handleFileChange(e, item.setter)}
-                                                        className="hidden"
-                                                        id={`upload-${item.field}`}
-                                                        accept=".pdf,.png,.jpg,.jpeg"
-                                                    />
-                                                    {hasFile ? (
-                                                        <div className="flex gap-2 w-full">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
-                                                                className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all select-none border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.98] shadow-sm bg-transparent"
-                                                            >
-                                                                Change File
-                                                            </Button>
-                                                            {!(item.field === "idFile" && item.existingUrl && !item.file) && (
+                                                    {/* Live File Preview Card */}
+                                                    {item.file ? (
+                                                        <FilePreview file={item.file} onClick={() => handleViewFile(item.file, null, item.label)} />
+                                                    ) : item.existingUrl ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(null, item.existingUrl!, item.label)}
+                                                            className="relative rounded-2xl overflow-hidden border border-slate-100 dark:border-white/5 bg-slate-100 dark:bg-black/30 h-28 flex items-center justify-center group/preview cursor-pointer animate-in fade-in duration-200"
+                                                        >
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img
+                                                                src={item.existingUrl}
+                                                                alt="Preloaded Document"
+                                                                className="object-cover w-full h-full group-hover/preview:scale-105 transition-transform duration-300"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                                <span className="text-[10px] text-white font-black uppercase tracking-widest bg-black/60 px-3.5 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 hover:bg-black/80 transition-colors">
+                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                    CLICK TO VIEW FULL SIZE
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ) : null}
+
+                                                    <div className="flex items-center justify-between w-full mt-1">
+                                                        <input
+                                                            type="file"
+                                                            onChange={(e) => handleFileChange(e, item.setter)}
+                                                            className="hidden"
+                                                            id={`upload-${item.field}`}
+                                                            accept=".pdf,.png,.jpg,.jpeg"
+                                                        />
+                                                        {hasFile ? (
+                                                            <div className="flex gap-2 w-full">
                                                                 <Button
                                                                     type="button"
                                                                     variant="outline"
-                                                                    onClick={() => item.setter(null)}
-                                                                    className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all border-rose-200/50 dark:border-rose-500/10 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-[0.98] shadow-sm bg-transparent"
+                                                                    onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
+                                                                    className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all select-none border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.98] shadow-sm bg-transparent"
                                                                 >
-                                                                    Remove
+                                                                    Change File
                                                                 </Button>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            type="button"
-                                                            onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
-                                                            className="font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 w-full rounded-2xl transition-all select-none bg-primary hover:bg-primary/90 text-white shadow-md active:scale-[0.98]"
-                                                            style={{ backgroundColor: themeColor }}
-                                                        >
-                                                            Upload
-                                                        </Button>
-                                                    )}
+                                                                {!(item.field === "idFile" && item.existingUrl && !item.file) && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        onClick={() => item.setter(null)}
+                                                                        className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all border-rose-200/50 dark:border-rose-500/10 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-[0.98] shadow-sm bg-transparent"
+                                                                    >
+                                                                        Remove
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                type="button"
+                                                                onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
+                                                                className="font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 w-full rounded-2xl transition-all select-none bg-primary hover:bg-primary/90 text-white shadow-md active:scale-[0.98]"
+                                                                style={{ backgroundColor: themeColor }}
+                                                            >
+                                                                Upload
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
-                                <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleNext}
-                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    Review Details <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                    <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Back
+                                    </Button>
+                                    <Button
+                                        onClick={handleNext}
+                                        className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        Review Details <ChevronRight className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )}
 
-                    {/* STEP 5: SCHEDULE PICKER */}
-                    {currentStep === "SCHEDULE" && (
-                        <motion.div
-                            key="schedule-step"
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -15 }}
-                            className="space-y-8"
-                        >
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Choose Appointment Schedule</h3>
-                                <p className="text-[10px] text-slate-400 italic">Select an available date and shift slot for BPLO counter validation.</p>
-                            </div>
-
-                            <SchedulePicker
-                                selectedDate={selectedDate}
-                                setSelectedDate={setSelectedDate}
-                                selectedSlot={selectedSlot}
-                                setSelectedSlot={setSelectedSlot}
-                                bookedSlots={bookedSlots}
-                                config={config}
-                                themeColor={themeColor}
-                            />
-
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
-                                <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleNext}
-                                    disabled={!isStepValid("SCHEDULE")}
-                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    Upload Documents <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                                    {/* STEP 6: SUBMIT */}
-                    {currentStep === "SUBMIT" && (() => {
-                        const parsedCapital = parseFloat(formState.capitalInvestment.replace(/,/g, "")) || 0;
-                        const parsedGross = parseFloat(formState.grossSales.replace(/,/g, "")) || 0;
-                        const parsedAssets = parseFloat(formState.assets.replace(/,/g, "")) || 0;
-                        const parsedWorkforce = parseInt(formState.employeeCount, 10) || 0;
-                        const parsedArea = parseFloat(formState.businessArea) || 0;
-                        const parsedHealth = parseInt(formState.healthCardCount, 10) || 0;
-
-                        const assessment = calculateBusinessPermit({
-                            type: businessType,
-                            capitalization: parsedCapital,
-                            grossSales: parsedGross,
-                            assets: parsedAssets,
-                            workforceCount: parsedWorkforce,
-                            lineOfBusiness: formState.lineOfBusiness,
-                            floorArea: parsedArea,
-                            healthCardCount: parsedHealth,
-                            settings: bploSettings
-                        });
-
-                        return (
+                        {/* STEP 5: SCHEDULE PICKER */}
+                        {currentStep === "SCHEDULE" && (
                             <motion.div
-                                key="submit-step"
+                                key="schedule-step"
                                 initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 className="space-y-8"
                             >
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Review Appointment Parameters & Assessment</h3>
-                                    <p className="text-[10px] text-slate-400 italic">Verify all information and estimated fees before submitting.</p>
+                                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Choose Appointment Schedule</h3>
+                                    <p className="text-[10px] text-slate-400 italic">Select an available date and shift slot for BPLO counter validation.</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Appointment Summary */}
-                                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed">
-                                        <div className="border-b border-slate-200/50 dark:border-white/5 pb-2">
-                                            <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Appointment Summary</h4>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Filing Route</span>
-                                                <p className="font-black uppercase text-slate-900 dark:text-white">{businessType === "NEW" ? "New Business Registration" : "License Renewal"}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Date</span>
-                                                <p className="font-black text-slate-900 dark:text-white">{selectedDate}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Slot</span>
-                                                <p className="font-black text-slate-900 dark:text-white">{selectedSlot}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Fee Assessment Breakdown */}
-                                    <div className="bg-slate-950 text-white dark:bg-black/40 border border-slate-800 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed shadow-lg">
-                                        <div className="border-b border-white/10 pb-2 flex justify-between items-center">
-                                            <div className="flex items-center gap-1.5">
-                                                <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Estimated Assessment Bill</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsGuideOpen(true)}
-                                                    className="text-slate-400 hover:text-white transition-colors select-none"
-                                                    title="View Assessment Guide"
-                                                >
-                                                    <HelpCircle className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                            <span className="text-[8px] font-black uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded text-white/90">
-                                                Scale: {assessment.classificationSize}
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2.5">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s Permit Fee</span>
-                                                <span className="font-mono font-bold">₱{assessment.baseFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Graded Business Tax</span>
-                                                <span className="font-mono font-bold">₱{assessment.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Sanitary Inspection Fee</span>
-                                                <span className="font-mono font-bold">₱{assessment.sanitaryInspectionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Garbage Collection Fee</span>
-                                                <span className="font-mono font-bold">₱{assessment.garbageFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Health Certificate Fee</span>
-                                                <span className="font-mono font-bold">₱{assessment.healthCertificateFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s / Tax Clearance Fee</span>
-                                                <span className="font-mono font-bold">₱{assessment.regulatoryFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="border-t border-white/10 pt-2.5 mt-1.5 flex justify-between items-center">
-                                                <span className="font-black uppercase tracking-widest text-[9px]" style={{ color: themeColor }}>Total Assessed Amount</span>
-                                                <span className="font-mono font-black text-sm" style={{ color: themeColor }}>
-                                                    ₱{assessment.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-
-
-                                {/* Privacy Policy Checklist */}
-                                <div
-                                    onClick={() => {
-                                        if (privacyAccepted) {
-                                            setPrivacyAccepted(false);
-                                        } else {
-                                            setIsPrivacyModalOpen(true);
-                                        }
-                                    }}
-                                    className={cn(
-                                        "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                                        privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
-                                    )}
-                                    style={privacyAccepted ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
-                                >
-                                    <div className={cn(
-                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                        privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
-                                    )} style={privacyAccepted ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
-                                        {privacyAccepted && <Check className="w-3.5 h-3.5" />}
-                                    </div>
-                                    <div className="space-y-1 text-left">
-                                        <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</p>
-                                        <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                            I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
-                                        </p>
-                                    </div>
-                                </div>
+                                <SchedulePicker
+                                    selectedDate={selectedDate}
+                                    setSelectedDate={setSelectedDate}
+                                    selectedSlot={selectedSlot}
+                                    setSelectedSlot={setSelectedSlot}
+                                    bookedSlots={bookedSlots}
+                                    config={config}
+                                    themeColor={themeColor}
+                                />
 
                                 <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
-                                    <Button variant="outline" onClick={handleBack} disabled={submitting} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
                                         Back
                                     </Button>
                                     <Button
-                                        onClick={handleSubmit}
-                                        disabled={submitting || !privacyAccepted}
+                                        onClick={handleNext}
+                                        disabled={!isStepValid("SCHEDULE")}
                                         className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
                                         style={{ backgroundColor: themeColor }}
                                     >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Submit Appointment <Check className="w-4 h-4" />
-                                            </>
-                                        )}
+                                        Upload Documents <ChevronRight className="w-4 h-4" />
                                     </Button>
                                 </div>
                             </motion.div>
-                        );
-                    })()}
-                </AnimatePresence>
+                        )}
+
+                        {/* STEP 6: SUBMIT */}
+                        {currentStep === "SUBMIT" && (() => {
+                            const parsedCapital = parseFloat(formState.capitalInvestment.replace(/,/g, "")) || 0;
+                            const parsedGross = parseFloat(formState.grossSales.replace(/,/g, "")) || 0;
+                            const parsedAssets = parseFloat(formState.assets.replace(/,/g, "")) || 0;
+                            const parsedWorkforce = parseInt(formState.employeeCount, 10) || 0;
+                            const parsedArea = parseFloat(formState.businessArea) || 0;
+                            const parsedHealth = parseInt(formState.healthCardCount, 10) || 0;
+
+                            const assessment = calculateBusinessPermit({
+                                type: businessType,
+                                capitalization: parsedCapital,
+                                grossSales: parsedGross,
+                                assets: parsedAssets,
+                                workforceCount: parsedWorkforce,
+                                lineOfBusiness: formState.lineOfBusiness,
+                                floorArea: parsedArea,
+                                healthCardCount: parsedHealth,
+                                settings: bploSettings
+                            });
+
+                            return (
+                                <motion.div
+                                    key="submit-step"
+                                    initial={{ opacity: 0, y: 15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -15 }}
+                                    className="space-y-8"
+                                >
+                                    <div className="space-y-1">
+                                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Review Appointment Parameters & Assessment</h3>
+                                        <p className="text-[10px] text-slate-400 italic">Verify all information and estimated fees before submitting.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Appointment Summary */}
+                                        <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed">
+                                            <div className="border-b border-slate-200/50 dark:border-white/5 pb-2">
+                                                <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Appointment Summary</h4>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="space-y-1">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Request For</span>
+                                                    <p className="font-black uppercase text-slate-900 dark:text-white">{businessType === "NEW" ? "New Business Registration" : "License Renewal"}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Date</span>
+                                                    <p className="font-black text-slate-900 dark:text-white">{selectedDate}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Slot</span>
+                                                    <p className="font-black text-slate-900 dark:text-white">{selectedSlot}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Fee Assessment Breakdown */}
+                                        <div className="bg-slate-950 text-white dark:bg-black/40 border border-slate-800 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed shadow-lg">
+                                            <div className="border-b border-white/10 pb-2 flex justify-between items-center">
+                                                <div className="flex items-center gap-1.5">
+                                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Estimated Assessment Bill</h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsGuideOpen(true)}
+                                                        className="text-slate-400 hover:text-white transition-colors select-none"
+                                                        title="View Assessment Guide"
+                                                    >
+                                                        <HelpCircle className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded text-white/90">
+                                                    Scale: {assessment.classificationSize}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2.5">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s Permit Fee</span>
+                                                    <span className="font-mono font-bold">₱{assessment.baseFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Graded Business Tax</span>
+                                                    <span className="font-mono font-bold">₱{assessment.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Sanitary Inspection Fee</span>
+                                                    <span className="font-mono font-bold">₱{assessment.sanitaryInspectionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Garbage Collection Fee</span>
+                                                    <span className="font-mono font-bold">₱{assessment.garbageFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Health Certificate Fee</span>
+                                                    <span className="font-mono font-bold">₱{assessment.healthCertificateFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s / Tax Clearance Fee</span>
+                                                    <span className="font-mono font-bold">₱{assessment.regulatoryFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div className="border-t border-white/10 pt-2.5 mt-1.5 flex justify-between items-center">
+                                                    <span className="font-black uppercase tracking-widest text-[9px]" style={{ color: themeColor }}>Total Assessed Amount</span>
+                                                    <span className="font-mono font-black text-sm" style={{ color: themeColor }}>
+                                                        ₱{assessment.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+
+                                    {/* Privacy Policy Checklist */}
+                                    <div
+                                        onClick={() => {
+                                            if (privacyAccepted) {
+                                                setPrivacyAccepted(false);
+                                            } else {
+                                                setIsPrivacyModalOpen(true);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
+                                            privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
+                                        )}
+                                        style={privacyAccepted ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                                    >
+                                        <div className={cn(
+                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                            privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
+                                        )} style={privacyAccepted ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
+                                            {privacyAccepted && <Check className="w-3.5 h-3.5" />}
+                                        </div>
+                                        <div className="space-y-1 text-left">
+                                            <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</p>
+                                            <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
+                                                I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                        <Button variant="outline" onClick={handleBack} disabled={submitting} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                            Back
+                                        </Button>
+                                        <Button
+                                            onClick={handleSubmit}
+                                            disabled={submitting || !privacyAccepted}
+                                            className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                            style={{ backgroundColor: themeColor }}
+                                        >
+                                            {submitting ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Submit Appointment <Check className="w-4 h-4" />
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            );
+                        })()}
+                    </AnimatePresence>
                 </div>
             </div>
 

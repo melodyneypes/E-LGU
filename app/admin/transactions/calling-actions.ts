@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sanitizeString } from "@/lib/validation";
+import { supabaseAdmin } from "@/lib/supabase";
 import { startOfDay, endOfDay } from "date-fns";
 
 const ALLOWED_ROLES = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "ASSESSOR"];
@@ -401,6 +402,49 @@ export async function callSpecificBploTicket(ticketId: string, counterName: stri
     } catch (error) {
         console.error("Failed to call specific BPLO ticket:", error);
         return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function recallBploTicketBroadcast(ticketId: string, counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR", "BPLO"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id: ticketId },
+            select: { queueNumber: true }
+        });
+
+        if (!tx || !tx.queueNumber) {
+            return { success: false, error: "Ticket not found" };
+        }
+
+        // Broadcast recall event directly using Supabase Admin Client
+        if (supabaseAdmin) {
+            const channel = supabaseAdmin.channel("lobby-queue-realtime");
+            await channel.subscribe();
+            await channel.send({
+                type: "broadcast",
+                event: "RECALL_TICKET",
+                payload: {
+                    queueNumber: tx.queueNumber,
+                    counterName: sanitizedCounterName,
+                    department: "BPLO"
+                }
+            });
+            await supabaseAdmin.removeChannel(channel);
+        }
+
+        return { success: true, queueNumber: tx.queueNumber };
+    } catch (error) {
+        console.error("Failed to broadcast recall BPLO ticket:", error);
+        return { success: false, error: "Failed to recall ticket" };
     }
 }
 

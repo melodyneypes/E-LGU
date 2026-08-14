@@ -117,20 +117,51 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             return -1;
         };
 
-        // Partition serving tickets
+        // Today's Date String Helper (Philippine Standard Time YYYY-MM-DD)
+        const getPhtDateStr = (dateInput: Date | string | null | undefined): string | null => {
+            if (!dateInput) return null;
+            const d = new Date(dateInput);
+            if (isNaN(d.getTime())) return null;
+            // Format to YYYY-MM-DD using PHT (Asia/Manila)
+            return d.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+        };
+
+        const todayPhtStr = getPhtDateStr(new Date());
+
+        const isTodayTransaction = (tx: any): boolean => {
+            const addData = parseAdditionalData(tx.additionalData);
+
+            // Check 1: checkedInAt date match
+            const checkedInAtStr = getPhtDateStr(addData.checkedInAt);
+            if (checkedInAtStr && checkedInAtStr === todayPhtStr) {
+                return true;
+            }
+
+            // Check 2: appointmentDate match
+            const apptDateStr = getPhtDateStr(tx.appointmentDate);
+            if (apptDateStr && apptDateStr === todayPhtStr) {
+                return true;
+            }
+
+            return false;
+        };
+
+        // Partition serving tickets (MUST be today's transaction)
         const servingTxs = allTxs.filter(tx => {
+            if (!isTodayTransaction(tx)) return false;
+
             const category = tx.type?.category || "";
             const code = tx.type?.code || "";
             const additionalData = parseAdditionalData(tx.additionalData);
-            
+
             const isPsaAppt = [
                 "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
                 "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
                 "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ].includes(code);
 
-            const hasCounter = additionalData && 
-                typeof additionalData.counterName === "string" && 
+            const hasCounter = additionalData &&
+                typeof additionalData.counterName === "string" &&
                 additionalData.counterName.trim() !== "" &&
                 (!isPsaAppt || !["FOR_CLAIM", "FOR_PICKING"].includes(tx.status) || additionalData.servingDepartment === "Registrar");
 
@@ -177,8 +208,10 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             });
         }
 
-        // Partition waiting tickets
+        // Partition waiting tickets (MUST be today's transaction)
         const waitingTxsRaw = allTxs.filter(tx => {
+            if (!isTodayTransaction(tx)) return false;
+
             const additionalData = parseAdditionalData(tx.additionalData);
             const isCheckedIn = Boolean(additionalData.checkedIn === true);
             if (!isCheckedIn) return false;
@@ -190,8 +223,8 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ].includes(code);
 
-            const hasCounter = tx.status !== "UNPAID" && additionalData && 
-                typeof additionalData.counterName === "string" && 
+            const hasCounter = tx.status !== "UNPAID" && additionalData &&
+                typeof additionalData.counterName === "string" &&
                 additionalData.counterName.trim() !== "" &&
                 (!isPsaAppt || !["FOR_CLAIM", "FOR_PICKING"].includes(tx.status) || additionalData.servingDepartment === "Registrar");
 

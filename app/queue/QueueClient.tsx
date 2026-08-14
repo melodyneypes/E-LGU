@@ -213,6 +213,41 @@ export default function QueueClient({
                         await fetchUpdates();
                     }
                 )
+                .on(
+                    "broadcast",
+                    { event: "RECALL_TICKET" },
+                    async (payload: any) => {
+                        console.log("Realtime Broadcast: Recall ticket received", payload);
+                        const data = payload?.payload;
+                        if (data && data.queueNumber && data.counterName) {
+                            const currentTicket = data.queueNumber;
+                            const counter = data.counterName;
+                            const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
+                            
+                            await playChime();
+
+                            if (typeof window !== "undefined" && window.speechSynthesis) {
+                                window.speechSynthesis.cancel();
+                                const utterance = new SpeechSynthesisUtterance(phrase);
+                                utterance.rate = 0.85;
+                                utterance.pitch = 1.05;
+
+                                const femaleVoice = voices.find(voice => {
+                                    const name = voice.name.toLowerCase();
+                                    const lang = voice.lang.toLowerCase();
+                                    return lang.startsWith("en") && (
+                                        name.includes("zira") || name.includes("samantha") ||
+                                        name.includes("hazel") || name.includes("aria") ||
+                                        name.includes("susan") || name.includes("female")
+                                    );
+                                });
+
+                                if (femaleVoice) utterance.voice = femaleVoice;
+                                window.speechSynthesis.speak(utterance);
+                            }
+                        }
+                    }
+                )
                 .subscribe((status: string) => {
                     console.log(`Realtime Channel status: ${status}`);
                     const wasConnected = realtimeConnectedRef.current;
@@ -226,11 +261,14 @@ export default function QueueClient({
                 });
         }
 
-        // 2. Queue polling fallback (always active):
-        //    Fetch every 10 seconds to ensure the display stays in sync even if WebSockets experience lag or replication delays.
+        // 2. Adaptive polling fallback:
+        //    - When realtime is CONNECTED → skip fetch (realtime handles it)
+        //    - When realtime is DISCONNECTED → fetch every 10 seconds to recover
         const fallbackInterval = setInterval(async () => {
-            console.log("[Queue Polling] Fetching latest queue data to sync display...");
-            await fetchUpdates();
+            if (!realtimeConnectedRef.current) {
+                console.log("[Queue Fallback Polling] Realtime offline — fetching queue data...");
+                await fetchUpdates();
+            }
         }, 10000);
 
         return () => {
