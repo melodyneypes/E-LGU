@@ -63,9 +63,13 @@ export interface TicketItem {
 export default function TicketsPage({
     initialTickets,
     initialTotalCount,
+    initialPosoDueDays = 7,
+    initialPenaltySettings = null,
 }: {
     initialTickets: TicketItem[];
     initialTotalCount: number;
+    initialPosoDueDays?: number;
+    initialPenaltySettings?: any;
 }) {
     const router = useRouter();
     const [tickets, setTickets] = useState<TicketItem[]>(initialTickets);
@@ -82,7 +86,8 @@ export default function TicketsPage({
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [themeColor, setThemeColor] = useState<string | null>(null);
-    const [posoDueDays, setPosoDueDays] = useState<number>(7);
+    const [posoDueDays, setPosoDueDays] = useState<number>(initialPosoDueDays);
+    const [penaltySettings, setPenaltySettings] = useState<any>(initialPenaltySettings);
 
     React.useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -93,7 +98,9 @@ export default function TicketsPage({
     React.useEffect(() => {
         setTickets(initialTickets);
         setTotalCount(initialTotalCount);
-    }, [initialTickets, initialTotalCount]);
+        if (initialPosoDueDays) setPosoDueDays(initialPosoDueDays);
+        if (initialPenaltySettings) setPenaltySettings(initialPenaltySettings);
+    }, [initialTickets, initialTotalCount, initialPosoDueDays, initialPenaltySettings]);
 
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
@@ -115,6 +122,9 @@ export default function TicketsPage({
                 setTotalCount(res.totalCount || 0);
                 if (res.posoDueDays) {
                     setPosoDueDays(res.posoDueDays);
+                }
+                if (res.penaltySettings) {
+                    setPenaltySettings(res.penaltySettings);
                 }
             }
         } catch (err: any) {
@@ -744,7 +754,7 @@ export default function TicketsPage({
                                     const appDate = new Date(item.dateTime || item.createdAt);
                                     const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
                                     const diffMs = new Date().getTime() - itemDueDate.getTime();
-                                    const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                    const overdueDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
                                     const isOverdue = !item.isPaid && item.status !== "SETTLED" && item.status !== "PAID" && diffMs > 0;
 
                                     return (
@@ -799,8 +809,25 @@ export default function TicketsPage({
                                                 {item.officerName || "POSO Enforcer"}
                                             </TableCell>
 
-                                            <TableCell className="text-center font-black text-sm text-rose-600 dark:text-rose-400 italic">
-                                                ₱ {Number(item.totalAmount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                            <TableCell className="text-center">
+                                                <div className="font-black text-sm text-rose-600 dark:text-rose-400 italic">
+                                                    ₱ {Number(item.totalAmount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </div>
+                                                {isOverdue && (() => {
+                                                    const subtotal = Number(item.totalAmount || 0);
+                                                    const surchargeRate = penaltySettings?.surchargeRate ?? 25;
+                                                    const monthlyRate = penaltySettings?.monthlyInterestRate ?? 2;
+                                                    const monthsOverdue = Math.max(1, Math.ceil(overdueDays / 30));
+                                                    const surchargeAmt = (subtotal * surchargeRate) / 100;
+                                                    const interestAmt = (subtotal * (monthlyRate / 100)) * monthsOverdue;
+                                                    const totalPayable = subtotal + (item.isImpounded ? Number(item.impoundFee || 0) : 0) + surchargeAmt + interestAmt;
+
+                                                    return (
+                                                        <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5" title={`Includes ${surchargeRate}% Surcharge + ${monthlyRate}% Monthly Interest`}>
+                                                            Total: ₱{totalPayable.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </TableCell>
 
                                             <TableCell className="text-center">

@@ -276,21 +276,95 @@ export async function POST(request: Request) {
         },
       });
 
-      const updatedAdditional = { ...(tx.additionalData as any || {}), paymongo: { ...((tx.additionalData as any)?.paymongo || {}), paymentId, lastPayment: resource } };
+      const actualPaidAmountPhp = (Number(payAttrs?.amount || 0) || 0) / 100;
+      const updatedAdditional = {
+          ...(tx.additionalData as any || {}),
+          paymongo: {
+              ...((tx.additionalData as any)?.paymongo || {}),
+              paymentId,
+              lastPayment: resource
+          }
+      };
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (paymentStatus === "PAID") {
         txUpdate.status = "PAID";
         txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
+
+        // Record actual paid amount in transaction totalAmount if paid amount is valid
+        if (actualPaidAmountPhp > 0) {
+            txUpdate.totalAmount = actualPaidAmountPhp;
+        }
+
+        // Calculate and snapshot penalty breakdown if associated with a POSO Citation Ticket
+        try {
+            const ticket = await prisma.ticketHeader.findFirst({
+                where: {
+                    OR: [
+                        { transactionId: transactionId },
+                        { id: (tx.additionalData as any)?.ticketId || transactionId },
+                        { ticketNo: (tx.additionalData as any)?.ticketNo || "" }
+                    ]
+                }
+            });
+
+            if (ticket) {
+                const { getPosoPenaltySettings, calculatePosoTicketPenalty } = await import("@/app/admin/poso/actions");
+                const settingsRes = await getPosoPenaltySettings();
+                if (settingsRes?.settings) {
+                    const breakdown = await calculatePosoTicketPenalty(ticket, settingsRes.settings);
+                    
+                    // Attach full receipt snapshot to additionalData
+                    updatedAdditional.penaltyBreakdown = {
+                        baseFine: breakdown.baseFine,
+                        impoundFee: breakdown.impoundFee,
+                        subtotal: breakdown.subtotal,
+                        isOverdue: breakdown.isOverdue,
+                        daysOverdue: breakdown.daysOverdue,
+                        monthsOverdue: breakdown.monthsOverdue,
+                        surchargeRate: breakdown.surchargeRate,
+                        surchargeAmount: breakdown.surchargeAmount,
+                        monthlyInterestRate: breakdown.monthlyInterestRate,
+                        interestAmount: breakdown.interestAmount,
+                        totalPenalty: breakdown.totalPenalty,
+                        grandTotalPayable: actualPaidAmountPhp || breakdown.grandTotalPayable,
+                        paidAt: new Date().toISOString()
+                    };
+
+                    txUpdate.fiscalSnapshot = {
+                        baseFineTotal: breakdown.subtotal,
+                        impoundFee: breakdown.impoundFee,
+                        surchargeAmount: breakdown.surchargeAmount,
+                        interestAmount: breakdown.interestAmount,
+                        totalAmount: actualPaidAmountPhp || breakdown.grandTotalPayable
+                    };
+                }
+
+                // Update TicketHeader totalAmount to match total paid amount
+                await prisma.ticketHeader.updateMany({
+                    where: {
+                        OR: [
+                            { transactionId: transactionId },
+                            { id: ticket.id }
+                        ]
+                    },
+                    data: {
+                        status: "PAID",
+                        isPaid: true,
+                        totalAmount: actualPaidAmountPhp > 0 ? actualPaidAmountPhp : ticket.totalAmount,
+                        updatedAt: new Date()
+                    },
+                });
+            }
+        } catch (breakdownErr) {
+            console.warn("[PayMongo Webhook] Penalty breakdown snapshot error:", breakdownErr);
+        }
+
         if (tx.userId) {
           const categoryKey = (tx as any).type?.category || (tx as any).type?.code;
           clearCategoryRejection(tx.userId, categoryKey).catch(e => console.error("[PayMongo Webhook] Rejection reset error:", e));
         }
         try {
-          await prisma.ticketHeader.updateMany({
-            where: { transactionId },
-            data: { status: "PAID", isPaid: true, updatedAt: new Date() },
-          });
           revalidatePath("/admin/poso/tickets");
           revalidatePath("/poso/mapandan");
         } catch (tErr) {

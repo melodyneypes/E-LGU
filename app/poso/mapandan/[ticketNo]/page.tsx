@@ -332,7 +332,10 @@ export default function TicketDetailsPublicPage() {
                             {ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID" ? "Amount Settled" : "Total Payable Amount"}
                         </span>
                         <span className="text-xl sm:text-3xl font-black italic text-white">
-                            ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                            ₱ {(ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID"
+                                ? Number(ticket.totalAmount || 0)
+                                : (penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0))
+                            ).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                         </span>
                     </div>
                 </div>
@@ -471,8 +474,49 @@ export default function TicketDetailsPublicPage() {
                                 </Table>
                             </div>
 
-                            {/* Penalty Surcharge Summary if Overdue */}
-                            {penaltyBreakdown?.isOverdue && (
+                            {/* Official Payment Receipt Breakdown if PAID */}
+                            {(ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID") && (
+                                <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 space-y-2 text-xs font-semibold">
+                                    <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs border-b border-emerald-500/20 pb-2">
+                                        <CheckCircle2 className="w-4 h-4" /> Official Payment Receipt Breakdown
+                                    </div>
+                                    {(() => {
+                                        const snapshot = ticket.transaction?.additionalData?.penaltyBreakdown || ticket.transaction?.fiscalSnapshot;
+                                        const baseFine = snapshot?.baseFine || snapshot?.baseFineTotal || Number(ticket.totalAmount || 0);
+                                        const surcharge = snapshot?.surchargeAmount || 0;
+                                        const interest = snapshot?.interestAmount || 0;
+                                        const totalPaid = snapshot?.grandTotalPayable || snapshot?.totalAmount || Number(ticket.totalAmount || 0);
+
+                                        return (
+                                            <>
+                                                <div className="flex justify-between text-slate-300">
+                                                    <span>Base Citation Fines:</span>
+                                                    <span className="font-mono">₱ {baseFine.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                                {surcharge > 0 && (
+                                                    <div className="flex justify-between text-amber-400">
+                                                        <span>+ 25% Late Payment Surcharge:</span>
+                                                        <span className="font-mono">+ ₱ {surcharge.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                )}
+                                                {interest > 0 && (
+                                                    <div className="flex justify-between text-purple-400">
+                                                        <span>+ Accrued Monthly Interest:</span>
+                                                        <span className="font-mono">+ ₱ {interest.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                )}
+                                                <div className="pt-2 border-t border-emerald-500/30 flex justify-between font-black text-emerald-400 text-sm">
+                                                    <span>Total Amount Settled:</span>
+                                                    <span className="font-mono">₱ {totalPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
+                            {/* Penalty Surcharge Summary if Overdue and UNPAID */}
+                            {!ticket.isPaid && ticket.status !== "SETTLED" && ticket.status !== "PAID" && penaltyBreakdown?.isOverdue && (
                                 <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-rose-950/40 border border-rose-500/30 space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs font-semibold">
                                     <div className="flex justify-between text-slate-300">
                                         <span>Base Fines Subtotal:</span>

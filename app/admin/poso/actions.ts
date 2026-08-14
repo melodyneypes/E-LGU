@@ -461,7 +461,13 @@ export async function getTickets(params: {
             (prisma as any).ticketHeader.count({ where }),
         ]);
 
-        return { success: true, tickets: JSON.parse(JSON.stringify(tickets)), totalCount, posoDueDays };
+        return {
+            success: true,
+            tickets: JSON.parse(JSON.stringify(tickets)),
+            totalCount,
+            posoDueDays,
+            penaltySettings: penaltySettingsRes.settings || null
+        };
     } catch (error: any) {
         console.error("Failed to fetch POSO tickets:", error);
         return { success: false, error: error.message || "Failed to fetch citation tickets." };

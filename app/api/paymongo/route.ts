@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 export async function POST(request: Request) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized checkout attempt' }, { status: 401 });
+        }
+
         const { amount, type, reference, transactionId, successUrl, cancelUrl } = await request.json();
 
         const secret = process.env.PAYMONGO_SECRET_KEY;
@@ -13,13 +20,67 @@ export async function POST(request: Request) {
         // Encode secret key to Base64 for Basic Auth
         const secretKeyBase64 = Buffer.from(secret + ':').toString('base64');
 
-        const amountNum = Number(amount) || 0;
+        let amountNum = Number(amount) || 0;
+
+        // Security Check: Server-Side Price Verification
+        // If a transactionId is provided, fetch the official price directly from database (Transaction OR TicketHeader)
+        if (transactionId) {
+            let officialAmount: number | null = null;
+
+            // 1. Check if transactionId corresponds to a POSO TicketHeader (or is linked to one via transactionId/ticketNo/id)
+            const posoTicket = await prisma.ticketHeader.findFirst({
+                where: {
+                    OR: [
+                        { id: transactionId },
+                        { ticketNo: transactionId },
+                        { transactionId: transactionId }
+                    ]
+                }
+            });
+
+            if (posoTicket) {
+                try {
+                    const { getPosoPenaltySettings, calculatePosoTicketPenalty } = await import("@/app/admin/poso/actions");
+                    const settingsRes = await getPosoPenaltySettings();
+                    if (settingsRes?.settings) {
+                        const breakdown = await calculatePosoTicketPenalty(posoTicket, settingsRes.settings);
+                        officialAmount = breakdown.grandTotalPayable;
+                    } else {
+                        officialAmount = (Number(posoTicket.totalAmount) || 0) + (Number(posoTicket.impoundFee) || 0);
+                    }
+                } catch {
+                    officialAmount = (Number(posoTicket.totalAmount) || 0) + (Number(posoTicket.impoundFee) || 0);
+                }
+            } else {
+                // 2. Fallback: Standard Transaction database record lookup
+                const dbTx = await prisma.transaction.findUnique({
+                    where: { id: transactionId },
+                    select: { totalAmount: true, userId: true }
+                });
+
+                if (dbTx) {
+                    officialAmount = Number(dbTx.totalAmount || 0);
+                }
+            }
+
+            if (officialAmount !== null && officialAmount > 0) {
+                // Enforce server-side database & dynamic penalty price override! (Client input is 100% ignored)
+                amountNum = officialAmount;
+            } else {
+                return NextResponse.json({ error: 'Transaction or Citation Ticket record not found' }, { status: 404 });
+            }
+        }
+
+        if (amountNum <= 0) {
+            return NextResponse.json({ error: 'Invalid checkout amount' }, { status: 400 });
+        }
+
         const amountCents = Math.round(amountNum * 100);
 
         const originHeader = request.headers.get('origin');
         const refererHeader = request.headers.get('referer');
         const hostHeader = request.headers.get('host');
-        
+
         let baseUrl = '';
         if (originHeader) {
             baseUrl = originHeader;
