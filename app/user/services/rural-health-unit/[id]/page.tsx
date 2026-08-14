@@ -55,10 +55,20 @@ export default async function RHUBookingPage({ params }: PageProps) {
         });
     }
 
-    // Fetch booked slots for RHU
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    startDate.setDate(startDate.getDate() - 1);
+
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 35);
+
+    // Fetch booked slots for RHU within active booking window
     const bookedSlots = await prisma.transaction.findMany({
         where: {
-            appointmentDate: { not: null },
+            appointmentDate: {
+                gte: startDate,
+                lte: endDate
+            },
             isCancelled: false,
             type: {
                 category: {

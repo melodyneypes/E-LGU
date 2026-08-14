@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { RHUClient } from "./RHUClient";
+import { getAmbulanceSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,14 @@ export default async function RHUPage() {
     // Fetch RHU transaction types with auto-seed fallback
     let rhuTypes = await prisma.transactionType.findMany({
         where: {
-            code: "RHU_MEDICAL_CERT"
+            code: {
+                in: ["RHU_MEDICAL_CERT", "RHU_AMBULANCE"]
+            }
         }
     });
 
-    if (rhuTypes.length === 0) {
+    const hasMedicalCert = rhuTypes.some(t => t.code === "RHU_MEDICAL_CERT");
+    if (!hasMedicalCert) {
         try {
             const created = await prisma.transactionType.create({
                 data: {
@@ -44,16 +48,46 @@ export default async function RHUPage() {
                     processingTime: "15-30 Minutes"
                 }
             });
-            rhuTypes = [created];
+            rhuTypes.push(created);
         } catch (err) {
             console.error("Auto-seeding RHU_MEDICAL_CERT failed:", err);
         }
     }
 
+    const hasAmbulance = rhuTypes.some(t => t.code === "RHU_AMBULANCE");
+    if (!hasAmbulance) {
+        try {
+            const created = await prisma.transactionType.create({
+                data: {
+                    code: "RHU_AMBULANCE",
+                    name: "Ambulance Scheduling & Dispatch",
+                    description: "Ambulance fleet availability dashboard and direct emergency dispatch contact directories.",
+                    level: 1,
+                    category: "RHU",
+                    baseFee: 0.00,
+                    deliveryFee: 0.00,
+                    isFixed: true,
+                    requiredDocs: ["Patient Info & Medical Status", "Pickup Location & Destination", "Emergency Contact Number"],
+                    logicCode: "rhu_ambulance_v1",
+                    slaDays: 1,
+                    pickupAddress: "RHU Main Office / Emergency Dispatch Station",
+                    processingTime: "Immediate / Scheduled"
+                }
+            });
+            rhuTypes.push(created);
+        } catch (err) {
+            console.error("Auto-seeding RHU_AMBULANCE failed:", err);
+        }
+    }
+
+    const ambulanceRes = await getAmbulanceSettings();
+
     return (
         <RHUClient
             transactionTypes={rhuTypes}
             themeColor={themeColor}
+            initialAmbulanceFleet={ambulanceRes.success ? ambulanceRes.fleet : []}
+            initialDispatchHotlines={ambulanceRes.success ? ambulanceRes.hotlines : []}
         />
     );
 }

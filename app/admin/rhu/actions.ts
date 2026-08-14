@@ -1,9 +1,10 @@
 "use server";
 
 // Simple in-memory cache for matched health center per user to reduce DB queries on navigation
-const matchedCenterCache = new Map<string, any>();
+const matchedCenterCache = new Map<string, Promise<any> | any>();
 
 import prisma from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -20,80 +21,83 @@ export async function getMatchedCenterForUser(user: any) {
         return matchedCenterCache.get(cacheKey);
     }
 
-    const userEmail = (user.email || "").toLowerCase();
-    const userName = (user.name || "").toLowerCase();
-    const userDept = (user.department || "").toLowerCase();
-    const userIdStr = String(user.id);
+    const promise = (async () => {
+        const userEmail = (user.email || "").toLowerCase();
+        const userName = (user.name || "").toLowerCase();
+        const userDept = (user.department || "").toLowerCase();
+        const userIdStr = String(user.id);
 
-    // Global admin accounts (rhu@mapandan.gov.ph) without medical personnel link see all centers
-    if (userEmail === "rhu@mapandan.gov.ph") {
-        return null;
-    }
+        // Global admin accounts (rhu@mapandan.gov.ph) without medical personnel link see all centers
+        if (userEmail === "rhu@mapandan.gov.ph") {
+            return null;
+        }
 
-    try {
-        const centers: any[] = await prisma.$queryRaw`
-            SELECT "id", "name", "code", "barangay", "accountEmail", "userId", "pharmacyEmail", "pharmacyUserId" FROM "RHUHealthCenter"
-        `;
-
-        // 1. Direct check in RHUMedicalPersonnel for assigned doctor or medical staff (by userId or email)
         try {
-            const personnel: any[] = await prisma.$queryRaw`
-                SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
-                WHERE ("userId" = ${userIdStr} OR LOWER("email") = ${userEmail}) 
-                  AND "healthCenterId" IS NOT NULL LIMIT 1
+            const centers: any[] = await prisma.$queryRaw`
+                SELECT "id", "name", "code", "barangay", "accountEmail", "userId", "pharmacyEmail", "pharmacyUserId" FROM "RHUHealthCenter"
             `;
-            if (personnel && personnel[0] && personnel[0].healthCenterId) {
-                const matched = centers.find((c: any) => c.id === personnel[0].healthCenterId);
-                if (matched) return matched;
-            }
+
+            // 1. Direct check in RHUMedicalPersonnel for assigned doctor or medical staff (by userId or email)
+            try {
+                const personnel: any[] = await prisma.$queryRaw`
+                    SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
+                    WHERE ("userId" = ${userIdStr} OR LOWER("email") = ${userEmail}) 
+                      AND "healthCenterId" IS NOT NULL LIMIT 1
+                `;
+                if (personnel && personnel[0] && personnel[0].healthCenterId) {
+                    const matched = centers.find((c: any) => c.id === personnel[0].healthCenterId);
+                    if (matched) return matched;
+                }
+            } catch {}
+
+            // 2. Priority: keyword matching by email/name on RHUHealthCenter
+            const keywordMatch = centers.find((c: any) => {
+                const centerNameLower = String(c.name || "").toLowerCase();
+                return (
+                    (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
+                    (c.pharmacyEmail && String(c.pharmacyEmail).toLowerCase() === userEmail) ||
+                    (userEmail.includes("lalas") && centerNameLower.includes("lalas")) ||
+                    (userName.includes("lalas") && centerNameLower.includes("lalas")) ||
+                    (userDept.includes("lalas") && centerNameLower.includes("lalas")) ||
+                    (userEmail.includes("main") && centerNameLower.includes("main"))
+                );
+            });
+
+            if (keywordMatch) return keywordMatch;
+
+            // 3. Fallback: userId match on RHUHealthCenter
+            const userIdMatch = centers.find((c: any) =>
+                (c.userId && String(c.userId) === userIdStr) ||
+                (c.pharmacyUserId && String(c.pharmacyUserId) === userIdStr)
+            );
+            if (userIdMatch) return userIdMatch;
+
         } catch {}
 
-        // 2. Priority: keyword matching by email/name on RHUHealthCenter
-        const keywordMatch = centers.find((c: any) => {
-            const centerNameLower = String(c.name || "").toLowerCase();
-            return (
-                (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
-                (c.pharmacyEmail && String(c.pharmacyEmail).toLowerCase() === userEmail) ||
-                (userEmail.includes("lalas") && centerNameLower.includes("lalas")) ||
-                (userName.includes("lalas") && centerNameLower.includes("lalas")) ||
-                (userDept.includes("lalas") && centerNameLower.includes("lalas")) ||
-                (userEmail.includes("main") && centerNameLower.includes("main"))
-            );
-        });
+        // 4. Virtual fallback by email/name keywords
+        if (userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas")) {
+            return {
+                id: "lalas-medical-clinic",
+                name: "Lalas Medical Clinic",
+                code: "RHU-LALAS",
+                barangay: "Lalas"
+            };
+        }
 
-        if (keywordMatch) return keywordMatch;
+        if (userEmail.includes("main") || userName.includes("main") || userDept.includes("main")) {
+            return {
+                id: "main-rhu",
+                name: "Main Rural Health Unit (RHU)",
+                code: "RHU-MAIN",
+                barangay: "Poblacion"
+            };
+        }
 
-        // 3. Fallback: userId match on RHUHealthCenter
-        const userIdMatch = centers.find((c: any) =>
-            (c.userId && String(c.userId) === userIdStr) ||
-            (c.pharmacyUserId && String(c.pharmacyUserId) === userIdStr)
-        );
-        if (userIdMatch) return userIdMatch;
+        return null;
+    })();
 
-    } catch {}
-
-    // 4. Virtual fallback by email/name keywords
-    if (userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas")) {
-        return {
-            id: "lalas-medical-clinic",
-            name: "Lalas Medical Clinic",
-            code: "RHU-LALAS",
-            barangay: "Lalas"
-        };
-    }
-
-    if (userEmail.includes("main") || userName.includes("main") || userDept.includes("main")) {
-        return {
-            id: "main-rhu",
-            name: "Main Rural Health Unit (RHU)",
-            code: "RHU-MAIN",
-            barangay: "Poblacion"
-        };
-    }
-
-    // Cache the result before returning
-    matchedCenterCache.set(cacheKey, null);
-    return null;
+    matchedCenterCache.set(cacheKey, promise);
+    return promise;
 }
 
 export async function getRHUAdminTransactions(params?: {
@@ -117,51 +121,154 @@ export async function getRHUAdminTransactions(params?: {
         const checkupType = params?.checkupType || "ALL";
         const showAllCenters = params?.allCenters === true;
 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const skip = (page - 1) * limit;
 
-        const andConditions: any[] = [];
+        const isPharmacy = session.user.role === "RHU_PHARMACY" ||
+            ((session.user as any).department || "").toUpperCase().includes("PHARMACY");
 
-        // Status Filter
-        if (status === "CANCELLED") {
-            andConditions.push({ OR: [{ isCancelled: true }, { status: { in: ["CANCELLED", "REJECTED"] as any } }] });
-        } else if (status === "APPOINTMENT_BOOKED") {
-            andConditions.push({ status: { in: ["BOOKED", "FOR_INSPECTION", "FOR_REQUESTING"] as any } });
-        } else if (status === "CHECK_IN") {
-            andConditions.push({ status: { in: ["CHECK_IN", "EVALUATED"] as any } });
-        } else if (status === "IN_CONSULTATION") {
-            andConditions.push({ status: { in: ["IN_CONSULTATION", "FOR_PROCESSING"] as any } });
-        } else if (status === "PRESCRIBED") {
-            andConditions.push({ status: { in: ["PRESCRIBED", "FOR_CLAIM"] as any } });
-        } else if (status === "REFERRED") {
-            andConditions.push({ status: { in: ["REFERRED"] as any } });
-        } else if (status === "COMPLETED") {
-            andConditions.push({
-                OR: [
-                    { status: { in: ["COMPLETED", "RELEASED", "DELIVERED"] as any } },
-                ],
-                NOT: { status: { in: ["REFERRED"] as any } }
-            });
-        } else if (status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
-            andConditions.push({ status: status as any });
+        const matchedCenter = showAllCenters ? null : await getMatchedCenterForUser(session.user);
+
+        const conditions: Prisma.Sql[] = [];
+
+        // Base condition: Only RHU transactions (uncorrelated subquery avoids slow full joins)
+        conditions.push(Prisma.sql`
+            (
+                t."typeId" IN (
+                    SELECT id FROM "TransactionType"
+                    WHERE LOWER(code) LIKE 'rhu_%' 
+                       OR LOWER(code) LIKE '%rhu%'
+                       OR LOWER(category) LIKE '%rhu%'
+                       OR LOWER(category) LIKE '%health%'
+                       OR LOWER(category) LIKE '%medical%'
+                       OR LOWER(name) LIKE '%rhu%'
+                       OR LOWER(name) LIKE '%rural health%'
+                       OR LOWER(name) LIKE '%medical consultation%'
+                       OR LOWER(name) LIKE '%health certificate%'
+                       OR LOWER(name) LIKE '%consultation%'
+                       OR LOWER(name) LIKE '%checkup%'
+                       OR LOWER(name) LIKE '%check-up%'
+                )
+                OR (t."additionalData"->>'rhuStatus' IS NOT NULL)
+                OR (t."additionalData"->>'checkupType' IS NOT NULL)
+                OR (t."additionalData"->>'healthCenterName' IS NOT NULL)
+                OR (t."additionalData"->>'healthCenterId' IS NOT NULL)
+            )
+        `);
+
+        // Health Center condition
+        if (matchedCenter) {
+            const centerId = matchedCenter.id;
+            const centerNameLower = (matchedCenter.name || "").toLowerCase();
+            const isLalas = centerNameLower.includes("lalas");
+            const isMain = centerNameLower.includes("main");
+
+            conditions.push(Prisma.sql`
+                (
+                    (t."additionalData"->>'healthCenterId' = ${centerId})
+                    OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
+                    OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
+                    OR (${isLalas} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
+                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                    OR (${isMain} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%main%'
+                        OR LOWER(t."additionalData"::text) LIKE '%main%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                )
+            `);
         }
 
-        // Search Filter (Control Number, User Name, Patient Name, Barangay)
+        // Pharmacy condition
+        if (isPharmacy) {
+            conditions.push(Prisma.sql`
+                (
+                    COALESCE(t."additionalData"->>'rhuStatus', t.status::text) IN ('PRESCRIBED', 'PO_APPROVED', 'COMPLETED')
+                    OR t.status::text IN ('FOR_CLAIM', 'RELEASED', 'DELIVERED')
+                )
+            `);
+        }
+
+        // Search condition
         if (search) {
-            andConditions.push({
-                OR: [
-                    { controlNumber: { contains: search, mode: "insensitive" } },
-                    { user: { name: { contains: search, mode: "insensitive" } } },
-                    { user: { email: { contains: search, mode: "insensitive" } } },
-                    { residentSnapshot: { path: ["firstName"], string_contains: search } },
-                    { residentSnapshot: { path: ["lastName"], string_contains: search } },
-                    { residentSnapshot: { path: ["barangay"], string_contains: search } },
-                ]
-            });
+            const searchPattern = `%${search.toLowerCase()}%`;
+            conditions.push(Prisma.sql`
+                (
+                    LOWER(t.id) LIKE ${searchPattern}
+                    OR LOWER(t."queueNumber") LIKE ${searchPattern}
+                    OR LOWER(u.name) LIKE ${searchPattern}
+                    OR LOWER(u.email) LIKE ${searchPattern}
+                    OR LOWER(t."residentSnapshot"->>'firstName') LIKE ${searchPattern}
+                    OR LOWER(t."residentSnapshot"->>'lastName') LIKE ${searchPattern}
+                    OR LOWER(t."residentSnapshot"->>'barangay') LIKE ${searchPattern}
+                )
+            `);
         }
 
-        // Fetch all transactions via raw SQL for fast execution and enum safety
-        const allTransactions: any[] = await prisma.$queryRaw`
+        // Checkup Type condition
+        if (checkupType && checkupType !== "ALL") {
+            const checkupLower = `%${checkupType.toLowerCase()}%`;
+            conditions.push(Prisma.sql`
+                (
+                    LOWER(t."additionalData"->>'checkupType') LIKE ${checkupLower}
+                    OR ${checkupType.toLowerCase()} LIKE CONCAT('%', LOWER(t."additionalData"->>'checkupType'), '%')
+                )
+            `);
+        }
+
+        // Effective Status Expression
+        const effectiveStatusSql = Prisma.sql`
+            CASE 
+                WHEN t."additionalData"->>'rhuStatus' IS NOT NULL THEN t."additionalData"->>'rhuStatus'
+                WHEN t."isCancelled" = TRUE THEN 'CANCELLED'
+                WHEN t.status::text IN ('CANCELLED', 'REJECTED') THEN 'CANCELLED'
+                WHEN t.status::text IN ('BOOKED', 'FOR_INSPECTION', 'FOR_REQUESTING') THEN 'APPOINTMENT_BOOKED'
+                WHEN t.status::text IN ('CHECK_IN', 'EVALUATED') THEN 'CHECK_IN'
+                WHEN t.status::text IN ('IN_CONSULTATION', 'FOR_PROCESSING') THEN 'IN_CONSULTATION'
+                WHEN t.status::text IN ('PRESCRIBED', 'FOR_CLAIM') THEN 'PRESCRIBED'
+                WHEN t.status::text IN ('REFERRED') THEN 'REFERRED'
+                WHEN t.status::text IN ('COMPLETED', 'RELEASED', 'DELIVERED') THEN 'COMPLETED'
+                ELSE t.status::text
+            END
+        `;
+
+        // Status condition
+        if (status === "CANCELLED") {
+            conditions.push(Prisma.sql`
+                (${effectiveStatusSql} = 'CANCELLED' OR t."isCancelled" = TRUE OR t.status::text IN ('CANCELLED', 'REJECTED'))
+            `);
+        } else if (status === "COMPLETED") {
+            conditions.push(Prisma.sql`
+                (${effectiveStatusSql} = 'COMPLETED')
+            `);
+        } else if (status && status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
+            conditions.push(Prisma.sql`
+                (${effectiveStatusSql} = ${status})
+            `);
+        } else if (status === "ALL" || !status) {
+            conditions.push(Prisma.sql`
+                (${effectiveStatusSql} NOT IN ('COMPLETED', 'CANCELLED'))
+            `);
+        }
+
+        const whereClause = conditions.length > 0 
+            ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` 
+            : Prisma.empty;
+
+        // Count total matching records for pagination - skip redundant joins
+        const joinUser = search ? Prisma.sql`LEFT JOIN "User" u ON t."userId" = u.id` : Prisma.empty;
+        const countResult: any[] = await prisma.$queryRaw`
+            SELECT COUNT(*)::int as count
+            FROM "Transaction" t
+            ${joinUser}
+            ${whereClause}
+        `;
+        const total = countResult[0]?.count || 0;
+
+        // Fetch the paginated records
+        const data: any[] = await prisma.$queryRaw`
             SELECT t.id, t.status, t."createdAt", t."isCancelled", t."totalAmount", t."appointmentDate",
                    t."appointmentSlot", t."queueNumber", t."isPriority", t."additionalData", t."residentSnapshot",
                    t."businessName", t."rejectionRemarks", t."userId",
@@ -170,155 +277,16 @@ export async function getRHUAdminTransactions(params?: {
             FROM "Transaction" t
             LEFT JOIN "User" u ON t."userId" = u.id
             LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+            ${whereClause}
             ORDER BY t."createdAt" DESC
-            LIMIT 1000
+            LIMIT ${limit}
+            OFFSET ${skip}
         `;
-
-        // Filter to RHU-only transactions in JS (robust against DB value variance)
-        const RHU_KEYWORDS = ["rhu", "rural health", "medical consultation", "health certificate", "consultation", "checkup", "check-up"];
-        const transactions = allTransactions.filter((tx: any) => {
-            const typeCode = (tx.type?.code || "").toLowerCase();
-            const typeCat = (tx.type?.category || "").toLowerCase();
-            const typeName = (tx.type?.name || "").toLowerCase();
-            let addData: any = {};
-            if (typeof tx.additionalData === "string") {
-                try { addData = JSON.parse(tx.additionalData); } catch {}
-            } else {
-                addData = tx.additionalData || {};
-            }
-            const hasRhuStatus = !!addData.rhuStatus;
-            const hasCheckupType = !!addData.checkupType;
-            const hasHealthCenter = !!addData.healthCenterName || !!addData.healthCenterId;
-
-            if (hasRhuStatus || hasCheckupType || hasHealthCenter) return true;
-            if (typeCode.startsWith("rhu_") || typeCode.includes("rhu")) return true;
-            if (typeCat.includes("rhu") || typeCat.includes("health") || typeCat.includes("medical")) return true;
-            if (RHU_KEYWORDS.some(kw => typeName.includes(kw))) return true;
-            return false;
-        });
-
-        // Checkup Type Filter in JS (after RHU filter)
-        let filteredByCheckup = transactions;
-        if (checkupType && checkupType !== "ALL") {
-            const checkupLower = checkupType.toLowerCase();
-            filteredByCheckup = transactions.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-                const ct = (addData.checkupType || "").toLowerCase();
-                return ct.includes(checkupLower) || checkupLower.includes(ct) ||
-                    (checkupLower.includes("general") && (ct.includes("general") || ct === "general")) ||
-                    (checkupLower.includes("marital") && ct.includes("marital")) ||
-                    ((checkupLower.includes("prenatal") || checkupLower.includes("maternal")) && (ct.includes("prenatal") || ct.includes("maternal"))) ||
-                    (checkupLower.includes("pediatric") && ct.includes("pediatric")) ||
-                    (checkupLower.includes("dental") && ct.includes("dental"));
-            });
-        }
-
-        const isPharmacy = session.user.role === "RHU_PHARMACY" ||
-            ((session.user as any).department || "").toUpperCase().includes("PHARMACY");
-
-        const matchedCenter = showAllCenters ? null : await getMatchedCenterForUser(session.user);
-        let finalData = filteredByCheckup;
-
-
-
-        if (matchedCenter) {
-            const centerId = matchedCenter.id;
-            const centerNameLower = (matchedCenter.name || "").toLowerCase();
-
-            finalData = filteredByCheckup.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-
-                const rawData = JSON.stringify(addData).toLowerCase();
-                const txCenterId = String(addData.healthCenterId || "");
-                const txCenterName = String(addData.healthCenterName || "").toLowerCase();
-
-                if (txCenterId && txCenterId === centerId) return true;
-                if (txCenterName && (txCenterName.includes(centerNameLower) || centerNameLower.includes(txCenterName))) return true;
-
-                if (centerNameLower.includes("lalas")) {
-                    if (txCenterName.includes("lalas") || rawData.includes("lalas")) return true;
-                    if (!txCenterName && !txCenterId) return true;
-                    return false;
-                }
-
-                if (centerNameLower.includes("main")) {
-                    return txCenterName.includes("main") || rawData.includes("main") || (!txCenterName && !txCenterId);
-                }
-
-                return false;
-            });
-        }
-
-        if (isPharmacy) {
-            finalData = finalData.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-                const rhuStatus = addData?.rhuStatus || tx.status;
-                return rhuStatus === "PRESCRIBED" || rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
-            });
-        }
-
-        // Status Filter Logic (Separate completed records for Ledger vs active Consultations)
-        if (status === "COMPLETED") {
-            finalData = finalData.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-                const rhuStatus = (addData?.rhuStatus || "").toUpperCase();
-                const txStatus = (tx.status || "").toUpperCase();
-                return txStatus === "COMPLETED" || txStatus === "RELEASED" || txStatus === "DELIVERED" || rhuStatus === "COMPLETED";
-            });
-        } else if (status && status !== "ALL" && status !== "ALL_WITH_COMPLETED") {
-            finalData = finalData.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-                const rhuStatus = addData?.rhuStatus || tx.status;
-                return rhuStatus === status || tx.status === status;
-            });
-        } else if (status === "ALL" || !status) {
-            // Exclude COMPLETED consultations from All Consultations page since they display in Consultation Ledger
-            finalData = finalData.filter((tx: any) => {
-                let addData: any = {};
-                if (typeof tx.additionalData === "string") {
-                    try { addData = JSON.parse(tx.additionalData); } catch {}
-                } else {
-                    addData = tx.additionalData || {};
-                }
-                const rhuStatus = (addData?.rhuStatus || "").toUpperCase();
-                const txStatus = (tx.status || "").toUpperCase();
-                const isCompleted = txStatus === "COMPLETED" || txStatus === "RELEASED" || txStatus === "DELIVERED" || rhuStatus === "COMPLETED";
-                return !isCompleted;
-            });
-        }
-
-        const total = finalData.length;
-        const paginatedData = finalData.slice((page - 1) * limit, page * limit);
 
         return {
             success: true,
             centerName: matchedCenter ? matchedCenter.name : null,
-            data: paginatedData,
+            data,
             pagination: {
                 page,
                 limit,
@@ -534,116 +502,96 @@ export async function getRHUDashboardStats() {
             return { success: false, error: "Unauthorized" };
         }
 
-        const baseWhere: any = {
-            OR: [
-                {
-                    type: {
-                        category: {
-                            in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT", "Health Unit", "Health Services"]
-                        }
-                    }
-                },
-                { type: { code: { startsWith: "RHU_" } } },
-                { type: { name: { contains: "Medical Consultation" } } }
-            ]
-        };
+        const conditions: Prisma.Sql[] = [];
 
+        // Base condition: Only RHU transactions (uncorrelated subquery avoids slow full joins)
+        conditions.push(Prisma.sql`
+            (
+                t."typeId" IN (
+                    SELECT id FROM "TransactionType"
+                    WHERE LOWER(code) LIKE 'rhu_%' 
+                       OR LOWER(code) LIKE '%rhu%'
+                       OR LOWER(category) LIKE '%rhu%'
+                       OR LOWER(category) LIKE '%health%'
+                       OR LOWER(category) LIKE '%medical%'
+                       OR LOWER(name) LIKE '%rhu%'
+                       OR LOWER(name) LIKE '%rural health%'
+                       OR LOWER(name) LIKE '%medical consultation%'
+                       OR LOWER(name) LIKE '%health certificate%'
+                       OR LOWER(name) LIKE '%consultation%'
+                       OR LOWER(name) LIKE '%checkup%'
+                       OR LOWER(name) LIKE '%check-up%'
+                )
+                OR (t."additionalData"->>'rhuStatus' IS NOT NULL)
+                OR (t."additionalData"->>'checkupType' IS NOT NULL)
+                OR (t."additionalData"->>'healthCenterName' IS NOT NULL)
+                OR (t."additionalData"->>'healthCenterId' IS NOT NULL)
+            )
+        `);
+
+        // Center matching
         const matchedCenter = await getMatchedCenterForUser(session.user);
         if (matchedCenter) {
             const centerId = matchedCenter.id;
-            const centerName = matchedCenter.name;
-            const centerNameLower = centerName.toLowerCase();
+            const centerNameLower = (matchedCenter.name || "").toLowerCase();
+            const isLalas = centerNameLower.includes("lalas");
+            const isMain = centerNameLower.includes("main");
 
-            const centerOrConditions: any[] = [
-                { additionalData: { path: ["healthCenterId"], equals: centerId } },
-                { additionalData: { path: ["healthCenterName"], equals: centerName } },
-                { additionalData: { path: ["healthCenterName"], string_contains: centerName } }
-            ];
-
-            if (centerNameLower.includes("lalas")) {
-                centerOrConditions.push(
-                    { additionalData: { path: ["healthCenterName"], string_contains: "Lalas" } },
-                    { additionalData: { path: ["healthCenterName"], string_contains: "lalas" } },
-                    { additionalData: { path: ["healthCenterName"], string_contains: "LALAS" } }
-                );
-            } else if (centerNameLower.includes("main") || centerNameLower.includes("community")) {
-                centerOrConditions.push(
-                    { additionalData: { path: ["healthCenterName"], string_contains: "Main" } },
-                    { additionalData: { path: ["healthCenterName"], string_contains: "main" } },
-                    { additionalData: { path: ["healthCenterName"], string_contains: "MAIN" } },
-                    { additionalData: { path: ["healthCenterName"], string_contains: "Community" } }
-                );
-            }
-
-            baseWhere.AND = [
-                {
-                    OR: centerOrConditions
-                }
-            ];
+            conditions.push(Prisma.sql`
+                (
+                    (t."additionalData"->>'healthCenterId' = ${centerId})
+                    OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
+                    OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
+                    OR (${isLalas} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
+                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                    OR (${isMain} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%main%'
+                        OR LOWER(t."additionalData"::text) LIKE '%main%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                )
+            `);
         }
 
-        const [total, booked, checkedIn, inConsultation, prescribed, referred, completed, cancelled] = await Promise.all([
-            prisma.transaction.count({ where: baseWhere }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["BOOKED", "FOR_INSPECTION", "FOR_REQUESTING"] as any }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["CHECK_IN", "EVALUATED"] as any }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["IN_CONSULTATION", "FOR_PROCESSING"] as any }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["PRESCRIBED", "FOR_CLAIM"] as any }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["REFERRED"] as any }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere, isCancelled: false,
-                    status: { in: ["COMPLETED", "RELEASED", "DELIVERED"] as any },
-                    NOT: { status: { in: ["REFERRED"] as any } }
-                }
-            }),
-            prisma.transaction.count({
-                where: {
-                    ...baseWhere,
-                    OR: [
-                        { isCancelled: true },
-                        { status: { in: ["CANCELLED", "REJECTED"] as any } }
-                    ]
-                }
-            })
-        ]);
+        const whereClause = conditions.length > 0 
+            ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` 
+            : Prisma.empty;
+
+        const statsResult: any[] = await prisma.$queryRaw`
+            SELECT 
+                COUNT(*)::int as total,
+                COUNT(*) FILTER (WHERE t."isCancelled" = TRUE OR t.status::text IN ('CANCELLED', 'REJECTED') OR t."additionalData"->>'rhuStatus' = 'CANCELLED')::int as cancelled,
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text IN ('BOOKED', 'FOR_INSPECTION', 'FOR_REQUESTING') OR t."additionalData"->>'rhuStatus' = 'APPOINTMENT_BOOKED'))::int as booked,
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text IN ('CHECK_IN', 'EVALUATED') OR t."additionalData"->>'rhuStatus' = 'CHECK_IN'))::int as "checkedIn",
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text IN ('IN_CONSULTATION', 'FOR_PROCESSING') OR t."additionalData"->>'rhuStatus' = 'IN_CONSULTATION'))::int as "inConsultation",
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text IN ('PRESCRIBED', 'FOR_CLAIM') OR t."additionalData"->>'rhuStatus' = 'PRESCRIBED'))::int as prescribed,
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text = 'REFERRED' OR t."additionalData"->>'rhuStatus' = 'REFERRED'))::int as referred,
+                COUNT(*) FILTER (WHERE NOT t."isCancelled" AND (t.status::text IN ('COMPLETED', 'RELEASED', 'DELIVERED') OR t."additionalData"->>'rhuStatus' = 'COMPLETED') AND t.status::text != 'REFERRED')::int as completed
+            FROM "Transaction" t
+            ${whereClause}
+        `;
+
+        const stats = statsResult[0] || { total: 0, booked: 0, checkedIn: 0, inConsultation: 0, prescribed: 0, referred: 0, completed: 0, cancelled: 0 };
+        const booked = stats.booked || 0;
+        const checkedIn = stats.checkedIn || 0;
+        const inConsultation = stats.inConsultation || 0;
+        const prescribed = stats.prescribed || 0;
 
         return {
             success: true,
             centerName: matchedCenter ? matchedCenter.name : null,
             stats: {
-                total,
+                total: stats.total || 0,
                 booked,
                 checkedIn,
                 inConsultation,
                 prescribed,
-                referred,
-                completed,
-                cancelled,
+                referred: stats.referred || 0,
+                completed: stats.completed || 0,
+                cancelled: stats.cancelled || 0,
                 pending: booked + checkedIn,
                 confirmed: inConsultation + prescribed
             }

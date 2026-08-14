@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Activity, Clock, Eye, Plus, Trash2, CalendarDays } from "lucide-react";
-import { getCenterAppointmentConfig, updateCenterAppointmentConfig } from "@/app/user/services/rural-health-unit/actions";
+import { Activity, Clock, Eye, Plus, Trash2, CalendarDays, Truck } from "lucide-react";
+import { getCenterAppointmentConfig, updateCenterAppointmentConfig, getAmbulanceSettings, updateAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -501,6 +501,8 @@ export default function RHUAppointmentSettingsClient({
                         </Button>
                     </div>
                 </CardContent>
+            </Card>
+
             </Card>
 
             {/* Interactive Schedule Grid Modal */}

@@ -62,7 +62,6 @@ const CHECKUP_TYPES = [
     { id: "Prenatal / Maternal", label: "Prenatal / Maternal" },
     { id: "Pediatric", label: "Pediatric" },
     { id: "Dental", label: "Dental" },
-    { id: "OTHER", label: "Other" },
 ];
 
 export default function RHULedgerPage() {
