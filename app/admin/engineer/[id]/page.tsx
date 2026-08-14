@@ -519,7 +519,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
             const res = await sendForRevision(transaction.id, finalRemarks, cleanedRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
-                router.push(backUrl);
+                window.location.reload();
             } else {
                 toast.error(res.error || "Failed");
                 setActionLoading(false);

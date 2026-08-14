@@ -504,7 +504,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             const res = await sendForRevision(id, finalRemarks, finalRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
-                router.push(backUrl);
+                window.location.reload();
             } else {
                 toast.error(res.error || "Failed");
                 setActionLoading(false);
