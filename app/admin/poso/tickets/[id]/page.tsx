@@ -242,7 +242,7 @@ export default function TicketDetailsPage() {
                         </p>
                         {dueDate && (
                             <p className={`text-xs font-bold font-mono ${isOverdue ? "text-rose-600 dark:text-rose-400 font-black" : "text-slate-700 dark:text-slate-300"}`}>
-                                Payment Due: {dueDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} ({penaltySettings.dueDays}-day grace period)
+                                Payment Due: {dueDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
                             </p>
                         )}
                     </div>
@@ -856,7 +856,7 @@ export default function TicketDetailsPage() {
                                 <span className="font-black text-xs uppercase tracking-wider">Pending Treasury Settlement</span>
                             </div>
                             <p className="text-xs font-semibold text-amber-900/80 dark:text-amber-200/90 leading-relaxed italic">
-                                This citation ticket has been processed into an active <strong>UNPAID Treasury Transaction</strong>. The violator must settle the fine at the Municipal Treasury Department.
+                                This citation ticket has been processed into an active <strong>UNPAID Treasury Transaction</strong>. The violator must settle the fine at the Municipal Treasury Department or in the Online Payment Website.
                             </p>
                             <div className="pt-3 border-t border-amber-200/60 dark:border-amber-500/20 space-y-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-200">
                                 <div className="flex items-center justify-between">

@@ -203,12 +203,52 @@ export async function verifyAndSyncTicketPayment(ticketNo: string) {
         if (!ticket) return { success: false, error: "Ticket not found" };
 
         if (!ticket.isPaid) {
-            // Update TicketHeader status strictly to PAID
+            // Calculate dynamic penalty breakdown (Base + 25% Surcharge + Accrued Monthly Interest)
+            let actualPaidTotal = (Number(ticket.totalAmount || 0)) + (Number(ticket.impoundFee || 0));
+            let penaltyBreakdownSnapshot: any = null;
+            let fiscalSnapshotData: any = null;
+
+            try {
+                const { getPosoPenaltySettings, calculatePosoTicketPenalty } = await import("@/app/admin/poso/actions");
+                const settingsRes = await getPosoPenaltySettings();
+                if (settingsRes?.settings) {
+                    const breakdown = await calculatePosoTicketPenalty(ticket, settingsRes.settings);
+                    actualPaidTotal = breakdown.grandTotalPayable;
+                    penaltyBreakdownSnapshot = {
+                        baseFine: breakdown.baseFine,
+                        impoundFee: breakdown.impoundFee,
+                        subtotal: breakdown.subtotal,
+                        isOverdue: breakdown.isOverdue,
+                        daysOverdue: breakdown.daysOverdue,
+                        monthsOverdue: breakdown.monthsOverdue,
+                        surchargeRate: breakdown.surchargeRate,
+                        surchargeAmount: breakdown.surchargeAmount,
+                        monthlyInterestRate: breakdown.monthlyInterestRate,
+                        interestAmount: breakdown.interestAmount,
+                        totalPenalty: breakdown.totalPenalty,
+                        grandTotalPayable: breakdown.grandTotalPayable,
+                        paidAt: new Date().toISOString()
+                    };
+
+                    fiscalSnapshotData = {
+                        baseFineTotal: breakdown.subtotal,
+                        impoundFee: breakdown.impoundFee,
+                        surchargeAmount: breakdown.surchargeAmount,
+                        interestAmount: breakdown.interestAmount,
+                        totalAmount: breakdown.grandTotalPayable
+                    };
+                }
+            } catch (calcErr) {
+                console.warn("verifyAndSyncTicketPayment: error calculating penalty breakdown", calcErr);
+            }
+
+            // Update TicketHeader status and totalAmount strictly to PAID & actual paid amount
             await (prisma as any).ticketHeader.update({
                 where: { id: ticket.id },
                 data: {
                     status: "PAID",
                     isPaid: true,
+                    totalAmount: actualPaidTotal,
                     updatedAt: new Date(),
                 },
             });
@@ -248,13 +288,22 @@ export async function verifyAndSyncTicketPayment(ticketNo: string) {
                     ? actualPaymentId 
                     : (ticket.transaction?.additionalData?.paymongo?.paymentId || ticket.transaction?.paymentReference || `cs_live_${ticket.ticketNo}`);
 
+                const currentAdditional = (ticket.transaction?.additionalData as any) || {};
+                const updatedAdditional = {
+                    ...currentAdditional,
+                    ...(penaltyBreakdownSnapshot ? { penaltyBreakdown: penaltyBreakdownSnapshot } : {})
+                };
+
                 await (prisma as any).transaction.update({
                     where: { id: ticket.transactionId },
                     data: {
                         status: "PAID",
                         isPaid: true,
+                        totalAmount: actualPaidTotal,
                         paymentType: "E_PAYMENT",
                         paymentReference: paymongoRef,
+                        additionalData: updatedAdditional,
+                        ...(fiscalSnapshotData ? { fiscalSnapshot: fiscalSnapshotData } : {}),
                         updatedAt: new Date(),
                     },
                 });
@@ -262,14 +311,14 @@ export async function verifyAndSyncTicketPayment(ticketNo: string) {
                 await (prisma as any).payment.upsert({
                     where: { transactionId: ticket.transactionId },
                     update: {
-                        amount: ticket.totalAmount || 0,
+                        amount: actualPaidTotal,
                         method: "E_PAYMENT",
                         status: "PAID",
                         reference: paymongoRef,
                     },
                     create: {
                         transactionId: ticket.transactionId,
-                        amount: ticket.totalAmount || 0,
+                        amount: actualPaidTotal,
                         method: "E_PAYMENT",
                         status: "PAID",
                         reference: paymongoRef,
