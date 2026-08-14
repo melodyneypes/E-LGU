@@ -17,8 +17,7 @@ import {
     Truck,
     PhoneCall,
     AlertCircle,
-    MapPin,
-    Clock
+    MapPin
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

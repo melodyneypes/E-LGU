@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Truck, PhoneCall, AlertCircle, User, MapPin, Trash2, Plus } from "lucide-react";
+import { Truck, Trash2, Plus } from "lucide-react";
 import { getAmbulanceSettings, updateAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

@@ -20,7 +20,7 @@ export default async function RHUPage() {
     const themeColor = settings.get("theme_color") || "#2563eb";
 
     // Fetch RHU transaction types with auto-seed fallback
-    let rhuTypes = await prisma.transactionType.findMany({
+    const rhuTypes = await prisma.transactionType.findMany({
         where: {
             code: {
                 in: ["RHU_MEDICAL_CERT", "RHU_AMBULANCE"]

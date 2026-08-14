@@ -78,6 +78,7 @@ function ResponsiveTabs({ tabs, activeTab, onTabSelect }: ResponsiveTabsProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(tabs.length);
     const [isMounted, setIsMounted] = useState(false);
+    const [hasWidths, setHasWidths] = useState(false);
     const tabWidthsRef = useRef<number[]>([]);
 
     useEffect(() => {
@@ -95,6 +96,7 @@ function ResponsiveTabs({ tabs, activeTab, onTabSelect }: ResponsiveTabsProps) {
         // If we are showing all tabs, record their widths.
         if (children.length === tabs.length) {
             tabWidthsRef.current = children.map(child => child.offsetWidth);
+            setHasWidths(true);
         }
 
         const handleResize = () => {
@@ -169,7 +171,7 @@ function ResponsiveTabs({ tabs, activeTab, onTabSelect }: ResponsiveTabsProps) {
 
     return (
         <div ref={containerRef} className="flex items-center gap-2 w-full overflow-hidden pb-2">
-            {(tabWidthsRef.current.length === 0 ? tabs : visibleTabs).map((tab) => (
+            {(!hasWidths ? tabs : visibleTabs).map((tab) => (
                 <button
                     key={tab.id}
                     onClick={() => onTabSelect(tab.id)}
@@ -184,7 +186,7 @@ function ResponsiveTabs({ tabs, activeTab, onTabSelect }: ResponsiveTabsProps) {
                 </button>
             ))}
 
-            {tabWidthsRef.current.length > 0 && dropdownTabs.length > 0 && (
+            {hasWidths && dropdownTabs.length > 0 && (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button
