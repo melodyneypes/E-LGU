@@ -494,10 +494,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
         if (finalRequests.length === 0) { toast.error("At least one document must be requested"); return; }
 
-        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
-        finalRequests.forEach((req, index) => {
-            finalRemarks += `${index + 1}. ${req.name}\n`;
-        });
+        const finalRemarks = remarks.trim();
 
         setActionLoading(true);
         try {

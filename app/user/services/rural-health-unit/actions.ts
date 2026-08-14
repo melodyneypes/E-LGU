@@ -619,3 +619,109 @@ export async function deleteCenterSpecialEvent(healthCenterId: string, eventId: 
         return { success: false, error: error.message || "Failed to delete event" };
     }
 }
+
+const defaultFleet = [
+    {
+        unit: "Ambulance Unit 1 (Foton Transporter)",
+        station: "Poblacion Main Station",
+        status: "STANDBY",
+        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+        plateNumber: "SAB-1234"
+    },
+    {
+        unit: "Ambulance Unit 2 (Toyota Hiace)",
+        station: "Luyan South Station",
+        status: "ON DUTY",
+        statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+        plateNumber: "SAB-5678"
+    },
+    {
+        unit: "Ambulance Unit 3 (Barangay Response)",
+        station: "Nilombot Station",
+        status: "STANDBY",
+        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+        plateNumber: "SAB-9012"
+    }
+];
+
+const defaultHotlines = [
+    { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
+    { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
+    { name: "Municipal Health Officer", number: "0920-123-4567" }
+];
+
+export async function getAmbulanceSettings() {
+    try {
+        let fleet = await (prisma as any).rHUAmbulance.findMany({
+            orderBy: { createdAt: "asc" }
+        });
+        if (fleet.length === 0) {
+            await Promise.all(defaultFleet.map(item => 
+                (prisma as any).rHUAmbulance.create({ data: item })
+            ));
+            fleet = await (prisma as any).rHUAmbulance.findMany({
+                orderBy: { createdAt: "asc" }
+            });
+        }
+
+        let hotlines = await (prisma as any).rHUAmbulanceHotline.findMany({
+            orderBy: { createdAt: "asc" }
+        });
+        if (hotlines.length === 0) {
+            await Promise.all(defaultHotlines.map(item => 
+                (prisma as any).rHUAmbulanceHotline.create({ data: item })
+            ));
+            hotlines = await (prisma as any).rHUAmbulanceHotline.findMany({
+                orderBy: { createdAt: "asc" }
+            });
+        }
+
+        return { success: true, fleet, hotlines };
+    } catch (error: any) {
+        console.error("getAmbulanceSettings error:", error);
+        return { success: false, fleet: defaultFleet, hotlines: defaultHotlines, error: error.message || "Failed to load settings" };
+    }
+}
+
+export async function updateAmbulanceSettings(fleet: any[], hotlines: any[]) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const role = ((session.user as any)?.role || "").toUpperCase();
+        const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_");
+        if (!canManage) {
+            return { success: false, error: "Access Denied" };
+        }
+
+        await (prisma as any).$transaction([
+            (prisma as any).rHUAmbulance.deleteMany({}),
+            (prisma as any).rHUAmbulanceHotline.deleteMany({}),
+            ...fleet.map(item => (prisma as any).rHUAmbulance.create({
+                data: {
+                    unit: item.unit,
+                    plateNumber: item.plateNumber,
+                    station: item.station,
+                    status: item.status,
+                    statusColor: item.statusColor
+                }
+            })),
+            ...hotlines.map(item => (prisma as any).rHUAmbulanceHotline.create({
+                data: {
+                    name: item.name,
+                    number: item.number
+                }
+            }))
+        ]);
+
+        revalidatePath("/admin/rhu/ambulance");
+        revalidatePath("/user/services/rural-health-unit");
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("updateAmbulanceSettings error:", error);
+        return { success: false, error: error.message || "Failed to update settings" };
+    }
+}

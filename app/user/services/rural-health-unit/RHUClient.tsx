@@ -13,11 +13,16 @@ import {
     Info,
     Loader2,
     CheckCircle,
-    AlertTriangle
+    AlertTriangle,
+    Truck,
+    PhoneCall,
+    AlertCircle,
+    MapPin
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -37,6 +42,8 @@ import {
 interface RHUClientProps {
     transactionTypes: any[];
     themeColor: string;
+    initialAmbulanceFleet?: any[];
+    initialDispatchHotlines?: any[];
 }
 
 const STEPS = [
@@ -49,12 +56,53 @@ const STEPS = [
 
 export function RHUClient({
     transactionTypes,
-    themeColor
+    themeColor,
+    initialAmbulanceFleet = [],
+    initialDispatchHotlines = []
 }: RHUClientProps) {
     const router = useRouter();
     const [downloadState, setDownloadState] = React.useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
     const [progress, setProgress] = React.useState(0);
     const [showInstructions, setShowInstructions] = React.useState(false);
+    const [showAmbulanceModal, setShowAmbulanceModal] = React.useState(false);
+    const [copiedHotline, setCopiedHotline] = React.useState<string | null>(null);
+
+    const ambulanceFleet = initialAmbulanceFleet.length > 0 ? initialAmbulanceFleet : [
+        {
+            unit: "Ambulance Unit 1 (Foton Transporter)",
+            station: "Poblacion Main Station",
+            status: "STANDBY",
+            statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+            plateNumber: "SAB-1234"
+        },
+        {
+            unit: "Ambulance Unit 2 (Toyota Hiace)",
+            station: "Luyan South Station",
+            status: "ON DUTY",
+            statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+            plateNumber: "SAB-5678"
+        },
+        {
+            unit: "Ambulance Unit 3 (Barangay Response)",
+            station: "Nilombot Station",
+            status: "STANDBY",
+            statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+            plateNumber: "SAB-9012"
+        }
+    ];
+
+    const dispatchHotlines = initialDispatchHotlines.length > 0 ? initialDispatchHotlines : [
+        { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
+        { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
+        { name: "Municipal Health Officer", number: "0920-123-4567" }
+    ];
+
+    const copyHotline = (number: string) => {
+        navigator.clipboard.writeText(number);
+        setCopiedHotline(number);
+        toast.success(`Copied hotline: ${number}`);
+        setTimeout(() => setCopiedHotline(null), 2000);
+    };
 
     const handleDownload = async () => {
         if (downloadState === 'downloading') return;
@@ -116,6 +164,14 @@ export function RHUClient({
         name: "Medical Consultation & Health Certificate"
     };
 
+    const ambulanceType = transactionTypes.find((t) => t.code === "RHU_AMBULANCE");
+    const fallbackAmbulance = ambulanceType || {
+        id: "rhu-ambulance-service",
+        code: "RHU_AMBULANCE",
+        baseFee: 0,
+        name: "Ambulance Scheduling & Dispatch"
+    };
+
     const activeServices = [
         {
             db: fallbackType,
@@ -129,6 +185,19 @@ export function RHUClient({
             reqs: ["Valid Government ID", "Previous Medical Records / Mother's Book (if any)"],
             fee: `₱${fallbackType.baseFee?.toFixed(2) || "50.00"}`,
             time: "Scheduled Date & Time"
+        },
+        {
+            db: fallbackAmbulance,
+            code: "RHU_AMBULANCE",
+            title: "Ambulance Scheduling & Dispatch",
+            desc: "View available ambulance units, emergency hotlines, and dispatch request details for immediate medical transport.",
+            icon: Truck,
+            color: "text-amber-500 bg-amber-500/10",
+            borderColor: "border-amber-500/20",
+            accentBg: "bg-amber-500/5",
+            reqs: ["Patient Info & Medical Status", "Pickup Location & Destination", "Emergency Contact Number"],
+            fee: "Free Municipal Service",
+            time: "24/7 Dispatch Hotline"
         }
     ];
 
@@ -313,7 +382,7 @@ export function RHUClient({
                     </div>
 
                     {/* Services Cards */}
-                    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full justify-items-center">
                         {activeServices.map((service) => {
                             const Icon = service.icon;
                             return (
@@ -321,10 +390,20 @@ export function RHUClient({
                                     key={service.code}
                                     role="button"
                                     tabIndex={0}
-                                    onClick={() => router.push(`/user/services/rural-health-unit/${service.db.id}`)}
+                                    onClick={() => {
+                                        if (service.code === "RHU_AMBULANCE") {
+                                            setShowAmbulanceModal(true);
+                                        } else {
+                                            router.push(`/user/services/rural-health-unit/${service.db.id}`);
+                                        }
+                                    }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
-                                            router.push(`/user/services/rural-health-unit/${service.db.id}`);
+                                            if (service.code === "RHU_AMBULANCE") {
+                                                setShowAmbulanceModal(true);
+                                            } else {
+                                                router.push(`/user/services/rural-health-unit/${service.db.id}`);
+                                            }
                                         }
                                     }}
                                     className="w-full max-w-md p-6 md:p-8 rounded-[2.5rem] border-2 border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md flex flex-col justify-between min-h-[340px] hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl transition-all duration-300 group cursor-pointer select-none"
@@ -369,11 +448,18 @@ export function RHUClient({
                                     {/* Action */}
                                     <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-end mt-6">
                                         <Button
-                                            onClick={() => router.push(`/user/services/rural-health-unit/${service.db.id}`)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (service.code === "RHU_AMBULANCE") {
+                                                    setShowAmbulanceModal(true);
+                                                } else {
+                                                    router.push(`/user/services/rural-health-unit/${service.db.id}`);
+                                                }
+                                            }}
                                             style={{ backgroundColor: themeColor }}
                                             className="h-10 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
                                         >
-                                            Book Appointment
+                                            {service.code === "RHU_AMBULANCE" ? "View Availability" : "Book Appointment"}
                                         </Button>
                                     </div>
                                 </div>
@@ -453,6 +539,113 @@ export function RHUClient({
                             className="w-full h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
                         >
                             Got It, Start Using App
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Ambulance Dispatch Modal */}
+            <Dialog open={showAmbulanceModal} onOpenChange={setShowAmbulanceModal}>
+                <DialogContent className="max-w-xl w-[95%] mx-auto bg-white dark:bg-[#11131a] border border-slate-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl p-6 md:p-8 outline-none text-slate-900 dark:text-white max-h-[90vh] overflow-y-auto scrollbar-none">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2 bg-amber-500/10">
+                            <Truck className="w-6 h-6 text-amber-500" />
+                        </div>
+                        <DialogTitle className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-center leading-none">
+                            Ambulance Fleet & <span className="text-amber-500">Dispatch</span>
+                        </DialogTitle>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
+                            Emergency Response Logistics & Hotlines Directory
+                        </p>
+                    </DialogHeader>
+
+                    <div className="mt-6 space-y-6">
+                        {/* Status Grid */}
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic">Active Fleet Status</h4>
+                            <div className="space-y-2">
+                                {ambulanceFleet.map((vehicle, idx) => (
+                                    <div key={idx} className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 rounded-2xl flex items-center justify-between gap-4">
+                                        <div className="space-y-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{vehicle.unit}</span>
+                                                <span className="text-[9px] font-mono text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">{vehicle.plateNumber}</span>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+                                                <MapPin className="w-3 h-3 text-slate-400" /> {vehicle.station}
+                                            </p>
+                                        </div>
+                                        <span className={cn("text-[9px] font-black uppercase tracking-widest border px-2.5 py-1 rounded-full shrink-0", vehicle.statusColor)}>
+                                            {vehicle.status}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Hotline Callout */}
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic">Direct Emergency Hotlines</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {dispatchHotlines.map((hotline, idx) => {
+                                    const name = (hotline.name || "").toLowerCase();
+                                    const Icon = name.includes("rhu") 
+                                        ? PhoneCall 
+                                        : name.includes("mdrrmo") 
+                                            ? AlertCircle 
+                                            : User;
+                                    return (
+                                        <div
+                                            key={idx}
+                                            onClick={() => copyHotline(hotline.number)}
+                                            className="p-4 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-amber-500/40 cursor-pointer flex items-center gap-3 transition-all group"
+                                        >
+                                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500 transition-colors duration-200">
+                                                <Icon className="w-4 h-4 text-amber-600 dark:text-amber-500 group-hover:text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 group-hover:text-amber-500 transition-colors block truncate">{hotline.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black tracking-tight text-slate-800 dark:text-white">{hotline.number}</span>
+                                                    {copiedHotline === hotline.number && (
+                                                        <span className="text-[8px] font-bold text-emerald-500 italic animate-pulse">Copied</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Instruction Protocol */}
+                        <div className="p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-3">
+                            <h5 className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" /> Dispatch Information Checklist
+                            </h5>
+                            <ul className="text-[11px] font-medium text-slate-600 dark:text-slate-400 space-y-2 list-none p-0 m-0">
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span>Provide the patient&apos;s full name, age, and current status (conscious, bleeding, difficulty breathing, etc.).</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span>State the exact pick-up address or landmark (Barangay, Purok, or notable location) and target destination hospital.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span>Provide a standby active phone number of the emergency contact person on-site.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-center">
+                        <Button
+                            onClick={() => setShowAmbulanceModal(false)}
+                            className="w-full h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none bg-amber-500 hover:bg-amber-600"
+                        >
+                            Understood, Return to Services
                         </Button>
                     </div>
                 </DialogContent>

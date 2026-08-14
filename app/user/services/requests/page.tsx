@@ -139,6 +139,22 @@ export default function UserServiceRequestsPage() {
                 if (isPsaAppointment) {
                     return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Clock, label: "APPOINTMENT CONFIRMED", opacity: 0.9 };
                 }
+                if (typeCode === "BUILDING_PERMIT" || typeCode === "OCCUPANCY_PERMIT") {
+                    const fee = req.additionalData?.feeAssessment || {};
+                    if (fee.endorsed) {
+                        return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: DollarSign, label: "AWAITING PAYMENT", opacity: 0.9 };
+                    }
+                    if (fee.bfpSubmitted) {
+                        return { color: "text-white", bg: "bg-orange-600", border: "border-transparent", icon: Activity, label: "BFP EVALUATION", opacity: 0.9 };
+                    }
+                    if (fee.zoningEndorsed) {
+                        return { color: "text-white", bg: "bg-blue-600", border: "border-transparent", icon: Activity, label: "FINAL ENGINEERING REVIEW", opacity: 0.9 };
+                    }
+                    if (fee.engineerEndorsedToZoning) {
+                        return { color: "text-white", bg: "bg-indigo-600", border: "border-transparent", icon: Activity, label: "ZONING EVALUATION", opacity: 0.9 };
+                    }
+                    return { color: "text-white", bg: "bg-slate-600", border: "border-transparent", icon: Activity, label: "ENGINEERING ASSESSMENT", opacity: 0.9 };
+                }
                 return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
             case "PAID": return { color: "text-white", bg: "bg-emerald-500", border: "border-transparent", icon: CheckCircle2, label: "PAID", opacity: 1 };
             case "FOR_PROCESSING": 

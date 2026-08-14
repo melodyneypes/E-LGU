@@ -296,7 +296,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     };
 
     const [isSyncing, setIsSyncing] = useState(false);
-    const [lastSyncedTime, setLastSyncedTime] = useState<string>("Just now");
 
     // Realtime background auto-update polling (every 5 seconds)
     useEffect(() => {
@@ -312,7 +311,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 });
                 if (res.success && res.data) {
                     setItems(res.data as any);
-                    setLastSyncedTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
                 }
             } catch (err) {
                 console.warn("[Realtime Inventory Sync Warning]:", err);
@@ -665,14 +663,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     </p>
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-                    <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-xs h-10">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                        </span>
-                        <span className="uppercase tracking-wider text-[10px]">Realtime Live ({lastSyncedTime})</span>
-                        {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-emerald-500 ml-0.5" />}
-                    </div>
+
 
                     <Button
                         onClick={refreshData}

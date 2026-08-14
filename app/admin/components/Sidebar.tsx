@@ -452,6 +452,12 @@ export function Sidebar({
             category: "Rural Health Unit"
         },
         {
+            href: "/admin/rhu/ambulance",
+            label: "Ambulance Dispatch",
+            icon: Truck,
+            category: "Rural Health Unit"
+        },
+        {
             href: "/admin/rhu/ledger",
             label: "Consultation Ledger",
             icon: FileText,
