@@ -29,7 +29,7 @@ import { supabase } from "@/lib/supabase";
 const STATUS_TABS = [
     { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
     { value: "PENDING", label: "Pending Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
-    { value: "APPROVED", label: "Acknowledged", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
+    { value: "ACKNOWLEDGED", label: "Acknowledged", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
     { value: "COMPLETED", label: "Completed", color: "text-cyan-600", activeColor: "bg-cyan-500 text-white" }
 ];
 

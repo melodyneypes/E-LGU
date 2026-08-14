@@ -2538,6 +2538,8 @@ You cancelled this occupancy permit application. You can still view your details
                   const isEngineeringApproved = ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "");
                   const isZoningRejected = selectedApplication?.additionalData?.zoningStatus === "REJECTED";
                   const isZoningApproved = !!selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed || selectedApplication?.additionalData?.zoningStatus === "EVALUATED";
+                  const isBfpSubmitted = !!selectedApplication?.additionalData?.feeAssessment?.bfpSubmitted;
+                  const isBfpAcknowledged = selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED";
 
                   return (
                     <>
@@ -2677,14 +2679,16 @@ You cancelled this occupancy permit application. You can still view your details
                               "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
                               isEngineeringCancelled || isEngineeringRejected || isZoningRejected
                                 ? "bg-red-100 text-red-500 dark:bg-red-500/20"
-                                : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
+                                : isBfpAcknowledged
                                   ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                                  : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                                  : isBfpSubmitted
+                                    ? "bg-blue-100 dark:bg-blue-500/20 text-blue-500"
+                                    : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
                             )}>
                               {isEngineeringCancelled || isEngineeringRejected || isZoningRejected ? (
                                 <AlertCircle className="w-5 h-5 text-red-500" />
-                              ) : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved) ? (
-                                <Check className="w-5 h-5 text-emerald-500" />
+                              ) : isBfpAcknowledged || isBfpSubmitted ? (
+                                <Check className="w-5 h-5" />
                               ) : (
                                 <Clock className="w-5 h-5 text-amber-500" />
                               )}
@@ -2704,13 +2708,13 @@ You cancelled this occupancy permit application. You can still view your details
                                     ? "Endorsement halted due to MPDC Zoning Office rejection."
                                     : isEngineeringCancelled
                                       ? "Endorsement cancelled due to application cancellation."
-                                      : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
+                                      : isBfpAcknowledged
                                         ? "BFP has successfully acknowledged your application"
-                                        : (isEngineeringApproved && isZoningApproved)
+                                        : isBfpSubmitted
                                           ? "Endorsed successfully to BFP"
-                                          : !isEngineeringApproved
-                                            ? "Awaiting Engineering and Zoning approval"
-                                            : "Awaiting BFP acknowledgement"}
+                                          : (isEngineeringApproved && isZoningApproved)
+                                            ? "Awaiting Municipal Engineer endorsement to BFP"
+                                            : "Awaiting Engineering and Zoning approval"}
                               </p>
                             </div>
                           </div>
@@ -2720,9 +2724,11 @@ You cancelled this occupancy permit application. You can still view your details
                               ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                               : selectedApplication?.status === "UNPAID"
                                 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
+                                : isBfpAcknowledged
                                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                  : isBfpSubmitted
+                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
+                                    : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                           )}>
                             {isEngineeringCancelled
                               ? "Cancelled"
@@ -2730,9 +2736,11 @@ You cancelled this occupancy permit application. You can still view your details
                                 ? "REJECTED"
                                 : selectedApplication?.status === "UNPAID"
                                   ? "UNPAID"
-                                  : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
+                                  : isBfpAcknowledged
                                     ? "ACKNOWLEDGED"
-                                    : "PENDING"}
+                                    : isBfpSubmitted
+                                      ? "SUBMITTED"
+                                      : "PENDING"}
                           </span>
                         </div>
                       </div>

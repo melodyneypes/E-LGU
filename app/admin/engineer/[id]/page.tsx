@@ -509,10 +509,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
             toast.error("Please add at least one requested attachment.");
             return;
         }
-        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
-        cleanedRequests.forEach((req, index) => {
-            finalRemarks += `${index + 1}. ${req.name}\n`;
-        });
+        const finalRemarks = remarks.trim();
 
         setActionLoading(true);
         try {
