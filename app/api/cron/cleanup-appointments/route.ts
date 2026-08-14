@@ -22,7 +22,7 @@ async function runCleanup() {
                 lt: startOfTodayManila
             },
             status: {
-                in: ["FOR_REQUESTING", "FOR_INSPECTION"]
+                in: ["FOR_REQUESTING", "FOR_INSPECTION", "BOOKED"]
             },
             isCancelled: false
         },
