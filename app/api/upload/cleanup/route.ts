@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { deleteFileByUrl } from "@/lib/storage";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
     try {
+        // Security Auth Guard: Require valid user session
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+        }
+
         const body = await req.json();
         const { urls } = body;
 
