@@ -167,7 +167,8 @@ export function AccommodationTable() {
                         {accommodationData.map((item) => (
                             <TableRow
                                 key={item.id}
-                                className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]"
+                                onClick={() => router.push(`/admin/accommodation/${item.id}`)}
+                                className="group hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
                             >
                                 <TableCell className="pl-8 py-5">
                                     <div className="flex items-center gap-3">
@@ -181,7 +182,7 @@ export function AccommodationTable() {
                                             )}
                                         </div>
                                         <div className="flex flex-col space-y-1">
-                                            <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight line-clamp-1 max-w-[260px]">
+                                            <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight line-clamp-1 max-w-[260px] group-hover:text-primary transition-colors">
                                                 {item.name}
                                             </span>
                                             {item.barangay && (
@@ -206,7 +207,7 @@ export function AccommodationTable() {
                                     </div>
                                 </TableCell>
 
-                                <TableCell className="text-center">
+                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                     <Switch
                                         checked={item.isPublished}
                                         disabled={togglingId === item.id}
@@ -214,7 +215,7 @@ export function AccommodationTable() {
                                     />
                                 </TableCell>
 
-                                <TableCell className="text-right pr-8">
+                                <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex justify-end gap-2">
                                         <TooltipProvider>
                                             <Tooltip>
