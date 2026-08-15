@@ -94,7 +94,7 @@ export async function rejectResident(residentId: string, remarks: string) {
                 lastName: true,
                 email: true,
                 userId: true,
-            }
+            }   
         });
 
         // 🔄 Sync with the connected User table

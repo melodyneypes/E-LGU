@@ -100,10 +100,22 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         async redirect({ url, baseUrl }) {
-            // Allows relative callback URLs
-            if (url.startsWith("/")) return `${baseUrl}${url}`
-            // Allows absolute callback URLs (like window.location.origin) even if they differ from NEXTAUTH_URL
-            return url
+            // Allows relative callback URLs, disallowing protocol-relative URLs (//evil.com)
+            if (url.startsWith("/") && !url.startsWith("//")) {
+                return `${baseUrl}${url}`;
+            }
+            // Enforce strict same-origin validation for absolute URLs
+            try {
+                const parsedUrl = new URL(url);
+                const parsedBase = new URL(baseUrl);
+                if (parsedUrl.origin === parsedBase.origin) {
+                    return url;
+                }
+            } catch {
+                // Invalid URL format fallback
+            }
+            // Safe fallback to baseUrl
+            return baseUrl;
         },
         async jwt({ token, user }) {
             if (user) {
