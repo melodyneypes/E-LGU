@@ -457,7 +457,12 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     return null;
                 })
                 .filter(Boolean) as { key: string; url: string; label: string }[]
-        ].filter(doc => doc.url);
+        ].filter(doc => {
+            if (!doc || !doc.url) return false;
+            // Filter by docs endorsed by engineer, fallback to true if older transaction without this array
+            if (!additional?.zoningVisibleDocs || !Array.isArray(additional.zoningVisibleDocs)) return true;
+            return additional.zoningVisibleDocs.includes(doc.key);
+        });
     }, [transaction, additional, resident]);
 
     const renderRequirementsGrid = () => (
@@ -668,7 +673,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                 <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Submitted Documents & Clearances</p>
                             </div>
                             <Badge variant="outline" className="text-xs font-bold bg-primary/5 text-primary border-primary/20 px-4 py-1.5 rounded-xl">
-                                {(transaction?.additionalData as any)?.documents ? Object.keys((transaction?.additionalData as any).documents).length + 1 : 1} Files Attached
+                                {vaultDocs.length} Files Attached
                             </Badge>
                         </div>
                         {renderRequirementsGrid()}

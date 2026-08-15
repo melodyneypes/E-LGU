@@ -212,6 +212,9 @@ export function EvaluationStep({
             const isEngineeringApproved = ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "");
             const isZoningRejected = selectedApplication?.additionalData?.zoningStatus === "REJECTED";
             const isZoningApproved = !!selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed || selectedApplication?.additionalData?.zoningStatus === "EVALUATED";
+            const isBfpSubmitted = !!selectedApplication?.additionalData?.feeAssessment?.bfpSubmitted;
+            const isBfpAcknowledged = selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED";
+            const isBfpCompleted = selectedApplication?.additionalData?.bfpStatus === "COMPLETED" || Boolean(selectedApplication?.additionalData?.bfpClearanceUrl);
 
             return (
               <>
@@ -261,42 +264,34 @@ export function EvaluationStep({
                               : isEngineeringCancelled
                                 ? "Zoning review halted due to application cancellation."
                                 : !isEngineeringApproved
-                                  ? "Zoning review will commence once the Engineering Department approves your documents."
+                                  ? "Engineering approval is required before Zoning evaluation can proceed."
                                   : isZoningRejected
-                                    ? "Your zoning requirements were evaluated and rejected by the MPDC Zoning Office."
-                                    : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                      ? "Your application is scheduled for an upcoming zoning site inspection."
-                                      : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                        ? "Your application requires a zoning site re-inspection. Please check for updates."
-                                        : isZoningApproved
-                                          ? "Your zoning requirements have been evaluated and endorsed by MPDC."
-                                          : "Your documents are currently being reviewed by the MPDC Zoning Office."}
+                                    ? "Zoning clearance rejected by MPDC Zoning Office."
+                                    : isZoningApproved
+                                      ? "Your zoning requirements have been evaluated and endorsed by MPDC."
+                                      : "Zoning Officer is currently evaluating your application."}
                           </p>
                         </div>
                       </div>
                       <span className={cn(
                         "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                        isEngineeringCancelled
+                        isEngineeringCancelled || isEngineeringRejected || isZoningRejected
                           ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : isEngineeringRejected || isZoningRejected
-                            ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                            : !isEngineeringApproved
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : isZoningApproved
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                          : !isEngineeringApproved
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                            : isZoningApproved
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
                       )}>
                         {isEngineeringCancelled
                           ? "Cancelled"
                           : isEngineeringRejected || isZoningRejected
                             ? "REJECTED"
                             : !isEngineeringApproved
-                              ? "Pending"
+                              ? "PENDING"
                               : isZoningApproved
                                 ? "APPROVED"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
                                   ? "For Inspection"
                                   : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
                                     ? "For Revision"
@@ -351,14 +346,16 @@ export function EvaluationStep({
                         "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
                         isEngineeringCancelled || isEngineeringRejected || isZoningRejected
                           ? "bg-red-100 text-red-500 dark:bg-red-500/20"
-                          : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
+                          : isBfpCompleted || isBfpAcknowledged
                             ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                            : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                            : isBfpSubmitted
+                              ? "bg-blue-100 dark:bg-blue-500/20 text-blue-500"
+                              : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
                       )}>
                         {isEngineeringCancelled || isEngineeringRejected || isZoningRejected ? (
                           <AlertCircle className="w-5 h-5 text-red-500" />
-                        ) : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved) ? (
-                          <Check className="w-5 h-5 text-emerald-500" />
+                        ) : isBfpCompleted || isBfpAcknowledged || isBfpSubmitted ? (
+                          <Check className="w-5 h-5" />
                         ) : (
                           <Clock className="w-5 h-5 text-amber-500" />
                         )}
@@ -378,13 +375,15 @@ export function EvaluationStep({
                               ? "Endorsement halted due to MPDC Zoning Office rejection."
                               : isEngineeringCancelled
                                 ? "Endorsement cancelled due to application cancellation."
-                                : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-                                  ? "BFP has successfully acknowledged your application"
-                                  : (isEngineeringApproved && isZoningApproved)
-                                    ? "Endorsed successfully to BFP"
-                                    : !isEngineeringApproved
-                                      ? "Awaiting Engineering and Zoning approval"
-                                      : "Awaiting BFP acknowledgement"}
+                                : isBfpCompleted
+                                  ? "Fire Safety Clearance has been approved and submitted to the Engineer"
+                                  : isBfpAcknowledged
+                                    ? "BFP has successfully acknowledged your application"
+                                    : isBfpSubmitted
+                                      ? "Endorsed successfully to BFP"
+                                      : (isEngineeringApproved && isZoningApproved)
+                                        ? "Awaiting Municipal Engineer endorsement to BFP"
+                                        : "Awaiting Engineering and Zoning approval"}
                         </p>
                       </div>
                     </div>
@@ -394,9 +393,11 @@ export function EvaluationStep({
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                         : selectedApplication?.status === "UNPAID"
                           ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
+                          : isBfpCompleted || isBfpAcknowledged
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                            : isBfpSubmitted
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                     )}>
                       {isEngineeringCancelled
                         ? "Cancelled"
@@ -404,9 +405,13 @@ export function EvaluationStep({
                           ? "REJECTED"
                           : selectedApplication?.status === "UNPAID"
                             ? "UNPAID"
-                            : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || (isEngineeringApproved && isZoningApproved)
-                              ? "ACKNOWLEDGED"
-                              : "PENDING"}
+                            : isBfpCompleted
+                              ? "APPROVED"
+                              : isBfpAcknowledged
+                                ? "ACKNOWLEDGED"
+                                : isBfpSubmitted
+                                  ? "SUBMITTED"
+                                  : "PENDING"}
                     </span>
                   </div>
                 </div>

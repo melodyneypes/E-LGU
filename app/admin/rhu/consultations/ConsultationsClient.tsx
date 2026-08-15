@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Table,
     TableBody,
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw, Activity, CheckCircle2,
-    Clock, XCircle
+    Clock, XCircle, ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getRHUAdminTransactions } from "../actions";
 import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 import { supabase } from "@/lib/supabase";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -60,8 +66,164 @@ const CHECKUP_TYPES = [
     { id: "Prenatal / Maternal", label: "Prenatal / Maternal" },
     { id: "Pediatric", label: "Pediatric" },
     { id: "Dental", label: "Dental" },
-    { id: "OTHER", label: "Other" },
 ];
+
+interface ResponsiveTabsProps {
+    tabs: { id: string; label: string }[];
+    activeTab: string;
+    onTabSelect: (id: string) => void;
+}
+
+function ResponsiveTabs({ tabs, activeTab, onTabSelect }: ResponsiveTabsProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [visibleCount, setVisibleCount] = useState(tabs.length);
+    const [isMounted, setIsMounted] = useState(false);
+    const [hasWidths, setHasWidths] = useState(false);
+    const tabWidthsRef = useRef<number[]>([]);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
+        const container = containerRef.current;
+        if (!container) return;
+
+        const children = Array.from(container.children) as HTMLElement[];
+        
+        // If we are showing all tabs, record their widths.
+        if (children.length === tabs.length) {
+            tabWidthsRef.current = children.map(child => child.offsetWidth);
+            setHasWidths(true);
+        }
+
+        const handleResize = () => {
+            const containerWidth = container.offsetWidth;
+            const widths = tabWidthsRef.current;
+            if (widths.length === 0) return;
+
+            const gap = 8; // gap-2 is 8px
+            const moreButtonWidth = 90; // Approx width of 'More' button + gap
+
+            // Check if all tabs fit
+            const totalWidthWithGaps = widths.reduce((acc, w, idx) => acc + w + (idx > 0 ? gap : 0), 0);
+            
+            if (totalWidthWithGaps <= containerWidth) {
+                setVisibleCount(tabs.length);
+                return;
+            }
+
+            // Find how many tabs fit
+            let accumulatedWidth = 0;
+            let count = 0;
+            for (let i = 0; i < widths.length; i++) {
+                const itemWidth = widths[i];
+                const nextWidth = accumulatedWidth + itemWidth + (i > 0 ? gap : 0);
+                if (nextWidth + gap + moreButtonWidth <= containerWidth) {
+                    accumulatedWidth = nextWidth;
+                    count++;
+                } else {
+                    break;
+                }
+            }
+
+            setVisibleCount(Math.max(1, count));
+        };
+
+        handleResize();
+
+        const resizeObserver = new ResizeObserver(() => {
+            handleResize();
+        });
+        resizeObserver.observe(container);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [isMounted, tabs]);
+
+    const visibleTabs = tabs.slice(0, visibleCount);
+    const dropdownTabs = tabs.slice(visibleCount);
+    const isDropdownTabActive = dropdownTabs.some(tab => tab.id === activeTab);
+
+    if (!isMounted) {
+        return (
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => onTabSelect(tab.id)}
+                        className={cn(
+                            "px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border",
+                            activeTab === tab.id
+                                ? "bg-rose-500 text-white border-rose-500 shadow-md scale-105"
+                                : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-rose-400"
+                        )}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+        );
+    }
+
+    return (
+        <div ref={containerRef} className="flex items-center gap-2 w-full overflow-hidden pb-2">
+            {(!hasWidths ? tabs : visibleTabs).map((tab) => (
+                <button
+                    key={tab.id}
+                    onClick={() => onTabSelect(tab.id)}
+                    className={cn(
+                        "px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border shrink-0",
+                        activeTab === tab.id
+                            ? "bg-rose-500 text-white border-rose-500 shadow-md scale-105"
+                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-rose-400"
+                    )}
+                >
+                    {tab.label}
+                </button>
+            ))}
+
+            {hasWidths && dropdownTabs.length > 0 && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            className={cn(
+                                "px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border shrink-0 flex items-center gap-1.5",
+                                isDropdownTabActive
+                                    ? "bg-rose-500 text-white border-rose-500 shadow-md"
+                                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-rose-400"
+                            )}
+                        >
+                            {isDropdownTabActive
+                                ? dropdownTabs.find(t => t.id === activeTab)?.label
+                                : "More"}
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-2xl p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-lg min-w-48">
+                        {dropdownTabs.map((tab) => (
+                            <DropdownMenuItem
+                                key={tab.id}
+                                onClick={() => onTabSelect(tab.id)}
+                                className={cn(
+                                    "px-4 py-2 text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer transition-colors focus:bg-rose-500/10 focus:text-rose-500 dark:focus:bg-rose-500/20 dark:focus:text-rose-400",
+                                    activeTab === tab.id
+                                        ? "text-rose-500 dark:text-rose-400 font-extrabold"
+                                        : "text-slate-600 dark:text-slate-400"
+                                )}
+                            >
+                                {tab.label}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+        </div>
+    );
+}
 
 export default function ConsultationsClient() {
     const router = useRouter();
@@ -289,30 +451,19 @@ export default function ConsultationsClient() {
             </div>
 
             {/* Sub-Category Filter Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {CHECKUP_TYPES.map((cat) => (
-                    <button
-                        key={cat.id}
-                        onClick={() => {
-                            setCheckupFilter(cat.id);
-                            setPage(1);
-                            if (cat.id === "ALL") {
-                                router.push("/admin/rhu/consultations");
-                            } else {
-                                router.push(`/admin/rhu/consultations?checkupType=${encodeURIComponent(cat.id)}`);
-                            }
-                        }}
-                        className={cn(
-                            "px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border",
-                            checkupFilter === cat.id
-                                ? "bg-rose-500 text-white border-rose-500 shadow-md scale-105"
-                                : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-rose-400"
-                        )}
-                    >
-                        {cat.label}
-                    </button>
-                ))}
-            </div>
+            <ResponsiveTabs
+                tabs={CHECKUP_TYPES}
+                activeTab={checkupFilter}
+                onTabSelect={(id) => {
+                    setCheckupFilter(id);
+                    setPage(1);
+                    if (id === "ALL") {
+                        router.push("/admin/rhu/consultations");
+                    } else {
+                        router.push(`/admin/rhu/consultations?checkupType=${encodeURIComponent(id)}`);
+                    }
+                }}
+            />
 
             {/* Filter & Table Container */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/10 p-6 shadow-sm space-y-6">

@@ -342,18 +342,21 @@ export default function BFPEvaluationPage({ params }: PageProps) {
             toast.error("Please upload the BFP Clearance first.");
             return;
         }
+        if (actionLoading) return;
         setActionLoading(true);
         try {
             const res = await saveBfpClearanceProofAction(id, bfpClearanceUrl);
             if (res.success) {
                 toast.success("BFP Clearance submitted to Engineer!");
                 router.push(backUrl);
+                // Don't set actionLoading to false so the button stays disabled during navigation
+                return;
             } else {
                 toast.error(res.error || "Failed to submit clearance.");
+                setActionLoading(false);
             }
         } catch {
             toast.error("Error occurred");
-        } finally {
             setActionLoading(false);
         }
     };

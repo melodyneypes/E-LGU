@@ -76,12 +76,29 @@ function getZoningTransactionUrl(tx: any): string {
     if (tx.isCancelled || tx.status === "CANCELLED") {
         return `/admin/zoning/${tx.id}/evaluation?view=true`;
     }
+    
+    const zoningStatus = tx.additionalData?.zoningStatus;
+    
+    if (zoningStatus === "FOR_INSPECTION") {
+        return `/admin/zoning/${tx.id}/inspection`;
+    }
+    if (zoningStatus === "FOR_REINSPECTION") {
+        return `/admin/zoning/${tx.id}/reinspection`;
+    }
+    
+    // If Zoning hasn't finished their own evaluation, always go to evaluation phase
+    if (!zoningStatus || zoningStatus === "PENDING" || zoningStatus === "FOR_REQUESTING" || zoningStatus === "FOR_REVISION") {
+        return `/admin/zoning/${tx.id}/evaluation`;
+    }
+
     if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_REVISION" || tx.status === "REJECTED") {
         return `/admin/zoning/${tx.id}/evaluation`;
     }
+    
     if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(tx.status)) {
         return `/admin/zoning/${tx.id}/fees`;
     }
+    
     return `/admin/zoning/${tx.id}`;
 }
 
