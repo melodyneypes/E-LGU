@@ -129,6 +129,7 @@ export default function BploDetailPage({ params }: PageProps) {
     }, [eCopyFile]);
     const [isResolvingDispute, setIsResolvingDispute] = useState(false);
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
+    const [isConfirmReleaseModalOpen, setIsConfirmReleaseModalOpen] = useState(false);
     const [disputeAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
 
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
@@ -723,12 +724,16 @@ export default function BploDetailPage({ params }: PageProps) {
     const isRenewal = additional.businessType === "RENEWAL" || additional.businessType === "RENEW";
 
     const isProcessing = transaction.status === "FOR_PROCESSING";
+    const isClaiming = transaction.status === "FOR_CLAIM";
     const hasFile = !!eCopyFile || (transaction.eCopyUrl && transaction.eCopyUrl !== "null" && transaction.eCopyUrl !== "undefined" && transaction.eCopyUrl !== "");
-    const isButtonDisabled = isProcessing ? (
-        (!isRenewal && !permitNumberInput.trim()) ||
-        !hasFile ||
-        !stickerNumber.trim()
-    ) : false;
+    const effectivePermitNumber = permitNumberInput.trim() || transaction.businessPermit?.permitNumber?.trim() || additional.permitNumber?.trim() || "";
+    const effectiveStickerNumber = stickerNumber.trim() || transaction.businessPermit?.stickerNumber?.trim() || additional.stickerNumber?.trim() || "";
+
+    const isButtonDisabled = isProcessing
+        ? ((!isRenewal && !effectivePermitNumber) || !hasFile || !effectiveStickerNumber)
+        : isClaiming
+            ? ((!isRenewal && !effectivePermitNumber) || !effectiveStickerNumber)
+            : false;
     const isDelivery = transaction.fulfillmentType === "DELIVERY";
     const buttonText = transaction.status === "FOR_CLAIM"
         ? "Release the Document"
@@ -1683,7 +1688,7 @@ export default function BploDetailPage({ params }: PageProps) {
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                            Sticker Number {isProcessing ? <span className="text-rose-500 font-bold">*</span> : "(Optional)"}
+                                            Sticker Number {(isProcessing || isClaiming) ? <span className="text-rose-500 font-bold">*</span> : "(Optional)"}
                                         </Label>
                                         <Input
                                             value={stickerNumber}
@@ -1709,7 +1714,8 @@ export default function BploDetailPage({ params }: PageProps) {
 
                                 {!isReadOnly && (
                                     <Button
-                                        onClick={handleRelease}
+                                        type="button"
+                                        onClick={() => setIsConfirmReleaseModalOpen(true)}
                                         disabled={actionLoading || isButtonDisabled}
                                         className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider"
                                     >
@@ -1829,6 +1835,109 @@ export default function BploDetailPage({ params }: PageProps) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Document Details Verification & Release Confirmation Modal */}
+            {isConfirmReleaseModalOpen && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] shadow-2xl border border-slate-100 dark:border-white/10 w-full max-w-lg p-7 space-y-6 animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl shrink-0">
+                                🏢
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black italic uppercase tracking-tight text-slate-850 dark:text-white">
+                                    Verify Permit Details Before Release
+                                </h3>
+                                <p className="text-xs text-slate-400 font-medium">
+                                    Double-check permit number and sticker serial before finalizing.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Summary Verification Cards */}
+                        <div className="space-y-3">
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3 text-xs">
+                                {/* Business Name */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Business Enterprise</span>
+                                    <span className="font-black text-slate-900 dark:text-white uppercase truncate max-w-[220px]">
+                                        {transaction.businessName || additional.businessName || additional.tradeName || "N/A"}
+                                    </span>
+                                </div>
+
+                                {/* Applicant / Owner Name */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Applicant / Owner</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                        {resident.firstName ? `${resident.firstName} ${resident.lastName || ""}` : (transaction.user?.name || "N/A")}
+                                    </span>
+                                </div>
+
+                                {/* Service Name / Type */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Application Type</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                                        {transaction.type?.name || "Mayor's Business Permit"} ({additional.businessType || "NEW"})
+                                    </span>
+                                </div>
+
+                                {/* License Business Permit Number */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Permit Number #</span>
+                                    <span className="font-black text-primary font-mono bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                                        {permitNumberInput?.trim() || transaction.businessPermit?.permitNumber || "N/A"}
+                                    </span>
+                                </div>
+
+                                {/* Sticker Number */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Sticker Serial #</span>
+                                    <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
+                                        {stickerNumber?.trim() || transaction.businessPermit?.stickerNumber || additional.stickerNumber || "N/A"}
+                                    </span>
+                                </div>
+
+                                {/* Fulfillment Mode */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Fulfillment Mode</span>
+                                    <span className="font-black px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-slate-200/60 dark:bg-white/10 text-slate-700 dark:text-slate-200">
+                                        {transaction.fulfillmentType === "DELIVERY" ? "🚚 Rider Delivery" : "🏢 Office Claiming"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium text-center italic leading-relaxed">
+                                Please confirm that all permit details are accurate before updating this transaction.
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsConfirmReleaseModalOpen(false)}
+                                disabled={actionLoading}
+                                className="flex-1 rounded-xl border-slate-200 dark:border-white/10 font-bold py-6 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+                            >
+                                Edit / Go Back
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={async () => {
+                                    setIsConfirmReleaseModalOpen(false);
+                                    await handleRelease();
+                                }}
+                                disabled={actionLoading}
+                                className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-white font-black italic uppercase tracking-wider py-6 shadow-lg shadow-primary/20"
+                            >
+                                {actionLoading ? "Releasing..." : "Confirm & Release"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Document Viewer Modal for premium visual quality previews */}
             <DocumentViewerModal

@@ -126,6 +126,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
     const [paymentReference, setPaymentReference] = React.useState('');
+    const [isConfirmPaidModalOpen, setIsConfirmPaidModalOpen] = React.useState(false);
 
     const isCedula = transaction.type?.code?.includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
@@ -834,11 +835,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         </div>
 
                                         <Button
-                                            onClick={async () => {
-                                                if (handleOnsitePayment) {
-                                                    await handleOnsitePayment(paymentMethod, undefined, paymentMethod !== "CASH" ? paymentReference : undefined);
-                                                }
-                                            }}
+                                            type="button"
+                                            onClick={() => setIsConfirmPaidModalOpen(true)}
                                             disabled={actionLoading || hasInvalidFees || !orSeriesNumber?.trim() || (isCedula && !ctcNumber?.trim()) || (paymentMethod !== "CASH" && !paymentReference.trim())}
                                             title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : (!orSeriesNumber?.trim() ? "Official Receipt (OR) Number is required." : (isCedula && !ctcNumber?.trim() ? "CTC booklet number is required for Cedula." : (paymentMethod !== "CASH" && !paymentReference.trim() ? `${paymentMethod} reference number is required.` : undefined)))}
                                             className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
@@ -1179,6 +1177,123 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                 handleReject={handleReject}
                 handleRequestRevision={transaction.status === "PAID" ? handleDeclinePaymentProof : handleRequestRevision}
             />
+
+            {/* Confirmation & Details Verification Modal for "Mark as Paid & Released" */}
+            {isConfirmPaidModalOpen && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] shadow-2xl border border-slate-100 dark:border-white/10 w-full max-w-lg p-7 space-y-6 animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-bold text-xl shrink-0">
+                                🧾
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black italic uppercase tracking-tight text-slate-850 dark:text-white">
+                                    Verify Payment & Release Details
+                                </h3>
+                                <p className="text-xs text-slate-400 font-medium">
+                                    Double-check details before finalizing this official transaction.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Summary Verification Cards */}
+                        <div className="space-y-3">
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3 text-xs">
+                                {/* Applicant Name */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Applicant / Payor</span>
+                                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase">
+                                        {resident.firstName ? `${resident.firstName} ${resident.lastName || ""}` : (transaction.user?.name || "N/A")}
+                                    </span>
+                                </div>
+
+                                {/* Service Name */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Service</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                                        {transaction.type?.name || "Official Transaction"}
+                                    </span>
+                                </div>
+
+                                {/* Total Amount */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Amount Collected</span>
+                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                                        ₱{adjustedTotalAmount.toFixed(2)}
+                                    </span>
+                                </div>
+
+                                {/* Payment Method */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Payment Method</span>
+                                    <span className="font-black px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                                        {paymentMethod}
+                                    </span>
+                                </div>
+
+                                {/* Official Receipt (OR) Number */}
+                                <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Official Receipt (OR) #</span>
+                                    <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
+                                        {orSeriesNumber?.trim() || "N/A"}
+                                    </span>
+                                </div>
+
+                                {/* Reference Number (for GCASH / LANDBANK) */}
+                                {paymentMethod !== "CASH" && (
+                                    <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">{paymentMethod} Reference #</span>
+                                        <span className="font-black text-primary font-mono bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                                            {paymentReference?.trim() || "N/A"}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* CTC Number (for Cedula) */}
+                                {isCedula && (
+                                    <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">CTC Booklet #</span>
+                                        <span className="font-black text-amber-600 dark:text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                            {ctcNumber?.trim() || "N/A"}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium text-center italic leading-relaxed">
+                                Please confirm that the entered Official Receipt and Booklet numbers match the physical documents issued to the citizen.
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsConfirmPaidModalOpen(false)}
+                                disabled={actionLoading}
+                                className="flex-1 rounded-xl border-slate-200 dark:border-white/10 font-bold py-6 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+                            >
+                                Edit / Go Back
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={async () => {
+                                    if (handleOnsitePayment) {
+                                        await handleOnsitePayment(paymentMethod, undefined, paymentMethod !== "CASH" ? paymentReference : undefined);
+                                    }
+                                    setIsConfirmPaidModalOpen(false);
+                                }}
+                                disabled={actionLoading}
+                                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-wider py-6 shadow-lg shadow-emerald-600/20"
+                            >
+                                {actionLoading ? "Finalizing..." : "Confirm & Release"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

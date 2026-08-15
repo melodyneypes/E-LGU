@@ -69,8 +69,12 @@ function isTicketForToday(tx: any): boolean {
         return false;
     }
 
-    // Rule 3: If appointmentDate column is present, it must also equal today's date
-    if (tx?.appointmentDate) {
+    // Rule 3: For standard single-day appointments, appointmentDate must match today.
+    // Multi-day workflows (Business Permits, POSO fines, UNPAID payment check-ins) are allowed based on their check-in today.
+    const isBusinessPermit = (tx.type?.category || "").toUpperCase().includes("BUSINESS") || (tx.type?.code || "").toUpperCase().startsWith("BUSINESS_PERMIT");
+    const isMultiDayService = isBusinessPermit || ["UNPAID", "PAID", "FOR_CLAIM", "EVALUATED", "FOR_PAYMENT"].includes(tx.status);
+
+    if (tx?.appointmentDate && !isMultiDayService) {
         const apptDate = new Date(tx.appointmentDate);
         if (
             isNaN(apptDate.getTime()) ||
