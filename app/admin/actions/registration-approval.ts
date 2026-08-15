@@ -172,6 +172,13 @@ export async function checkDuplicateResident(
     middleName: string | null
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        const role = (session?.user as any)?.role;
+        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+        if (!session?.user || !role || !allowedRoles.includes(role)) {
+            return { success: false, error: "Unauthorized: Access denied." };
+        }
+
         const duplicates = await prisma.resident.findMany({
             where: {
                 firstName: { equals: firstName.trim(), mode: "insensitive" },
@@ -200,6 +207,13 @@ export async function checkDuplicateResident(
 
 export async function checkDuplicateResidentName(firstName: string, lastName: string) {
     try {
+        const session = await getServerSession(authOptions);
+        const role = (session?.user as any)?.role;
+        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+        if (!session?.user || !role || !allowedRoles.includes(role)) {
+            return { success: false, error: "Unauthorized: Access denied." };
+        }
+
         const duplicates = await prisma.resident.findMany({
             where: {
                 firstName: { equals: firstName.trim(), mode: "insensitive" },

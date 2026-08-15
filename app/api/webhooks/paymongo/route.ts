@@ -5,10 +5,9 @@ import crypto from "crypto";
 import { clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
 
 async function verifySignature(header: string | null, secret: string, payload: string) {
-  if (!header) return false;
+  if (!header || !secret) return false;
 
-  // Parse header into key/value pairs (e.g. 't=...,te=...,v1=...')
-  const rawHeader = header;
+  // 1. Extract key-value pairs from PayMongo signature header (e.g. 't=1620000000,te=abcdef...', 'v1=...', 'li=...')
   const kv: Record<string, string> = {};
   try {
     const parts = header.split(",").map((p) => p.trim()).filter(Boolean);
@@ -18,79 +17,46 @@ async function verifySignature(header: string | null, secret: string, payload: s
         const k = p.slice(0, idx).trim().toLowerCase();
         const v = p.slice(idx + 1).trim();
         kv[k] = v;
-      } else {
-        // whole header might just be the signature
-        kv["signature"] = p;
       }
     }
   } catch {
-    // ignore parsing errors
+    return false;
   }
-
-  const sigCandidates: string[] = [];
-  if (kv["v1"]) sigCandidates.push(kv["v1"]);
-  if (kv["te"]) sigCandidates.push(kv["te"]);
-  if (kv["sig"]) sigCandidates.push(kv["sig"]);
-  if (kv["signature"]) sigCandidates.push(kv["signature"]);
-  // as last resort include the raw header
-  sigCandidates.push(rawHeader);
 
   const timestamp = kv["t"] || kv["ts"] || "";
+  const signatures: string[] = [];
 
-  // Try several payload forms: raw body, timestamp-prefixed variants, and normalized JSON
-  const variants: string[] = [payload];
+  // PayMongo provides test environment signature (te) or live environment signature (li) or v1
+  if (kv["te"]) signatures.push(kv["te"]);
+  if (kv["li"]) signatures.push(kv["li"]);
+  if (kv["v1"]) signatures.push(kv["v1"]);
+  if (kv["sig"]) signatures.push(kv["sig"]);
+
+  if (signatures.length === 0) return false;
+
+  // Construct official PayMongo signed payload: "${timestamp}.${rawBody}" or rawBody fallback
+  const candidatesToVerify: string[] = [];
   if (timestamp) {
-    variants.push(`${timestamp}.${payload}`);
-    variants.push(`${timestamp}${payload}`);
-    variants.push(`${payload}.${timestamp}`);
+    candidatesToVerify.push(`${timestamp}.${payload}`);
   }
-  try {
-    const parsed = JSON.parse(payload);
-    variants.push(JSON.stringify(parsed));
-  } catch { }
+  candidatesToVerify.push(payload);
 
-  for (const variant of variants) {
-    const hmac = crypto.createHmac("sha256", secret).update(variant).digest();
-    const hex = hmac.toString("hex");
-    const b64 = hmac.toString("base64");
+  for (const candidate of candidatesToVerify) {
+    const computedHmacHex = crypto.createHmac("sha256", secret).update(candidate).digest("hex");
+    const computedBuffer = Buffer.from(computedHmacHex, "utf8");
 
-    console.log("[PayMongo Webhook] verifySignature try variant length=", variant.length);
-    console.log("[PayMongo Webhook] verifySignature computedHex:", hex);
-    console.log("[PayMongo Webhook] verifySignature computedBase64:", b64);
-
-    for (const sig of sigCandidates) {
+    for (const sig of signatures) {
       if (!sig) continue;
-      // Try hex compare
-      try {
-        const sigBufHex = Buffer.from(sig, "hex");
-        if (sigBufHex.length === hmac.length && crypto.timingSafeEqual(sigBufHex, hmac)) {
-          console.log("[PayMongo Webhook] verifySignature: hex match");
-          return true;
-        }
-      } catch {
-        // not hex
-      }
+      const sigBuffer = Buffer.from(sig, "utf8");
 
-      // Try base64 compare
-      try {
-        const sigBufB64 = Buffer.from(sig, "base64");
-        if (sigBufB64.length === hmac.length && crypto.timingSafeEqual(sigBufB64, hmac)) {
-          console.log("[PayMongo Webhook] verifySignature: base64 match");
-          return true;
-        }
-      } catch {
-        // not base64
-      }
-
-      // Fallback string compare
-      if (sig === hex || sig === b64 || sig === header) { 
-        console.log("[PayMongo Webhook] verifySignature: string fallback match");
+      if (computedBuffer.length === sigBuffer.length && crypto.timingSafeEqual(computedBuffer, sigBuffer)) {
+        console.log("[PayMongo Webhook] Signature verified successfully via timing-safe HMAC SHA-256.");
         return true;
       }
     }
   }
 
-  console.log("[PayMongo Webhook] verifySignature: no match found among candidates");
+  console.warn("[PayMongo Webhook] Signature verification failed: invalid signature hash.");
   return false;
 }
 
@@ -121,7 +87,7 @@ export async function POST(request: Request) {
     const raw = await request.text();
 
     const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET;
-    
+
     // In production, signature verification MUST be active. If secret is missing, reject the webhook.
     const isProduction = process.env.NODE_ENV === "production";
     if (isProduction && !webhookSecret) {
@@ -276,95 +242,21 @@ export async function POST(request: Request) {
         },
       });
 
-      const actualPaidAmountPhp = (Number(payAttrs?.amount || 0) || 0) / 100;
-      const updatedAdditional = {
-          ...(tx.additionalData as any || {}),
-          paymongo: {
-              ...((tx.additionalData as any)?.paymongo || {}),
-              paymentId,
-              lastPayment: resource
-          }
-      };
+      const updatedAdditional = { ...(tx.additionalData as any || {}), paymongo: { ...((tx.additionalData as any)?.paymongo || {}), paymentId, lastPayment: resource } };
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (paymentStatus === "PAID") {
         txUpdate.status = "PAID";
         txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
-
-        // Record actual paid amount in transaction totalAmount if paid amount is valid
-        if (actualPaidAmountPhp > 0) {
-            txUpdate.totalAmount = actualPaidAmountPhp;
-        }
-
-        // Calculate and snapshot penalty breakdown if associated with a POSO Citation Ticket
-        try {
-            const ticket = await prisma.ticketHeader.findFirst({
-                where: {
-                    OR: [
-                        { transactionId: transactionId },
-                        { id: (tx.additionalData as any)?.ticketId || transactionId },
-                        { ticketNo: (tx.additionalData as any)?.ticketNo || "" }
-                    ]
-                }
-            });
-
-            if (ticket) {
-                const { getPosoPenaltySettings, calculatePosoTicketPenalty } = await import("@/app/admin/poso/actions");
-                const settingsRes = await getPosoPenaltySettings();
-                if (settingsRes?.settings) {
-                    const breakdown = await calculatePosoTicketPenalty(ticket, settingsRes.settings);
-                    
-                    // Attach full receipt snapshot to additionalData
-                    updatedAdditional.penaltyBreakdown = {
-                        baseFine: breakdown.baseFine,
-                        impoundFee: breakdown.impoundFee,
-                        subtotal: breakdown.subtotal,
-                        isOverdue: breakdown.isOverdue,
-                        daysOverdue: breakdown.daysOverdue,
-                        monthsOverdue: breakdown.monthsOverdue,
-                        surchargeRate: breakdown.surchargeRate,
-                        surchargeAmount: breakdown.surchargeAmount,
-                        monthlyInterestRate: breakdown.monthlyInterestRate,
-                        interestAmount: breakdown.interestAmount,
-                        totalPenalty: breakdown.totalPenalty,
-                        grandTotalPayable: actualPaidAmountPhp || breakdown.grandTotalPayable,
-                        paidAt: new Date().toISOString()
-                    };
-
-                    txUpdate.fiscalSnapshot = {
-                        baseFineTotal: breakdown.subtotal,
-                        impoundFee: breakdown.impoundFee,
-                        surchargeAmount: breakdown.surchargeAmount,
-                        interestAmount: breakdown.interestAmount,
-                        totalAmount: actualPaidAmountPhp || breakdown.grandTotalPayable
-                    };
-                }
-
-                // Update TicketHeader totalAmount to match total paid amount
-                await prisma.ticketHeader.updateMany({
-                    where: {
-                        OR: [
-                            { transactionId: transactionId },
-                            { id: ticket.id }
-                        ]
-                    },
-                    data: {
-                        status: "PAID",
-                        isPaid: true,
-                        totalAmount: actualPaidAmountPhp > 0 ? actualPaidAmountPhp : ticket.totalAmount,
-                        updatedAt: new Date()
-                    },
-                });
-            }
-        } catch (breakdownErr) {
-            console.warn("[PayMongo Webhook] Penalty breakdown snapshot error:", breakdownErr);
-        }
-
         if (tx.userId) {
           const categoryKey = (tx as any).type?.category || (tx as any).type?.code;
           clearCategoryRejection(tx.userId, categoryKey).catch(e => console.error("[PayMongo Webhook] Rejection reset error:", e));
         }
         try {
+          await prisma.ticketHeader.updateMany({
+            where: { transactionId },
+            data: { status: "PAID", isPaid: true, updatedAt: new Date() },
+          });
           revalidatePath("/admin/poso/tickets");
           revalidatePath("/poso/mapandan");
         } catch (tErr) {
@@ -419,7 +311,7 @@ export async function POST(request: Request) {
         if (billingSource.name) billing.name = billingSource.name;
         if (billingSource.email) billing.email = billingSource.email;
         if (billingSource.phone) billing.phone = billingSource.phone;
-        
+
         if (metadata?.payerName || metadata?.name) billing.name = metadata.payerName || metadata.name;
         if (metadata?.payerEmail || metadata?.email) billing.email = metadata.payerEmail || metadata.email;
         if (metadata?.payerPhone || metadata?.phone) billing.phone = metadata.payerPhone || metadata.phone;

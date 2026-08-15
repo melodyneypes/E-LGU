@@ -64,10 +64,10 @@ export async function POST(request: Request) {
             }
 
             if (officialAmount !== null && officialAmount > 0) {
-                // Enforce server-side database & dynamic penalty price override! (Client input is 100% ignored)
+                // Enforce server-side database & dynamic penalty price override!
                 amountNum = officialAmount;
             } else {
-                return NextResponse.json({ error: 'Transaction or Citation Ticket record not found' }, { status: 404 });
+                return NextResponse.json({ error: 'Transaction or Ticket record not found' }, { status: 404 });
             }
         }
 

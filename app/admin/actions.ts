@@ -21,7 +21,7 @@ async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
     const role = (session?.user as any)?.role;
     const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
-    if (!session || (role && !allowedRoles.includes(role))) {
+    if (!session?.user || !role || !allowedRoles.includes(role)) {
         throw new Error("Unauthorized: Access denied.");
     }
     return session.user;
