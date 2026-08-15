@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, copyToClipboard } from "@/lib/utils";
 import { toast } from "sonner";
 import {
     Breadcrumb,
@@ -97,10 +97,10 @@ export function RHUClient({
         { name: "Municipal Health Officer", number: "0920-123-4567" }
     ];
 
-    const copyHotline = (number: string) => {
-        navigator.clipboard.writeText(number);
+    const handleHotlineCall = async (number: string) => {
+        await copyToClipboard(number);
         setCopiedHotline(number);
-        toast.success(`Copied hotline: ${number}`);
+        toast.success(`Connecting to hotline: ${number}`);
         setTimeout(() => setCopiedHotline(null), 2000);
     };
 
@@ -588,31 +588,46 @@ export function RHUClient({
                             <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic">Direct Emergency Hotlines</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {dispatchHotlines.map((hotline, idx) => {
+                                    const isCopied = copiedHotline === hotline.number;
+                                    const cleanNumber = hotline.number.replace(/[^0-9+]/g, "");
                                     const name = (hotline.name || "").toLowerCase();
-                                    const Icon = name.includes("rhu") 
-                                        ? PhoneCall 
-                                        : name.includes("mdrrmo") 
-                                            ? AlertCircle 
-                                            : User;
+                                    const Icon = isCopied
+                                        ? CheckCircle2
+                                        : name.includes("rhu") 
+                                            ? PhoneCall 
+                                            : name.includes("mdrrmo") 
+                                                ? AlertCircle 
+                                                : User;
                                     return (
-                                        <div
+                                        <a
                                             key={idx}
-                                            onClick={() => copyHotline(hotline.number)}
-                                            className="p-4 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-amber-500/40 cursor-pointer flex items-center gap-3 transition-all group"
+                                            href={`tel:${cleanNumber}`}
+                                            onClick={() => handleHotlineCall(hotline.number)}
+                                            className="p-4 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-amber-500/40 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline"
                                         >
-                                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500 transition-colors duration-200">
-                                                <Icon className="w-4 h-4 text-amber-600 dark:text-amber-500 group-hover:text-white" />
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+                                                isCopied 
+                                                    ? "bg-emerald-500 text-white dark:bg-emerald-500 dark:text-white shadow-md shadow-emerald-500/20" 
+                                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white dark:group-hover:bg-amber-500 dark:group-hover:text-white"
+                                            )}>
+                                                <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 group-hover:text-amber-500 transition-colors block truncate">{hotline.name}</span>
+                                                <span className={cn(
+                                                    "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
+                                                    isCopied ? "text-emerald-500" : "text-slate-400 group-hover:text-amber-500"
+                                                )}>
+                                                    {hotline.name}
+                                                </span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-black tracking-tight text-slate-800 dark:text-white">{hotline.number}</span>
-                                                    {copiedHotline === hotline.number && (
-                                                        <span className="text-[8px] font-bold text-emerald-500 italic animate-pulse">Copied</span>
+                                                    {isCopied && (
+                                                        <span className="text-[8px] font-bold text-emerald-500 italic animate-pulse">Dialing...</span>
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
+                                        </a>
                                     );
                                 })}
                             </div>

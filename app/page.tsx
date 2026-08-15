@@ -36,6 +36,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 
 // import { ensureBusinessPermitTransactionTypes, ensureCivilRegistryTransactionTypes, ensureBuildingPermitTransactionTypes } from "@/app/admin/transactions/actions";
 
@@ -271,6 +272,10 @@ export default async function Home({
         where: { isActive: true },
             orderBy: { order: "asc" }
         });
+
+    const ambulanceRes = await getAmbulanceSettings();
+    const initialFleet = ambulanceRes.success && ambulanceRes.fleet ? ambulanceRes.fleet : [];
+    const initialDispatchHotlines = ambulanceRes.success && ambulanceRes.hotlines ? ambulanceRes.hotlines : [];
         // Fetch ONLY Main Church (Global) context for the Landing Page
 
     const churchInfo = await (prisma as any).churchInfo.findFirst({
@@ -492,7 +497,13 @@ export default async function Home({
             )}
             {showEmergency && (
                 <ClientOnly delay={1000} fallback={<EmergencyReportSkeleton />}>
-                    <EmergencyReport initialHotlines={hotlines} showMap={showMap} isMaintenanceActive={maintenance} />
+                    <EmergencyReport 
+                        initialHotlines={hotlines} 
+                        initialFleet={initialFleet}
+                        initialDispatchHotlines={initialDispatchHotlines}
+                        showMap={showMap} 
+                        isMaintenanceActive={maintenance} 
+                    />
                 </ClientOnly>
             )}
             <Footer

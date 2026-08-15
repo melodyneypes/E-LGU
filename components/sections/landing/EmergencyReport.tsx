@@ -1,11 +1,31 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Siren, Flame, HeartPulse, AlertCircle, Info, Copy, Smartphone, Phone, MapPin, CloudLightning } from "lucide-react";
+import { 
+    Siren, 
+    Flame, 
+    HeartPulse, 
+    AlertCircle, 
+    Info, 
+    Copy, 
+    Smartphone, 
+    Phone, 
+    MapPin, 
+    CloudLightning,
+    Truck,
+    PhoneCall,
+    CheckCircle2,
+    User,
+    ExternalLink,
+    Car
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import MapandanMapWrapper from "@/components/maps/MapandanMapWrapper";
+import { copyToClipboard as safeCopyToClipboard, cn } from "@/lib/utils";
+import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 
 import { ReportForm } from "./ReportForm";
 
@@ -18,8 +38,68 @@ interface InitialHotline {
     address: string | null;
 }
 
-export function EmergencyReport({ initialHotlines = [], showMap = true, isMaintenanceActive = false }: { initialHotlines?: InitialHotline[], showMap?: boolean, isMaintenanceActive?: boolean }) {
+interface InitialAmbulance {
+    id?: string;
+    unit: string;
+    plateNumber: string;
+    station: string;
+    status: string;
+    statusColor?: string;
+}
+
+interface InitialDispatchHotline {
+    id?: string;
+    name: string;
+    number: string;
+}
+
+const defaultFleet: InitialAmbulance[] = [
+    {
+        unit: "Ambulance Unit 1 (Foton Transporter)",
+        plateNumber: "SAB-1234",
+        station: "Poblacion Main Station",
+        status: "STANDBY",
+        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+    },
+    {
+        unit: "Ambulance Unit 2 (Toyota Hiace)",
+        plateNumber: "SAB-5678",
+        station: "Luyan South Station",
+        status: "ON DUTY",
+        statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20"
+    },
+    {
+        unit: "Ambulance Unit 3 (Barangay Response)",
+        plateNumber: "SAB-9012",
+        station: "Nilombot Station",
+        status: "STANDBY",
+        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+    }
+];
+
+const defaultDispatchHotlines: InitialDispatchHotline[] = [
+    { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
+    { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
+    { name: "Municipal Health Officer", number: "0920-123-4567" }
+];
+
+export function EmergencyReport({ 
+    initialHotlines = [], 
+    initialFleet = [],
+    initialDispatchHotlines = [],
+    showMap = true, 
+    isMaintenanceActive = false 
+}: { 
+    initialHotlines?: InitialHotline[];
+    initialFleet?: InitialAmbulance[];
+    initialDispatchHotlines?: InitialDispatchHotline[];
+    showMap?: boolean;
+    isMaintenanceActive?: boolean;
+}) {
     const [copied, setCopied] = React.useState<string | null>(null);
+    const [copiedDispatch, setCopiedDispatch] = React.useState<string | null>(null);
+    const [fleet, setFleet] = React.useState<InitialAmbulance[]>(initialFleet.length > 0 ? initialFleet : defaultFleet);
+    const [dispatchHotlines, setDispatchHotlines] = React.useState<InitialDispatchHotline[]>(initialDispatchHotlines.length > 0 ? initialDispatchHotlines : defaultDispatchHotlines);
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
     React.useEffect(() => {
@@ -28,6 +108,18 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Sync from database if initial props were empty
+    React.useEffect(() => {
+        if (initialFleet.length === 0 || initialDispatchHotlines.length === 0) {
+            getAmbulanceSettings().then((res) => {
+                if (res.success) {
+                    if (res.fleet && res.fleet.length > 0) setFleet(res.fleet);
+                    if (res.hotlines && res.hotlines.length > 0) setDispatchHotlines(res.hotlines);
+                }
+            }).catch(() => {});
+        }
+    }, [initialFleet.length, initialDispatchHotlines.length]);
 
     const getIcon = (category: string) => {
         const cat = category?.toLowerCase() || "";
@@ -38,20 +130,32 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
         return Info;
     };
 
-    const copyToClipboard = (number: string, name: string) => {
+    const copyToClipboard = async (number: string, name: string) => {
         if (!number) return;
-        navigator.clipboard.writeText(number);
+        await safeCopyToClipboard(number);
         setCopied(number);
         toast.success(`Copied ${name}'s number: ${number}`);
         setTimeout(() => setCopied(null), 2000);
     };
 
+    const handleDispatchCall = async (number: string) => {
+        if (!number) return;
+        await safeCopyToClipboard(number);
+        setCopiedDispatch(number);
+        toast.success(`Connecting to hotline: ${number}`);
+        setTimeout(() => setCopiedDispatch(null), 2000);
+    };
+
+    const standbyCount = fleet.filter(f => f.status === "STANDBY").length;
+    const onDutyCount = fleet.filter(f => f.status === "ON DUTY").length;
+
     return (
-        <section id="hotlines" className="pt-8 md:pt-12 pb-12 md:pb-24 px-6 bg-slate-950 text-white relative">
+        <section id="hotlines" className="pt-8 md:pt-12 pb-16 md:pb-28 px-6 bg-slate-950 text-white relative">
             {/* Ambient Background Effects */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full" />
                 <div className="absolute bottom-0 left-0 w-[30%] h-[30%] bg-red-600/5 blur-[100px] rounded-full" />
+                <div className="absolute top-1/2 right-1/4 w-[25%] h-[25%] bg-amber-500/5 blur-[100px] rounded-full" />
             </div>
 
             {/* Disaster Monitoring (Side by Side Maps) */}
@@ -64,8 +168,8 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
                                 <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">Map Monitoring</h2>
                             </div>
                             <p className="text-slate-400 font-medium italic max-w-lg">
-                            Real-time visualization of regional weather patterns.
-                        </p>
+                                Real-time visualization of regional weather patterns.
+                            </p>
                         </div>
                     </div>
 
@@ -93,7 +197,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
                                     width="100%" 
                                     height="100%" 
                                     src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=5&overlay=wind&product=ecmwf&level=surface&lat=12.8797&lon=121.7740" 
-                                    frameBorder="0"
+                                    frameBorder="0" 
                                     title="Live Weather Map"
                                     loading="lazy"
                                     className="absolute inset-0"
@@ -110,7 +214,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
                                     width="100%" 
                                     height="100%" 
                                     src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=5&overlay=wind&product=ecmwf&level=surface&lat=12.8797&lon=121.7740" 
-                                    frameBorder="0"
+                                    frameBorder="0" 
                                     title="Live Weather Map"
                                     loading="lazy"
                                     className="absolute inset-0"
@@ -121,11 +225,12 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
                 </div>
             )}
 
-            {/* Emergency Hotlines Container */}
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 relative z-10">
-                <div className="space-y-12">
-                    <div className="space-y-4 sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
-                        <div className="flex items-center gap-3">
+            {/* Main Hotlines & Report Grid */}
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 relative z-10 items-start">
+                {/* Emergency Hotlines Section */}
+                <div className="space-y-6 md:space-y-8">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
                             <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
                             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">Emergency Hotlines</h2>
                         </div>
@@ -246,6 +351,154 @@ export function EmergencyReport({ initialHotlines = [], showMap = true, isMainte
                         <ReportForm isMaintenanceActive={isMaintenanceActive} />
                     </motion.div>
                 )}
+            </div>
+
+            {/* ======================================================== */}
+            {/* AMBULANCE FLEET & DISPATCH STATUS SECTION (BELOW REPORTS) */}
+            {/* ======================================================== */}
+            <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-white/10 relative z-10 scroll-mt-24">
+                <div className="bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-amber-500/20 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-2xl relative overflow-hidden">
+                    {/* Background glow effects */}
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-600/5 rounded-full blur-[80px] pointer-events-none" />
+
+                    {/* Section Header */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-white/10 relative z-10">
+                        <div className="space-y-3">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest">
+                                <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white">
+                                    Ambulance Fleet & <span className="text-amber-500">Dispatch</span>
+                                </h3>
+                            </div>
+                            <p className="text-xs sm:text-sm font-medium italic text-slate-400 max-w-xl">
+                                Real-time readiness monitoring for Mapandan Rural Health Unit ambulances and rapid emergency response teams.
+                            </p>
+                        </div>
+
+                        {/* Summary Badges & Link */}
+                        <div className="flex flex-wrap items-center gap-3 shrink-0">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                {standbyCount} Standby
+                            </span>
+                            {onDutyCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-xl">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                    {onDutyCount} On Duty
+                                </span>
+                            )}
+                            <Link
+                                href="/user/services/rural-health-unit"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3.5 py-1.5 rounded-xl transition-all active:scale-95"
+                            >
+                                <span>RHU Medical Hub</span>
+                                <ExternalLink className="w-3 h-3" />
+                            </Link>
+                        </div>
+                    </div>
+
+                    {/* Active Fleet Grid */}
+                    <div className="space-y-6 relative z-10">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            {fleet.map((vehicle, idx) => (
+                                <div
+                                    key={idx}
+                                    className="p-5 rounded-2xl md:rounded-3xl bg-white/[0.03] border border-white/10 hover:border-amber-500/40 hover:bg-white/[0.06] transition-all flex flex-col justify-between space-y-4 group relative"
+                                >
+                                    <div className="space-y-3">
+                                        {/* Unit Name & Plate */}
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                <Car className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="text-xs font-black uppercase tracking-tight text-white truncate">
+                                                    {vehicle.unit}
+                                                </h4>
+                                                <div className="inline-block mt-1 px-2 py-0.5 rounded-md bg-black/40 border border-white/10 font-mono text-[9px] font-bold tracking-widest text-amber-400">
+                                                    {vehicle.plateNumber || "NO PLATE"}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Station */}
+                                        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 bg-black/20 p-2.5 rounded-xl border border-white/5">
+                                            <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                            <span className="truncate">{vehicle.station || "Main Station"}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Status</span>
+                                        <span className={cn(
+                                            "text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded-full",
+                                            vehicle.statusColor || "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                        )}>
+                                            {vehicle.status}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Direct Emergency Dispatch Contact Directory */}
+                        <div className="pt-6 border-t border-white/10 space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic flex items-center gap-2">
+                                <PhoneCall className="w-3.5 h-3.5 text-amber-500" /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {dispatchHotlines.map((hotline, idx) => {
+                                    const isCopied = copiedDispatch === hotline.number;
+                                    const cleanNumber = (hotline.number || "").replace(/[^0-9+]/g, "");
+                                    const name = (hotline.name || "").toLowerCase();
+                                    const Icon = isCopied
+                                        ? CheckCircle2
+                                        : name.includes("rhu") 
+                                            ? PhoneCall 
+                                            : name.includes("mdrrmo") 
+                                                ? AlertCircle 
+                                                : User;
+
+                                    return (
+                                        <a
+                                            key={idx}
+                                            href={`tel:${cleanNumber}`}
+                                            onClick={() => handleDispatchCall(hotline.number)}
+                                            className="p-4 bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline"
+                                        >
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+                                                isCopied 
+                                                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
+                                                    : "bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950"
+                                            )}>
+                                                <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className={cn(
+                                                    "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
+                                                    isCopied ? "text-emerald-400" : "text-slate-400 group-hover:text-amber-400"
+                                                )}>
+                                                    {hotline.name}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black tracking-tight text-white">{hotline.number}</span>
+                                                    {isCopied && (
+                                                        <span className="text-[8px] font-bold text-emerald-400 italic animate-pulse">Dialing...</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     );
