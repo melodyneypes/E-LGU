@@ -6,11 +6,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Truck, Trash2, Plus } from "lucide-react";
+import { 
+    Truck, 
+    Trash2, 
+    Plus, 
+    Pencil, 
+    PhoneCall, 
+    User, 
+    MapPin, 
+    Loader2, 
+    Radio, 
+    Activity, 
+    Siren,
+    Phone,
+    Car
+} from "lucide-react";
 import { getAmbulanceSettings, updateAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
+import { getRHUHealthCenters } from "@/app/admin/rhu/centers/actions";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface AmbulanceSettingsClientProps {
     isReadOnly?: boolean;
@@ -20,264 +42,759 @@ interface AmbulanceSettingsClientProps {
 export default function AmbulanceSettingsClient({ isReadOnly = false, healthCenters = [] }: AmbulanceSettingsClientProps) {
     const [fleet, setFleet] = useState<any[]>([]);
     const [hotlines, setHotlines] = useState<any[]>([]);
-    const [isSavingAmbulance, setIsSavingAmbulance] = useState(false);
+    const [centersList, setCentersList] = useState<any[]>(healthCenters || []);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSavingModal, setIsSavingModal] = useState(false);
+
+    // Ambulance Modal State
+    const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
+    const [editingAmbulanceIdx, setEditingAmbulanceIdx] = useState<number | null>(null);
+    const [ambulanceForm, setAmbulanceForm] = useState({
+        unit: "",
+        plateNumber: "",
+        station: "",
+        status: "STANDBY"
+    });
+
+    // Hotline Modal State
+    const [isHotlineModalOpen, setIsHotlineModalOpen] = useState(false);
+    const [editingHotlineIdx, setEditingHotlineIdx] = useState<number | null>(null);
+    const [hotlineForm, setHotlineForm] = useState({
+        name: "",
+        number: ""
+    });
 
     useEffect(() => {
-        getAmbulanceSettings().then((res) => {
-            if (res.success) {
-                setFleet(res.fleet || []);
-                setHotlines(res.hotlines || []);
+        setIsLoading(true);
+        Promise.all([
+            getAmbulanceSettings(),
+            getRHUHealthCenters()
+        ]).then(([ambRes, centersRes]) => {
+            if (ambRes.success) {
+                setFleet(ambRes.fleet || []);
+                setHotlines(ambRes.hotlines || []);
+            } else {
+                toast.error(ambRes.error || "Failed to load ambulance settings");
             }
+            if (centersRes.success && centersRes.data) {
+                setCentersList(centersRes.data);
+            }
+        }).finally(() => {
+            setIsLoading(false);
         });
     }, []);
 
+    // Status styling helper
+    const getStatusColor = (status: string) => {
+        if (status === "STANDBY") {
+            return "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+        } else if (status === "ON DUTY") {
+            return "text-blue-500 bg-blue-500/10 border-blue-500/20";
+        } else {
+            return "text-amber-500 bg-amber-500/10 border-amber-500/20";
+        }
+    };
+
+    const getStatusDotColor = (status: string) => {
+        if (status === "STANDBY") return "bg-emerald-500 shadow-emerald-500/50";
+        if (status === "ON DUTY") return "bg-blue-500 shadow-blue-500/50";
+        return "bg-amber-500 shadow-amber-500/50";
+    };
+
+    // Hotline category icon & badge styling helper
+    const getHotlineMeta = (nameStr: string) => {
+        const name = (nameStr || "").toLowerCase();
+        if (name.includes("mdrrmo") || name.includes("disaster") || name.includes("emergency")) {
+            return {
+                icon: Siren,
+                color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
+                badgeColor: "text-rose-500 bg-rose-500/10",
+                accentBorder: "group-hover:border-rose-500/40 hover:bg-rose-500/5 dark:hover:bg-rose-500/10"
+            };
+        }
+        if (name.includes("rhu") || name.includes("health") || name.includes("hospital")) {
+            return {
+                icon: PhoneCall,
+                color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+                badgeColor: "text-emerald-500 bg-emerald-500/10",
+                accentBorder: "group-hover:border-emerald-500/40 hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
+            };
+        }
+        return {
+            icon: User,
+            color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
+            badgeColor: "text-indigo-500 bg-indigo-500/10",
+            accentBorder: "group-hover:border-indigo-500/40 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10"
+        };
+    };
+
+    // Open Add Ambulance Modal
+    const handleOpenAddAmbulance = () => {
+        setEditingAmbulanceIdx(null);
+        setAmbulanceForm({
+            unit: `Ambulance Unit ${fleet.length + 1}`,
+            plateNumber: "",
+            station: centersList[0]?.name || "",
+            status: "STANDBY"
+        });
+        setIsAmbulanceModalOpen(true);
+    };
+
+    // Open Edit Ambulance Modal
+    const handleOpenEditAmbulance = (idx: number) => {
+        const item = fleet[idx];
+        setEditingAmbulanceIdx(idx);
+        setAmbulanceForm({
+            unit: item.unit || "",
+            plateNumber: item.plateNumber || "",
+            station: item.station || centersList[0]?.name || "",
+            status: item.status || "STANDBY"
+        });
+        setIsAmbulanceModalOpen(true);
+    };
+
+    // Save Ambulance from Modal
+    const handleSaveAmbulance = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!ambulanceForm.unit.trim()) {
+            toast.error("Please enter a unit name.");
+            return;
+        }
+
+        setIsSavingModal(true);
+        try {
+            const statusColor = getStatusColor(ambulanceForm.status);
+            const updatedItem = {
+                ...ambulanceForm,
+                unit: ambulanceForm.unit.trim(),
+                plateNumber: ambulanceForm.plateNumber.trim() || "N/A",
+                station: ambulanceForm.station || "Main Station",
+                statusColor
+            };
+
+            let updatedFleet: any[];
+            if (editingAmbulanceIdx !== null) {
+                updatedFleet = [...fleet];
+                updatedFleet[editingAmbulanceIdx] = updatedItem;
+            } else {
+                updatedFleet = [...fleet, updatedItem];
+            }
+
+            const res = await updateAmbulanceSettings(updatedFleet, hotlines);
+            if (res.success) {
+                setFleet(updatedFleet);
+                setIsAmbulanceModalOpen(false);
+                toast.success(editingAmbulanceIdx !== null ? "Ambulance unit updated successfully!" : "New ambulance unit added successfully!");
+            } else {
+                toast.error(res.error || "Failed to save ambulance unit.");
+            }
+        } catch {
+            toast.error("An error occurred while saving the ambulance unit.");
+        } finally {
+            setIsSavingModal(false);
+        }
+    };
+
+    // Delete Ambulance
+    const handleDeleteAmbulance = async (idx: number) => {
+        const unitName = fleet[idx]?.unit || "Ambulance unit";
+        if (!confirm(`Are you sure you want to remove ${unitName}?`)) return;
+
+        const updatedFleet = fleet.filter((_, i) => i !== idx);
+        try {
+            const res = await updateAmbulanceSettings(updatedFleet, hotlines);
+            if (res.success) {
+                setFleet(updatedFleet);
+                toast.success(`${unitName} removed successfully.`);
+            } else {
+                toast.error(res.error || "Failed to remove unit.");
+            }
+        } catch {
+            toast.error("Failed to delete unit.");
+        }
+    };
+
+    // Quick Status Change on card
+    const handleQuickStatusChange = async (idx: number, newStatus: string) => {
+        const updatedFleet = [...fleet];
+        updatedFleet[idx].status = newStatus;
+        updatedFleet[idx].statusColor = getStatusColor(newStatus);
+        setFleet(updatedFleet);
+
+        try {
+            const res = await updateAmbulanceSettings(updatedFleet, hotlines);
+            if (res.success) {
+                toast.success(`Updated ${updatedFleet[idx].unit} status to ${newStatus}`);
+            } else {
+                toast.error(res.error || "Failed to update status.");
+            }
+        } catch {
+            toast.error("Failed to save status change.");
+        }
+    };
+
+    // Open Add Hotline Modal
+    const handleOpenAddHotline = () => {
+        setEditingHotlineIdx(null);
+        setHotlineForm({ name: "", number: "" });
+        setIsHotlineModalOpen(true);
+    };
+
+    // Open Edit Hotline Modal
+    const handleOpenEditHotline = (idx: number) => {
+        const item = hotlines[idx];
+        setEditingHotlineIdx(idx);
+        setHotlineForm({
+            name: item.name || "",
+            number: item.number || ""
+        });
+        setIsHotlineModalOpen(true);
+    };
+
+    // Save Hotline Modal
+    const handleSaveHotline = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!hotlineForm.name.trim() || !hotlineForm.number.trim()) {
+            toast.error("Please provide both department name and hotline number.");
+            return;
+        }
+
+        setIsSavingModal(true);
+        try {
+            const updatedItem = {
+                name: hotlineForm.name.trim(),
+                number: hotlineForm.number.trim()
+            };
+
+            let updatedHotlines: any[];
+            if (editingHotlineIdx !== null) {
+                updatedHotlines = [...hotlines];
+                updatedHotlines[editingHotlineIdx] = updatedItem;
+            } else {
+                updatedHotlines = [...hotlines, updatedItem];
+            }
+
+            const res = await updateAmbulanceSettings(fleet, updatedHotlines);
+            if (res.success) {
+                setHotlines(updatedHotlines);
+                setIsHotlineModalOpen(false);
+                toast.success(editingHotlineIdx !== null ? "Hotline updated successfully!" : "New emergency hotline added!");
+            } else {
+                toast.error(res.error || "Failed to save hotline.");
+            }
+        } catch {
+            toast.error("An error occurred while saving hotline.");
+        } finally {
+            setIsSavingModal(false);
+        }
+    };
+
+    // Delete Hotline
+    const handleDeleteHotline = async (idx: number) => {
+        const name = hotlines[idx]?.name || "Hotline";
+        if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+
+        const updatedHotlines = hotlines.filter((_, i) => i !== idx);
+        try {
+            const res = await updateAmbulanceSettings(fleet, updatedHotlines);
+            if (res.success) {
+                setHotlines(updatedHotlines);
+                toast.success(`${name} removed successfully.`);
+            } else {
+                toast.error(res.error || "Failed to remove hotline.");
+            }
+        } catch {
+            toast.error("Failed to delete hotline.");
+        }
+    };
+
+    // Counts
+    const standbyCount = fleet.filter(f => f.status === "STANDBY").length;
+    const onDutyCount = fleet.filter(f => f.status === "ON DUTY").length;
+    const maintenanceCount = fleet.filter(f => f.status === "MAINTENANCE").length;
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <Card className="border-slate-200 dark:border-[#2a3040] shadow-xl overflow-hidden rounded-[1.5rem] md:rounded-[2rem] bg-white dark:bg-[#1e2330]">
-                <CardHeader className="bg-slate-50/50 dark:bg-black/20 border-b border-slate-100 dark:border-[#2a3040] p-5 md:p-6 px-4 md:px-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-[#181e2b] to-[#121620] p-6 md:p-8 rounded-[1.75rem] border border-slate-800 shadow-2xl text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+                <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="space-y-2 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest">
+                        <Activity className="w-3.5 h-3.5" /> Emergency Logistics & Communication Hub
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+                        <Truck className="w-7 h-7 text-amber-500 shrink-0" />
+                        Ambulance Dispatch Configuration
+                    </h1>
+                    <p className="text-xs font-semibold text-slate-400 max-w-2xl">
+                        Monitor fleet readiness, manage vehicle station assignments, and update real-time public emergency direct dispatch hotlines.
+                    </p>
+                </div>
+            </div>
+
+            {/* ======================================================== */}
+            {/* SECTION 1: AMBULANCE FLEET STATUS REGISTRY (AMBER THEME) */}
+            {/* ======================================================== */}
+            <Card className="border-amber-500/20 dark:border-amber-500/20 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
+                {/* Visual Top Glow Bar */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+                
+                <CardHeader className="bg-amber-500/5 dark:bg-amber-500/[0.03] border-b border-amber-500/10 p-5 md:p-6 px-6 md:px-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                            <CardTitle className="flex items-center gap-3 text-2xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-                                <Truck className="w-6 h-6 text-amber-500" />
-                                Ambulance Dispatch Configuration
-                            </CardTitle>
-                            <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">
-                                Manage real-time ambulance availability status, plate numbers, stations, and emergency dispatch contact details.
-                            </CardDescription>
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0 font-black">
+                                <Truck className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                                    Ambulance Fleet Registry
+                                </CardTitle>
+                                <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    Vehicular dispatch readiness, station allocations & mechanical statuses
+                                </CardDescription>
+                            </div>
+                        </div>
+
+                        {/* Status Summary Counters */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                {standbyCount} Standby
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                {onDutyCount} On Duty
+                            </span>
+                            {maintenanceCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-3 py-1 rounded-xl">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                    {maintenanceCount} Maintenance
+                                </span>
+                            )}
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1 rounded-xl">
+                                {fleet.length} Total Units
+                            </span>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-4 md:p-6 lg:p-8 px-4 md:px-8 space-y-6">
-                    {/* Fleet Management */}
-                    <div className="space-y-4">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 italic">Ambulance Fleet Status Registry</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                <CardContent className="p-6 md:p-8 space-y-6">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center p-12 text-slate-400 gap-3">
+                            <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                            <span className="text-xs font-bold uppercase tracking-wider">Loading Fleet Status...</span>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {fleet.map((vehicle, idx) => (
-                                <div key={idx} className="relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-black/10 space-y-4 pr-10">
-                                    {!isReadOnly && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const updated = fleet.filter((_, i) => i !== idx);
-                                                setFleet(updated);
-                                            }}
-                                            className="absolute top-4 right-4 text-red-500 hover:text-red-650 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Unit Name</Label>
-                                        <Input
-                                            disabled={isReadOnly}
-                                            value={vehicle.unit}
-                                            onChange={(e) => {
-                                                const updated = [...fleet];
-                                                updated[idx].unit = e.target.value;
-                                                setFleet(updated);
-                                            }}
-                                            className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Plate Number</Label>
-                                            <Input
-                                                disabled={isReadOnly}
-                                                value={vehicle.plateNumber}
-                                                onChange={(e) => {
-                                                    const updated = [...fleet];
-                                                    updated[idx].plateNumber = e.target.value;
-                                                    setFleet(updated);
-                                                }}
-                                                className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
-                                            />
+                                <div
+                                    key={idx}
+                                    className="relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2c] hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 transition-all flex flex-col justify-between space-y-4 group"
+                                >
+                                    <div className="space-y-3.5">
+                                        {/* Header Row: Vehicle Icon, Unit Name, Actions */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                                                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                                                    <Car className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <h5 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
+                                                        {vehicle.unit}
+                                                    </h5>
+                                                    {/* Metallic / Embossed License Plate Style */}
+                                                    <div className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-black/40 border border-slate-300 dark:border-white/10 font-mono text-[10px] font-black tracking-widest text-slate-700 dark:text-amber-400">
+                                                        {vehicle.plateNumber || "NO PLATE"}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {!isReadOnly && (
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenEditAmbulance(idx)}
+                                                        className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+                                                        title="Edit ambulance unit"
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteAmbulance(idx)}
+                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                        title="Delete ambulance unit"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Station / Location</Label>
-                                            <Select
-                                                disabled={isReadOnly}
-                                                value={vehicle.station}
-                                                onValueChange={(val) => {
-                                                    const updated = [...fleet];
-                                                    updated[idx].station = val;
-                                                    setFleet(updated);
-                                                }}
-                                            >
-                                                <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs">
-                                                    <SelectValue placeholder="Select center..." />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                                    {vehicle.station && !healthCenters.some((c: any) => c.name === vehicle.station) && (
-                                                        <SelectItem value={vehicle.station} className="text-xs font-bold py-2 rounded-lg cursor-pointer opacity-75">
-                                                            {vehicle.station}
-                                                        </SelectItem>
-                                                    )}
-                                                    {healthCenters.map((center: any) => (
-                                                        <SelectItem key={center.id} value={center.name} className="text-xs font-bold py-2 rounded-lg cursor-pointer">
-                                                            {center.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+
+                                        {/* Station Location Info */}
+                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-black/20 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                                            <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                            <span className="truncate">{vehicle.station || "Unassigned Station"}</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Availability Status</Label>
+
+                                    {/* Status Switcher Bar */}
+                                    <div className="pt-3 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={cn("w-2 h-2 rounded-full shadow-sm", getStatusDotColor(vehicle.status))} />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status:</span>
+                                        </div>
                                         <Select
                                             disabled={isReadOnly}
                                             value={vehicle.status}
-                                            onValueChange={(val) => {
-                                                const updated = [...fleet];
-                                                updated[idx].status = val;
-                                                if (val === "STANDBY") {
-                                                    updated[idx].statusColor = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
-                                                } else if (val === "ON DUTY") {
-                                                    updated[idx].statusColor = "text-blue-500 bg-blue-500/10 border-blue-500/20";
-                                                } else {
-                                                    updated[idx].statusColor = "text-amber-500 bg-amber-500/10 border-amber-500/20";
-                                                }
-                                                setFleet(updated);
-                                            }}
+                                            onValueChange={(val) => handleQuickStatusChange(idx, val)}
                                         >
-                                            <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs">
+                                            <SelectTrigger className={cn("h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-wider border shadow-sm", vehicle.statusColor)}>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                                <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg">STANDBY</SelectItem>
-                                                <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg">ON DUTY</SelectItem>
-                                                <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg">MAINTENANCE</SelectItem>
+                                                <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-500">STANDBY</SelectItem>
+                                                <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-500">ON DUTY</SelectItem>
+                                                <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-500">MAINTENANCE</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
                             ))}
+
                             {!isReadOnly && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setFleet([
-                                            ...fleet,
-                                            {
-                                                unit: `Ambulance Unit ${fleet.length + 1}`,
-                                                plateNumber: "",
-                                                station: healthCenters[0]?.name || "",
-                                                status: "STANDBY",
-                                                statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                                            }
-                                        ]);
-                                    }}
-                                    className="p-5 rounded-2xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-slate-50/20 dark:bg-black/5 hover:bg-slate-50 dark:hover:bg-black/10 transition-all flex flex-col items-center justify-center gap-2 min-h-[220px]"
+                                    onClick={handleOpenAddAmbulance}
+                                    className="p-6 rounded-2xl border-2 border-dashed border-amber-500/30 dark:border-amber-500/20 hover:border-amber-500 bg-amber-500/[0.02] dark:bg-amber-500/[0.02] hover:bg-amber-500/10 transition-all flex flex-col items-center justify-center gap-3 min-h-[175px] group cursor-pointer"
                                 >
-                                    <Plus className="w-8 h-8 text-slate-400" />
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Add Ambulance Unit</span>
+                                    <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 group-hover:bg-amber-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover:shadow-amber-500/30 group-hover:scale-105">
+                                        <Plus className="w-5 h-5 text-amber-500 group-hover:text-slate-950 transition-colors" />
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 group-hover:text-amber-500 transition-colors block">
+                                            + Add Ambulance Unit
+                                        </span>
+                                        <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">
+                                            Register a new vehicle to the fleet
+                                        </span>
+                                    </div>
                                 </button>
                             )}
                         </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* ================================================================= */}
+            {/* SECTION 2: EMERGENCY DISPATCH CONTACT DIRECTORIES (CRIMSON/ROSE) */}
+            {/* ================================================================= */}
+            <Card className="border-rose-500/20 dark:border-rose-500/20 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
+                {/* Visual Top Glow Bar */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 via-red-500 to-rose-600" />
+                
+                <CardHeader className="bg-rose-500/5 dark:bg-rose-500/[0.03] border-b border-rose-500/10 p-5 md:p-6 px-6 md:px-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0 font-black">
+                                <Radio className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                                    Emergency Dispatch Hotlines
+                                </CardTitle>
+                                <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    Public direct lines for MDRRMO, Municipal Health Officers, and RHU emergency response
+                                </CardDescription>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-3.5 py-1 rounded-xl">
+                                <Radio className="w-3 h-3 text-rose-500" />
+                                {hotlines.length} {hotlines.length === 1 ? "Hotline" : "Hotlines"} Active
+                            </span>
+                        </div>
                     </div>
+                </CardHeader>
 
-                    <Separator className="bg-slate-100 dark:bg-[#2a3040]" />
+                <CardContent className="p-6 md:p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {hotlines.map((hotline, idx) => {
+                            const meta = getHotlineMeta(hotline.name);
+                            const IconComponent = meta.icon;
 
-                    {/* Hotline Management */}
-                    <div className="space-y-4">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 italic">Emergency Dispatch Contact Directories</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {hotlines.map((hotline, idx) => (
-                                <div key={idx} className="relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-black/10 space-y-4 pr-10">
-                                    {!isReadOnly && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const updated = hotlines.filter((_, i) => i !== idx);
-                                                setHotlines(updated);
-                                            }}
-                                            className="absolute top-4 right-4 text-red-500 hover:text-red-650 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                            return (
+                                <div
+                                    key={idx}
+                                    className={cn(
+                                        "relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2c] transition-all flex items-center justify-between gap-3 group shadow-sm",
+                                        meta.accentBorder
                                     )}
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Department / Officer Name</Label>
-                                        <Input
-                                            disabled={isReadOnly}
-                                            value={hotline.name}
-                                            onChange={(e) => {
-                                                const updated = [...hotlines];
-                                                updated[idx].name = e.target.value;
-                                                setHotlines(updated);
-                                            }}
-                                            className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hotline Number</Label>
-                                        <Input
-                                            disabled={isReadOnly}
-                                            value={hotline.number}
-                                            onChange={(e) => {
-                                                const updated = [...hotlines];
-                                                updated[idx].number = e.target.value;
-                                                setHotlines(updated);
-                                            }}
-                                            className="h-10 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                            {!isReadOnly && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setHotlines([
-                                            ...hotlines,
-                                            {
-                                                name: "",
-                                                number: ""
-                                            }
-                                        ]);
-                                    }}
-                                    className="p-5 rounded-2xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-slate-50/20 dark:bg-black/5 hover:bg-slate-50 dark:hover:bg-black/10 transition-all flex flex-col items-center justify-center gap-2 min-h-[160px]"
                                 >
-                                    <Plus className="w-8 h-8 text-slate-400" />
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Add Emergency Hotline</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                        {/* Avatar / Category Badge */}
+                                        <div className={cn(
+                                            "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner transition-transform duration-200 group-hover:scale-105",
+                                            meta.color
+                                        )}>
+                                            <IconComponent className="w-5 h-5" />
+                                        </div>
 
-                    <Separator className="bg-slate-100 dark:bg-[#2a3040]" />
+                                        {/* Contact Details */}
+                                        <div className="min-w-0 flex-1 space-y-0.5">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 block truncate">
+                                                {hotline.name}
+                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                <Phone className="w-3 h-3 text-rose-500 shrink-0" />
+                                                <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white font-mono block truncate">
+                                                    {hotline.number}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                    <div className="flex justify-end pt-2">
-                        <Button
-                            type="button"
-                            onClick={async () => {
-                                setIsSavingAmbulance(true);
-                                try {
-                                    const res = await updateAmbulanceSettings(fleet, hotlines);
-                                    if (res.success) {
-                                        toast.success("Ambulance configuration updated successfully!");
-                                    } else {
-                                        toast.error(res.error || "Failed to update configuration.");
-                                    }
-                                } catch {
-                                    toast.error("An error occurred while saving settings.");
-                                } finally {
-                                    setIsSavingAmbulance(false);
-                                }
-                            }}
-                            disabled={isSavingAmbulance || isReadOnly}
-                            className={cn(
-                                "h-12 px-10 font-black uppercase text-xs rounded-xl shadow-lg transition-all",
-                                !isReadOnly
-                                    ? "bg-amber-500 hover:bg-amber-600 text-white hover:opacity-90 active:scale-95 border-none"
-                                    : "bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
-                            )}
-                        >
-                            {isSavingAmbulance ? "Saving..." : "Save Ambulance Config"}
-                        </Button>
+                                    {!isReadOnly && (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenEditHotline(idx)}
+                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                title="Edit hotline"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteHotline(idx)}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Delete hotline"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        {!isReadOnly && (
+                            <button
+                                type="button"
+                                onClick={handleOpenAddHotline}
+                                className="p-5 rounded-2xl border-2 border-dashed border-rose-500/30 dark:border-rose-500/20 hover:border-rose-500 bg-rose-500/[0.02] dark:bg-rose-500/[0.02] hover:bg-rose-500/10 transition-all flex items-center justify-center gap-3 min-h-[82px] group cursor-pointer"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 group-hover:bg-rose-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover:scale-105">
+                                    <Plus className="w-4 h-4 text-rose-500 group-hover:text-white transition-colors" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 group-hover:text-rose-500 transition-colors block">
+                                        + Add Emergency Hotline
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-400 block">
+                                        Link a 24/7 direct response line
+                                    </span>
+                                </div>
+                            </button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Modal: Add/Edit Ambulance Unit */}
+            <Dialog open={isAmbulanceModalOpen} onOpenChange={setIsAmbulanceModalOpen}>
+                <DialogContent className="sm:max-w-[480px] rounded-3xl bg-white dark:bg-[#161820] border-slate-200 dark:border-white/10 p-6">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                            <Truck className="w-5 h-5 text-amber-500" />
+                            {editingAmbulanceIdx !== null ? "Edit Ambulance Unit" : "Add Ambulance Unit"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                            {editingAmbulanceIdx !== null
+                                ? "Update vehicle specifications, station assignment, and dispatch status."
+                                : "Register a new ambulance unit to the municipal emergency fleet."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSaveAmbulance} className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Unit Name / Model <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                required
+                                value={ambulanceForm.unit}
+                                onChange={(e) => setAmbulanceForm({ ...ambulanceForm, unit: e.target.value })}
+                                placeholder="e.g. Ambulance Unit 4 (Toyota Hiace)"
+                                className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    Plate Number
+                                </Label>
+                                <Input
+                                    value={ambulanceForm.plateNumber}
+                                    onChange={(e) => setAmbulanceForm({ ...ambulanceForm, plateNumber: e.target.value })}
+                                    placeholder="e.g. SAB-1234"
+                                    className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    Availability Status
+                                </Label>
+                                <Select
+                                    value={ambulanceForm.status}
+                                    onValueChange={(val) => setAmbulanceForm({ ...ambulanceForm, status: val })}
+                                >
+                                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
+                                        <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-500">STANDBY</SelectItem>
+                                        <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-500">ON DUTY</SelectItem>
+                                        <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-500">MAINTENANCE</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Station / Location
+                            </Label>
+                            <Select
+                                value={ambulanceForm.station}
+                                onValueChange={(val) => setAmbulanceForm({ ...ambulanceForm, station: val })}
+                            >
+                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs">
+                                    <SelectValue placeholder="Select station or health center..." />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
+                                    {centersList.length === 0 ? (
+                                        <div className="p-3 text-center text-xs text-slate-400 font-bold">
+                                            No health centers registered
+                                        </div>
+                                    ) : (
+                                        centersList.map((center: any) => (
+                                            <SelectItem key={center.id} value={center.name} className="text-xs font-bold py-2 rounded-lg">
+                                                {center.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                    {ambulanceForm.station && !centersList.some((c: any) => c.name === ambulanceForm.station) && (
+                                        <SelectItem value={ambulanceForm.station} className="text-xs font-bold py-2 rounded-lg opacity-70">
+                                            {ambulanceForm.station} (Other)
+                                        </SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <DialogFooter className="pt-4 flex flex-row items-center justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsAmbulanceModalOpen(false)}
+                                disabled={isSavingModal}
+                                className="h-10 px-5 rounded-xl text-xs font-black uppercase tracking-wider"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSavingModal}
+                                className="h-10 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black uppercase text-xs tracking-wider shadow-lg shadow-amber-500/20"
+                            >
+                                {isSavingModal ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    editingAmbulanceIdx !== null ? "Save Changes" : "Save Ambulance Unit"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal: Add/Edit Hotline */}
+            <Dialog open={isHotlineModalOpen} onOpenChange={setIsHotlineModalOpen}>
+                <DialogContent className="sm:max-w-[420px] rounded-3xl bg-white dark:bg-[#161820] border-slate-200 dark:border-white/10 p-6">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                            <Radio className="w-5 h-5 text-rose-500" />
+                            {editingHotlineIdx !== null ? "Edit Emergency Hotline" : "Add Emergency Hotline"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                            Configure direct dispatch phone numbers for public emergency access.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSaveHotline} className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Department / Officer Name <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                required
+                                value={hotlineForm.name}
+                                onChange={(e) => setHotlineForm({ ...hotlineForm, name: e.target.value })}
+                                placeholder="e.g. RHU Emergency Dispatch"
+                                className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Hotline / Phone Number <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                required
+                                value={hotlineForm.number}
+                                onChange={(e) => setHotlineForm({ ...hotlineForm, number: e.target.value })}
+                                placeholder="e.g. 0917-555-0199 or (075) 529-1234"
+                                className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="pt-4 flex flex-row items-center justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsHotlineModalOpen(false)}
+                                disabled={isSavingModal}
+                                className="h-10 px-5 rounded-xl text-xs font-black uppercase tracking-wider"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSavingModal}
+                                className="h-10 px-6 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black uppercase text-xs tracking-wider shadow-lg shadow-rose-500/20"
+                            >
+                                {isSavingModal ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    editingHotlineIdx !== null ? "Save Changes" : "Save Emergency Hotline"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
