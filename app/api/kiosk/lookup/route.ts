@@ -152,7 +152,8 @@ export async function POST(request: Request) {
         }
 
         const isPosoTransaction = transaction.type?.category === "POSO" || transaction.type?.code === "POSO_TRAFFIC_FINE";
-        const isPaymentOrClaiming = isPosoTransaction || ["PAID", "FOR_CLAIM"].includes(transaction.status);
+        const isBusinessPermit = (transaction.type?.category || "").toUpperCase().includes("BUSINESS") || (transaction.type?.code || "").toUpperCase().startsWith("BUSINESS_PERMIT");
+        const isPaymentOrClaiming = isPosoTransaction || isBusinessPermit || ["PAID", "FOR_CLAIM", "UNPAID", "EVALUATED", "FOR_PAYMENT"].includes(transaction.status);
         const today = new Date();
 
         if (!transaction.appointmentDate && !isPaymentOrClaiming) {
