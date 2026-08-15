@@ -7,18 +7,19 @@ import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
     MapPin,
-    Clock,
     Phone,
     Globe,
     Star,
-    Utensils,
+    BedDouble,
     Calendar,
     MessageSquare,
     CheckCircle2,
     XCircle,
     TrendingUp,
     ShieldCheck,
-    Trash2
+    Trash2,
+    DollarSign,
+    Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteReviewAction } from "@/app/admin/actions";
@@ -31,59 +32,58 @@ import {
     BreadcrumbLink,
     BreadcrumbList,
     BreadcrumbPage,
-    BreadcrumbSeparator
+    BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
 
-interface ReviewUser {
-    id: string;
-    name: string | null;
-    email: string | null;
-    image?: string | null;
-    residentProfile?: {
-        firstName: string | null;
-        lastName: string | null;
-        imageUrl: string | null;
-        barangay: string | null;
-    } | null;
-}
-
-interface ReviewItem {
+export interface ReviewItem {
     id: string;
     rating: number;
     comment: string | null;
     mediaUrl: string | null;
     createdAt: Date | string;
-    user: ReviewUser;
+    user?: {
+        id: string;
+        name: string | null;
+        email: string | null;
+        image?: string | null;
+        residentProfile?: {
+            firstName: string | null;
+            lastName: string | null;
+            imageUrl: string | null;
+            barangay: string | null;
+        } | null;
+    } | null;
 }
 
-export interface DiningDetail {
+export interface AccommodationDetail {
     id: string;
     name: string;
     description: string | null;
     address: string;
-    cuisineType: string | null;
-    openingHours: string | null;
+    type: string;
+    priceRange: string | null;
+    amenities: string | null;
     contactNumber: string | null;
-    facebookUrl: string | null;
+    websiteUrl: string | null;
     imageUrl: string | null;
     latitude: number | null;
     longitude: number | null;
     googleMapsUrl: string | null;
     isPublished: boolean;
+    barangay: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
-    barangay: string | null;
     reviews: ReviewItem[];
 }
 
 export interface Props {
-    dining: DiningDetail;
+    accommodation: AccommodationDetail;
 }
 
-export function DiningAdminDetailClient({ dining }: Props) {
+export function AccommodationAdminDetailClient({ accommodation }: Props) {
     const router = useRouter();
-    const [reviewsList, setReviewsList] = useState<ReviewItem[]>(dining.reviews || []);
+    const [reviewsList, setReviewsList] = useState<ReviewItem[]>(accommodation.reviews || []);
     const [selectedStarFilter, setSelectedStarFilter] = useState<number | "ALL">("ALL");
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -103,8 +103,8 @@ export function DiningAdminDetailClient({ dining }: Props) {
 
     // Sync reviewsList if server prop updates
     React.useEffect(() => {
-        setReviewsList(dining.reviews || []);
-    }, [dining.reviews]);
+        setReviewsList(accommodation.reviews || []);
+    }, [accommodation.reviews]);
 
     // Document / Image preview modal state
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -191,10 +191,16 @@ export function DiningAdminDetailClient({ dining }: Props) {
     }, [reviews, selectedStarFilter, debouncedSearchQuery]);
 
     // Map implementation
-    const mapQuery = dining.latitude && dining.longitude
-        ? `${dining.latitude},${dining.longitude}`
-        : `${dining.name}, ${dining.address}, Mapandan, Pangasinan`;
+    const mapQuery = accommodation.latitude && accommodation.longitude
+        ? `${accommodation.latitude},${accommodation.longitude}`
+        : `${accommodation.name}, ${accommodation.address}, Mapandan, Pangasinan`;
     const publicMapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+
+    // Parse amenities into tags
+    const amenitiesList = useMemo(() => {
+        if (!accommodation.amenities) return [];
+        return accommodation.amenities.split(",").map(a => a.trim()).filter(Boolean);
+    }, [accommodation.amenities]);
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-[#0b0f19] pb-16 text-slate-900 dark:text-slate-100">
@@ -205,7 +211,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
                         <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => router.push("/admin/dining")}
+                            onClick={() => router.push("/admin/accommodation")}
                             className="rounded-xl border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 h-9 w-9 shrink-0"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -214,15 +220,15 @@ export function DiningAdminDetailClient({ dining }: Props) {
                             <BreadcrumbList>
                                 <BreadcrumbItem>
                                     <BreadcrumbLink asChild>
-                                        <Link href="/admin/dining" className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-primary">
-                                            Dining Management
+                                        <Link href="/admin/accommodation" className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-primary">
+                                            Accommodation Management
                                         </Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
                                     <BreadcrumbPage className="text-xs font-black uppercase tracking-wider text-primary truncate max-w-[240px] sm:max-w-[360px]">
-                                        {dining.name}
+                                        {accommodation.name}
                                     </BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
@@ -230,7 +236,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {dining.isPublished ? (
+                        {accommodation.isPublished ? (
                             <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 Active / Published
@@ -248,20 +254,20 @@ export function DiningAdminDetailClient({ dining }: Props) {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 space-y-6">
                 {/* Hero Showcase Card */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    {/* Left: Restaurant Cover & Basic Details */}
+                    {/* Left: Property Cover & Basic Details */}
                     <div className="lg:col-span-8 space-y-4">
                         <div className="relative aspect-[21/9] sm:aspect-[2.4/1] w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 dark:border-white/10 shadow-lg group">
-                            {dining.imageUrl ? (
+                            {accommodation.imageUrl ? (
                                 <Image
-                                    src={dining.imageUrl}
-                                    alt={dining.name}
+                                    src={accommodation.imageUrl}
+                                    alt={accommodation.name}
                                     fill
                                     className="object-cover group-hover:scale-105 transition-transform duration-500 cursor-zoom-in"
-                                    onClick={() => handleOpenImage(dining.imageUrl, dining.name)}
+                                    onClick={() => handleOpenImage(accommodation.imageUrl, accommodation.name)}
                                 />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 bg-slate-100 dark:bg-slate-800 gap-2">
-                                    <Utensils className="w-10 h-10" />
+                                    <BedDouble className="w-10 h-10" />
                                     <span className="text-[10px] font-bold uppercase tracking-widest">No Cover Photo</span>
                                 </div>
                             )}
@@ -270,16 +276,16 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                 <div className="space-y-1.5 pointer-events-auto">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Badge className="bg-primary text-white border-none font-black text-[9px] uppercase tracking-wider">
-                                            {dining.cuisineType || "General Dining"}
+                                            {accommodation.type || "General Accommodation"}
                                         </Badge>
-                                        {dining.barangay && (
+                                        {accommodation.barangay && (
                                             <Badge variant="outline" className="bg-white/20 backdrop-blur-md text-white border-white/30 font-bold text-[9px] uppercase tracking-wider">
-                                                Brgy. {dining.barangay}
+                                                Brgy. {accommodation.barangay}
                                             </Badge>
                                         )}
                                     </div>
                                     <h2 className="text-xl sm:text-3xl font-black text-white uppercase italic tracking-tight drop-shadow-md">
-                                        {dining.name}
+                                        {accommodation.name}
                                     </h2>
                                 </div>
                             </div>
@@ -290,12 +296,32 @@ export function DiningAdminDetailClient({ dining }: Props) {
                             <CardContent className="p-5 space-y-4">
                                 <div>
                                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                        Establishment Overview
+                                        Property Overview
                                     </h3>
                                     <p className="mt-1.5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-                                        {dining.description || "No description provided for this dining establishment."}
+                                        {accommodation.description || "No description provided for this accommodation."}
                                     </p>
                                 </div>
+
+                                {/* Amenities Tags if available */}
+                                {amenitiesList.length > 0 && (
+                                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+                                        <h4 className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                            <Sparkles className="w-3 h-3 text-amber-500" />
+                                            Featured Amenities
+                                        </h4>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {amenitiesList.map((amenity, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5"
+                                                >
+                                                    ✓ {amenity}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-white/5">
                                     <div className="flex items-start gap-2.5">
@@ -304,17 +330,17 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                         </div>
                                         <div className="space-y-0.5 min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Address & Location</p>
-                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-2">{dining.address}</p>
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-2">{accommodation.address}</p>
                                         </div>
                                     </div>
 
                                     <div className="flex items-start gap-2.5">
                                         <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                                            <Clock className="w-4 h-4" />
+                                            <DollarSign className="w-4 h-4" />
                                         </div>
                                         <div className="space-y-0.5 min-w-0">
-                                            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Opening Hours</p>
-                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dining.openingHours || "Not Specified"}</p>
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Price Range</p>
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{accommodation.priceRange || "Contact for Rates"}</p>
                                         </div>
                                     </div>
 
@@ -324,7 +350,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                         </div>
                                         <div className="space-y-0.5 min-w-0">
                                             <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Contact Number</p>
-                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dining.contactNumber || "N/A"}</p>
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{accommodation.contactNumber || "N/A"}</p>
                                         </div>
                                     </div>
 
@@ -333,15 +359,15 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                             <Globe className="w-4 h-4" />
                                         </div>
                                         <div className="space-y-0.5 min-w-0">
-                                            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Social Page / Link</p>
-                                            {dining.facebookUrl ? (
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Website / Social Page</p>
+                                            {accommodation.websiteUrl ? (
                                                 <a
-                                                    href={dining.facebookUrl.startsWith("http") ? dining.facebookUrl : `https://${dining.facebookUrl}`}
+                                                    href={accommodation.websiteUrl.startsWith("http") ? accommodation.websiteUrl : `https://${accommodation.websiteUrl}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="text-xs font-bold text-primary hover:underline truncate block max-w-[200px]"
                                                 >
-                                                    Facebook Page ➔
+                                                    Official Link ➔
                                                 </a>
                                             ) : (
                                                 <p className="text-xs font-bold text-slate-400">None</p>
@@ -447,9 +473,9 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                                     Location Map
                                 </span>
-                                {dining.googleMapsUrl && (
+                                {accommodation.googleMapsUrl && (
                                     <a
-                                        href={dining.googleMapsUrl}
+                                        href={accommodation.googleMapsUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-[9px] font-bold text-primary hover:underline"
@@ -509,7 +535,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase">No Reviews Found</h3>
                             <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
                                 {totalReviews === 0
-                                    ? "This restaurant has not received any citizen reviews yet."
+                                    ? "This property has not received any citizen reviews yet."
                                     : "No reviews match your selected star rating or search query."}
                             </p>
                         </Card>
@@ -583,7 +609,7 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                                         {[1, 2, 3, 4, 5].map((star) => (
                                                             <Star
                                                                 key={star}
-                                                                className={`w-3 h-3 ${
+                                                                className={`w-3.5 h-3.5 ${
                                                                     star <= review.rating
                                                                         ? "fill-amber-500 text-amber-500"
                                                                         : "text-slate-200 dark:text-slate-700"
@@ -658,26 +684,27 @@ export function DiningAdminDetailClient({ dining }: Props) {
                                 🗑️
                             </div>
                             <div>
-                                <h3 className="text-base font-black italic uppercase tracking-tight text-slate-850 dark:text-white">
+                                <h3 className="text-base font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
                                     Delete Citizen Review?
                                 </h3>
-                                <p className="text-xs text-slate-400 font-medium">
-                                    This action will remove the review and recalculate ratings.
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                    Are you sure you want to remove this rating & feedback?
                                 </p>
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-2.5 text-xs">
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Citizen</span>
-                                <span className="font-bold text-slate-800 dark:text-slate-200 uppercase">
+                        {/* Review Preview Card inside Dialog */}
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-2.5 text-xs">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-500">Citizen:</span>
+                                <span className="font-black text-slate-900 dark:text-white uppercase">
                                     {reviewToDelete.user?.residentProfile?.firstName
                                         ? `${reviewToDelete.user.residentProfile.firstName} ${reviewToDelete.user.residentProfile.lastName || ""}`
-                                        : (reviewToDelete.user?.name || "Citizen")}
+                                        : (reviewToDelete.user?.name || "Verified Citizen")}
                                 </span>
                             </div>
-                            <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rating Given</span>
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-500">Rating:</span>
                                 <span className="font-black text-amber-500 font-mono flex items-center gap-1">
                                     {reviewToDelete.rating}.0 ★
                                 </span>
@@ -730,4 +757,4 @@ export function DiningAdminDetailClient({ dining }: Props) {
     );
 }
 
-export default DiningAdminDetailClient;
+export default AccommodationAdminDetailClient;
