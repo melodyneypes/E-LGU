@@ -1046,7 +1046,7 @@ export default function RHUCentersClient({
                                                                     </span>
                                                                 </div>
                                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                                    {personnel.specialization || "General Medicine"} • Lic: {personnel.licenseNumber || "N/A"}
+                                                                    {personnel.licenseNumber ? `PRC Lic: ${personnel.licenseNumber}` : "Registered Staff"}
                                                                 </p>
                                                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">
                                                                     <span className="text-slate-400 dark:text-slate-500 font-normal">Assigned to:</span> {personnel.assignedServices || "General Consultation"}
@@ -1270,11 +1270,6 @@ export default function RHUCentersClient({
                                                                                     </span>
                                                                                     <span className="font-bold text-slate-800 dark:text-slate-100">{p.name}</span>
                                                                                 </div>
-                                                                                {p.specialization && (
-                                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-1">
-                                                                                        {p.specialization}
-                                                                                    </p>
-                                                                                )}
                                                                                 {p.assignedServices && (
                                                                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-1">
                                                                                         <span className="text-slate-400 dark:text-slate-500 font-semibold">Services:</span> {p.assignedServices}
@@ -1433,7 +1428,7 @@ export default function RHUCentersClient({
                             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                             <Input
                                 type="text"
-                                placeholder="Search personnel name, specialization, license #, or assigned services..."
+                                placeholder="Search personnel name, license #, or assigned services..."
                                 value={personnelSearch}
                                 onChange={(e) => setPersonnelSearch(e.target.value)}
                                 className="pl-10 h-10 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
@@ -1516,13 +1511,6 @@ export default function RHUCentersClient({
 
                                             {/* Details list */}
                                             <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                                                {p.specialization && (
-                                                    <div className="flex items-center gap-2">
-                                                        <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                        <span className="font-semibold text-slate-800 dark:text-slate-200">{p.specialization}</span>
-                                                    </div>
-                                                )}
-
                                                 {p.licenseNumber && (
                                                     <div className="flex items-center gap-2">
                                                         <BadgeCheck className="w-3.5 h-3.5 text-rose-500 shrink-0" />
@@ -2069,19 +2057,8 @@ export default function RHUCentersClient({
                             </div>
                         </div>
 
-                        {/* Specialization & License Number */}
+                        {/* License Number & Duty Status */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Specialization / Expertise</Label>
-                                <Input
-                                    type="text"
-                                    placeholder="e.g., General Medicine, Maternal Care, Oral Surgery"
-                                    value={personnelData.specialization}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, specialization: e.target.value })}
-                                    className="h-10 text-xs rounded-xl"
-                                />
-                            </div>
-
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">PRC License Number</Label>
                                 <Input
@@ -2091,27 +2068,6 @@ export default function RHUCentersClient({
                                     onChange={(e) => setPersonnelData({ ...personnelData, licenseNumber: e.target.value })}
                                     className="h-10 text-xs rounded-xl"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Health Center & Status */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Assigned Health Center</Label>
-                                <Select
-                                    value={personnelData.healthCenterId || "NONE"}
-                                    onValueChange={(val) => setPersonnelData({ ...personnelData, healthCenterId: val })}
-                                >
-                                    <SelectTrigger className="h-10 text-xs rounded-xl">
-                                        <SelectValue placeholder="Select Health Center" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NONE">-- Unassigned / Roaming --</SelectItem>
-                                        {centers.map(c => (
-                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.barangay})</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
                             </div>
 
                             <div className="space-y-1.5">
@@ -2132,8 +2088,26 @@ export default function RHUCentersClient({
                             </div>
                         </div>
 
-                        {/* Schedule & Contact */}
+                        {/* Health Center & Schedule */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Assigned Health Center</Label>
+                                <Select
+                                    value={personnelData.healthCenterId || "NONE"}
+                                    onValueChange={(val) => setPersonnelData({ ...personnelData, healthCenterId: val })}
+                                >
+                                    <SelectTrigger className="h-10 text-xs rounded-xl">
+                                        <SelectValue placeholder="Select Health Center" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="NONE">-- Unassigned / Roaming --</SelectItem>
+                                        {centers.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.barangay})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Schedule</Label>
                                 <Input
@@ -2144,6 +2118,7 @@ export default function RHUCentersClient({
                                     className="h-10 text-xs rounded-xl"
                                 />
                             </div>
+                        </div>
 
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
@@ -2180,7 +2155,6 @@ export default function RHUCentersClient({
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
                         {/* Staff User Account Credentials */}
                         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-2.5">
