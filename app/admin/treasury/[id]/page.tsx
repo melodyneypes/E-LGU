@@ -1687,14 +1687,11 @@ export default function TreasuryDetailPage() {
                     setReceiptFile(null);
                     setReceiptPreview(null);
                     setIsNavigatingToQueue(true);
-                    if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
-                        router.push("/admin/treasury/queue");
-                    } else {
-                        router.push("/admin/treasury?category=Business%20Permit");
-                    }
+                    router.replace("/admin/treasury/queue");
                 } else {
                     toast.error(res.error || "Failed to confirm payment");
                     setIsNavigatingToQueue(false);
+                    setActionLoading(false);
                 }
                 return;
             }

@@ -589,6 +589,71 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                     </div>
                 )}
 
+                {/* Rejection Remarks Form */}
+                {resident.registrationStatus === "PENDING" && isRejecting && (
+                    <div className="p-6 border-t border-red-100 dark:border-red-950/40 flex flex-col gap-4 flex-shrink-0 bg-red-50/40 dark:bg-red-950/20 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                <AlertTriangle className="w-4 h-4" />
+                                <h4 className="text-xs font-black uppercase tracking-wider">Provide Reason for Rejection</h4>
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-400">
+                                Minimum 10 characters ({remarks.trim().length}/10)
+                            </span>
+                        </div>
+
+                        {/* Quick Template Chips */}
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                "Blurred or unreadable ID uploaded",
+                                "Name in application does not match ID",
+                                "Missing valid government-issued ID",
+                                "Address not within Municipality of Mapandan",
+                            ].map((preset) => (
+                                <button
+                                    key={preset}
+                                    type="button"
+                                    onClick={() => setRemarks(preset)}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-white dark:bg-[#1e2538] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-red-300 dark:hover:border-red-700 hover:text-red-600 transition-all font-medium"
+                                >
+                                    + {preset}
+                                </button>
+                            ))}
+                        </div>
+
+                        <textarea
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            placeholder="Type specific rejection remarks here so the citizen knows what to correct..."
+                            rows={3}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#151b2b] p-3 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-slate-400 font-medium resize-none shadow-sm"
+                            disabled={isLoading}
+                        />
+
+                        <div className="flex items-center justify-end gap-3 pt-1">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsRejecting(false);
+                                    setRemarks("");
+                                }}
+                                disabled={isLoading}
+                                className="rounded-xl border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleReject}
+                                disabled={isLoading || remarks.trim().length < 10}
+                                className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold gap-2 shadow-lg shadow-red-600/20 disabled:opacity-50"
+                            >
+                                <XCircle className="w-4 h-4" />
+                                {isLoading ? "Sending Notice..." : "Confirm & Send Rejection"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 {resident.registrationStatus === "REJECTED" && (resident as { rejectionRemarks?: string | null }).rejectionRemarks && (
                     <div className="p-6 border-t border-slate-100 dark:border-[#2a3040] flex-shrink-0 bg-red-50/50 dark:bg-red-900/5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Rejection Reason on File</p>

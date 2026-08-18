@@ -3735,6 +3735,45 @@ export async function getTransactionReportData(params: {
     }
 }
 
+export async function deleteReviewAction(reviewId: string) {
+    try {
+        await verifyAdminOrBarangayAdmin();
 
+        const review = await (prisma as any).review.findUnique({
+            where: { id: reviewId },
+            select: { id: true, diningId: true, accommodationId: true, mediaUrl: true }
+        });
 
+        if (!review) {
+            return { success: false, error: "Review not found or already deleted." };
+        }
 
+        // Clean up attached media image if any
+        if (review.mediaUrl) {
+            try {
+                await deleteUploadedFile(review.mediaUrl);
+            } catch (fileErr) {
+                console.error("Error deleting review media file:", fileErr);
+            }
+        }
+
+        await (prisma as any).review.delete({
+            where: { id: reviewId }
+        });
+
+        // Revalidate cached routes
+        if (review.diningId) {
+            revalidatePath(`/admin/dining/${review.diningId}`);
+            revalidatePath(`/user/dining/${review.diningId}`);
+        }
+        if (review.accommodationId) {
+            revalidatePath(`/admin/accommodation/${review.accommodationId}`);
+            revalidatePath(`/user/accommodation/${review.accommodationId}`);
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error in deleteReviewAction:", error);
+        return { success: false, error: error.message || "Failed to delete citizen review." };
+    }
+}
