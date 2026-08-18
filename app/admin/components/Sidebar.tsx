@@ -361,6 +361,7 @@ export function Sidebar({
         { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
         { href: "/admin/officials", label: "Council Members", icon: Users },
         { href: "/admin/hotlines", label: "Hotlines", icon: Phone },
+        { href: "/admin/citizens-charter", label: "Citizen's Charter", icon: FileText },
         // { href: "/admin/settings?tab=hero", label: "Banner Slider", icon: Layers, category: "Content" },
         { href: "/admin/resident-approvals", label: "Resident Approvals", icon: UserCheck, category: "Resident Management", badge: pendingResidentsCount },
         { href: "/admin/residents", label: "Resident Registry", icon: Users },

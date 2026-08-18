@@ -84,7 +84,7 @@ export function Footer({
                         {[
                             { name: "About Us", href: "/about" },
                             { name: "Transparency Seal", href: "/about" },
-                            { name: "Citizens Charter", href: "/user/services" },
+                            { name: "Citizens Charter", href: "/user/citizens-charter" },
                             { name: "Privacy Policy", href: "/privacy-policy" }
                         ].map((link) => (
                             <li key={link.name}>
