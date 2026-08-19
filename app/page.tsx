@@ -30,6 +30,7 @@ const Services = nextDynamic(() => import("@/components/sections/landing/Service
 const EmergencyReport = nextDynamic(() => import("@/components/sections/landing/EmergencyReport").then(m => m.EmergencyReport), { loading: () => <EmergencyReportSkeleton /> });
 const ParishCorner = nextDynamic(() => import("../components/sections/landing/ParishCorner"), { loading: () => <ParishCornerSkeleton /> });
 const AppDownloadSection = nextDynamic(() => import("@/components/sections/landing/AppDownloadSection").then(m => m.AppDownloadSection));
+const OrdinancesSection = nextDynamic(() => import("@/components/sections/landing/OrdinancesSection").then(m => m.OrdinancesSection));
 import prisma from "@/lib/db/prisma";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import { redirect } from "next/navigation";
@@ -192,7 +193,8 @@ export default async function Home({
         churchSchedules,
         latestCollection,
         barangayList,
-        transactionTypes
+        transactionTypes,
+        legislativeDocs
     ] = await Promise.all([
         prisma.heroSlide.findMany({
             where: {
@@ -344,6 +346,12 @@ export default async function Home({
                 level: isFiltered ? 2 : 1
             },
             orderBy: { name: "asc" }
+        }),
+        (prisma as any).legislativeDocument.findMany({
+            where: {
+                ...(isFiltered ? { barangay: selectedBarangay } : {})
+            } as any,
+            orderBy: { dateApproved: 'desc' }
         })
     ]);
 
@@ -539,6 +547,10 @@ export default async function Home({
                         />
                     </ClientOnly>
                 )}
+
+                <ClientOnly delay={1000}>
+                    <OrdinancesSection documents={legislativeDocs as any[]} />
+                </ClientOnly>
 
                 {/* Infrastructure Projects Section */}
                 {showLGUProjects && (

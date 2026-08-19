@@ -1462,4 +1462,17 @@ model CitizenCharter {
   updatedAt  DateTime @updatedAt
 }
 
-
+model LegislativeDocument {
+  id              String   @id @default(cuid())
+  type            String   // "ORDINANCE" or "RESOLUTION"
+  referenceNumber String
+  title           String
+  description     String
+  tags            String[] @default([])
+  dateApproved    DateTime
+  status          String   // e.g. "ACTIVE / ENFORCED", "ADOPTED / CEREMONIAL"
+  pdfUrl          String?
+  barangay        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
