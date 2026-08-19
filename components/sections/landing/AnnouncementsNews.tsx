@@ -22,6 +22,8 @@ interface Announcement {
     isPinned: boolean;
     imageUrl?: string | null;
     createdAt: Date;
+    department?: string | null;
+    approvalStatus?: string | null;
 }
 
 interface News {
@@ -38,9 +40,10 @@ interface AnnouncementsNewsProps {
     announcements: Announcement[];
     healthAnnouncements?: Announcement[];
     news: News[];
+    themeColor?: string;
 }
 
-export function AnnouncementsNews({ announcements, healthAnnouncements, news }: AnnouncementsNewsProps) {
+export function AnnouncementsNews({ announcements, healthAnnouncements, news, themeColor }: AnnouncementsNewsProps) {
     const { selectedBarangay } = useBarangay();
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -51,12 +54,22 @@ export function AnnouncementsNews({ announcements, healthAnnouncements, news }: 
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const filteredAnnouncements = announcements;
+    const isApproved = (a: Announcement) => {
+        if (a.approvalStatus === "PENDING_APPROVAL" || a.approvalStatus === "REJECTED") return false;
+        if ((a.department === "BPLO" || a.category === "Business") && a.approvalStatus !== "APPROVED") return false;
+        return true;
+    };
+
+    const filteredAnnouncements = (announcements || []).filter(isApproved);
+    const filteredHealthAnnouncements = (healthAnnouncements || []).filter(isApproved);
     const filteredNews = news;
 
     return (
         <>
-            <HighPriorityAnnouncementModal announcements={healthAnnouncements || announcements} />
+            <HighPriorityAnnouncementModal 
+                announcements={[...filteredHealthAnnouncements, ...filteredAnnouncements]} 
+                themeColor={themeColor}
+            />
 
             <section id="news" className="pt-8 md:pt-12 pb-8 md:pb-12 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16">
             

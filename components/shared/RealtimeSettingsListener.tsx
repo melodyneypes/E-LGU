@@ -64,6 +64,7 @@ export function RealtimeSettingsListener({ isMaintenanceActive }: { isMaintenanc
                         // Dynamically update primary theme color CSS variable on root document
                         console.log("Theme color updated in realtime:", updatedSetting.value);
                         document.documentElement.style.setProperty("--primary-theme", updatedSetting.value);
+                        router.refresh();
                     } else {
                         // For any other settings (logo, brand text, section visibility, etc.),
                         // refresh the Next.js router to pull fresh Server Component data

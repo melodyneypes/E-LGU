@@ -30,6 +30,7 @@ const Services = nextDynamic(() => import("@/components/sections/landing/Service
 const EmergencyReport = nextDynamic(() => import("@/components/sections/landing/EmergencyReport").then(m => m.EmergencyReport), { loading: () => <EmergencyReportSkeleton /> });
 const ParishCorner = nextDynamic(() => import("../components/sections/landing/ParishCorner"), { loading: () => <ParishCornerSkeleton /> });
 const AppDownloadSection = nextDynamic(() => import("@/components/sections/landing/AppDownloadSection").then(m => m.AppDownloadSection));
+const OrdinancesSection = nextDynamic(() => import("@/components/sections/landing/OrdinancesSection").then(m => m.OrdinancesSection));
 import prisma from "@/lib/db/prisma";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import { redirect } from "next/navigation";
@@ -42,6 +43,7 @@ import { getAmbulanceSettings } from "@/app/user/services/rural-health-unit/acti
 
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function Home({
     searchParams,
@@ -156,99 +158,137 @@ export default async function Home({
     const appStoreUrl = settings.get("app_app_store_url") || "";
     const apkDownloadUrl = settings.get("app_apk_download_url") || "";
 
-    const slides = await 
+    const announcementSelect = {
+        id: true,
+        title: true,
+        content: true,
+        priority: true,
+        category: true,
+        isPinned: true,
+        isActive: true,
+        barangay: true,
+        imageUrl: true,
+        expiryDate: true,
+        eventDate: true,
+        eventSchedule: true,
+        createdAt: true,
+        updatedAt: true,
+    };
+
+    const [
+        slides,
+        tourismSpots,
+        dining,
+        lodging,
+        rawAnnouncements,
+        rawHealthAnnouncements,
+        events,
+        news,
+        projects,
+        jobs,
+        officials,
+        hotlines,
+        ambulanceRes,
+        churchInfo,
+        churchSchedules,
+        latestCollection,
+        barangayList,
+        transactionTypes,
+        legislativeDocs
+    ] = await Promise.all([
         prisma.heroSlide.findMany({
             where: {
                 isActive: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : { OR: [{ barangay: null }, { barangay: "" }] })
             } as any,
             orderBy: { order: 'asc' }
-        });
-    const tourismSpots = await prisma.tourismSpot.findMany({
-        where: {
+        }),
+        prisma.tourismSpot.findMany({
+            where: {
                 isPublished: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             take: 5
-        });
-    const dining = await prisma.dining.findMany({
-        where: {
-            isPublished: true,
-            ...(isFiltered ? { barangay: selectedBarangay } : {})
-        } as any,
-        include: {
-            reviews: {
-                select: {
-                    rating: true
+        }),
+        prisma.dining.findMany({
+            where: {
+                isPublished: true,
+                ...(isFiltered ? { barangay: selectedBarangay } : {})
+            } as any,
+            include: {
+                reviews: {
+                    select: {
+                        rating: true
+                    }
                 }
-            }
-        },
-        take: 4
-    });
-    const lodging = await prisma.accommodation.findMany({
-        where: {
-            isPublished: true,
-            ...(isFiltered ? { barangay: selectedBarangay } : {})
-        } as any,
-        include: {
-            reviews: {
-                select: {
-                    rating: true
+            },
+            take: 4
+        }),
+        prisma.accommodation.findMany({
+            where: {
+                isPublished: true,
+                ...(isFiltered ? { barangay: selectedBarangay } : {})
+            } as any,
+            include: {
+                reviews: {
+                    select: {
+                        rating: true
+                    }
                 }
-            }
-        },
-        take: 4
-    });
-    const announcements = await prisma.announcement.findMany({
-        where: {
+            },
+            take: 4
+        }),
+        (prisma as any).announcement.findMany({
+            where: {
                 isActive: true,
                 category: { not: "Health" },
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
+            select: announcementSelect,
             orderBy: [
                 { isPinned: 'desc' },
                 { createdAt: 'desc' }
             ],
-            take: 3
-        });
-    const healthAnnouncements = await prisma.announcement.findMany({
-        where: {
+            take: 10
+        }),
+        (prisma as any).announcement.findMany({
+            where: {
                 isActive: true,
                 category: "Health",
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
+            select: announcementSelect,
             orderBy: [
                 { isPinned: 'desc' },
                 { createdAt: 'desc' }
             ],
-            take: 5
-        });
-    const events = await prisma.event.findMany({
-        where: {
+            take: 10
+        }),
+        prisma.event.findMany({
+            where: {
                 isPublished: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             orderBy: { startDate: 'asc' }
-        });
-    const news = await prisma.news.findMany({
-        where: {
+        }),
+        prisma.news.findMany({
+            where: {
                 isPublished: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             orderBy: { publishDate: 'desc' },
             take: 4
-        });
-    const projects = await prisma.project.findMany({
-        where: {
+        }),
+        prisma.project.findMany({
+            where: {
                 isPublished: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             orderBy: { createdAt: 'desc' },
             take: 3
-        });
-
-    const jobs = await (prisma as any).job.findMany({
-        where: {
+        }),
+        (prisma as any).job.findMany({
+            where: {
                 isActive: true,
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             },
@@ -257,9 +297,9 @@ export default async function Home({
                 { createdAt: 'desc' }
             ],
             take: 3
-        });
-    const officials = await prisma.official.findMany({
-        where: {
+        }),
+        prisma.official.findMany({
+            where: {
                 isActive: true,
                 ...(isFiltered ? { barangay: selectedBarangay, category: { in: ['Barangay Council', 'SK Council', 'Barangay', 'SK'] } } : {})
             } as any,
@@ -267,51 +307,92 @@ export default async function Home({
                 { order: "asc" },
                 { createdAt: "asc" }
             ]
-        });
-    const hotlines = await prisma.hotline.findMany({
-        where: { isActive: true },
+        }),
+        prisma.hotline.findMany({
+            where: { isActive: true },
             orderBy: { order: "asc" }
-        });
-
-    const ambulanceRes = await getAmbulanceSettings();
-    const initialFleet = ambulanceRes.success && ambulanceRes.fleet ? ambulanceRes.fleet : [];
-    const initialDispatchHotlines = ambulanceRes.success && ambulanceRes.hotlines ? ambulanceRes.hotlines : [];
-        // Fetch ONLY Main Church (Global) context for the Landing Page
-
-    const churchInfo = await (prisma as any).churchInfo.findFirst({
-        where: {
+        }),
+        getAmbulanceSettings(),
+        (prisma as any).churchInfo.findFirst({
+            where: {
                 ...(isFiltered ? { barangay: selectedBarangay } : { OR: [{ barangay: null }, { barangay: "" }] })
             } as any,
             include: { schedules: true }
-        });
-    const churchSchedules = await (prisma as any).churchSchedule.findMany({
-        where: {
+        }),
+        (prisma as any).churchSchedule.findMany({
+            where: {
                 churchInfo: {
                     ...(isFiltered ? { barangay: selectedBarangay } : { OR: [{ barangay: null }, { barangay: "" }] })
                 }
             } as any,
             orderBy: [{ day: "asc" }, { time: "asc" }]
-        });
-    const latestCollection = await (prisma as any).churchCollection.findMany({
-        where: {
+        }),
+        (prisma as any).churchCollection.findMany({
+            where: {
                 churchInfo: {
                     ...(isFiltered ? { barangay: selectedBarangay } : { OR: [{ barangay: null }, { barangay: "" }] })
                 }
             } as any,
             orderBy: { date: "desc" },
             take: 4
-        });
-    const barangays = await (prisma as any).barangayInfo.findMany({
-        select: { name: true },
+        }),
+        (prisma as any).barangayInfo.findMany({
+            select: { name: true },
             orderBy: { name: 'asc' }
-        }).then((list: any[]) => list.map((b: any) => b.name));
-    const transactionTypes = await prisma.transactionType.findMany({
-        where: {
-            isActive: true,
-            level: isFiltered ? 2 : 1
-        },
-        orderBy: { name: "asc" }
-    });
+        }),
+        prisma.transactionType.findMany({
+            where: {
+                isActive: true,
+                level: isFiltered ? 2 : 1
+            },
+            orderBy: { name: "asc" }
+        }),
+        (prisma as any).legislativeDocument.findMany({
+            where: {
+                ...(isFiltered ? { barangay: selectedBarangay } : {})
+            } as any,
+            orderBy: { dateApproved: 'desc' }
+        })
+    ]);
+
+    const allAnnouncementsRaw = [...rawAnnouncements, ...rawHealthAnnouncements];
+    const allIds = allAnnouncementsRaw.map((a: any) => a.id).filter(Boolean);
+    let detailMap = new Map<string, any>();
+    if (allIds.length > 0) {
+        try {
+            const rawDetails: any[] = await (prisma as any).$queryRawUnsafe(
+                `SELECT id, department, "approvalStatus" FROM "Announcement" WHERE id = ANY($1::text[])`,
+                allIds
+            );
+            detailMap = new Map(rawDetails.map((r: any) => [r.id, r]));
+        } catch {
+            // fallback
+        }
+    }
+
+    const enrichAnnouncement = (a: any) => {
+        const det = detailMap.get(a.id);
+        return {
+            ...a,
+            department: det?.department || a.department || (a.category === "Business" ? "BPLO" : "GENERAL"),
+            approvalStatus: det?.approvalStatus || a.approvalStatus || (a.category === "Business" ? "PENDING_APPROVAL" : "APPROVED"),
+        };
+    };
+
+    const enrichedAnnouncements = rawAnnouncements.map(enrichAnnouncement);
+    const enrichedHealthAnnouncements = rawHealthAnnouncements.map(enrichAnnouncement);
+
+    const isPubliclyApproved = (a: any) => {
+        if (a.approvalStatus === "PENDING_APPROVAL" || a.approvalStatus === "REJECTED") return false;
+        if ((a.department === "BPLO" || a.category === "Business") && a.approvalStatus !== "APPROVED") return false;
+        return true;
+    };
+
+    const announcements = enrichedAnnouncements.filter(isPubliclyApproved).slice(0, 3);
+    const healthAnnouncements = enrichedHealthAnnouncements.filter(isPubliclyApproved).slice(0, 5);
+    const initialFleet = ambulanceRes && ambulanceRes.fleet ? ambulanceRes.fleet : [];
+    const initialDispatchHotlines = ambulanceRes && ambulanceRes.hotlines ? ambulanceRes.hotlines : [];
+    const barangays = (barangayList || []).map((b: any) => b.name);
 
     const services: any[] = [];
 
@@ -458,9 +539,18 @@ export default async function Home({
                 {/* Announcements & News Section */}
                 {showAnnouncements && (
                     <ClientOnly delay={1000} fallback={<AnnouncementsNewsSkeleton />}>
-                        <AnnouncementsNews announcements={announcements} healthAnnouncements={healthAnnouncements} news={news} />
+                        <AnnouncementsNews 
+                            announcements={announcements} 
+                            healthAnnouncements={healthAnnouncements} 
+                            news={news} 
+                            themeColor={themeColor} 
+                        />
                     </ClientOnly>
                 )}
+
+                <ClientOnly delay={1000}>
+                    <OrdinancesSection documents={legislativeDocs as any[]} />
+                </ClientOnly>
 
                 {/* Infrastructure Projects Section */}
                 {showLGUProjects && (

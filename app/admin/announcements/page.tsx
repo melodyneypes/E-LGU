@@ -71,31 +71,104 @@ export default async function Page({
     }
 
     // Execute paginated findMany and total count concurrently
-    const [announcements, totalCount, activeBarangays] = await Promise.all([
-        announcementDelegate.findMany({
-            where,
-            select: {
-                id: true,
-                title: true,
-                priority: true,
-                category: true,
-                isPinned: true,
-                isActive: true,
-                barangay: true,
-                expiryDate: true,
-                createdAt: true,
-                updatedAt: true,
-            },
-            orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        }),
-        announcementDelegate.count({ where }),
-        prisma.barangayInfo.findMany({
-            orderBy: { name: "asc" },
-            select: { name: true },
-        }),
-    ]);
+    let announcements: any[] = [];
+    let totalCount = 0;
+    let activeBarangays: { name: string }[] = [];
+
+    const safeSelect = {
+        id: true,
+        title: true,
+        content: true,
+        priority: true,
+        category: true,
+        isPinned: true,
+        isActive: true,
+        barangay: true,
+        imageUrl: true,
+        authorEmail: true,
+        authorId: true,
+        healthCenterId: true,
+        eventDate: true,
+        eventSchedule: true,
+        expiryDate: true,
+        createdAt: true,
+        updatedAt: true,
+    };
+
+    try {
+        const results = await Promise.all([
+            announcementDelegate.findMany({
+                where,
+                select: safeSelect,
+                orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+            }),
+            announcementDelegate.count({ where }),
+            prisma.barangayInfo.findMany({
+                orderBy: { name: "asc" },
+                select: { name: true },
+            }),
+        ]);
+        announcements = results[0];
+        totalCount = results[1];
+        activeBarangays = results[2];
+    } catch {
+        const results = await Promise.all([
+            announcementDelegate.findMany({
+                where,
+                select: safeSelect,
+                orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+            }),
+            announcementDelegate.count({ where }),
+            prisma.barangayInfo.findMany({
+                orderBy: { name: "asc" },
+                select: { name: true },
+            }),
+        ]);
+        announcements = results[0];
+        totalCount = results[1];
+        activeBarangays = results[2];
+    }
+
+    // Enrich with database approval status and department safely
+    try {
+        const ids = announcements.map((a: any) => a.id).filter(Boolean);
+        if (ids.length > 0) {
+            const rawDetails: any[] = await (prisma as any).$queryRawUnsafe(
+                `SELECT id, department, "approvalStatus", "submittedBy", "approvedBy" FROM "Announcement" WHERE id = ANY($1::text[])`,
+                ids
+            );
+            const detailMap = new Map(rawDetails.map((r: any) => [r.id, r]));
+            announcements = announcements.map((a: any) => {
+                const det = detailMap.get(a.id);
+                return {
+                    ...a,
+                    department: det?.department || a.department || (a.category === "Business" ? "BPLO" : "GENERAL"),
+                    approvalStatus: det?.approvalStatus || a.approvalStatus || (a.category === "Business" || a.department === "BPLO" ? "PENDING_APPROVAL" : "APPROVED"),
+                    submittedBy: det?.submittedBy || a.submittedBy || null,
+                    approvedBy: det?.approvedBy || a.approvedBy || null,
+                };
+            });
+        }
+    } catch {
+        // Safe fallback if raw enrichment fails
+    }
+
+    // Exclude announcements that require approval (displayed in dedicated Approval queue)
+    announcements = announcements.filter((a: any) => a.approvalStatus !== "PENDING_APPROVAL");
+
+    try {
+        const rawPending: any[] = await (prisma as any).$queryRawUnsafe(
+            `SELECT COUNT(*)::int as count FROM "Announcement" WHERE "approvalStatus" = 'PENDING_APPROVAL'`
+        );
+        const pendingCount = Number(rawPending?.[0]?.count || 0);
+        totalCount = Math.max(0, totalCount - pendingCount);
+    } catch {
+        // Safe fallback
+    }
 
     return (
         <AnnouncementPage

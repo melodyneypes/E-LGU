@@ -10,7 +10,7 @@ import {
     Newspaper, PhoneCall, Info,
     Compass, MapPin, Globe, Activity, Archive,
     Building2, Hammer, CreditCard, FileText, User,
-    AlertTriangle, Siren, Truck
+    AlertTriangle, Siren, Truck, Scale
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,8 @@ export function Navbar({
     const [isMobileServicesOpen, setIsMobileServicesOpen] = React.useState(false);
     const [isEmergencyHovered, setIsEmergencyHovered] = React.useState(false);
     const [isMobileEmergencyOpen, setIsMobileEmergencyOpen] = React.useState(false);
+    const [isUpdatesHovered, setIsUpdatesHovered] = React.useState(false);
+    const [isMobileUpdatesOpen, setIsMobileUpdatesOpen] = React.useState(false);
     const { selectedBarangay } = useBarangay();
     const { scrollY } = useScroll();
     const isTransparentNavPage = pathname === "/";
@@ -83,6 +85,30 @@ export function Navbar({
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
         { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
+    ], []);
+
+    const updatesItems = React.useMemo(() => [
+        {
+            name: "News & Announcements",
+            href: "/#news",
+            desc: "Latest municipal bulletins, announcements & news",
+            icon: Newspaper,
+            color: "text-blue-500 bg-blue-500/10"
+        },
+        {
+            name: "Municipal Ordinances",
+            href: "/#ordinances?type=ORDINANCE",
+            desc: "View approved laws, regulations & local codes",
+            icon: Scale,
+            color: "text-purple-500 bg-purple-500/10"
+        },
+        {
+            name: "Sangguniang Bayan Resolutions",
+            href: "/#ordinances?type=RESOLUTION",
+            desc: "Official SB legislative resolutions & adoptions",
+            icon: FileText,
+            color: "text-teal-500 bg-teal-500/10"
+        }
     ], []);
 
     const [activeCategories, setActiveCategories] = React.useState<string[]>([
@@ -196,7 +222,7 @@ export function Navbar({
     React.useEffect(() => {
         if (pathname !== "/") return;
 
-        const sectionIds = ["services", "tourism", "news", "careers", "hotlines", "reports", "ambulance"];
+        const sectionIds = ["services", "tourism", "news", "ordinances", "careers", "hotlines", "reports", "ambulance"];
         const observers: IntersectionObserver[] = [];
         let retryTimer: ReturnType<typeof setTimeout>;
 
@@ -237,6 +263,9 @@ export function Navbar({
         if (href === "/#hotlines") {
             return pathname === "/" && (activeSection === "#hotlines" || activeSection === "#reports" || activeSection === "#ambulance");
         }
+        if (href === "/#news") {
+            return pathname === "/" && (activeSection === "#news" || activeSection === "#ordinances");
+        }
         if (href.startsWith("/#")) {
             return pathname === "/" && activeSection === href.slice(1);
         }
@@ -247,7 +276,7 @@ export function Navbar({
     // Scroll to section or navigate to page
     const handleNavClick = (e: React.MouseEvent, href: string) => {
         if (!href.startsWith("/#")) return;
-        const id = href.slice(2);
+        const id = href.slice(2).split("?")[0];
         const el = document.getElementById(id);
         if (el) {
             e.preventDefault();
@@ -426,7 +455,7 @@ export function Navbar({
                                         )}
                                         <motion.div
                                             style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
-                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5"
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 whitespace-nowrap"
                                         >
                                             <link.icon
                                                 className={cn(
@@ -505,7 +534,7 @@ export function Navbar({
                                         )}
                                         <motion.div
                                             style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
-                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5"
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 whitespace-nowrap"
                                         >
                                             <link.icon
                                                 className={cn(
@@ -566,6 +595,91 @@ export function Navbar({
                             );
                         }
 
+                        if (link.name === "Updates") {
+                            return (
+                                <div
+                                    key={link.name}
+                                    className="relative group/updates"
+                                    onMouseEnter={() => setIsUpdatesHovered(true)}
+                                    onMouseLeave={() => setIsUpdatesHovered(false)}
+                                >
+                                    <button
+                                        type="button"
+                                        className="relative px-3 xl:px-4 py-2.5 pb-3 group overflow-hidden rounded-full flex items-center gap-1 xl:gap-1.5 transition-colors duration-200"
+                                        style={{ color: isActive ? themeColor : undefined }}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 rounded-full -z-0"
+                                                style={{ backgroundColor: `${themeColor}18` }}
+                                                initial={false}
+                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                            />
+                                        )}
+                                        <motion.div
+                                            style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 whitespace-nowrap"
+                                        >
+                                            <link.icon
+                                                className={cn(
+                                                    "w-3.5 h-3.5 transition-all duration-200",
+                                                    isActive ? "opacity-100 scale-110" : "opacity-60 group-hover/updates:opacity-100"
+                                                )}
+                                            />
+                                            <span>
+                                                {link.name}
+                                            </span>
+                                            <ChevronDown className="w-3 h-3 text-slate-400 transition-transform duration-355 group-hover/updates:rotate-180" />
+                                        </motion.div>
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isUpdatesHovered && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                                className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 w-[340px] z-[120]"
+                                            >
+                                                <div 
+                                                    className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
+                                                    style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
+                                                >
+                                                    {updatesItems.map((item) => (
+                                                        <Link
+                                                            key={item.name}
+                                                            href={item.href}
+                                                            onClick={(e) => {
+                                                                if (item.href.startsWith("/#")) {
+                                                                    handleNavClick(e, item.href);
+                                                                }
+                                                                setIsUpdatesHovered(false);
+                                                            }}
+                                                            className="flex items-center gap-3.5 p-3.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group/item"
+                                                        >
+                                                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/item:scale-105 shadow-sm", item.color)}>
+                                                                <item.icon className="w-5 h-5" />
+                                                            </div>
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                    {item.name}
+                                                                </span>
+                                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic text-left">
+                                                                    {item.desc}
+                                                                </span>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            );
+                        }
+
                         return (
                             <Link
                                 key={link.name}
@@ -583,7 +697,7 @@ export function Navbar({
                                     />
                                 )}
                                 <motion.div
-                                    className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 transition-colors duration-200"
+                                    className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 transition-colors duration-200 whitespace-nowrap"
                                     style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
                                 >
                                     <link.icon
@@ -1018,6 +1132,83 @@ export function Navbar({
                                                                                 </span>
                                                                                 <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
                                                                                     {cat.desc}
+                                                                                </span>
+                                                                            </div>
+                                                                        </Link>
+                                                                    ))}
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                );
+                                            }
+
+                                            if (link.name === "Updates") {
+                                                return (
+                                                    <div key={link.name} className="flex flex-col gap-1">
+                                                        <button
+                                                            onClick={() => setIsMobileUpdatesOpen(!isMobileUpdatesOpen)}
+                                                            className="flex items-center justify-between p-3 rounded-xl border transition-all active:scale-[0.98] w-full text-left"
+                                                            style={isMobileActive
+                                                                ? { borderColor: `${themeColor}40`, backgroundColor: `${themeColor}0d` }
+                                                                : { borderColor: "transparent", backgroundColor: undefined }
+                                                            }
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all bg-blue-500/10 text-blue-500"
+                                                                    style={isMobileActive ? { backgroundColor: themeColor, color: "#fff" } : undefined}
+                                                                >
+                                                                    <link.icon
+                                                                        className="w-4 h-4"
+                                                                    />
+                                                                </div>
+                                                                <span
+                                                                    className="text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white"
+                                                                    style={isMobileActive ? { color: themeColor } : undefined}
+                                                                >
+                                                                    Updates & Legislation
+                                                                </span>
+                                                            </div>
+                                                            <ChevronDown
+                                                                className={cn(
+                                                                    "w-4 h-4 text-slate-400 transition-transform duration-250",
+                                                                    isMobileUpdatesOpen && "rotate-180"
+                                                                )}
+                                                            />
+                                                        </button>
+
+                                                        <AnimatePresence>
+                                                            {isMobileUpdatesOpen && (
+                                                                <motion.div
+                                                                    initial={{ height: 0, opacity: 0 }}
+                                                                    animate={{ height: "auto", opacity: 1 }}
+                                                                    exit={{ height: 0, opacity: 0 }}
+                                                                    transition={{ duration: 0.25 }}
+                                                                    className="overflow-hidden pl-4 pr-1 flex flex-col gap-1"
+                                                                >
+                                                                    {updatesItems.map((item) => (
+                                                                        <Link
+                                                                            key={item.name}
+                                                                            href={item.href}
+                                                                            onClick={(e) => {
+                                                                                if (item.href.startsWith("/#")) {
+                                                                                    handleNavClick(e, item.href);
+                                                                                }
+                                                                                setIsOpen(false);
+                                                                                setIsMobileUpdatesOpen(false);
+                                                                            }}
+                                                                            className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                                                        >
+                                                                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm", item.color)}>
+                                                                                <item.icon className="w-4 h-4" />
+                                                                            </div>
+                                                                            <div className="flex flex-col text-left">
+                                                                                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                    {item.name}
+                                                                                </span>
+                                                                                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
+                                                                                    {item.desc}
                                                                                 </span>
                                                                             </div>
                                                                         </Link>

@@ -757,9 +757,9 @@ export function MedicalConsultationForm({
                                                     <SelectValue placeholder="Select Health Center Location" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                    {(healthCenters && healthCenters.length > 0 ? healthCenters : [selectedCenter]).map((center: any) => (
-                                                        <SelectItem key={center.id} value={center.id} className="text-xs font-bold rounded-lg">
-                                                            {center.name} ({center.barangay || "Mapandan"})
+                                                    {(healthCenters && healthCenters.length > 0 ? healthCenters : (selectedCenter ? [selectedCenter] : [])).map((center: any) => (
+                                                        <SelectItem key={center?.id} value={center?.id} className="text-xs font-bold rounded-lg">
+                                                            {center?.name} ({center?.barangay || "Mapandan"})
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -795,12 +795,12 @@ export function MedicalConsultationForm({
                                             </div>
  
                                             <div className="w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
-                                                <AllHealthCentersMap
-                                                     centers={healthCenters.length > 0 ? healthCenters : [selectedCenter]}
-                                                     selectedCenterId={selectedCenterId}
-                                                     onSelectCenter={(id) => setSelectedCenterId(id)}
-                                                />
-                                            </div>
+                                                 <AllHealthCentersMap
+                                                      centers={healthCenters.length > 0 ? healthCenters : (selectedCenter ? [selectedCenter] : [])}
+                                                      selectedCenterId={selectedCenterId}
+                                                      onSelectCenter={(id) => setSelectedCenterId(id)}
+                                                 />
+                                             </div>
  
                                             <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400 pt-1">
                                                 {selectedCenter.operatingHours && (

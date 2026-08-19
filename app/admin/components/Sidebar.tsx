@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -38,6 +38,7 @@ interface SidebarProps {
     pendingReportsCount?: number;
     pendingResidentsCount?: number;
     pendingTransactionsCount?: number;
+    pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
 }
 
@@ -51,6 +52,7 @@ export function Sidebar({
     pendingResidentsCount = 0,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     pendingTransactionsCount = 0,
+    pendingAnnouncementsCount = 0,
     unviewedLcrCounts = {}
 }: SidebarProps) {
     const pathname = usePathname();
@@ -62,6 +64,7 @@ export function Sidebar({
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
+    const [isAnnouncementsOpen, setIsAnnouncementsOpen] = React.useState(pathname.startsWith("/admin/announcements"));
     const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
 
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -69,6 +72,7 @@ export function Sidebar({
     const [mounted, setMounted] = React.useState(false);
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
+    const [livePendingAnnouncementsCount, setLivePendingAnnouncementsCount] = React.useState(pendingAnnouncementsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/treasury/stalls"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
@@ -264,9 +268,14 @@ export function Sidebar({
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
+        setIsAnnouncementsOpen(pathname.startsWith("/admin/announcements"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
     }, [pathname]);
+
+    React.useEffect(() => {
+        setLivePendingAnnouncementsCount(pendingAnnouncementsCount);
+    }, [pendingAnnouncementsCount]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -348,10 +357,23 @@ export function Sidebar({
                 { href: "/admin/barangays/admins", label: "Add Barangay Admins" },
             ]
         },
-        { href: "/admin/announcements", label: "Announcements", icon: Megaphone, category: "Content" },
+        {
+            label: "Announcements",
+            icon: Megaphone,
+            category: "Content",
+            isDropdown: true,
+            isOpen: isAnnouncementsOpen,
+            onToggle: () => setIsAnnouncementsOpen(!isAnnouncementsOpen),
+            badge: livePendingAnnouncementsCount,
+            subItems: [
+                { href: "/admin/announcements", label: "All Announcements" },
+                { href: "/admin/announcements/approvals", label: "Approval of Announcements", badge: livePendingAnnouncementsCount },
+            ]
+        },
         { href: "/admin/news", label: "News & Updates", icon: Newspaper },
         { href: "/admin/events", label: "Events", icon: Calendar },
         { href: "/admin/projects", label: "LGU Projects", icon: FolderKanban },
+        { href: "/admin/ordinances", label: "Ordinances & Resolutions", icon: Scale },
         { href: "/admin/dining", label: "Kainan (Dining)", icon: UtensilsCrossed },
         { href: "/admin/accommodation", label: "Tuluyan (Stay)", icon: BedDouble },
         { href: "/admin/tourism", label: "Gallery", icon: Map },
@@ -527,6 +549,7 @@ export function Sidebar({
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "BPLO Department" },
+        { href: "/admin/bplo/announcements", label: "BPLO Announcements", icon: Megaphone, category: "BPLO Department" },
         { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
@@ -629,7 +652,7 @@ export function Sidebar({
             if (department) {
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
-                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
+                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
@@ -672,7 +695,7 @@ export function Sidebar({
             if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                 menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
             } else {
-                menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
+                menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label));
             }
         } else if (role === "ENGINEER") {
             menuItems = [
@@ -872,6 +895,11 @@ export function Sidebar({
                                                             {Object.values(liveLcrCounts).reduce((a, b) => a + b, 0)}
                                                         </span>
                                                     )}
+                                                    {typeof item.badge === "number" && item.badge > 0 && (
+                                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
                                                     {item.isOpen ? <ChevronUp size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
                                                 </div>
                                             </button>
@@ -950,6 +978,11 @@ export function Sidebar({
                                                                         {!isDashboard && (liveLcrCounts[sub.label] || 0) > 0 && (
                                                                             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
                                                                                 {liveLcrCounts[sub.label]}
+                                                                            </span>
+                                                                        )}
+                                                                        {typeof (sub as any).badge === "number" && (sub as any).badge > 0 && (
+                                                                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                                                {(sub as any).badge}
                                                                             </span>
                                                                         )}
                                                                     </Link>

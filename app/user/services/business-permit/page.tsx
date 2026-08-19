@@ -44,6 +44,7 @@ import { getCurrentUserResident, getTransactionTypes, submitBusinessPermitTransa
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import { BploAnnouncementModal } from "@/components/shared/BploAnnouncementModal";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import { compressImage } from "@/lib/image-compression";
 
@@ -2466,6 +2467,7 @@ export default function BusinessPermitWizardPage() {
                     </div>
                 </div>
             </div>
+            <BploAnnouncementModal />
             <PrivacyTermsModal
                 isOpen={isPrivacyModalOpen}
                 onClose={() => setIsPrivacyModalOpen(false)}
