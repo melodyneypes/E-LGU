@@ -25,6 +25,7 @@ interface AdminShellProps {
     pendingReportsCount?: number;
     pendingResidentsCount?: number;
     pendingTransactionsCount?: number;
+    pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
 }
 
@@ -38,6 +39,7 @@ export function AdminShell({
     pendingReportsCount: initialPendingReportsCount = 0,
     pendingResidentsCount: initialPendingResidentsCount = 0,
     pendingTransactionsCount: initialPendingTransactionsCount = 0,
+    pendingAnnouncementsCount: initialPendingAnnouncementsCount = 0,
     unviewedLcrCounts: initialUnviewedLcrCounts = {},
 }: AdminShellProps) {
     const router = useRouter();
@@ -46,6 +48,7 @@ export function AdminShell({
     const [reportsCount, setReportsCount] = React.useState(initialPendingReportsCount);
     const [residentsCount, setResidentsCount] = React.useState(initialPendingResidentsCount);
     const [transactionsCount, setTransactionsCount] = React.useState(initialPendingTransactionsCount);
+    const [announcementsCount, setAnnouncementsCount] = React.useState(initialPendingAnnouncementsCount);
     const [lcrCounts, setLcrCounts] = React.useState<Record<string, number>>(initialUnviewedLcrCounts);
 
     React.useEffect(() => {
@@ -59,6 +62,7 @@ export function AdminShell({
                         setReportsCount(data.pendingReportsCount || 0);
                         setResidentsCount(data.pendingResidentsCount || 0);
                         setTransactionsCount(data.pendingTransactionsCount || 0);
+                        setAnnouncementsCount(data.pendingAnnouncementsCount || 0);
                         setLcrCounts(data.unviewedLcrCounts || {});
                     }
                 }
@@ -267,6 +271,7 @@ export function AdminShell({
                 pendingReportsCount={reportsCount}
                 pendingResidentsCount={residentsCount}
                 pendingTransactionsCount={transactionsCount}
+                pendingAnnouncementsCount={announcementsCount}
                 unviewedLcrCounts={lcrCounts}
             />
             <div className="flex-1 flex flex-col min-w-0 relative">

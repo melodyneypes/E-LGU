@@ -4,16 +4,15 @@ function getFormattedDatabaseUrl() {
   const url = process.env.DATABASE_URL || "";
   if (!url) return undefined;
   
-  let formatted = url;
-  if (formatted.includes("connection_limit=")) {
-    formatted = formatted
-      .replace(/connection_limit=\d+/, "connection_limit=10")
-      .replace(/pool_timeout=\d+/, "pool_timeout=15");
-  } else {
-    const separator = formatted.includes("?") ? "&" : "?";
-    formatted = `${formatted}${separator}connection_limit=10&pool_timeout=15`;
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set("connection_limit", "15");
+    parsedUrl.searchParams.set("pool_timeout", "30");
+    return parsedUrl.toString();
+  } catch (error) {
+    console.error("Error formatting database URL:", error);
+    return url;
   }
-  return formatted;
 }
 
 const prismaClientSingleton = () => {

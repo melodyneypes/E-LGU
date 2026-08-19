@@ -10,7 +10,8 @@ import { Edit2, Trash2, Calendar, Megaphone, Pin, PinOff, ChevronLeft, ChevronRi
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState } from "react";
-import { deleteAnnouncement, toggleAnnouncementStatus, toggleAnnouncementPin, getAnnouncementById } from "../actions/announcements.actions";
+import { deleteAnnouncement, toggleAnnouncementStatus, toggleAnnouncementPin, getAnnouncementById, approveAnnouncement, rejectAnnouncement } from "../actions/announcements.actions";
+import { Check, X, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
@@ -35,6 +36,7 @@ export function AnnouncementTable() {
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [approvingId, setApprovingId] = useState<string | null>(null);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -131,6 +133,39 @@ export function AnnouncementTable() {
         }
     };
 
+    const handleApprove = async (id: string) => {
+        setApprovingId(id);
+        try {
+            const res = await approveAnnouncement(id);
+            if (res.success) {
+                toast.success("Announcement approved and published live!");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to approve announcement.");
+            }
+        } catch {
+            toast.error("Error approving announcement.");
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleReject = async (id: string) => {
+        const reason = prompt("Enter reason for rejection (optional):");
+        if (reason === null) return;
+        try {
+            const res = await rejectAnnouncement(id, reason);
+            if (res.success) {
+                toast.success("Announcement marked as rejected.");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to reject announcement.");
+            }
+        } catch {
+            toast.error("Error rejecting announcement.");
+        }
+    };
+
     if (announcements.length === 0) {
         return (
             <div className="p-16 text-center flex flex-col items-center justify-center">
@@ -206,11 +241,21 @@ export function AnnouncementTable() {
                                 <TableRow key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]">
                                     <TableCell className="pl-8 py-5">
                                         <div className="flex flex-col space-y-1.5">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 {item.isPinned && <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />}
                                                 <span className="dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
                                                     {item.title}
                                                 </span>
+                                                {item.approvalStatus === "PENDING_APPROVAL" && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                                        <Clock className="w-2.5 h-2.5" /> Pending Approval {item.department ? `(${item.department})` : ""}
+                                                    </span>
+                                                )}
+                                                {item.approvalStatus === "REJECTED" && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                                        <X className="w-2.5 h-2.5" /> Rejected
+                                                    </span>
+                                                )}
                                             </div>
                                             {item.content && (
                                                 <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
@@ -299,7 +344,34 @@ export function AnnouncementTable() {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right pr-8">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end items-center gap-2">
+                                            {/* LGU Admin Approval Controls */}
+                                            {item.approvalStatus === "PENDING_APPROVAL" && (
+                                                <div className="flex items-center gap-1.5 mr-2">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleApprove(item.id)}
+                                                        disabled={approvingId === item.id}
+                                                        className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md flex items-center gap-1"
+                                                    >
+                                                        {approvingId === item.id ? (
+                                                            <span className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />
+                                                        ) : (
+                                                            <Check className="w-3.5 h-3.5" />
+                                                        )}
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleReject(item.id)}
+                                                        className="h-8 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl text-[10px] font-bold"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+                                            )}
+
                                             {canEdit ? (
                                                 <>
                                                     <TooltipProvider>

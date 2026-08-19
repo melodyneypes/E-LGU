@@ -191,6 +191,11 @@ model Announcement {
   healthCenterId String?
   eventDate      DateTime?
   eventSchedule  String?
+  department      String?   @default("GENERAL")
+  approvalStatus  String    @default("APPROVED")
+  submittedBy     String?
+  approvedBy      String?
+  rejectionReason String?
 }
 
 model Job {

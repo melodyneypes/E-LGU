@@ -554,7 +554,7 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
 
                 {/* 2. Layered White Book Pages (Visible on hover on desktop, always visible on mobile) */}
                 <div 
-                    className="absolute inset-0 bg-white dark:bg-slate-200 rounded-r-md border border-slate-300 dark:border-slate-400 shadow-sm
+                    className="absolute inset-0 bg-white dark:bg-slate-200 rounded-r-md rounded-l-none border border-slate-300 dark:border-slate-400 shadow-sm
                                opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-500"
                     style={{
                         transform: "translateZ(-12px) translateX(12px) scaleY(0.96)",
@@ -562,7 +562,7 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
                     }}
                 />
                 <div 
-                    className="absolute inset-0 bg-slate-50 dark:bg-slate-100 rounded-r-md border-r-2 border-slate-300 dark:border-slate-400 shadow-sm
+                    className="absolute inset-0 bg-slate-50 dark:bg-slate-100 rounded-r-md rounded-l-none border-r-2 border-slate-300 dark:border-slate-400 shadow-sm
                                opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-500"
                     style={{
                         transform: "translateZ(-8px) translateX(8px) scaleY(0.97)",
@@ -570,7 +570,7 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
                     }}
                 />
                 <div 
-                    className="absolute inset-0 bg-white dark:bg-slate-100 rounded-r-md border-r-2 border-slate-300 dark:border-slate-400 shadow-sm
+                    className="absolute inset-0 bg-white dark:bg-slate-100 rounded-r-md rounded-l-none border-r-2 border-slate-300 dark:border-slate-400 shadow-sm
                                opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-500"
                     style={{
                         transform: "translateZ(-4px) translateX(4px) scaleY(0.98)",
@@ -580,7 +580,7 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
 
                 {/* 3. Front Book Cover */}
                 <div 
-                    className="absolute inset-0 rounded-2xl md:rounded-2xl md:group-hover:rounded-r-xl md:group-hover:rounded-l-xs overflow-hidden shadow-2xl transition-all duration-500 border-l border-white/20 flex flex-col justify-between"
+                    className="absolute inset-0 rounded-r-2xl rounded-l-none overflow-hidden shadow-2xl transition-all duration-500 border-l border-white/20 flex flex-col justify-between"
                     style={{
                         background: "linear-gradient(160deg, color-mix(in srgb, var(--primary-theme, #a1112e) 85%, #fff 15%) 0%, var(--primary-theme, #880d24) 45%, color-mix(in srgb, var(--primary-theme, #68081a) 70%, #000 30%) 100%)",
                         boxShadow: "-4px 8px 24px rgba(0, 0, 0, 0.45), inset -1px 0 6px rgba(0, 0, 0, 0.3)"
@@ -645,17 +645,21 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
 
                         {/* Official Seal Badge */}
                         <div 
-                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1.5 shadow-2xl border-2 flex items-center justify-center transition-transform group-hover:scale-105 duration-500"
-                            style={{ borderColor: "color-mix(in srgb, var(--primary-theme, #f59e0b) 40%, #fef08a 60%)" }}
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1.5 shadow-xl border-2 flex items-center justify-center"
+                            style={{ 
+                                borderColor: "color-mix(in srgb, var(--primary-theme, #f59e0b) 45%, #fef08a 55%)"
+                            }}
                         >
-                            {logoUrl ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={logoUrl} alt="Seal" className="w-full h-full object-contain" />
-                            ) : Icon ? (
-                                <Icon className="w-9 h-9" style={{ color: "var(--primary-theme)" }} />
-                            ) : (
-                                <BookOpen className="w-9 h-9" style={{ color: "var(--primary-theme)" }} />
-                            )}
+                            <div className="w-full h-full flex items-center justify-center">
+                                {logoUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={logoUrl} alt="Seal" className="w-full h-full object-contain drop-shadow-sm" />
+                                ) : Icon ? (
+                                    <Icon className="w-9 h-9" style={{ color: "var(--primary-theme)" }} />
+                                ) : (
+                                    <BookOpen className="w-9 h-9" style={{ color: "var(--primary-theme)" }} />
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -675,9 +679,6 @@ function StandingBookCard({ title, logoUrl, icon: Icon, onClick }: StandingBookC
                             </span>
                         </div>
                     </div>
-
-                    {/* Book Gloss Reflection on Hover */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent pointer-events-none z-30 opacity-20 md:opacity-0 md:group-hover:opacity-60 transition-opacity duration-500" />
                 </div>
             </div>
         </div>

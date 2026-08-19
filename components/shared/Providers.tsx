@@ -17,7 +17,7 @@ export function Providers({
     isMaintenanceActive?: boolean;
 }) {
     return (
-        <SessionProvider refetchOnWindowFocus={false}>
+        <SessionProvider basePath="/api/auth" refetchOnWindowFocus={false}>
             <BarangayProvider>
                 <AuthOTPGuard />
                 <RealtimeUserListener />

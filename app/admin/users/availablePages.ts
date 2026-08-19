@@ -12,6 +12,7 @@ export const AVAILABLE_PAGES: AvailablePage[] = [
   { label: "Barangays List", path: "/admin/barangays/list", category: "Infrastructure" },
   { label: "Barangay Admins", path: "/admin/barangays/admins", category: "Infrastructure" },
   { label: "Announcements", path: "/admin/announcements", category: "Content" },
+  { label: "Approval of Announcements", path: "/admin/announcements/approvals", category: "Content" },
   { label: "News & Updates", path: "/admin/news", category: "Content" },
   { label: "Events", path: "/admin/events", category: "Content" },
   { label: "LGU Projects", path: "/admin/projects", category: "Content" },
@@ -28,5 +29,6 @@ export const AVAILABLE_PAGES: AvailablePage[] = [
   { label: "Resident Registry", path: "/admin/residents", category: "Residents" },
   { label: "Household Map", path: "/admin/households", category: "Residents" },
   { label: "RHU Announcements", path: "/admin/rhu/announcements", category: "Rural Health Unit" },
+  { label: "BPLO Announcements", path: "/admin/bplo/announcements", category: "BPLO Department" },
   { label: "User Accounts", path: "/admin/users", category: "Security" },
 ];
