@@ -5,35 +5,29 @@ import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    // 1. Strict Authentication Guard: Require active user session
     const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized access. Valid user session required." }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { fcmToken, userId, email } = body;
+    const { fcmToken } = body;
 
-    if (!fcmToken) {
-      return NextResponse.json({ success: false, error: "fcmToken is required" }, { status: 400 });
+    if (!fcmToken || typeof fcmToken !== "string" || !fcmToken.trim()) {
+      return NextResponse.json({ success: false, error: "Valid fcmToken string is required" }, { status: 400 });
     }
 
-    const targetUserId = session?.user?.id || userId;
-    const targetEmail = session?.user?.email || email;
+    // 2. Safe Update: Bind strictly to the authenticated caller's user ID
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: fcmToken.trim() },
+      select: { id: true, fcmToken: true }
+    });
 
-    if (!targetUserId && !targetEmail) {
-      return NextResponse.json({ success: false, error: "User identity required" }, { status: 401 });
-    }
-
-    let user;
-    if (targetUserId) {
-      user = await prisma.user.update({
-        where: { id: targetUserId },
-        data: { fcmToken },
-      });
-    } else if (targetEmail) {
-      user = await prisma.user.update({
-        where: { email: targetEmail },
-        data: { fcmToken },
-      });
-    }
-
-    return NextResponse.json({ success: true, user: { id: user?.id, fcmToken: user?.fcmToken } });
+    return NextResponse.json({ success: true, user });
   } catch (error: any) {
     console.error("[FCM Token API Error]:", error);
     return NextResponse.json({ success: false, error: error?.message || "Failed to update FCM Token" }, { status: 500 });

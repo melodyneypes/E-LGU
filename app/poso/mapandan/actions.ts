@@ -3,6 +3,7 @@
 import prisma from "@/lib/db/prisma";
 import { getPosoPenaltySettings, calculatePosoTicketPenalty, POSOPenaltyBreakdown } from "@/app/admin/poso/actions";
 import { getMultipleSystemSettings } from "@/lib/settings";
+import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 export async function getPosoPortalSettings() {
     try {
@@ -74,6 +75,18 @@ export async function searchPublicTicket(query: string) {
         const cleanQuery = query.trim();
         if (!cleanQuery) {
             return { success: false, error: "Please enter a valid Citation Ticket Number." };
+        }
+
+        // IP-based Rate Limiting to prevent automated scraping (5 lookups per minute per IP)
+        const clientIp = await getClientIp();
+        const rateLimitKey = `poso_ticket_search:${clientIp}`;
+        const limitCheck = await isRateLimited(rateLimitKey, 5, 60 * 1000);
+
+        if (!limitCheck.success) {
+            return {
+                success: false,
+                error: "Too many ticket search requests. Please wait a minute before searching again."
+            };
         }
 
         // Search strictly by ticketNo only
