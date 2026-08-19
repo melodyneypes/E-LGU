@@ -91,23 +91,16 @@ export function Navbar({
         {
             name: "News & Announcements",
             href: "/#news",
-            desc: "Latest municipal bulletins, announcements & news",
+            desc: "Latest bulletins, announcements & news",
             icon: Newspaper,
             color: "text-blue-500 bg-blue-500/10"
         },
         {
-            name: "Municipal Ordinances",
-            href: "/#ordinances?type=ORDINANCE",
-            desc: "View approved laws, regulations & local codes",
+            name: "Ordinances & Resolutions",
+            href: "/#ordinances",
+            desc: "Official local laws, policies & SB resolutions",
             icon: Scale,
             color: "text-purple-500 bg-purple-500/10"
-        },
-        {
-            name: "Sangguniang Bayan Resolutions",
-            href: "/#ordinances?type=RESOLUTION",
-            desc: "Official SB legislative resolutions & adoptions",
-            icon: FileText,
-            color: "text-teal-500 bg-teal-500/10"
         }
     ], []);
 

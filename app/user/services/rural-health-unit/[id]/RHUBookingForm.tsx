@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Home,
@@ -11,7 +11,8 @@ import {
     ArrowLeft,
     Calendar,
     User,
-    Sparkles
+    Sparkles,
+    Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -79,16 +80,42 @@ export function MedicalConsultationForm({
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
     const [submitting, setSubmitting] = useState(false);
+    const [transitionDirection, setTransitionDirection] = useState<"next" | "prev" | null>(null);
 
     // Selected Health Center state
-    const [selectedCenterId, setSelectedCenterId] = useState<string>("");
+    const [selectedCenterId, setSelectedCenterId] = useState<string>(() => {
+        if (healthCenters && healthCenters.length > 0) {
+            return healthCenters[0].id;
+        }
+        return "";
+    });
     const [currentConfig, setCurrentConfig] = useState<any>(appointmentConfig);
 
     const selectedCenter = healthCenters.find((c: any) => c.id === selectedCenterId) || null;
 
+    // Dynamically parse services offered by the selected health center
+    const availableCheckupServices = useMemo(() => {
+        if (selectedCenter?.servicesOffered) {
+            const list = selectedCenter.servicesOffered
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+            if (list.length > 0) return list;
+        }
+        // Fallback to all centers' services if no specific center or no services listed
+        const all = healthCenters.flatMap((c: any) => 
+            (c.servicesOffered || "").split(",").map((s: string) => s.trim()).filter(Boolean)
+        );
+        const unique = Array.from(new Set(all));
+        return unique.length > 0 ? unique : ["General Consultation / Check-up"];
+    }, [selectedCenter, healthCenters]);
+
     // When user selects a different health center, dynamically load its schedule config
     useEffect(() => {
         if (!selectedCenterId) {
+            if (healthCenters && healthCenters.length > 0) {
+                setSelectedCenterId(healthCenters[0].id);
+            }
             setCurrentConfig(appointmentConfig);
             return;
         }
@@ -99,7 +126,7 @@ export function MedicalConsultationForm({
                 setCurrentConfig(appointmentConfig);
             }
         });
-    }, [selectedCenterId, appointmentConfig]);
+    }, [selectedCenterId, appointmentConfig, healthCenters]);
 
     // Validation errors state
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -224,12 +251,27 @@ export function MedicalConsultationForm({
     });
 
     const [additionalFields, setAdditionalFields] = useState({
-        checkupType: "General Consultation",
+        checkupType: availableCheckupServices[0] || "General Consultation",
         customCheckupType: "",
         symptomsPurpose: "",
         findings: "Recommending clearance based on routine medical inspection.",
         isPriorityLane: false,
     });
+
+    // Auto-update checkupType if current selection is not offered by selected center
+    useEffect(() => {
+        if (availableCheckupServices.length > 0) {
+            setAdditionalFields(prev => {
+                if (!prev.checkupType || !availableCheckupServices.includes(prev.checkupType)) {
+                    return {
+                        ...prev,
+                        checkupType: availableCheckupServices[0]
+                    };
+                }
+                return prev;
+            });
+        }
+    }, [availableCheckupServices]);
 
     // Appointment Schedule
     const [selectedDate, setSelectedDate] = useState<string>("");
@@ -268,9 +310,6 @@ export function MedicalConsultationForm({
         if (!additionalFields.checkupType) {
             newErrors.checkupType = true;
         }
-        if (additionalFields.checkupType === "OTHER" && !additionalFields.customCheckupType.trim()) {
-            newErrors.customCheckupTypeDetails = true;
-        }
         if (!additionalFields.symptomsPurpose.trim()) {
             newErrors.symptomsPurpose = true;
         }
@@ -286,15 +325,26 @@ export function MedicalConsultationForm({
     };
 
     const handleNextStep = () => {
+        if (transitionDirection) return;
+        setTransitionDirection("next");
+        setTimeout(() => setTransitionDirection(null), 400);
+
         if (currentStep === "IDENTITY") {
-            if (!validateIdentityStep()) return;
+            if (!validateIdentityStep()) {
+                setTransitionDirection(null);
+                return;
+            }
             setCurrentStep("DETAILS");
         } else if (currentStep === "DETAILS") {
-            if (!validateDetailsStep()) return;
+            if (!validateDetailsStep()) {
+                setTransitionDirection(null);
+                return;
+            }
             setCurrentStep("SCHEDULE");
         } else if (currentStep === "SCHEDULE") {
             if (!selectedDate || !selectedSlot) {
                 toast.error("Please select a date and time slot for your appointment.");
+                setTransitionDirection(null);
                 return;
             }
             setCurrentStep("REVIEW");
@@ -302,6 +352,10 @@ export function MedicalConsultationForm({
     };
 
     const handlePrevStep = () => {
+        if (transitionDirection) return;
+        setTransitionDirection("prev");
+        setTimeout(() => setTransitionDirection(null), 400);
+
         if (currentStep === "DETAILS") {
             setCurrentStep("IDENTITY");
         } else if (currentStep === "SCHEDULE") {
@@ -732,20 +786,10 @@ export function MedicalConsultationForm({
                                                 onValueChange={v => {
                                                     setSelectedCenterId(v);
                                                     const centerObj = healthCenters.find((c: any) => c.id === v);
-                                                    if (centerObj && centerObj.servicesOffered) {
-                                                        const offeredStr = centerObj.servicesOffered.toLowerCase();
-                                                        const ALL_OPTIONS = [
-                                                            { value: "General Consultation", keywords: ["general", "consultation", "check-up", "checkup"] },
-                                                            { value: "Pre-Marital", keywords: ["marital", "pre-marital", "marriage"] },
-                                                            { value: "Prenatal / Maternal", keywords: ["prenatal", "maternal", "pregnant", "pregnancy"] },
-                                                            { value: "Pediatric", keywords: ["pediatric", "child", "infant", "vaccination", "immunization"] },
-                                                            { value: "Dental", keywords: ["dental", "tooth", "teeth", "oral"] }
-                                                        ];
-                                                        const matched = ALL_OPTIONS.filter(opt =>
-                                                            opt.keywords.some(kw => offeredStr.includes(kw))
-                                                        );
-                                                        if (matched.length > 0) {
-                                                            setAdditionalFields(prev => ({ ...prev, checkupType: matched[0].value }));
+                                                    if (centerObj?.servicesOffered) {
+                                                        const list = centerObj.servicesOffered.split(",").map((s: string) => s.trim()).filter(Boolean);
+                                                        if (list.length > 0) {
+                                                            setAdditionalFields(prev => ({ ...prev, checkupType: list[0] }));
                                                         }
                                                     }
                                                 }}
@@ -768,7 +812,7 @@ export function MedicalConsultationForm({
                                                 <p className="text-[10px] text-red-500 font-medium mt-1">Health center location is required.</p>
                                             )}
                                         </div>
- 
+
                                         {/* Center Location Map Preview Card — only show when a center is selected */}
                                         {selectedCenter && (
                                         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4 space-y-3">
@@ -793,7 +837,7 @@ export function MedicalConsultationForm({
                                                     Open Google Maps ↗
                                                 </a>
                                             </div>
- 
+
                                             <div className="w-full rounded-xl overflow-hidden border border-slate-800 relative z-0">
                                                  <AllHealthCentersMap
                                                       centers={healthCenters.length > 0 ? healthCenters : (selectedCenter ? [selectedCenter] : [])}
@@ -801,7 +845,7 @@ export function MedicalConsultationForm({
                                                       onSelectCenter={(id) => setSelectedCenterId(id)}
                                                  />
                                              </div>
- 
+
                                             <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400 pt-1">
                                                 {selectedCenter.operatingHours && (
                                                     <span className="flex items-center gap-1">
@@ -817,16 +861,16 @@ export function MedicalConsultationForm({
                                         </div>
                                         )}
                                     </div>
- 
-                                    {/* 2. Type of Check-up (Dynamically filtered by selected center) */}
+
+                                    {/* 2. Type of Check-up (Dynamically loaded from selected center's servicesOffered) */}
                                     <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
                                         <div className="flex items-center justify-between">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
                                                 Type of Check-up <span className="text-red-500 font-bold ml-0.5">*</span>
                                             </Label>
-                                            {selectedCenter?.servicesOffered && (
+                                            {selectedCenter?.name && (
                                                 <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                                                    Available at {selectedCenter.name.split(' ')[0]}
+                                                    Services at {selectedCenter.name.split(' ')[0]}
                                                 </span>
                                             )}
                                         </div>
@@ -841,53 +885,17 @@ export function MedicalConsultationForm({
                                                 <SelectValue placeholder="Select type of check-up" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                {(() => {
-                                                    const offeredStr = (selectedCenter?.servicesOffered || "").toLowerCase();
-                                                    const ALL_OPTIONS = [
-                                                        { value: "General Consultation", label: "General Consultation / Check-up", keywords: ["general", "consultation", "check-up", "checkup"] },
-                                                        { value: "Pre-Marital", label: "Pre-Marital / Marital Check-up", keywords: ["marital", "pre-marital", "marriage"] },
-                                                        { value: "Prenatal / Maternal", label: "Maternal / Prenatal Check-up", keywords: ["prenatal", "maternal", "pregnant", "pregnancy"] },
-                                                        { value: "Pediatric", label: "Pediatric / Child Check-up", keywords: ["pediatric", "child", "infant", "vaccination", "immunization"] },
-                                                        { value: "Dental", label: "Dental Check-up / Consultation", keywords: ["dental", "tooth", "teeth", "oral"] }
-                                                    ];
-                                                    const matched = offeredStr ? ALL_OPTIONS.filter(opt =>
-                                                        opt.keywords.some(kw => offeredStr.includes(kw))
-                                                    ) : ALL_OPTIONS;
- 
-                                                    const listToRender = matched.length > 0 ? matched : ALL_OPTIONS;
- 
-                                                    return listToRender.map(opt => (
-                                                        <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold rounded-lg">
-                                                            {opt.label}
-                                                        </SelectItem>
-                                                    ));
-                                                })()}
+                                                {availableCheckupServices.map((svc: string) => (
+                                                    <SelectItem key={svc} value={svc} className="text-xs font-bold rounded-lg">
+                                                        {svc}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                         {errors.checkupType && (
                                             <p className="text-[10px] text-red-500 font-medium mt-1">Type of check-up is required.</p>
                                         )}
                                     </div>
- 
-                                    {additionalFields.checkupType === "OTHER" && (
-                                        <div className="space-y-1.5 animate-fadeIn">
-                                            <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
-                                                Specify Check-up Type <span className="text-red-500 font-bold ml-0.5">*</span>
-                                            </Label>
-                                            <Input
-                                                value={additionalFields.customCheckupType}
-                                                onChange={e => setAdditionalFields(prev => ({ ...prev, customCheckupType: e.target.value }))}
-                                                placeholder="Enter the type of check-up you need"
-                                                className={cn(
-                                                    "h-10 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
-                                                    errors.customCheckupTypeDetails && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
-                                                )}
-                                            />
-                                            {errors.customCheckupTypeDetails && (
-                                                <p className="text-[10px] text-red-500 font-medium mt-1">Custom check-up type details are required.</p>
-                                            )}
-                                        </div>
-                                    )}
  
                                     {/* 3. Purpose / Symptoms / Remarks */}
                                     <div className="space-y-1.5">
@@ -1014,7 +1022,7 @@ export function MedicalConsultationForm({
                                         <div>
                                             <span className="text-[9px] font-bold text-slate-400 block">Check-up Type</span>
                                             <span className="font-bold text-slate-800 dark:text-white uppercase">
-                                                {additionalFields.checkupType === "OTHER" ? additionalFields.customCheckupType : additionalFields.checkupType}
+                                                {additionalFields.checkupType}
                                             </span>
                                         </div>
                                         <div className="col-span-2">
@@ -1037,28 +1045,59 @@ export function MedicalConsultationForm({
                     {currentStep !== "IDENTITY" ? (
                         <Button
                             onClick={handlePrevStep}
-                            className="h-10 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors bg-transparent"
+                            disabled={transitionDirection !== null}
+                            className="h-10 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors bg-transparent disabled:opacity-50 disabled:pointer-events-none"
                         >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                            Back
+                            {transitionDirection === "prev" ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Back</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowLeft className="w-3.5 h-3.5" />
+                                    <span>Back</span>
+                                </>
+                            )}
                         </Button>
                     ) : (
                         <Button
-                            onClick={() => router.push("/user/services/rural-health-unit")}
-                            className="h-10 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors bg-transparent"
+                            onClick={() => {
+                                setTransitionDirection("prev");
+                                router.push("/user/services/rural-health-unit");
+                            }}
+                            disabled={transitionDirection !== null}
+                            className="h-10 px-5 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors bg-transparent disabled:opacity-50 disabled:pointer-events-none"
                         >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                            Back
+                            {transitionDirection === "prev" ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Back</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowLeft className="w-3.5 h-3.5" />
+                                    <span>Back</span>
+                                </>
+                            )}
                         </Button>
                     )}
 
                     {currentStep !== "REVIEW" ? (
                         <Button
                             onClick={handleNextStep}
+                            disabled={transitionDirection !== null}
                             style={{ backgroundColor: themeColor }}
-                            className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
+                            className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                         >
-                            Continue
+                            {transitionDirection === "next" ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Continue</span>
+                                </>
+                            ) : (
+                                "Continue"
+                            )}
                         </Button>
                     ) : (
                         <Button

@@ -237,3 +237,17 @@ export async function deleteLegislativeDocument(id: string) {
         return { success: false, error: error.message || "Failed to delete document" };
     }
 }
+
+export async function getAllCategoryTags(): Promise<string[]> {
+    try {
+        const docs = await (prisma as any).legislativeDocument.findMany({
+            select: { tags: true },
+        });
+        const allTags: string[] = docs.flatMap((d: any) => d.tags || []);
+        const unique = Array.from(new Set(allTags.map(t => t.trim().toUpperCase()))).filter(Boolean).sort();
+        return unique;
+    } catch (error) {
+        console.error("Error getting category tags:", error);
+        return [];
+    }
+}

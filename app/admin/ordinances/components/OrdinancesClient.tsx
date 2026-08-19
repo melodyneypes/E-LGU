@@ -30,7 +30,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
+    DialogDescription
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
@@ -134,6 +134,24 @@ export function OrdinancesClient({
         setIsAddModalOpen(true);
     };
 
+    // New pagination handler to update URL params and navigate
+    const handlePageChange = (newPage: number) => {
+        // Ensure page stays within bounds
+        const safePage = Math.max(1, Math.min(newPage, totalPages));
+        updateUrlParams({ page: safePage.toString() });
+    };
+
+    const sortedData = React.useMemo(() => {
+        return [...initialData].sort((a, b) => {
+            const dateA = new Date(a.dateApproved).getTime();
+            const dateB = new Date(b.dateApproved).getTime();
+            if (dateB !== dateA) return dateB - dateA;
+            const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return createdB - createdA;
+        });
+    }, [initialData]);
+
     // Aggregate some simple metrics
     const totalOrdinances = initialData.filter(d => d.type === "ORDINANCE").length;
     const totalResolutions = initialData.filter(d => d.type === "RESOLUTION").length;
@@ -144,7 +162,7 @@ export function OrdinancesClient({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic flex items-center">
-                        <Scale className="mr-3 w-10 h-10 text-blue-600" />
+                        <Scale className="mr-3 w-10 h-10" style={{ color: "var(--primary-theme, #2563eb)" }} />
                         Ordinances & Resolutions
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
@@ -153,7 +171,11 @@ export function OrdinancesClient({
                 </div>
                 <Button
                     onClick={handleAddNew}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl h-12 px-6 font-black uppercase tracking-wider text-xs shadow-lg shadow-blue-500/20 flex items-center gap-2 self-start md:self-auto active:scale-95 transition-all"
+                    className="text-white rounded-2xl h-12 px-6 font-black uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 self-start md:self-auto active:scale-95 transition-all"
+                    style={{
+                        backgroundColor: "var(--primary-theme, #2563eb)",
+                        boxShadow: "0 10px 25px -5px var(--primary-theme, #2563eb)40"
+                    }}
                 >
                     <Plus className="w-4 h-4" /> Add Legislative Doc
                 </Button>
@@ -286,7 +308,7 @@ export function OrdinancesClient({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {initialData.map((item) => (
+                                {sortedData.map((item) => (
                                     <TableRow key={item.id} className="border-b border-slate-200 dark:border-[#2a3040]/50 hover:bg-slate-50/20 dark:hover:bg-[#1a1f2e]/10">
                                         {/* Type & Ref */}
                                         <TableCell className="font-bold py-4 pl-8">
@@ -345,15 +367,15 @@ export function OrdinancesClient({
                                         {/* File URL */}
                                         <TableCell className="py-4 text-center">
                                             {item.pdfUrl ? (
-                                                <a
-                                                    href={item.pdfUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400 transition-colors shadow-sm"
-                                                    title="View PDF Document"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => setViewingData(item)}
+                                                    className="w-8 h-8 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400 transition-colors shadow-sm"
+                                                    title="View Document"
                                                 >
                                                     <FileText className="w-4 h-4" />
-                                                </a>
+                                                </Button>
                                             ) : (
                                                 <span className="text-[10px] text-slate-400 font-bold italic">None</span>
                                             )}
@@ -564,7 +586,12 @@ export function OrdinancesClient({
                                     href={viewingData.pdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-full flex items-center justify-center gap-2 h-11 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+                                    className="w-full flex items-center justify-center gap-2 h-11 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm border"
+                                    style={{
+                                        backgroundColor: "var(--primary-theme, #2563eb)15",
+                                        borderColor: "var(--primary-theme, #2563eb)30",
+                                        color: "var(--primary-theme, #2563eb)"
+                                    }}
                                 >
                                     <FileText className="w-4 h-4" /> View Full Attachment PDF
                                 </a>
@@ -586,9 +613,5 @@ export function OrdinancesClient({
         </div>
     );
 
-    function handlePageChange(newPage: number) {
-        if (newPage >= 1 && newPage <= totalPages) {
-            updateUrlParams({ page: newPage.toString() });
-        }
-    }
+    
 }

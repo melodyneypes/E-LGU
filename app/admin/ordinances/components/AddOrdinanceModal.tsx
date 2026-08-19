@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Upload, Loader2, Scale, AlertCircle } from "lucide-react";
-import { createLegislativeDocument, updateLegislativeDocument } from "../actions";
+import { X, Upload, Loader2, Scale, AlertCircle, Tag, Plus } from "lucide-react";
+import { createLegislativeDocument, updateLegislativeDocument, getAllCategoryTags } from "../actions";
 import { toast } from "sonner";
 
 interface LegislativeDocument {
@@ -48,6 +48,8 @@ export function AddOrdinanceModal({
     const [isSaving, setIsSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const tagsInputRef = useRef<HTMLInputElement>(null);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
 
     // Form states
     const [type, setType] = useState<string>("ORDINANCE");
@@ -59,10 +61,78 @@ export function AddOrdinanceModal({
     const [status, setStatus] = useState("ACTIVE / ENFORCED");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    // Category tags suggestion states
+    const [allExistingTags, setAllExistingTags] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Fetch existing category tags when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            getAllCategoryTags().then(tagsList => {
+                setAllExistingTags(tagsList);
+            }).catch(() => {});
+        }
+    }, [isOpen]);
+
+    // Close suggestions on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                suggestionsRef.current && 
+                !suggestionsRef.current.contains(e.target as Node) &&
+                tagsInputRef.current &&
+                !tagsInputRef.current.contains(e.target as Node)
+            ) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Current word being typed (after last comma)
+    const currentTagQuery = React.useMemo(() => {
+        const parts = tags.split(",");
+        return parts[parts.length - 1].trim();
+    }, [tags]);
+
+    // Current list of already selected tags
+    const currentSelectedTags = React.useMemo(() => {
+        return tags
+            .split(",")
+            .map(t => t.trim().toUpperCase())
+            .filter(Boolean);
+    }, [tags]);
+
+    // Filter matching existing suggestions
+    const matchingSuggestions = React.useMemo(() => {
+        if (!currentTagQuery) return [];
+        const q = currentTagQuery.toUpperCase();
+        return allExistingTags.filter(
+            t => t.toUpperCase().includes(q) && !currentSelectedTags.includes(t.toUpperCase())
+        );
+    }, [currentTagQuery, allExistingTags, currentSelectedTags]);
+
+    // Select suggestion to complete the current tag
+    const handleSelectSuggestion = (suggestedTag: string) => {
+        const parts = tags.split(",").map(t => t.trim()).filter(Boolean);
+        // Replace last element with the suggested tag
+        if (parts.length > 0) {
+            parts[parts.length - 1] = suggestedTag.toUpperCase();
+        } else {
+            parts.push(suggestedTag.toUpperCase());
+        }
+        // Join with comma and space, add trailing comma for next tag
+        setTags(parts.join(", ") + ", ");
+        setShowSuggestions(false);
+        tagsInputRef.current?.focus();
+    };
+
     useEffect(() => {
         if (isOpen) {
             setErrorMsg("");
             setSelectedFile(null);
+            setShowSuggestions(false);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
@@ -151,7 +221,10 @@ export function AddOrdinanceModal({
                         className="p-6 pb-4 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between bg-slate-50/50 dark:bg-[#1a1f2e]/10"
                     >
                         <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+                            <div 
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md"
+                                style={{ backgroundColor: "var(--primary-theme, #2563eb)" }}
+                            >
                                 <Scale className="w-5 h-5" />
                             </div>
                             <div>
@@ -267,15 +340,78 @@ export function AddOrdinanceModal({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            {/* Category Tags */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Category Tags (comma-separated)</Label>
-                                <Input
-                                    value={tags}
-                                    onChange={(e) => setTags(e.target.value)}
-                                    placeholder="e.g. ENVIRONMENT, HEALTH & SANITATION"
-                                    className="h-11 bg-slate-50/50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
-                                />
+                            {/* Category Tags with Live Autocomplete */}
+                            <div className="space-y-1.5 relative">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Category Tags (comma-separated)
+                                    </Label>
+                                    {allExistingTags.length > 0 && (
+                                        <span 
+                                            className="text-[9px] font-bold"
+                                            style={{ color: "var(--primary-theme, #2563eb)" }}
+                                        >
+                                            {allExistingTags.length} existing categories
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <Input
+                                        ref={tagsInputRef}
+                                        value={tags}
+                                        onChange={(e) => {
+                                            setTags(e.target.value);
+                                            setShowSuggestions(true);
+                                        }}
+                                        onFocus={() => setShowSuggestions(true)}
+                                        placeholder="e.g. AGRICULTURE, ENVIRONMENT, HEALTH"
+                                        className="h-11 bg-slate-50/50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
+                                    />
+                                    <Tag className="w-3.5 h-3.5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
+
+                                {/* Live Autocomplete Dropdown Popup - Pops upwards (bottom-full) to prevent bottom modal clipping */}
+                                {showSuggestions && currentTagQuery.length > 0 && matchingSuggestions.length > 0 && (
+                                    <div
+                                        ref={suggestionsRef}
+                                        className="absolute left-0 right-0 bottom-full mb-1.5 z-50 bg-white dark:bg-[#121724] border border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl overflow-hidden p-2 max-h-52 overflow-y-auto space-y-1 backdrop-blur-xl"
+                                        style={{
+                                            boxShadow: "0 -10px 30px -5px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)"
+                                        }}
+                                    >
+                                        <div className="px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                            <span>Matching Categories</span>
+                                            <span 
+                                                className="font-bold"
+                                                style={{ color: "var(--primary-theme, #2563eb)" }}
+                                            >
+                                                Click to apply
+                                            </span>
+                                        </div>
+                                        {matchingSuggestions.map((suggestion) => (
+                                            <button
+                                                key={suggestion}
+                                                type="button"
+                                                onClick={() => handleSelectSuggestion(suggestion)}
+                                                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-left group cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Tag 
+                                                        className="w-3 h-3 shrink-0" 
+                                                        style={{ color: "var(--primary-theme, #2563eb)" }}
+                                                    />
+                                                    <span>{suggestion}</span>
+                                                </div>
+                                                <span 
+                                                    className="text-[9px] uppercase font-black opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                                    style={{ color: "var(--primary-theme, #2563eb)" }}
+                                                >
+                                                    Apply <Plus className="w-3 h-3" />
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Document File Upload */}
@@ -294,7 +430,13 @@ export function AddOrdinanceModal({
                                     />
                                     <Upload className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     {selectedFile && (
-                                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-lg max-w-[120px] truncate pointer-events-none">
+                                        <div 
+                                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-0.5 rounded-lg max-w-[120px] truncate pointer-events-none"
+                                            style={{
+                                                backgroundColor: "var(--primary-theme, #2563eb)15",
+                                                color: "var(--primary-theme, #2563eb)"
+                                            }}
+                                        >
                                             {selectedFile.name}
                                         </div>
                                     )}
@@ -322,7 +464,11 @@ export function AddOrdinanceModal({
                         <Button
                             type="submit"
                             disabled={isSaving}
-                            className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-wider text-[10px] rounded-xl shadow-lg shadow-blue-500/10 flex items-center gap-2 active:scale-95 transition-all"
+                            className="h-11 px-6 text-white font-black uppercase tracking-wider text-[10px] rounded-xl shadow-lg flex items-center gap-2 active:scale-95 transition-all"
+                            style={{
+                                backgroundColor: "var(--primary-theme, #2563eb)",
+                                boxShadow: "0 10px 25px -5px var(--primary-theme, #2563eb)40"
+                            }}
                         >
                             {isSaving ? (
                                 <>
