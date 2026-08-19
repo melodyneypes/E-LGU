@@ -1,4 +1,5 @@
 "use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { useBarangay } from "@/components/providers/BarangayProvider";
@@ -8,19 +9,16 @@ import { AnimatePresence } from "framer-motion";
 export function GlobalLoading() {
     const { isLoading } = useBarangay();
     const [settings, setSettings] = useState<any>(null);
+    const [visible, setVisible] = useState(false);
 
     useEffect(() => {
         // Fetch branding from API since we're in a client component
         fetch("/api/settings")
             .then(async (res) => {
+                if (!res.ok) throw new Error("Failed to fetch");
                 const contentType = res.headers.get("content-type") || "";
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(`Settings request failed (${res.status}): ${text.slice(0, 120)}`);
-                }
                 if (!contentType.includes("application/json")) {
-                    const text = await res.text();
-                    throw new Error(`Expected JSON from /api/settings but received ${contentType || "unknown content type"}: ${text.slice(0, 120)}`);
+                    throw new Error("Invalid content type");
                 }
                 return res.json();
             })
@@ -36,9 +34,22 @@ export function GlobalLoading() {
             });
     }, []);
 
+    // Manage visibility with a hard safety timeout (max 2 seconds)
+    useEffect(() => {
+        if (isLoading) {
+            setVisible(true);
+            const timer = setTimeout(() => {
+                setVisible(false);
+            }, 2000);
+            return () => clearTimeout(timer);
+        } else {
+            setVisible(false);
+        }
+    }, [isLoading]);
+
     return (
         <AnimatePresence>
-            {isLoading && settings && (
+            {visible && settings && (
                 <LoadingClientBody 
                     logoUrl={settings.logoUrl}
                     brand1={settings.brand1}

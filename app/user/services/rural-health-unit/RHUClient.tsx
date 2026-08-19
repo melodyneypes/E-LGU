@@ -66,6 +66,7 @@ export function RHUClient({
     const [showInstructions, setShowInstructions] = React.useState(false);
     const [showAmbulanceModal, setShowAmbulanceModal] = React.useState(false);
     const [copiedHotline, setCopiedHotline] = React.useState<string | null>(null);
+    const [loadingServiceId, setLoadingServiceId] = React.useState<string | null>(null);
 
     const ambulanceFleet = initialAmbulanceFleet.length > 0 ? initialAmbulanceFleet : [
         {
@@ -453,13 +454,22 @@ export function RHUClient({
                                                 if (service.code === "RHU_AMBULANCE") {
                                                     setShowAmbulanceModal(true);
                                                 } else {
+                                                    setLoadingServiceId(service.db.id);
                                                     router.push(`/user/services/rural-health-unit/${service.db.id}`);
                                                 }
                                             }}
+                                            disabled={loadingServiceId === service.db.id}
                                             style={{ backgroundColor: themeColor }}
-                                            className="h-10 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none"
+                                            className="h-10 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:pointer-events-none"
                                         >
-                                            {service.code === "RHU_AMBULANCE" ? "View Availability" : "Book Appointment"}
+                                            {loadingServiceId === service.db.id ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Booking...</span>
+                                                </>
+                                            ) : (
+                                                service.code === "RHU_AMBULANCE" ? "View Availability" : "Book Appointment"
+                                            )}
                                         </Button>
                                     </div>
                                 </div>

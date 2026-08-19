@@ -549,7 +549,7 @@ export default async function Home({
                 )}
 
                 <ClientOnly delay={1000}>
-                    <OrdinancesSection documents={legislativeDocs as any[]} />
+                    <OrdinancesSection documents={legislativeDocs as any[]} themeColor={themeColor} />
                 </ClientOnly>
 
                 {/* Infrastructure Projects Section */}

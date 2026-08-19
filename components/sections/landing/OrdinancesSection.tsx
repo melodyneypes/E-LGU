@@ -8,11 +8,7 @@ import {
     Calendar, 
     Eye, 
     FileText, 
-    ChevronDown, 
-    X,
-    ChevronLeft,
-    ChevronRight,
-    FileDown
+    X
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +16,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import Link from "next/link";
+import { SearchableFilterDropdown } from "@/components/shared/SearchableFilterDropdown";
 
 interface LegislativeDocument {
     id: string;
@@ -35,23 +33,20 @@ interface LegislativeDocument {
 
 interface OrdinancesSectionProps {
     documents: LegislativeDocument[];
+    themeColor?: string;
 }
 
-function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
+function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionProps) {
     const searchParams = useSearchParams();
     const typeParam = searchParams?.get("type");
+    const activeTheme = themeColor || "#2563eb";
 
     // Filter states
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<"ALL" | "ORDINANCE" | "RESOLUTION">("ALL");
     const [statusFilter, setStatusFilter] = useState<string>("All");
-    const [yearFilter, setYearFilter] = useState<string>("All");
     const [categoryFilter, setCategoryFilter] = useState<string>("All");
     
-    // Pagination states
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
-
     // View Modal state
     const [selectedDoc, setSelectedDoc] = useState<LegislativeDocument | null>(null);
 
@@ -66,33 +61,18 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
         }
     }, [typeParam]);
 
-    // Reset pagination on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [search, activeTab, statusFilter, yearFilter, categoryFilter]);
-
-    // Extract available years from documents
-    const availableYears = useMemo(() => {
-        const years = documents.map(doc => {
-            try {
-                return new Date(doc.dateApproved).getFullYear().toString();
-            } catch {
-                return "";
-            }
-        }).filter(Boolean);
-        return ["All", ...Array.from(new Set(years))].sort((a, b) => b.localeCompare(a));
-    }, [documents]);
-
-    // Extract available category tags from documents
+    // Extract available category tags from documents with "All" guaranteed at index 0
     const availableCategories = useMemo(() => {
-        const tags = documents.flatMap(doc => doc.tags);
-        return ["All", ...Array.from(new Set(tags))].sort();
+        const tags = documents.flatMap(doc => doc.tags || []);
+        const unique = Array.from(new Set(tags.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+        return ["All", ...unique];
     }, [documents]);
 
-    // Extract available statuses
+    // Extract available statuses with "All" guaranteed at index 0
     const availableStatuses = useMemo(() => {
-        const statuses = documents.map(doc => doc.status);
-        return ["All", ...Array.from(new Set(statuses))].sort();
+        const statuses = documents.map(doc => doc.status).filter(Boolean);
+        const unique = Array.from(new Set(statuses)).sort((a, b) => a.localeCompare(b));
+        return ["All", ...unique];
     }, [documents]);
 
     // Filtering logic
@@ -103,16 +83,6 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
 
             // Status filter
             if (statusFilter !== "All" && doc.status !== statusFilter) return false;
-
-            // Year filter
-            if (yearFilter !== "All") {
-                try {
-                    const docYear = new Date(doc.dateApproved).getFullYear().toString();
-                    if (docYear !== yearFilter) return false;
-                } catch {
-                    return false;
-                }
-            }
 
             // Category filter
             if (categoryFilter !== "All" && !doc.tags.includes(categoryFilter)) return false;
@@ -130,77 +100,86 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
 
             return true;
         });
-    }, [documents, search, activeTab, statusFilter, yearFilter, categoryFilter]);
+    }, [documents, search, activeTab, statusFilter, categoryFilter]);
 
     // Pagination calculations
-    const totalItems = filteredDocs.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    // Limit to 2 ordinances and 2 resolutions on homepage when 'ALL' is selected
     const paginatedDocs = useMemo(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredDocs.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredDocs, currentPage]);
+        if (activeTab === "ALL") {
+            const ordinances = filteredDocs.filter(d => d.type === "ORDINANCE").slice(0, 2);
+            const resolutions = filteredDocs.filter(d => d.type === "RESOLUTION").slice(0, 2);
+            return [...ordinances, ...resolutions].sort((a, b) => {
+                return new Date(b.dateApproved).getTime() - new Date(a.dateApproved).getTime();
+            });
+        }
+        return filteredDocs.slice(0, 2);
+    }, [filteredDocs, activeTab]);
+
+    const totalItems = filteredDocs.length;
+    const showViewAll = totalItems > paginatedDocs.length;
 
     return (
-        <section id="ordinances" className="py-20 md:py-28 px-6 bg-slate-900 dark:bg-[#070b16] relative overflow-hidden">
+        <section id="ordinances" className="py-10 md:py-12 px-6 bg-slate-900 dark:bg-[#070b16] relative overflow-hidden">
             {/* Ambient background glows */}
-            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-            <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-emerald-600/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+            <div 
+                className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl -z-10 pointer-events-none opacity-5"
+                style={{ backgroundColor: activeTheme }}
+            />
+            <div 
+                className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-3xl -z-10 pointer-events-none opacity-5"
+                style={{ backgroundColor: activeTheme }}
+            />
 
             <div className="max-w-7xl mx-auto">
                 {/* Main Container Card */}
-                <div className="bg-[#0b101f] rounded-[2.5rem] border border-slate-800/80 shadow-2xl p-6 md:p-12 space-y-10 relative">
+                <div className="bg-[#0b101f] rounded-[2.5rem] border border-slate-800/80 shadow-2xl p-6 md:p-8 space-y-4 relative">
                     {/* Header Layout */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center border-b border-slate-800/80 pb-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center border-b border-slate-800/80 pb-4">
                         {/* Title and Gavel Illustration */}
-                        <div className="lg:col-span-7 flex flex-col md:flex-row items-center gap-8">
-                            {/* Illustration Gavel */}
-                            <div className="w-48 h-48 shrink-0 relative flex items-center justify-center bg-slate-900/60 rounded-3xl border border-slate-800/60 shadow-inner group overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-emerald-500/10 opacity-30 group-hover:opacity-50 transition-opacity" />
-                                <Scale className="w-20 h-20 text-slate-700 group-hover:text-blue-500 group-hover:scale-105 transition-all duration-300" />
-                                <div className="absolute bottom-2 px-3 py-1 rounded-full bg-slate-950/80 border border-slate-800/80">
-                                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">LGU Mapandan</span>
-                                </div>
-                            </div>
-
+                        <div className="lg:col-span-7 flex flex-col items-start gap-3">
                             {/* Title text */}
-                            <div className="space-y-4 text-center md:text-left">
-                                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-                                    <Scale className="w-3.5 h-3.5 text-blue-400" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">LGU MAPANDAN</span>
+                            <div className="space-y-2.5 text-left">
+                                <div 
+                                    className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border shadow-sm"
+                                    style={{
+                                        backgroundColor: `${activeTheme}15`,
+                                        borderColor: `${activeTheme}30`,
+                                        color: activeTheme
+                                    }}
+                                >
+                                    <Scale className="w-3.5 h-3.5" style={{ color: activeTheme }} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: activeTheme }}>
+                                        LGU MAPANDAN
+                                    </span>
                                 </div>
-                                <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">
+                                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase italic leading-none">
                                     Ordinance &<br className="hidden md:inline" /> Resolution Portal
                                 </h2>
-                                <p className="text-xs md:text-sm text-slate-400 font-medium italic max-w-md leading-relaxed">
+                                <p className="text-[11px] text-slate-400 font-medium italic max-w-md leading-relaxed">
                                     Transparent and instant access to approved local ordinances, resolutions, and legislative decisions.
                                 </p>
                             </div>
                         </div>
 
                         {/* Search & Controls */}
-                        <div className="lg:col-span-5 space-y-5">
-                            {/* Search bar & Badge */}
-                            <div className="flex items-center gap-3">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-                                    <Input
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="Search by title, number, keyword, or year..."
-                                        className="h-11 pl-10 pr-4 bg-slate-950 border-slate-800/80 rounded-xl text-xs font-bold italic text-white placeholder-slate-500 focus-visible:ring-blue-500/50"
-                                    />
-                                </div>
-                                <span className="h-11 px-4.5 rounded-xl bg-rose-600/10 border border-rose-500/20 text-rose-500 flex items-center justify-center text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                    RELEASING
-                                </span>
+                        <div className="lg:col-span-5 space-y-2.5">
+                            {/* Search bar */}
+                            <div className="relative w-full">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                                <Input
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Search by title, number, or keyword..."
+                                    className="h-11 pl-10 pr-4 bg-slate-950 border-slate-800/80 rounded-xl text-xs font-bold italic text-white placeholder-slate-500 focus-visible:ring-1 w-full"
+                                />
                             </div>
 
                             {/* Tab Selectors */}
-                            <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800/80">
+                            <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800/80">
                                 <button
                                     onClick={() => setActiveTab("ALL")}
                                     className={cn(
-                                        "flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all",
+                                        "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "ALL"
                                             ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
                                             : "text-slate-500 hover:text-slate-300"
@@ -211,7 +190,7 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                                 <button
                                     onClick={() => setActiveTab("ORDINANCE")}
                                     className={cn(
-                                        "flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all",
+                                        "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "ORDINANCE"
                                             ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
                                             : "text-slate-500 hover:text-slate-300"
@@ -222,7 +201,7 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                                 <button
                                     onClick={() => setActiveTab("RESOLUTION")}
                                     className={cn(
-                                        "flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all",
+                                        "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "RESOLUTION"
                                             ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
                                             : "text-slate-500 hover:text-slate-300"
@@ -234,62 +213,31 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                         </div>
                     </div>
 
-                    {/* Filter Dropdowns Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-950/40 p-6 rounded-2xl border border-slate-800/40">
-                        {/* Status Select */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Status</label>
-                            <div className="relative">
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="w-full h-10 px-4 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 appearance-none focus:outline-none focus:border-blue-500"
-                                >
-                                    {availableStatuses.map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                            </div>
-                        </div>
+                    {/* Compact Left-aligned Searchable Filter Dropdowns */}
+                    <div className="flex flex-wrap items-center gap-3 w-full justify-start">
+                        {/* Status Filter */}
+                        <SearchableFilterDropdown
+                            label="Status"
+                            value={statusFilter}
+                            options={availableStatuses}
+                            onChange={(val) => setStatusFilter(val)}
+                            themeColor={activeTheme}
+                            placeholder="Search status..."
+                        />
 
-                        {/* Year Select */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Year</label>
-                            <div className="relative">
-                                <select
-                                    value={yearFilter}
-                                    onChange={(e) => setYearFilter(e.target.value)}
-                                    className="w-full h-10 px-4 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 appearance-none focus:outline-none focus:border-blue-500"
-                                >
-                                    {availableYears.map(y => (
-                                        <option key={y} value={y}>{y}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                            </div>
-                        </div>
-
-                        {/* Category Select */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Category</label>
-                            <div className="relative">
-                                <select
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="w-full h-10 px-4 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 appearance-none focus:outline-none focus:border-blue-500"
-                                >
-                                    {availableCategories.map(c => (
-                                        <option key={c} value={c}>{c}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                            </div>
-                        </div>
+                        {/* Category Filter with Search */}
+                        <SearchableFilterDropdown
+                            label="Category"
+                            value={categoryFilter}
+                            options={availableCategories}
+                            onChange={(val) => setCategoryFilter(val)}
+                            themeColor={activeTheme}
+                            placeholder="Search category..."
+                        />
                     </div>
 
                     {/* Cards Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[300px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[250px]">
                         {paginatedDocs.length === 0 ? (
                             <div className="col-span-full bg-slate-950/40 rounded-3xl border border-slate-800/80 p-16 text-center">
                                 <FileText className="w-12 h-12 text-slate-600 mx-auto mb-4" />
@@ -303,73 +251,82 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                                     initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     key={doc.id}
-                                    className="bg-[#111625]/60 hover:bg-[#151b2d]/80 border border-slate-800/80 rounded-3xl p-6 flex items-start gap-5 transition-all duration-300 group"
+                                    className="bg-slate-950/60 rounded-2xl border border-slate-800/80 p-5 hover:border-slate-700/80 transition-all flex flex-col justify-between group shadow-sm hover:shadow-xl duration-300"
                                 >
-                                    {/* Left type avatar */}
-                                    <div className={cn(
-                                        "w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 border shadow-inner",
-                                        doc.type === "ORDINANCE"
-                                            ? "bg-purple-950/40 border-purple-500/20 text-purple-400"
-                                            : "bg-teal-950/40 border-teal-500/20 text-teal-400"
-                                    )}>
-                                        <span className="text-xs font-black tracking-tight">{doc.type === "ORDINANCE" ? "OR" : "RE"}</span>
-                                        <span className="text-[8px] font-black uppercase text-slate-500 mt-0.5 leading-none">NO.</span>
-                                    </div>
-
-                                    {/* Middle info */}
-                                    <div className="flex-1 space-y-4">
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                    <div className="space-y-3">
+                                        {/* Top badge row */}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex flex-col items-center justify-center">
+                                                    <span className="text-[8px] font-black text-slate-300 uppercase leading-none">
+                                                        {doc.type === "ORDINANCE" ? "OR" : "RE"}
+                                                    </span>
+                                                    <span className="text-[6px] font-bold text-slate-600 uppercase leading-none">
+                                                        NO.
+                                                    </span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                                     {doc.referenceNumber}
                                                 </span>
-                                                <span className={cn(
-                                                    "px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border leading-none shadow-sm",
-                                                    doc.status.includes("ACTIVE") || doc.status.includes("ENFORCED")
-                                                        ? "bg-emerald-950/30 text-emerald-400 border-emerald-500/10"
-                                                        : "bg-amber-950/30 text-amber-400 border-amber-500/10"
-                                                )}>
-                                                    {doc.status}
-                                                </span>
                                             </div>
 
-                                            <h3 className="text-sm font-black text-white uppercase tracking-tight leading-snug group-hover:text-blue-400 transition-colors line-clamp-2">
-                                                {doc.title}
-                                            </h3>
-                                            <p className="text-[11px] text-slate-400 leading-relaxed font-bold italic line-clamp-3">
-                                                {doc.description}
-                                            </p>
+                                            {/* Status Badge */}
+                                            <span className={cn(
+                                                "px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider border leading-none",
+                                                doc.status.includes("ACTIVE") || doc.status.includes("ENFORCED")
+                                                    ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/20"
+                                                    : doc.status.includes("PENDING")
+                                                        ? "bg-amber-950/20 text-amber-400 border-amber-500/20"
+                                                        : "bg-blue-950/20 text-blue-400 border-blue-500/20"
+                                            )}>
+                                                {doc.status}
+                                            </span>
                                         </div>
 
-                                        {/* Date and actions */}
-                                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-slate-800/40">
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">Date Approved</span>
-                                                <span className="text-[10px] font-bold text-slate-300 mt-1">{format(new Date(doc.dateApproved), "MMM dd, yyyy")}</span>
-                                            </div>
+                                        {/* Title */}
+                                        <h3 className="text-xs sm:text-[13px] font-black text-white uppercase tracking-tight leading-snug line-clamp-2 group-hover:text-slate-100 transition-colors">
+                                            {doc.title}
+                                        </h3>
 
-                                            {/* Action triggers */}
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setSelectedDoc(doc)}
-                                                    className="h-8.5 px-3 rounded-lg text-slate-400 hover:text-white dark:hover:bg-slate-800 text-[9px] font-black uppercase tracking-wider border border-slate-800 hover:border-slate-700"
+                                        {/* Description */}
+                                        <p className="text-[10.5px] text-slate-400 font-medium italic line-clamp-2 leading-relaxed">
+                                            {doc.description}
+                                        </p>
+                                    </div>
+
+                                    {/* Card Footer */}
+                                    <div className="pt-3 mt-3 border-t border-slate-850 flex items-center justify-between gap-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">Date Approved</span>
+                                            <span className="text-[10px] font-bold text-slate-300 mt-1">{format(new Date(doc.dateApproved), "MMM dd, yyyy")}</span>
+                                        </div>
+
+                                        {/* Action triggers */}
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSelectedDoc(doc)}
+                                                className="h-8.5 px-3 rounded-lg text-slate-400 hover:text-white dark:hover:bg-slate-800 text-[9px] font-black uppercase tracking-wider border border-slate-800 hover:border-slate-700"
+                                            >
+                                                <Eye className="w-3 h-3 mr-1.5" /> View Text
+                                            </Button>
+
+                                            {doc.pdfUrl && (
+                                                <a
+                                                    href={doc.pdfUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center justify-center h-8.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all"
+                                                    style={{
+                                                        backgroundColor: `${activeTheme}15`,
+                                                        borderColor: `${activeTheme}30`,
+                                                        color: activeTheme
+                                                    }}
                                                 >
-                                                    <Eye className="w-3 h-3 mr-1.5" /> View Text
-                                                </Button>
-
-                                                {doc.pdfUrl && (
-                                                    <a
-                                                        href={doc.pdfUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center justify-center h-8.5 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 text-[9px] font-black uppercase tracking-wider border border-blue-500/20 transition-colors"
-                                                    >
-                                                        <FileDown className="w-3 h-3 mr-1.5" /> Download PDF
-                                                    </a>
-                                                )}
-                                            </div>
+                                                    <FileText className="w-3 h-3 mr-1.5" /> View Document
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                 </motion.div>
@@ -377,53 +334,19 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                         )}
                     </div>
 
-                    {/* Pagination footer */}
-                    {totalPages > 1 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-slate-800/80">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} results
-                            </span>
-
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    className="w-8.5 h-8.5 rounded-lg border border-slate-800 text-slate-500 hover:text-white disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-900"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-
-                                {Array.from({ length: totalPages }).map((_, i) => {
-                                    const pageNum = i + 1;
-                                    const isCurrent = pageNum === currentPage;
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            onClick={() => setCurrentPage(pageNum)}
-                                            className={cn(
-                                                "w-8.5 h-8.5 rounded-lg text-[10px] font-black transition-all",
-                                                isCurrent
-                                                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/10 border border-blue-500"
-                                                    : "border border-slate-800 text-slate-500 hover:text-white hover:bg-slate-900"
-                                            )}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                })}
-
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
-                                    className="w-8.5 h-8.5 rounded-lg border border-slate-800 text-slate-500 hover:text-white disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-900"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
+                    {/* View All Redirect Link */}
+                    {showViewAll && (
+                        <div className="flex justify-center pt-6 border-t border-slate-800/80">
+                            <Link
+                                href="/user/ordinances"
+                                className="inline-flex items-center gap-2 h-10 px-6 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg"
+                                style={{
+                                    backgroundColor: activeTheme,
+                                    boxShadow: `0 10px 25px -5px ${activeTheme}40`
+                                }}
+                            >
+                                View All Ordinances & Resolutions ({totalItems}) ↗
+                            </Link>
                         </div>
                     )}
                 </div>
@@ -519,7 +442,12 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                                     href={selectedDoc.pdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-full flex items-center justify-center gap-2 h-11 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm border border-blue-500/20"
+                                    className="w-full flex items-center justify-center gap-2 h-11 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm border"
+                                    style={{
+                                        backgroundColor: `${activeTheme}15`,
+                                        borderColor: `${activeTheme}30`,
+                                        color: activeTheme
+                                    }}
                                 >
                                     <FileText className="w-4 h-4" /> View Full Attachment PDF
                                 </a>
@@ -531,7 +459,8 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
                         <Button
                             type="button"
                             onClick={() => setSelectedDoc(null)}
-                            className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all border border-slate-800"
+                            className="h-10 px-5 text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all border border-slate-800"
+                            style={{ backgroundColor: activeTheme }}
                         >
                             Close Details
                         </Button>
@@ -542,7 +471,7 @@ function OrdinancesSectionContent({ documents }: OrdinancesSectionProps) {
     );
 }
 
-export function OrdinancesSection({ documents }: OrdinancesSectionProps) {
+export function OrdinancesSection({ documents, themeColor }: OrdinancesSectionProps) {
     return (
         <Suspense fallback={
             <div className="py-20 bg-slate-900 text-center text-slate-400">
@@ -550,7 +479,7 @@ export function OrdinancesSection({ documents }: OrdinancesSectionProps) {
                 <p className="text-xs uppercase tracking-widest font-black">Loading Portal...</p>
             </div>
         }>
-            <OrdinancesSectionContent documents={documents} />
+            <OrdinancesSectionContent documents={documents} themeColor={themeColor} />
         </Suspense>
     );
 }

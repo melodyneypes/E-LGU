@@ -53,7 +53,13 @@ export function BarangayProvider({ children }: { children: React.ReactNode }) {
         // Listen for global custom events to trigger loading overlay from navigation clicks
         const handleGlobalLoadingTrigger = (e: Event) => {
             const customEvent = e as CustomEvent;
-            setIsLoading(customEvent.detail);
+            const state = !!customEvent.detail;
+            setIsLoading(state);
+            if (state) {
+                setTimeout(() => {
+                    setIsLoading(false);
+                }, 1500);
+            }
         };
 
         window.addEventListener("trigger-global-loading", handleGlobalLoadingTrigger);
