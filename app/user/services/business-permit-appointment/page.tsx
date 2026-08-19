@@ -13,22 +13,87 @@ export default async function BusinessPermitAppointmentPage() {
         redirect("/auth/login");
     }
 
-    const settings = await getMultipleSystemSettings([
-        "theme_color", 
-        "logo", 
-        "brand_word_1", 
-        "brand_word_2",
-        "bplo_tax_rate_new",
-        "bplo_health_card_fee",
-        "bplo_retail_tax_rate_low",
-        "bplo_retail_tax_rate_high",
-        "bplo_manufacturer_tax_rate",
-        "bplo_wholesaler_tax_rate",
-        "bplo_mayors_permit_matrix",
-        "bplo_sanitary_fee_matrix",
-        "bplo_garbage_fee_matrix",
-        "bplo_mayors_tax_clearance_fee"
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [
+        settings,
+        userWithResident,
+        businessTypes,
+        bploConfigRaw,
+        bookedSlots,
+        activeTransactions,
+        previousPermitsRaw
+    ] = await Promise.all([
+        getMultipleSystemSettings([
+            "theme_color", 
+            "logo", 
+            "brand_word_1", 
+            "brand_word_2",
+            "bplo_tax_rate_new",
+            "bplo_health_card_fee",
+            "bplo_retail_tax_rate_low",
+            "bplo_retail_tax_rate_high",
+            "bplo_manufacturer_tax_rate",
+            "bplo_wholesaler_tax_rate",
+            "bplo_mayors_permit_matrix",
+            "bplo_sanitary_fee_matrix",
+            "bplo_garbage_fee_matrix",
+            "bplo_mayors_tax_clearance_fee"
+        ]),
+        prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { residentProfile: true }
+        }),
+        prisma.transactionType.findMany({
+            where: {
+                isActive: true,
+                code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
+            }
+        }),
+        prisma.appointmentConfig.findUnique({
+            where: { department: "BPLO" }
+        }),
+        prisma.transaction.findMany({
+            where: {
+                appointmentDate: { gte: todayStart },
+                isCancelled: false,
+                type: {
+                    code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
+                }
+            },
+            select: {
+                appointmentDate: true,
+                appointmentSlot: true
+            }
+        }),
+        prisma.transaction.findMany({
+            where: {
+                userId: session.user.id,
+                type: { code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] } },
+                status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
+                isCancelled: false
+            },
+            select: {
+                id: true,
+                type: { select: { code: true } }
+            }
+        }),
+        prisma.transaction.findMany({
+            where: {
+                userId: session.user.id,
+                status: { in: ["DELIVERED", "RELEASED"] },
+                type: { code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] } }
+            },
+            include: {
+                type: true,
+                businessPermit: true
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10
+        })
     ]);
+
     const themeColor = settings.get("theme_color") || "#2563eb";
     const branding = {
         logo: settings.get("logo") || null,
@@ -49,94 +114,17 @@ export default async function BusinessPermitAppointmentPage() {
         bplo_garbage_fee_matrix: settings.get("bplo_garbage_fee_matrix") || ""
     };
 
-    // Fetch user's resident profile
-    const userWithResident = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: { residentProfile: true }
-    });
+    const bploConfig = bploConfigRaw || {
+        department: "BPLO",
+        maxSlots: 50,
+        maxSlotsAM: 25,
+        maxSlotsPM: 25,
+        blockedDates: [],
+        activeDays: [1, 2, 3, 4, 5]
+    };
 
-    // Fetch Business Permit transaction types
-    const businessTypes = await prisma.transactionType.findMany({
-        where: {
-            isActive: true,
-            code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
-        }
-    });
-
-    // Fetch BPLO appointment config
-    let bploConfig = await prisma.appointmentConfig.findUnique({
-        where: { department: "BPLO" }
-    });
-
-    if (!bploConfig) {
-        // Create default if not found
-        bploConfig = await prisma.appointmentConfig.create({
-            data: {
-                department: "BPLO",
-                maxSlots: 50,
-                maxSlotsAM: 25,
-                maxSlotsPM: 25,
-                blockedDates: [],
-                activeDays: [1, 2, 3, 4, 5]
-            }
-        });
-    }
-
-    // Fetch all existing BPLO appointments to calculate booked slots
-    const bookedSlots = await prisma.transaction.findMany({
-        where: {
-            appointmentDate: { not: null },
-            isCancelled: false,
-            type: {
-                code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
-            }
-        },
-        select: {
-            appointmentDate: true,
-            appointmentSlot: true
-        }
-    });
-
-    // Check for ongoing active Business Permit transactions
-    const activeNew = await prisma.transaction.findFirst({
-        where: {
-            userId: session.user.id,
-            type: { code: "BUSINESS_PERMIT_NEW" },
-            status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
-            isCancelled: false
-        }
-    });
-
-    const activeRenew = await prisma.transaction.findFirst({
-        where: {
-            userId: session.user.id,
-            type: { code: "BUSINESS_PERMIT_RENEW" },
-            status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
-            isCancelled: false
-        }
-    });
-
-    // Fetch successful business permits for autofill
-    const previousPermitsRaw = await prisma.transaction.findMany({
-        where: {
-            userId: session.user.id,
-            status: {
-                in: ["DELIVERED", "RELEASED"]
-            },
-            type: {
-                code: {
-                    in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"]
-                }
-            }
-        },
-        include: {
-            type: true,
-            businessPermit: true
-        },
-        orderBy: {
-            createdAt: "desc"
-        }
-    });
+    const hasActiveNew = activeTransactions.some(t => t.type?.code === "BUSINESS_PERMIT_NEW");
+    const hasActiveRenew = activeTransactions.some(t => t.type?.code === "BUSINESS_PERMIT_RENEW");
 
     const uniqueBusinessesMap: Record<string, any> = {};
     previousPermitsRaw.forEach((tx: any) => {
@@ -155,8 +143,8 @@ export default async function BusinessPermitAppointmentPage() {
             branding={branding}
             config={bploConfig as any}
             bookedSlots={bookedSlots as any[]}
-            hasActiveNew={!!activeNew}
-            hasActiveRenew={!!activeRenew}
+            hasActiveNew={hasActiveNew}
+            hasActiveRenew={hasActiveRenew}
             previousPermits={previousPermits}
             bploSettings={bploSettings}
         />

@@ -488,6 +488,9 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean): Prom
         await announcementDelegate.update({ where: { id }, data: { isPinned } });
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
+        revalidatePath("/admin/bplo/announcements");
+        revalidatePath("/user/services/business-permit");
+        revalidatePath("/user/services/business-permit-appointment");
         revalidatePath("/");
         return { success: true };
     } catch (error) {
@@ -496,3 +499,151 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean): Prom
         return { success: false, error: errorMessage };
     }
 }
+
+/**
+ * APPROVE ANNOUNCEMENT (LGU Admin)
+ */
+export async function approveAnnouncement(id: string): Promise<ActionResponse> {
+    try {
+        if (!id) {
+            return { success: false, error: "Announcement ID is required." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "CONTENT_ADMIN") {
+            return { success: false, error: "Only LGU Admins can approve announcements." };
+        }
+
+        const approvedBy = user.email || user.id || "LGU Admin";
+        let updated: any;
+
+        try {
+            const announcementDelegate = getAnnouncementDelegate();
+            updated = await announcementDelegate.update({
+                where: { id },
+                data: {
+                    approvalStatus: "APPROVED",
+                    isActive: true,
+                    approvedBy,
+                }
+            });
+        } catch {
+            // Direct resilient SQL update fallback
+            await (prisma as any).$executeRawUnsafe(
+                `UPDATE "Announcement" SET "approvalStatus" = $1, "isActive" = $2, "approvedBy" = $3, "updatedAt" = NOW() WHERE "id" = $4`,
+                "APPROVED",
+                true,
+                approvedBy,
+                id
+            );
+            try {
+                const announcementDelegate = getAnnouncementDelegate();
+                await announcementDelegate.update({
+                    where: { id },
+                    data: { isActive: true }
+                });
+            } catch {
+                // Ignore
+            }
+            updated = { id, approvalStatus: "APPROVED", isActive: true, approvedBy };
+        }
+
+        revalidatePath("/admin/announcements");
+        revalidatePath("/admin/announcements/approvals");
+        revalidatePath("/admin/bplo/announcements");
+        revalidatePath("/admin/rhu/announcements");
+        revalidatePath("/user/services/business-permit");
+        revalidatePath("/user/services/business-permit-appointment");
+        revalidatePath("/user/announcements");
+        revalidatePath("/");
+
+        return { success: true, announcement: updated };
+    } catch (error) {
+        console.error("[approveAnnouncement Error]:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to approve announcement." };
+    }
+}
+
+/**
+ * REJECT ANNOUNCEMENT (LGU Admin)
+ */
+export async function rejectAnnouncement(id: string, rejectionReason?: string): Promise<ActionResponse> {
+    try {
+        if (!id) {
+            return { success: false, error: "Announcement ID is required." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "CONTENT_ADMIN") {
+            return { success: false, error: "Only LGU Admins can reject announcements." };
+        }
+
+        let updated: any;
+        try {
+            const announcementDelegate = getAnnouncementDelegate();
+            updated = await announcementDelegate.update({
+                where: { id },
+                data: {
+                    approvalStatus: "REJECTED",
+                    rejectionReason: rejectionReason || null,
+                }
+            });
+        } catch {
+            // Direct resilient SQL update fallback
+            await (prisma as any).$executeRawUnsafe(
+                `UPDATE "Announcement" SET "approvalStatus" = $1, "rejectionReason" = $2, "isActive" = $3, "updatedAt" = NOW() WHERE "id" = $4`,
+                "REJECTED",
+                rejectionReason || null,
+                false,
+                id
+            );
+            try {
+                const announcementDelegate = getAnnouncementDelegate();
+                await announcementDelegate.update({
+                    where: { id },
+                    data: { isActive: false }
+                });
+            } catch {
+                // Ignore
+            }
+            updated = { id, approvalStatus: "REJECTED", rejectionReason, isActive: false };
+        }
+
+        revalidatePath("/admin/announcements");
+        revalidatePath("/admin/announcements/approvals");
+        revalidatePath("/admin/bplo/announcements");
+        revalidatePath("/admin/rhu/announcements");
+        revalidatePath("/user/announcements");
+        revalidatePath("/");
+
+        return { success: true, announcement: updated };
+    } catch (error) {
+        console.error("[rejectAnnouncement Error]:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to reject announcement." };
+    }
+}
+
+/**
+ * GET PENDING ANNOUNCEMENTS COUNT (For Sidebar Badges & Tabs)
+ */
+export async function getPendingAnnouncementsCount(): Promise<{ success: boolean; count: number }> {
+    try {
+        const rawPending: any[] = await (prisma as any).$queryRawUnsafe(
+            `SELECT COUNT(*)::int as count FROM "Announcement" WHERE "approvalStatus" = 'PENDING_APPROVAL'`
+        );
+        const count = Number(rawPending?.[0]?.count || 0);
+        return { success: true, count };
+    } catch (error) {
+        console.warn("[getPendingAnnouncementsCount Error]:", error);
+        return { success: true, count: 0 };
+    }
+}
+

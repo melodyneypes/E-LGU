@@ -27,6 +27,11 @@ export interface Announcement {
     authorId?: string | null;
     authorEmail?: string | null;
     healthCenterId?: string | null;
+    department?: string | null;
+    approvalStatus?: string | null;
+    submittedBy?: string | null;
+    approvedBy?: string | null;
+    rejectionReason?: string | null;
 }
 
 interface AnnouncementContextType {

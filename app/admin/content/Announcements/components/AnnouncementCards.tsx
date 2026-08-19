@@ -1,15 +1,16 @@
 "use client";
 
 import { useAnnouncements } from "../providers/AnnouncementProvider";
-import { Megaphone, AlertTriangle, Pin } from "lucide-react";
+import { Megaphone, AlertTriangle, Pin, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function AnnouncementCards() {
     const { announcements, themeColor } = useAnnouncements();
 
     const total = announcements.length;
-    const critical = announcements.filter(a => a.priority === "Critical" && a.isActive).length;
+    const active = announcements.filter(a => a.isActive).length;
     const pinned = announcements.filter(a => a.isPinned && a.isActive).length;
+    const critical = announcements.filter(a => a.priority === "Critical" && a.isActive).length;
 
     const cards = [
         {
@@ -18,6 +19,13 @@ export function AnnouncementCards() {
             icon: Megaphone,
             style: { color: themeColor },
             bgStyle: { backgroundColor: `${themeColor}20` },
+        },
+        {
+            title: "Active Notices",
+            value: active,
+            icon: CheckCircle2,
+            color: "text-emerald-500",
+            bg: "bg-emerald-500/10 dark:bg-emerald-500/20",
         },
         {
             title: "Pinned Briefs",
@@ -36,7 +44,7 @@ export function AnnouncementCards() {
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {cards.map((card, index) => {
                 const Icon = card.icon;
                 return (

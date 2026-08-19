@@ -426,7 +426,7 @@ export function Navbar({
                                         )}
                                         <motion.div
                                             style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
-                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5"
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 whitespace-nowrap"
                                         >
                                             <link.icon
                                                 className={cn(
@@ -505,7 +505,7 @@ export function Navbar({
                                         )}
                                         <motion.div
                                             style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
-                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5"
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 whitespace-nowrap"
                                         >
                                             <link.icon
                                                 className={cn(
@@ -583,7 +583,7 @@ export function Navbar({
                                     />
                                 )}
                                 <motion.div
-                                    className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 transition-colors duration-200"
+                                    className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 transition-colors duration-200 whitespace-nowrap"
                                     style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
                                 >
                                     <link.icon

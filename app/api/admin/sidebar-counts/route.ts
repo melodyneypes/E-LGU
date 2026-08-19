@@ -91,10 +91,21 @@ export async function GET() {
             }
         }
 
+        let pendingAnnouncementsCount = 0;
+        try {
+            const rawPending: any[] = await (prisma as any).$queryRawUnsafe(
+                `SELECT COUNT(*)::int as count FROM "Announcement" WHERE "approvalStatus" = 'PENDING_APPROVAL'`
+            );
+            pendingAnnouncementsCount = Number(rawPending?.[0]?.count || 0);
+        } catch {
+            pendingAnnouncementsCount = 0;
+        }
+
         const responseData = {
             pendingReportsCount,
             pendingResidentsCount,
             pendingTransactionsCount,
+            pendingAnnouncementsCount,
             unviewedLcrCounts
         };
 
