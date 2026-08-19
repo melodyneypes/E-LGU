@@ -12,7 +12,7 @@ export function HashScrollHandler() {
     const hash = window.location.hash;
     if (!hash) return;
 
-    const id = hash.replace("#", "");
+    const id = hash.replace("#", "").split("?")[0];
 
     // Sections use nextDynamic (lazy loaded), so the DOM element may NOT exist
     // immediately after navigation. We retry with increasing delays to give

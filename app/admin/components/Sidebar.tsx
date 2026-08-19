@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -373,6 +373,7 @@ export function Sidebar({
         { href: "/admin/news", label: "News & Updates", icon: Newspaper },
         { href: "/admin/events", label: "Events", icon: Calendar },
         { href: "/admin/projects", label: "LGU Projects", icon: FolderKanban },
+        { href: "/admin/ordinances", label: "Ordinances & Resolutions", icon: Scale },
         { href: "/admin/dining", label: "Kainan (Dining)", icon: UtensilsCrossed },
         { href: "/admin/accommodation", label: "Tuluyan (Stay)", icon: BedDouble },
         { href: "/admin/tourism", label: "Gallery", icon: Map },
