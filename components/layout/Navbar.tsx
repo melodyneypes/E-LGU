@@ -308,6 +308,7 @@ export function Navbar({
         { name: "Gallery", href: "/#tourism", icon: Compass },
         { name: "Updates", href: "/#news", icon: Newspaper },
         { name: "Careers", href: "/#careers", icon: Briefcase },
+        { name: "Citizens Charter", href: "/user/citizens-charter", icon: FileText },
         { name: "Emergency", href: "/#hotlines", icon: Siren },
     ];
 
@@ -887,8 +888,8 @@ export function Navbar({
                                                 <span className="text-[10px] text-slate-400 truncate">{userEmail}</span>
                                             </div>
                                         </div>
-                                        {/* User Quick Links */}
-                                        <div className="grid grid-cols-4 divide-x divide-slate-100 dark:divide-white/5">
+                                        {/* User Quick Links (2x2 Grid) */}
+                                        <div className="grid grid-cols-2 gap-2 p-3 bg-slate-100/40 dark:bg-white/[0.02]">
                                             {userDropdownLinks.map((link) => {
                                                 const isActive = isLinkActive(link.href);
                                                 return (
@@ -896,10 +897,15 @@ export function Navbar({
                                                         key={link.name}
                                                         href={link.href}
                                                         onClick={() => setIsOpen(false)}
-                                                        className="flex flex-col items-center gap-1.5 py-3 hover:bg-slate-100 dark:hover:bg-white/5 transition-all active:scale-95"
+                                                        className={cn(
+                                                            "flex items-center gap-2.5 p-2.5 rounded-xl border transition-all active:scale-95",
+                                                            isActive
+                                                                ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 shadow-sm"
+                                                                : "bg-white/60 dark:bg-white/5 border-transparent hover:bg-white dark:hover:bg-slate-900"
+                                                        )}
                                                     >
                                                         <div
-                                                            className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                                                             style={{ backgroundColor: isActive ? themeColor : undefined }}
                                                         >
                                                             <link.icon
@@ -908,7 +914,7 @@ export function Navbar({
                                                             />
                                                         </div>
                                                         <span
-                                                            className="text-[10px] font-bold uppercase tracking-wide"
+                                                            className="text-[11px] font-black uppercase tracking-tight truncate text-slate-800 dark:text-slate-200"
                                                             style={{ color: isActive ? themeColor : undefined }}
                                                         >
                                                             {link.name}
