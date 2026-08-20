@@ -973,7 +973,7 @@ export default function BusinessPermitView({
                                 {/* Official Receipt (OR) Number */}
                                 <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Official Receipt (OR) #</span>
-                                    <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
+                                    <span className="font-black text-slate-900 dark:text-white font-mono text-sm tracking-wide">
                                         {orSeriesNumber?.trim() || "N/A"}
                                     </span>
                                 </div>
@@ -982,7 +982,7 @@ export default function BusinessPermitView({
                                 {paymentMethod !== "CASH" && (
                                     <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">{paymentMethod} Reference #</span>
-                                        <span className="font-black text-primary font-mono bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                                        <span className="font-black text-primary font-mono text-sm tracking-wide">
                                             {paymentReference?.trim() || "N/A"}
                                         </span>
                                     </div>

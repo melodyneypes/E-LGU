@@ -8,9 +8,10 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
     FileText, Camera, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
-    AlertTriangle, ExternalLink, History, Eye
+    AlertTriangle, ExternalLink, History, Eye, Navigation
 } from "lucide-react";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PosoTicketMapWrapper from "./PosoTicketMapWrapper";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -491,6 +492,28 @@ export default function TicketDetailsPage() {
                                 </p>
                             </div>
                         </div>
+
+                        {/* Interactive Pinned GPS Map */}
+                        {ticket.latitude && ticket.longitude ? (
+                            <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                        <Navigation className="w-3.5 h-3.5 text-rose-500" />
+                                        <span>Apprehension Scene Map</span>
+                                    </span>
+                                </div>
+                                <div className="w-full h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-sm">
+                                    <PosoTicketMapWrapper
+                                        lat={Number(ticket.latitude)}
+                                        lng={Number(ticket.longitude)}
+                                        locationName={resolvedAddress || ticket.location || `Barangay ${ticket.barangay || ""}`}
+                                        violatorName={ticket.violatorName}
+                                        ticketNo={ticket.ticketNo}
+                                        themeColor={themeColor || "#f43f5e"}
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
 
                     {/* Vehicle Impounding Custody & Yard Location Card */}

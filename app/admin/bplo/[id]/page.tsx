@@ -1885,7 +1885,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                 {/* License Business Permit Number */}
                                 <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Permit Number #</span>
-                                    <span className="font-black text-primary font-mono bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                                    <span className="font-black text-primary font-mono text-sm tracking-wide">
                                         {permitNumberInput?.trim() || transaction.businessPermit?.permitNumber || "N/A"}
                                     </span>
                                 </div>
@@ -1893,7 +1893,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                 {/* Sticker Number */}
                                 <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Sticker Serial #</span>
-                                    <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
+                                    <span className="font-black text-slate-900 dark:text-white font-mono text-sm tracking-wide">
                                         {stickerNumber?.trim() || transaction.businessPermit?.stickerNumber || additional.stickerNumber || "N/A"}
                                     </span>
                                 </div>
