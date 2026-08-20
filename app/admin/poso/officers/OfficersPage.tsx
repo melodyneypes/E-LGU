@@ -5,7 +5,7 @@ import {
     getPosoOfficers,
     addPosoOfficer,
     updatePosoOfficer,
-    deletePosoOfficer,
+    togglePosoOfficerStatus,
 } from "@/app/admin/poso/actions";
 import {
     Table,
@@ -18,6 +18,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -29,16 +37,16 @@ import {
     UserCheck,
     Plus,
     Search,
-    Trash2,
-    X,
-    Save,
     Users,
     Eye,
     EyeOff,
     Edit2,
     ChevronLeft,
     ChevronRight,
-    RefreshCw,
+    ShieldCheck,
+    UserX,
+    X,
+    Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -64,12 +72,12 @@ export default function OfficersPage({
     const [totalCount, setTotalCount] = useState(initialTotalCount);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
-    const pageSize = 10;
+    const [pageSize, setPageSize] = useState<number>(10);
 
     const [isPending, setIsPending] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
 
     const [showPassword, setShowPassword] = useState(false);
 
@@ -78,12 +86,13 @@ export default function OfficersPage({
         setTotalCount(initialTotalCount);
     }, [initialOfficers, initialTotalCount]);
 
-    const fetchOfficers = React.useCallback(async (p: number, s: string) => {
+    const fetchOfficers = React.useCallback(async (p: number, s: string, customLimit?: number) => {
         setIsPending(true);
         try {
+            const limitToUse = customLimit !== undefined ? customLimit : pageSize;
             const res = await getPosoOfficers({
                 page: p,
-                pageSize,
+                pageSize: limitToUse,
                 search: s,
             });
 
@@ -98,20 +107,32 @@ export default function OfficersPage({
         }
     }, [pageSize]);
 
+    const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setSearch(val);
         setPage(1);
         
-        const timeout = setTimeout(() => {
-            fetchOfficers(1, val);
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        searchTimerRef.current = setTimeout(() => {
+            fetchOfficers(1, val, pageSize);
         }, 400);
-        return () => clearTimeout(timeout);
     };
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
-        fetchOfficers(newPage, search);
+        fetchOfficers(newPage, search, pageSize);
+    };
+
+    const handlePageSizeChange = (newSizeStr: string) => {
+        const newSize = parseInt(newSizeStr, 10) || 10;
+        setPageSize(newSize);
+        setPage(1);
+        fetchOfficers(1, search, newSize);
     };
 
     const [editingData, setEditingData] = useState<OfficerItem | null>(null);
@@ -136,18 +157,26 @@ export default function OfficersPage({
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to delete officer account "${name}"?`)) return;
-        setDeletingId(id);
+    const handleToggleStatus = async (item: OfficerItem) => {
+        const currentActive = item.isEmailVerified !== false;
+        const nextActive = !currentActive;
+        setTogglingId(item.id);
         try {
-            const res = await deletePosoOfficer(id);
-            if (!res.success) throw new Error(res.error);
-            toast.success("POSO officer account deleted successfully!");
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || "Failed to delete officer account.");
+            const res = await togglePosoOfficerStatus(item.id, nextActive);
+            if (res.success) {
+                toast.success(
+                    `Officer ${item.name || item.email} account ${nextActive ? "activated" : "deactivated"}!`
+                );
+                setOfficers((prev) =>
+                    prev.map((o) => (o.id === item.id ? { ...o, isEmailVerified: nextActive } : o))
+                );
+            } else {
+                toast.error(res.error || "Failed to update officer status.");
+            }
+        } catch {
+            toast.error("Failed to toggle officer status.");
         } finally {
-            setDeletingId(null);
+            setTogglingId(null);
         }
     };
 
@@ -183,6 +212,8 @@ export default function OfficersPage({
     };
 
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const activeOfficersCount = officers.filter((o) => o.isEmailVerified !== false).length;
+    const inactiveOfficersCount = officers.filter((o) => o.isEmailVerified === false).length;
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -194,23 +225,46 @@ export default function OfficersPage({
                         POSO Traffic Officers Registry
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Manage active POSO traffic enforcers and handheld mobile app login credentials.
+                        Manage POSO traffic enforcers and handheld mobile app login credentials with state management (Active/Inactive).
                     </p>
+                </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-500">Total Registered</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalCount}</h3>
+                    </div>
+                    <div className="p-3 bg-rose-500/10 text-rose-600 rounded-xl">
+                        <Users className="w-6 h-6" />
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Active Handhelds</p>
+                        <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{activeOfficersCount}</h3>
+                    </div>
+                    <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
+                        <ShieldCheck className="w-6 h-6" />
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Deactivated Enforcers</p>
+                        <h3 className="text-2xl font-black text-slate-600 dark:text-slate-400 mt-1">{inactiveOfficersCount}</h3>
+                    </div>
+                    <div className="p-3 bg-slate-500/10 text-slate-600 rounded-xl">
+                        <UserX className="w-6 h-6" />
+                    </div>
                 </div>
             </div>
 
             {/* Main Table Card */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
-                {/* Glassmorphic Loading Overlay */}
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-[#151b2b]/50 backdrop-blur-sm z-20 flex items-center justify-center">
-                        <div className="flex items-center space-x-2 bg-white dark:bg-[#1a1f2e] px-4 py-2 rounded-full shadow-lg border border-slate-200 dark:border-[#2a3040]">
-                            <RefreshCw className="w-5 h-5 text-rose-600 animate-spin" />
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Updating officers...</span>
-                        </div>
-                    </div>
-                )}
-
                 {/* Search & Filter Bar */}
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
                     <div className="relative flex-1 max-w-md group">
@@ -243,8 +297,8 @@ export default function OfficersPage({
                                 <TableHead className="w-[280px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Email / Login Username
                                 </TableHead>
-                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                    Email Verified
+                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
+                                    Status / Active
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Department
@@ -258,7 +312,30 @@ export default function OfficersPage({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {officers.length === 0 ? (
+                            {isPending ? (
+                                Array.from({ length: 5 }).map((_, idx) => (
+                                    <TableRow key={idx} className="border-b border-slate-200 dark:border-[#2a3040] animate-pulse">
+                                        <TableCell className="pl-8 py-5">
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-36 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-5 w-24 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-8">
+                                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto"></div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : officers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
@@ -273,87 +350,109 @@ export default function OfficersPage({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                officers.map((item) => (
-                                    <TableRow
-                                        key={item.id}
-                                        className="group hover:bg-rose-50/20 dark:hover:bg-rose-950/10 transition-colors border-b border-slate-200 dark:border-[#2a3040]"
-                                    >
-                                        <TableCell className="pl-8 py-5 font-black text-sm text-slate-900 dark:text-white italic uppercase">
-                                            {item.name || "N/A"}
-                                        </TableCell>
+                                officers.map((item) => {
+                                    const isActive = item.isEmailVerified !== false;
+                                    return (
+                                        <TableRow
+                                            key={item.id}
+                                            className={`group transition-colors border-b border-slate-200 dark:border-[#2a3040] ${
+                                                !isActive
+                                                    ? "bg-slate-50/40 dark:bg-white/[0.02] opacity-75"
+                                                    : "hover:bg-rose-50/20 dark:hover:bg-rose-950/10"
+                                            }`}
+                                        >
+                                            <TableCell className="pl-8 py-5 font-black text-sm text-slate-900 dark:text-white italic uppercase">
+                                                {item.name || "N/A"}
+                                            </TableCell>
 
-                                        <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
-                                            {item.email}
-                                        </TableCell>
+                                            <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
+                                                {item.email}
+                                            </TableCell>
 
-                                        <TableCell>
-                                            <span
-                                                className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
-                                                    item.isEmailVerified !== false
-                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-                                                }`}
-                                            >
-                                                {item.isEmailVerified !== false ? "VERIFIED" : "UNVERIFIED"}
-                                            </span>
-                                        </TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Switch
+                                                        checked={isActive}
+                                                        disabled={togglingId === item.id}
+                                                        onCheckedChange={() => handleToggleStatus(item)}
+                                                    />
+                                                    <span
+                                                        className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
+                                                            isActive
+                                                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                                : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                                        }`}
+                                                    >
+                                                        {isActive ? "ACTIVE" : "INACTIVE"}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
 
-                                        <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
-                                            {item.department || "POSO"}
-                                        </TableCell>
+                                            <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
+                                                {item.department || "POSO"}
+                                            </TableCell>
 
-                                        <TableCell>
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
-                                                POSO OFFICER
-                                            </span>
-                                        </TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                                                    POSO OFFICER
+                                                </span>
+                                            </TableCell>
 
-                                        <TableCell className="text-right pr-8">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(item)}
-                                                    className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-all"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </Button>
-
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(item.id, item.name || "Officer")}
-                                                    disabled={deletingId === item.id}
-                                                    className="h-9 w-9 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                            <TableCell className="text-right pr-8">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(item)}
+                                                        className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-all"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-500">
-                        Showing {officers.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
-                        {Math.min(page * pageSize, totalCount)} of {totalCount} officers
-                    </p>
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {officers.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+                            {Math.min(page * pageSize, totalCount)} of {totalCount} officers
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
                             disabled={page === 1 || isPending}
                             onClick={() => handlePageChange(page - 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                         </Button>
-                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-lg">
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
                             Page {page} of {totalPages}
                         </span>
                         <Button
@@ -361,7 +460,7 @@ export default function OfficersPage({
                             size="sm"
                             disabled={page >= totalPages || isPending}
                             onClick={() => handlePageChange(page + 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             Next <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
