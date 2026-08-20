@@ -3117,6 +3117,13 @@ export async function createBarangayAdmin(formData: FormData) {
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
         const managedBarangay = formData.get("managedBarangay") as string;
+        const requestedRole = (formData.get("role") as string) || "BARANGAY_ADMIN";
+        const role = requestedRole === "BARANGAY_CAPTAIN" ? "BARANGAY_CAPTAIN" : "BARANGAY_ADMIN";
+
+        // Ensure PostgreSQL database enum has BARANGAY_CAPTAIN
+        try {
+            await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'BARANGAY_CAPTAIN';`);
+        } catch {}
 
         // Check if email already exists
         const existing = await prisma.user.findUnique({ where: { email } });
@@ -3145,7 +3152,7 @@ export async function createBarangayAdmin(formData: FormData) {
                 name,
                 email,
                 password: hashedPassword,
-                role: "BARANGAY_ADMIN",
+                role: role as any,
                 managedBarangay,
                 isEmailVerified: true, // Auto-verify for admins
                 emailVerified: new Date(),
@@ -3158,6 +3165,31 @@ export async function createBarangayAdmin(formData: FormData) {
     } catch (error: any) {
         console.error("Failed to create barangay admin:", error);
         return { success: false, error: error.message || "Failed to create barangay admin." };
+    }
+}
+
+export async function toggleUserEmailVerification(userId: string, isVerified: boolean) {
+    try {
+        const session = await getServerSession(authOptions);
+        const currentUserRole = (session?.user as any)?.role;
+        if (!session?.user?.id || currentUserRole !== "ADMIN") {
+            return { success: false, error: "Unauthorized. Admin privileges required." };
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                isEmailVerified: isVerified,
+                emailVerified: isVerified ? new Date() : null,
+            }
+        });
+
+        revalidatePath("/admin/barangays/admins");
+        revalidatePath("/admin/users");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to toggle email verification:", error);
+        return { success: false, error: error.message || "Failed to toggle verification." };
     }
 }
 
@@ -3291,14 +3323,27 @@ export async function updateUser(userId: string, formData: FormData) {
             }
         }
 
+        const isBarangayRole = role === "BARANGAY_ADMIN" || role === "BARANGAY_CAPTAIN";
+        const isEmailVerifiedParam = formData.get("isEmailVerified");
+
         const dataToUpdate: any = {
             name,
             email,
             role,
-            managedBarangay: role === "BARANGAY_ADMIN" ? managedBarangay : null,
+            managedBarangay: isBarangayRole ? managedBarangay : null,
             department: department || null,
             accessiblePages: accessiblePages || [],
         };
+
+        if (isEmailVerifiedParam !== null) {
+            const isVerified = isEmailVerifiedParam === "true" || isEmailVerifiedParam === "on";
+            dataToUpdate.isEmailVerified = isVerified;
+            if (isVerified) {
+                dataToUpdate.emailVerified = new Date();
+            } else {
+                dataToUpdate.emailVerified = null;
+            }
+        }
 
         if (password && password.trim() !== "") {
             if (isUserUuid) {
@@ -3321,6 +3366,7 @@ export async function updateUser(userId: string, formData: FormData) {
         });
 
         revalidatePath("/admin/users");
+        revalidatePath("/admin/barangays/admins");
         return { success: true, user: updatedUser };
     } catch (error: any) {
         console.error("Failed to update user:", error);

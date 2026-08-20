@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MapPin, Mail, Shield } from "lucide-react";
+import { Plus, MapPin, Mail, Shield, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { AddBarangayAdminModal } from "./components/AddBarangayAdminModal";
+import { EditBarangayAdminModal } from "./components/EditBarangayAdminModal";
+import { toggleUserEmailVerification } from "@/app/admin/actions";
 
 interface BarangayAdminsWorkspaceProps {
     initialAdmins: any[];
@@ -16,6 +20,35 @@ interface BarangayAdminsWorkspaceProps {
 
 export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor = "#2563eb" }: BarangayAdminsWorkspaceProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<any | null>(null);
+    const [verifiedState, setVerifiedState] = useState<Record<string, boolean>>(() => {
+        const init: Record<string, boolean> = {};
+        initialAdmins.forEach((admin) => {
+            init[admin.id] = !!admin.isEmailVerified;
+        });
+        return init;
+    });
+    const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+
+    const handleToggleVerification = async (userId: string, nextStatus: boolean, adminName: string) => {
+        setVerifiedState(prev => ({ ...prev, [userId]: nextStatus }));
+        setPendingIds(prev => ({ ...prev, [userId]: true }));
+
+        try {
+            const res = await toggleUserEmailVerification(userId, nextStatus);
+            if (res.success) {
+                toast.success(`${adminName || "Account"} marked as ${nextStatus ? "Verified" : "Unverified"}`);
+            } else {
+                setVerifiedState(prev => ({ ...prev, [userId]: !nextStatus }));
+                toast.error(res.error || "Failed to update verification status.");
+            }
+        } catch {
+            setVerifiedState(prev => ({ ...prev, [userId]: !nextStatus }));
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setPendingIds(prev => ({ ...prev, [userId]: false }));
+        }
+    };
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 text-slate-900 dark:text-white">
@@ -63,41 +96,85 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                     <TableHeader className="bg-slate-50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="font-bold py-5">Admin Details</TableHead>
+                            <TableHead className="font-bold">Role</TableHead>
                             <TableHead className="font-bold">Managed Barangay</TableHead>
+                            <TableHead className="font-bold">Email Verified</TableHead>
                             <TableHead className="font-bold">Registered On</TableHead>
+                            <TableHead className="font-bold text-right pr-6">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {initialAdmins.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={3} className="h-40 text-center text-slate-500">
-                                    No Barangay admins registered yet. Click &quot;Register Barangay Admin&quot; to create one.
+                                <TableCell colSpan={6} className="h-40 text-center text-slate-500">
+                                    No Barangay admins or captains registered yet. Click &quot;Register Barangay Official&quot; to create one.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            initialAdmins.map((admin) => (
-                                <TableRow key={admin.id} className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50">
-                                    <TableCell className="py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                {admin.name || "Unnamed"}
-                                            </span>
-                                            <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                                                <Mail className="w-3 h-3 text-blue-500" /> {admin.email}
-                                            </span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 font-black uppercase text-[10px] italic tracking-tighter">
-                                            <MapPin className="w-3 h-3 mr-1" />
-                                            {admin.managedBarangay || "Not Assigned"}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-slate-500 font-bold text-xs uppercase">
-                                        {format(new Date(admin.createdAt), "MMM d, yyyy")}
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                            initialAdmins.map((admin) => {
+                                const isVerified = verifiedState[admin.id] !== undefined ? verifiedState[admin.id] : !!admin.isEmailVerified;
+                                const isPending = !!pendingIds[admin.id];
+
+                                return (
+                                    <TableRow key={admin.id} className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50">
+                                        <TableCell className="py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
+                                                    {admin.name || "Unnamed"}
+                                                </span>
+                                                <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                                                    <Mail className="w-3 h-3 text-blue-500" /> {admin.email}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {admin.role === "BARANGAY_CAPTAIN" ? (
+                                                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-black uppercase text-[10px] italic tracking-wider">
+                                                    Barangay Captain
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20 font-black uppercase text-[10px] italic tracking-wider">
+                                                    Barangay Admin
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 font-black uppercase text-[10px] italic tracking-tighter">
+                                                <MapPin className="w-3 h-3 mr-1" />
+                                                {admin.managedBarangay || "Not Assigned"}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2.5">
+                                                <Switch
+                                                    checked={isVerified}
+                                                    disabled={isPending}
+                                                    onCheckedChange={(checked) => handleToggleVerification(admin.id, checked, admin.name)}
+                                                    className="data-[state=checked]:bg-emerald-500"
+                                                />
+                                                <span className={`text-[10px] font-black uppercase tracking-wider italic ${isVerified ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>
+                                                    {isVerified ? "Verified" : "Unverified"}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-slate-500 font-bold text-xs uppercase">
+                                            {format(new Date(admin.createdAt), "MMM d, yyyy")}
+                                        </TableCell>
+                                        <TableCell className="text-right pr-6">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setSelectedAdminToEdit({ ...admin, isEmailVerified: isVerified })}
+                                                className="h-8 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-xs flex items-center gap-1.5 ml-auto"
+                                                title="Edit Credentials & Assignment"
+                                            >
+                                                <Edit className="w-3.5 h-3.5" />
+                                                <span>Edit</span>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
@@ -107,6 +184,16 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                 <AddBarangayAdminModal
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
+                    barangays={barangays}
+                    themeColor={themeColor}
+                />
+            )}
+
+            {selectedAdminToEdit && (
+                <EditBarangayAdminModal
+                    isOpen={!!selectedAdminToEdit}
+                    onClose={() => setSelectedAdminToEdit(null)}
+                    admin={selectedAdminToEdit}
                     barangays={barangays}
                     themeColor={themeColor}
                 />

@@ -185,6 +185,9 @@ export function EditUserModal({
                       <SelectItem value="BARANGAY_ADMIN">
                         Barangay Admin
                       </SelectItem>
+                      <SelectItem value="BARANGAY_CAPTAIN">
+                        Barangay Captain
+                      </SelectItem>
                       <SelectItem value="TREASURY_STAFF">
                         Treasury Staff
                       </SelectItem>
@@ -229,7 +232,7 @@ export function EditUserModal({
                 </div>
               </div>
 
-              {role === "BARANGAY_ADMIN" && (
+              {(role === "BARANGAY_ADMIN" || (role as string) === "BARANGAY_CAPTAIN") && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                   <Label
                     htmlFor="managedBarangay"

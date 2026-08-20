@@ -1,27 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { X, Save, Shield, Eye, EyeOff } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Save, Eye, EyeOff, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { createBarangayAdmin } from "../../../actions";
+import { updateUser } from "../../../actions";
 
-interface AddBarangayAdminModalProps {
+interface EditBarangayAdminModalProps {
     isOpen: boolean;
     onClose: () => void;
+    admin: {
+        id: string;
+        name: string | null;
+        email: string | null;
+        role: string;
+        managedBarangay: string | null;
+        isEmailVerified?: boolean;
+    } | null;
     barangays: string[];
     themeColor?: string;
 }
 
-export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor = "#2563eb" }: AddBarangayAdminModalProps) {
+export function EditBarangayAdminModal({
+    isOpen,
+    onClose,
+    admin,
+    barangays,
+    themeColor = "#2563eb"
+}: EditBarangayAdminModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [selectedBarangay, setSelectedBarangay] = useState("");
+    const [selectedBarangay, setSelectedBarangay] = useState(admin?.managedBarangay || "");
     const [searchQuery, setSearchQuery] = useState("");
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [selectedRole, setSelectedRole] = useState(admin?.role || "BARANGAY_ADMIN");
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (admin) {
+            setSelectedBarangay(admin.managedBarangay || "");
+            setSelectedRole(admin.role || "BARANGAY_ADMIN");
+        }
+    }, [admin]);
+
+    if (!isOpen || !admin) return null;
+
+    const currentAdmin = admin;
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -32,28 +56,28 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
         const managedBarangay = formData.get("managedBarangay") as string;
+        const role = formData.get("role") as string;
 
-        if (!name || !email || !password || !managedBarangay) {
-            toast.error("All fields are required.");
+        if (!name || !email || !managedBarangay) {
+            toast.error("Name, email, and barangay are required.");
             setIsSubmitting(false);
             return;
         }
 
-        if (password.length < 6) {
-            toast.error("Password must be at least 6 characters.");
+        if (password && password.length < 6) {
+            toast.error("Password must be at least 6 characters if changing.");
             setIsSubmitting(false);
             return;
         }
-
-        const role = (formData.get("role") as string) === "BARANGAY_CAPTAIN" ? "Barangay Captain" : "Barangay Admin";
 
         try {
-            const result = await createBarangayAdmin(formData);
+            const result = await updateUser(currentAdmin.id, formData);
             if (result.success) {
-                toast.success(`${role} for ${managedBarangay} created successfully!`);
+                const roleLabel = role === "BARANGAY_CAPTAIN" ? "Barangay Captain" : "Barangay Admin";
+                toast.success(`${roleLabel} account updated successfully!`);
                 onClose();
             } else {
-                toast.error(result.error || "Failed to create account.");
+                toast.error(result.error || "Failed to update account.");
             }
         } catch {
             toast.error("An unexpected error occurred.");
@@ -73,11 +97,11 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-[#2a3040] flex-shrink-0">
                     <div>
                         <h2 className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-2">
-                            <Shield className="w-6 h-6" style={{ color: themeColor }} />
-                            Register Barangay Admin
+                            <Edit3 className="w-6 h-6" style={{ color: themeColor }} />
+                            Edit Barangay Official
                         </h2>
                         <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">
-                            Create a new admin account for a barangay
+                            Update account credentials and assignment
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-white/5 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
@@ -87,7 +111,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
 
                 {/* Body */}
                 <div className="overflow-y-auto custom-scrollbar p-6 flex-1">
-                    <form id="adminForm" onSubmit={handleSubmit} className="space-y-5">
+                    <form id="editAdminForm" onSubmit={handleSubmit} className="space-y-5">
                         {/* Full Name */}
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -95,6 +119,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                             </label>
                             <Input
                                 name="name"
+                                defaultValue={currentAdmin.name || ""}
                                 required
                                 placeholder="E.g. Juan Dela Cruz"
                                 className="font-bold h-12 rounded-xl"
@@ -109,6 +134,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                             <Input
                                 name="email"
                                 type="email"
+                                defaultValue={currentAdmin.email || ""}
                                 required
                                 autoComplete="new-email"
                                 placeholder="admin@barangay.com"
@@ -119,15 +145,14 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                         {/* Password */}
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                                Temporary Password <span className="text-red-500">*</span>
+                                New Password (Optional)
                             </label>
                             <div className="relative">
                                 <Input
                                     name="password"
                                     type={showPassword ? "text" : "password"}
-                                    required
                                     autoComplete="new-password"
-                                    placeholder="Min. 6 characters"
+                                    placeholder="Leave blank to keep current"
                                     className="font-bold h-12 rounded-xl pr-12"
                                 />
                                 <button
@@ -138,7 +163,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium">The admin can change this password after their first login.</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Leave this blank if you don&apos;t want to change the password.</p>
                         </div>
 
                         {/* Role Selector */}
@@ -149,13 +174,13 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                             <select
                                 name="role"
                                 required
-                                defaultValue="BARANGAY_ADMIN"
+                                value={selectedRole}
+                                onChange={(e) => setSelectedRole(e.target.value)}
                                 className="w-full h-12 rounded-xl border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1a1f2e] text-slate-900 dark:text-white font-bold px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                             >
                                 <option value="BARANGAY_ADMIN">Barangay Admin</option>
                                 <option value="BARANGAY_CAPTAIN">Barangay Captain</option>
                             </select>
-                            <p className="text-[10px] text-slate-400 font-medium">Choose whether this user will act as Barangay Admin or Barangay Captain.</p>
                         </div>
 
                         {/* Barangay Selector */}
@@ -165,7 +190,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                             </label>
                             {barangays.length === 0 ? (
                                 <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm font-medium">
-                                    No barangays found. Please add a barangay first in the &quot;Add/Edit Barangays&quot; section.
+                                    No barangays found.
                                 </div>
                             ) : (
                                 <div className="relative">
@@ -226,13 +251,13 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                 <div className="flex items-center justify-end p-6 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] rounded-b-3xl flex-shrink-0">
                     <Button
                         type="submit"
-                        form="adminForm"
+                        form="editAdminForm"
                         disabled={isSubmitting || barangays.length === 0}
                         style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}33` }}
                         className="hover:opacity-90 text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl transition-all duration-200"
                     >
                         <Save className="w-4 h-4 mr-2" />
-                        {isSubmitting ? "Creating..." : "Create Admin Account"}
+                        {isSubmitting ? "Saving..." : "Save Changes"}
                     </Button>
                 </div>
             </div>
