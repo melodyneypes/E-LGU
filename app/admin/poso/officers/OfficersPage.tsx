@@ -5,7 +5,7 @@ import {
     getPosoOfficers,
     addPosoOfficer,
     updatePosoOfficer,
-    deletePosoOfficer,
+    togglePosoOfficerStatus,
 } from "@/app/admin/poso/actions";
 import {
     Table,
@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
     Dialog,
     DialogContent,
@@ -29,9 +30,6 @@ import {
     UserCheck,
     Plus,
     Search,
-    Trash2,
-    X,
-    Save,
     Users,
     Eye,
     EyeOff,
@@ -39,6 +37,10 @@ import {
     ChevronLeft,
     ChevronRight,
     RefreshCw,
+    ShieldCheck,
+    UserX,
+    X,
+    Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -69,7 +71,7 @@ export default function OfficersPage({
     const [isPending, setIsPending] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
 
     const [showPassword, setShowPassword] = useState(false);
 
@@ -136,18 +138,26 @@ export default function OfficersPage({
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to delete officer account "${name}"?`)) return;
-        setDeletingId(id);
+    const handleToggleStatus = async (item: OfficerItem) => {
+        const currentActive = item.isEmailVerified !== false;
+        const nextActive = !currentActive;
+        setTogglingId(item.id);
         try {
-            const res = await deletePosoOfficer(id);
-            if (!res.success) throw new Error(res.error);
-            toast.success("POSO officer account deleted successfully!");
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || "Failed to delete officer account.");
+            const res = await togglePosoOfficerStatus(item.id, nextActive);
+            if (res.success) {
+                toast.success(
+                    `Officer ${item.name || item.email} account ${nextActive ? "activated" : "deactivated"}!`
+                );
+                setOfficers((prev) =>
+                    prev.map((o) => (o.id === item.id ? { ...o, isEmailVerified: nextActive } : o))
+                );
+            } else {
+                toast.error(res.error || "Failed to update officer status.");
+            }
+        } catch {
+            toast.error("Failed to toggle officer status.");
         } finally {
-            setDeletingId(null);
+            setTogglingId(null);
         }
     };
 
@@ -183,6 +193,8 @@ export default function OfficersPage({
     };
 
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const activeOfficersCount = officers.filter((o) => o.isEmailVerified !== false).length;
+    const inactiveOfficersCount = officers.filter((o) => o.isEmailVerified === false).length;
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -194,8 +206,41 @@ export default function OfficersPage({
                         POSO Traffic Officers Registry
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Manage active POSO traffic enforcers and handheld mobile app login credentials.
+                        Manage POSO traffic enforcers and handheld mobile app login credentials with state management (Active/Inactive).
                     </p>
+                </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-500">Total Registered</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalCount}</h3>
+                    </div>
+                    <div className="p-3 bg-rose-500/10 text-rose-600 rounded-xl">
+                        <Users className="w-6 h-6" />
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Active Handhelds</p>
+                        <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{activeOfficersCount}</h3>
+                    </div>
+                    <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
+                        <ShieldCheck className="w-6 h-6" />
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Deactivated Enforcers</p>
+                        <h3 className="text-2xl font-black text-slate-600 dark:text-slate-400 mt-1">{inactiveOfficersCount}</h3>
+                    </div>
+                    <div className="p-3 bg-slate-500/10 text-slate-600 rounded-xl">
+                        <UserX className="w-6 h-6" />
+                    </div>
                 </div>
             </div>
 
@@ -243,8 +288,8 @@ export default function OfficersPage({
                                 <TableHead className="w-[280px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Email / Login Username
                                 </TableHead>
-                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                    Email Verified
+                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
+                                    Status / Active
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Department
@@ -273,65 +318,69 @@ export default function OfficersPage({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                officers.map((item) => (
-                                    <TableRow
-                                        key={item.id}
-                                        className="group hover:bg-rose-50/20 dark:hover:bg-rose-950/10 transition-colors border-b border-slate-200 dark:border-[#2a3040]"
-                                    >
-                                        <TableCell className="pl-8 py-5 font-black text-sm text-slate-900 dark:text-white italic uppercase">
-                                            {item.name || "N/A"}
-                                        </TableCell>
+                                officers.map((item) => {
+                                    const isActive = item.isEmailVerified !== false;
+                                    return (
+                                        <TableRow
+                                            key={item.id}
+                                            className={`group transition-colors border-b border-slate-200 dark:border-[#2a3040] ${
+                                                !isActive
+                                                    ? "bg-slate-50/40 dark:bg-white/[0.02] opacity-75"
+                                                    : "hover:bg-rose-50/20 dark:hover:bg-rose-950/10"
+                                            }`}
+                                        >
+                                            <TableCell className="pl-8 py-5 font-black text-sm text-slate-900 dark:text-white italic uppercase">
+                                                {item.name || "N/A"}
+                                            </TableCell>
 
-                                        <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
-                                            {item.email}
-                                        </TableCell>
+                                            <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
+                                                {item.email}
+                                            </TableCell>
 
-                                        <TableCell>
-                                            <span
-                                                className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
-                                                    item.isEmailVerified !== false
-                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-                                                }`}
-                                            >
-                                                {item.isEmailVerified !== false ? "VERIFIED" : "UNVERIFIED"}
-                                            </span>
-                                        </TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Switch
+                                                        checked={isActive}
+                                                        disabled={togglingId === item.id}
+                                                        onCheckedChange={() => handleToggleStatus(item)}
+                                                    />
+                                                    <span
+                                                        className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
+                                                            isActive
+                                                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                                : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                                        }`}
+                                                    >
+                                                        {isActive ? "ACTIVE" : "INACTIVE"}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
 
-                                        <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
-                                            {item.department || "POSO"}
-                                        </TableCell>
+                                            <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
+                                                {item.department || "POSO"}
+                                            </TableCell>
 
-                                        <TableCell>
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
-                                                POSO OFFICER
-                                            </span>
-                                        </TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                                                    POSO OFFICER
+                                                </span>
+                                            </TableCell>
 
-                                        <TableCell className="text-right pr-8">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(item)}
-                                                    className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-all"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </Button>
-
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleDelete(item.id, item.name || "Officer")}
-                                                    disabled={deletingId === item.id}
-                                                    className="h-9 w-9 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                            <TableCell className="text-right pr-8">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(item)}
+                                                        className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-all"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>

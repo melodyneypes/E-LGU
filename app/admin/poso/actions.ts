@@ -103,17 +103,19 @@ export async function updateTrafficViolation(id: string, formData: FormData) {
     }
 }
 
-export async function deleteTrafficViolation(id: string) {
+export async function toggleTrafficViolationStatus(id: string, isActive: boolean) {
     try {
         await verifyAdminOrStaff();
-        await (prisma as any).trafficViolation.delete({
+        const updatedViolation = await (prisma as any).trafficViolation.update({
             where: { id },
+            data: { isActive },
         });
+
         revalidatePath("/admin/poso/violations");
-        return { success: true };
+        return { success: true, violation: updatedViolation };
     } catch (error: any) {
-        console.error("Failed to delete traffic violation:", error);
-        return { success: false, error: error.message || "Failed to delete traffic violation." };
+        console.error("Failed to toggle traffic violation status:", error);
+        return { success: false, error: error.message || "Failed to update ordinance status." };
     }
 }
 
@@ -1352,17 +1354,18 @@ export async function updatePosoOfficer(id: string, formData: FormData) {
     }
 }
 
-export async function deletePosoOfficer(id: string) {
+export async function togglePosoOfficerStatus(id: string, isActive: boolean) {
     try {
         await verifyAdminOrStaff();
-        await (prisma as any).user.delete({
+        const updatedOfficer = await (prisma as any).user.update({
             where: { id },
+            data: { isEmailVerified: isActive },
         });
         revalidatePath("/admin/poso/officers");
-        return { success: true };
+        return { success: true, officer: updatedOfficer };
     } catch (error: any) {
-        console.error("Failed to delete POSO officer:", error);
-        return { success: false, error: error.message || "Failed to delete POSO officer account." };
+        console.error("Failed to toggle POSO officer status:", error);
+        return { success: false, error: error.message || "Failed to update POSO officer status." };
     }
 }
 
