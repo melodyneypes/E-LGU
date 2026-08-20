@@ -557,12 +557,40 @@ export function RHUClient({
             {/* Ambulance Dispatch Modal */}
             <Dialog open={showAmbulanceModal} onOpenChange={setShowAmbulanceModal}>
                 <DialogContent className="max-w-xl w-[95%] mx-auto bg-white dark:bg-[#11131a] border border-slate-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl p-6 md:p-8 outline-none text-slate-900 dark:text-white max-h-[90vh] overflow-y-auto scrollbar-none">
+                    <style>{`
+                        .hotline-card:hover {
+                            border-color: ${themeColor}66 !important;
+                            background-color: ${themeColor}0d !important;
+                        }
+                        .hotline-icon-container:not(.bg-emerald-500) {
+                            background-color: ${themeColor}1a !important;
+                            color: ${themeColor} !important;
+                        }
+                        .hotline-card:hover .hotline-icon-container:not(.bg-emerald-500) {
+                            background-color: ${themeColor} !important;
+                            color: #fff !important;
+                        }
+                        .hotline-card:hover .hotline-title:not(.text-emerald-500) {
+                            color: ${themeColor} !important;
+                        }
+                        .ambulance-close-btn {
+                            background-color: ${themeColor} !important;
+                            border: none !important;
+                            transition: opacity 0.2s !important;
+                        }
+                        .ambulance-close-btn:hover {
+                            opacity: 0.9 !important;
+                        }
+                    `}</style>
                     <DialogHeader className="space-y-3">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2 bg-amber-500/10">
-                            <Truck className="w-6 h-6 text-amber-500" />
+                        <div 
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2"
+                            style={{ backgroundColor: `${themeColor}1a` }}
+                        >
+                            <Truck className="w-6 h-6" style={{ color: themeColor }} />
                         </div>
                         <DialogTitle className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-center leading-none">
-                            Ambulance Fleet & <span className="text-amber-500">Dispatch</span>
+                            Ambulance Fleet & <span style={{ color: themeColor }}>Dispatch</span>
                         </DialogTitle>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
                             Emergency Response Logistics & Hotlines Directory
@@ -613,20 +641,20 @@ export function RHUClient({
                                             key={idx}
                                             href={`tel:${cleanNumber}`}
                                             onClick={() => handleHotlineCall(hotline.number)}
-                                            className="p-4 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-amber-500/40 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline"
+                                            className="hotline-card p-4 bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline"
                                         >
                                             <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+                                                "hotline-icon-container w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
                                                 isCopied 
                                                     ? "bg-emerald-500 text-white dark:bg-emerald-500 dark:text-white shadow-md shadow-emerald-500/20" 
-                                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white dark:group-hover:bg-amber-500 dark:group-hover:text-white"
+                                                    : ""
                                             )}>
                                                 <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <span className={cn(
-                                                    "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
-                                                    isCopied ? "text-emerald-500" : "text-slate-400 group-hover:text-amber-500"
+                                                    "hotline-title text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
+                                                    isCopied ? "text-emerald-500" : "text-slate-400"
                                                 )}>
                                                     {hotline.name}
                                                 </span>
@@ -644,21 +672,30 @@ export function RHUClient({
                         </div>
 
                         {/* Instruction Protocol */}
-                        <div className="p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-3">
-                            <h5 className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                        <div 
+                            className="p-5 rounded-2xl space-y-3 border"
+                            style={{ 
+                                backgroundColor: `${themeColor}08`, 
+                                borderColor: `${themeColor}1a` 
+                            }}
+                        >
+                            <h5 
+                                className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
+                                style={{ color: themeColor }}
+                            >
                                 <AlertCircle className="w-3.5 h-3.5" /> Dispatch Information Checklist
                             </h5>
                             <ul className="text-[11px] font-medium text-slate-600 dark:text-slate-400 space-y-2 list-none p-0 m-0">
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: themeColor }} />
                                     <span>Provide the patient&apos;s full name, age, and current status (conscious, bleeding, difficulty breathing, etc.).</span>
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: themeColor }} />
                                     <span>State the exact pick-up address or landmark (Barangay, Purok, or notable location) and target destination hospital.</span>
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: themeColor }} />
                                     <span>Provide a standby active phone number of the emergency contact person on-site.</span>
                                 </li>
                             </ul>
@@ -668,7 +705,7 @@ export function RHUClient({
                     <div className="mt-8 flex justify-center">
                         <Button
                             onClick={() => setShowAmbulanceModal(false)}
-                            className="w-full h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all border-none bg-amber-500 hover:bg-amber-600"
+                            className="ambulance-close-btn w-full h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all"
                         >
                             Understood, Return to Services
                         </Button>

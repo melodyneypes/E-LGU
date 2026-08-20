@@ -146,14 +146,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-10 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 text-center gap-6"
+                className="flex flex-col items-center justify-center p-10 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 text-center gap-6 shadow-xl dark:shadow-2xl"
             >
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center">
                     <AlertCircle className="w-8 h-8 text-amber-500" />
                 </div>
                 <div className="space-y-2">
-                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-white">Reporting Offline</h4>
-                    <p className="text-slate-400 text-sm font-medium italic max-w-xs">Online concern reporting is temporarily disabled for scheduled maintenance. For immediate emergencies, please call the hotlines.</p>
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Reporting Offline</h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic max-w-xs">Online concern reporting is temporarily disabled for scheduled maintenance. For immediate emergencies, please call the hotlines.</p>
                 </div>
             </motion.div>
         );
@@ -161,9 +161,9 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
 
     if (status === "loading") {
         return (
-            <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10">
+            <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl dark:shadow-2xl">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Setting up...</p>
+                <p className="text-slate-505 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Setting up...</p>
             </div>
         );
     }
@@ -173,14 +173,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-10 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 text-center gap-6"
+                className="flex flex-col items-center justify-center p-10 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 text-center gap-6 shadow-xl dark:shadow-2xl"
             >
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
                     <AlertCircle className="w-8 h-8 text-primary" />
                 </div>
                 <div className="space-y-2">
-                    <h4 className="text-xl font-black uppercase italic tracking-tighter">Sign In Required</h4>
-                    <p className="text-slate-400 text-sm font-medium italic max-w-xs">You need to be signed in to submit a local concern or report an issue.</p>
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Sign In Required</h4>
+                    <p className="text-slate-550 dark:text-slate-400 text-sm font-medium italic max-w-xs">You need to be signed in to submit a local concern or report an issue.</p>
                 </div>
                 <Button 
                     onClick={() => window.location.href = "/auth/login"}
@@ -193,16 +193,16 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
     }
 
     return (
-        <div className="bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 p-8 shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
+        <div className="bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 p-8 shadow-xl dark:shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
             <div className="space-y-6">
                 <div className="space-y-2">
-                    <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white">Report <span className="text-primary">an Issue</span></h3>
-                    <p className="text-slate-400 text-[11px] font-medium italic">Your concerns help us maintain a better Mapandan.</p>
+                    <h3 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Report <span className="text-primary">an Issue</span></h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">Your concerns help us maintain a better Mapandan.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div id="barangay-select-container" className="space-y-2 relative">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Select Barangay</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Select Barangay</label>
                         <input type="hidden" name="barangayId" value={selectedBarangay} required />
                         <button
                             type="button"
@@ -211,11 +211,13 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                 if (showBrgyError) setShowBrgyError(false);
                             }}
                             className={cn(
-                                "w-full h-14 bg-white/5 border rounded-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-primary text-white italic text-left px-5 flex items-center justify-between",
-                                showBrgyError ? "border-red-500 ring-1 ring-red-500" : "border-white/10"
+                                "w-full h-14 bg-slate-50 dark:bg-white/5 border rounded-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-primary text-slate-800 dark:text-white italic text-left px-5 flex items-center justify-between",
+                                showBrgyError ? "border-red-500 ring-1 ring-red-500" : "border-slate-200 dark:border-white/10"
                             )}
                         >
-                            <span>{barangays.find(b => b.id === selectedBarangay)?.name || "Select Barangay"}</span>
+                            <span className={cn(!selectedBarangay && "text-slate-400 dark:text-slate-500")}>
+                                {barangays.find(b => b.id === selectedBarangay)?.name || "Select Barangay"}
+                            </span>
                             <span className="text-xs text-slate-400">▼</span>
                         </button>
 
@@ -225,14 +227,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                     setIsBrgyDropdownOpen(false);
                                     setBrgySearchQuery("");
                                 }} />
-                                <div className="absolute z-[120] top-full left-0 right-0 mt-2 p-3 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-2 max-h-60 overflow-hidden">
+                                <div className="absolute z-[120] top-full left-0 right-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-2 max-h-60 overflow-hidden">
                                     <div className="relative flex-shrink-0">
                                         <input
                                             type="text"
                                             placeholder="Search barangay..."
                                             value={brgySearchQuery}
                                             onChange={(e) => setBrgySearchQuery(e.target.value)}
-                                            className="w-full h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary italic"
+                                            className="w-full h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary italic placeholder:text-slate-450 dark:placeholder:text-slate-500"
                                         />
                                     </div>
 
@@ -240,7 +242,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                         {barangays
                                             .filter(b => b.name.toLowerCase().includes(brgySearchQuery.toLowerCase()))
                                             .length === 0 ? (
-                                                <div className="p-3 text-center text-xs text-slate-400 italic">No barangays match search.</div>
+                                                <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 italic">No barangays match search.</div>
                                             ) : (
                                                 barangays
                                                     .filter(b => b.name.toLowerCase().includes(brgySearchQuery.toLowerCase()))
@@ -254,7 +256,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                                                 setBrgySearchQuery("");
                                                                 setShowBrgyError(false);
                                                             }}
-                                                            className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-350 hover:bg-white/5 hover:text-white transition-colors"
+                                                            className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-colors"
                                                         >
                                                             {b.name}
                                                         </button>
@@ -267,7 +269,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Issue Category</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Issue Category</label>
                         <AnimatePresence mode="wait">
                             {selectedCategory !== "Others" ? (
                                 <motion.div
@@ -278,10 +280,10 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                     transition={{ duration: 0.2 }}
                                 >
                                     <Select name="category" required onValueChange={setSelectedCategory} value={selectedCategory}>
-                                        <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl font-bold transition-all focus:ring-primary text-white italic">
+                                        <SelectTrigger className="h-14 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl font-bold transition-all focus:ring-primary text-slate-800 dark:text-white italic">
                                             <SelectValue placeholder="Select Category" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-slate-900 border-white/10 text-white rounded-2xl">
+                                        <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white rounded-2xl">
                                             <SelectItem value="Road Repair" className="font-bold italic py-3 cursor-pointer">Road Repair</SelectItem>
                                             <SelectItem value="Waste Management" className="font-bold italic py-3 cursor-pointer">Waste Management</SelectItem>
                                             <SelectItem value="Street Lights" className="font-bold italic py-3 cursor-pointer">Street Lights</SelectItem>
@@ -306,7 +308,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                             required
                                             autoFocus
                                             placeholder="Please specify the issue category..."
-                                            className="w-full h-14 bg-primary/10 border border-primary/20 rounded-2xl px-5 font-bold text-white italic text-sm placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                                            className="w-full h-14 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-2xl px-5 font-bold text-slate-800 dark:text-white italic text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
                                         />
                                         <input type="hidden" name="category" value="Others" />
                                     </div>
@@ -314,7 +316,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                         type="button"
                                         variant="outline"
                                         onClick={() => setSelectedCategory("")}
-                                        className="h-14 w-14 rounded-2xl border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 p-0"
+                                        className="h-14 w-14 rounded-2xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-550 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 p-0"
                                         title="Back to categories"
                                     >
                                         <X className="w-5 h-5" />
@@ -325,22 +327,22 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Detail Description</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Detail Description</label>
                         <Textarea 
                             name="description"
                             required
                             placeholder="What's the issue? Give us the details..." 
-                            className="min-h-[100px] bg-white/5 border-white/10 rounded-2xl p-4 font-bold transition-all focus:ring-primary text-white italic resize-none"
+                            className="min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 font-bold transition-all focus:ring-primary text-slate-800 dark:text-white placeholder:text-slate-455 dark:placeholder:text-slate-505 italic resize-none"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         {/* Compact Photo Attachment Area */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Attach Photos</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Attach Photos</label>
                             
                             <div 
-                                className="relative h-[150px] w-full rounded-2xl border border-white/10 bg-white/5 overflow-hidden group/upload"
+                                className="relative h-[150px] w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 overflow-hidden group/upload"
                             >
                                 <input 
                                     type="file" 
@@ -354,14 +356,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                 {previews.length === 0 ? (
                                     <div 
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="w-full h-full border border-dashed border-white/10 hover:border-primary/50 hover:bg-white/5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300 group"
+                                        className="w-full h-full border border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 hover:bg-slate-100/50 dark:hover:bg-white/5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300 group"
                                     >
-                                        <div className="p-3 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
-                                            <ImageIcon className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                        <div className="p-3 bg-slate-100 dark:bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
+                                            <ImageIcon className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors" />
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[11px] font-black uppercase tracking-widest text-white">Upload Photos</p>
-                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Click to browse files</p>
+                                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white">Upload Photos</p>
+                                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">Click to browse files</p>
                                         </div>
                                     </div>
                                 ) : (
@@ -421,8 +423,8 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
 
                         {/* Pinned Map Location Section */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Pin Location</label>
-                            <div className="relative h-[150px] w-full rounded-2xl border border-white/10 overflow-hidden bg-slate-950">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Pin Location</label>
+                            <div className="relative h-[150px] w-full rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-950">
                                 <LocationPicker 
                                     value={location}
                                     onSelect={handleLocationSelect}
@@ -445,7 +447,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                         <Button
                             asChild
                             variant="outline"
-                            className="w-full py-4 h-auto border-white/10 bg-white/5 hover:bg-white/10 hover:text-white text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] italic transition-all active:scale-95 flex items-center justify-center gap-3"
+                            className="w-full py-4 h-auto border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white text-slate-600 dark:text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] italic transition-all active:scale-95 flex items-center justify-center gap-3"
                         >
                             <Link href="/user/reports">
                                 <FileText className="w-4 h-4" />

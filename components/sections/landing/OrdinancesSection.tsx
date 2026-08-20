@@ -119,7 +119,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
     const showViewAll = totalItems > paginatedDocs.length;
 
     return (
-        <section id="ordinances" className="py-10 md:py-12 px-6 bg-slate-900 dark:bg-[#070b16] relative overflow-hidden">
+        <section id="ordinances" className="py-10 md:py-12 px-6 bg-slate-50 dark:bg-[#070b16] text-slate-900 dark:text-white relative overflow-hidden">
             {/* Ambient background glows */}
             <div 
                 className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl -z-10 pointer-events-none opacity-5"
@@ -132,9 +132,9 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
 
             <div className="max-w-7xl mx-auto">
                 {/* Main Container Card */}
-                <div className="bg-[#0b101f] rounded-[2.5rem] border border-slate-800/80 shadow-2xl p-6 md:p-8 space-y-4 relative">
+                <div className="bg-white dark:bg-[#0b101f] rounded-[2.5rem] border border-slate-200 dark:border-slate-800/80 shadow-xl dark:shadow-2xl p-6 md:p-8 space-y-4 relative">
                     {/* Header Layout */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center border-b border-slate-800/80 pb-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center border-b border-slate-200 dark:border-slate-800/80 pb-4">
                         {/* Title and Gavel Illustration */}
                         <div className="lg:col-span-7 flex flex-col items-start gap-3">
                             {/* Title text */}
@@ -152,10 +152,10 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                         LGU MAPANDAN
                                     </span>
                                 </div>
-                                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase italic leading-none">
+                                <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">
                                     Ordinance &<br className="hidden md:inline" /> Resolution Portal
                                 </h2>
-                                <p className="text-[11px] text-slate-400 font-medium italic max-w-md leading-relaxed">
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium italic max-w-md leading-relaxed">
                                     Transparent and instant access to approved local ordinances, resolutions, and legislative decisions.
                                 </p>
                             </div>
@@ -165,24 +165,24 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                         <div className="lg:col-span-5 space-y-2.5">
                             {/* Search bar */}
                             <div className="relative w-full">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
                                 <Input
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Search by title, number, or keyword..."
-                                    className="h-11 pl-10 pr-4 bg-slate-950 border-slate-800/80 rounded-xl text-xs font-bold italic text-white placeholder-slate-500 focus-visible:ring-1 w-full"
+                                    className="h-11 pl-10 pr-4 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800/80 rounded-xl text-xs font-bold italic text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus-visible:ring-1 w-full"
                                 />
                             </div>
 
                             {/* Tab Selectors */}
-                            <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800/80">
+                            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/80">
                                 <button
                                     onClick={() => setActiveTab("ALL")}
                                     className={cn(
                                         "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "ALL"
-                                            ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
-                                            : "text-slate-500 hover:text-slate-300"
+                                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800/80 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
                                     )}
                                 >
                                     All Documents
@@ -192,8 +192,8 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                     className={cn(
                                         "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "ORDINANCE"
-                                            ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
-                                            : "text-slate-500 hover:text-slate-300"
+                                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800/80 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
                                     )}
                                 >
                                     Ordinances
@@ -203,8 +203,8 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                     className={cn(
                                         "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
                                         activeTab === "RESOLUTION"
-                                            ? "bg-slate-900 text-white border border-slate-800/80 shadow-md"
-                                            : "text-slate-500 hover:text-slate-300"
+                                            ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800/80 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
                                     )}
                                 >
                                     Resolutions
@@ -239,10 +239,10 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[250px]">
                         {paginatedDocs.length === 0 ? (
-                            <div className="col-span-full bg-slate-950/40 rounded-3xl border border-slate-800/80 p-16 text-center">
-                                <FileText className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                                <h4 className="text-sm font-black text-slate-300 uppercase tracking-tight">No documents matched filters</h4>
-                                <p className="text-[11px] text-slate-500 font-bold italic mt-1.5">Try widening your search terms or selects.</p>
+                            <div className="col-span-full bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-200 dark:border-slate-800/80 p-16 text-center">
+                                <FileText className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-4" />
+                                <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">No documents matched filters</h4>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold italic mt-1.5">Try widening your search terms or selects.</p>
                             </div>
                         ) : (
                             paginatedDocs.map((doc) => (
@@ -251,54 +251,54 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                     initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     key={doc.id}
-                                    className="bg-slate-950/60 rounded-2xl border border-slate-800/80 p-5 hover:border-slate-700/80 transition-all flex flex-col justify-between group shadow-sm hover:shadow-xl duration-300"
+                                    className="bg-slate-50/80 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800/80 p-5 hover:border-slate-300 dark:hover:border-slate-700/80 transition-all flex flex-col justify-between group shadow-sm hover:shadow-md duration-300"
                                 >
                                     <div className="space-y-3">
                                         {/* Top badge row */}
                                         <div className="flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex flex-col items-center justify-center">
-                                                    <span className="text-[8px] font-black text-slate-300 uppercase leading-none">
-                                                        {doc.type === "ORDINANCE" ? "OR" : "RE"}
-                                                    </span>
-                                                    <span className="text-[6px] font-bold text-slate-600 uppercase leading-none">
-                                                        NO.
-                                                    </span>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                                    {doc.referenceNumber}
-                                                </span>
-                                            </div>
+                                             <div className="flex items-center gap-2">
+                                                 <div className="w-7 h-7 rounded-lg bg-slate-200/80 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center">
+                                                     <span className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase leading-none">
+                                                         {doc.type === "ORDINANCE" ? "OR" : "RE"}
+                                                     </span>
+                                                     <span className="text-[6px] font-bold text-slate-500 dark:text-slate-600 uppercase leading-none">
+                                                         NO.
+                                                     </span>
+                                                 </div>
+                                                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                                     {doc.referenceNumber}
+                                                 </span>
+                                             </div>
 
                                             {/* Status Badge */}
                                             <span className={cn(
                                                 "px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider border leading-none",
                                                 doc.status.includes("ACTIVE") || doc.status.includes("ENFORCED")
-                                                    ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/20"
+                                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                                     : doc.status.includes("PENDING")
-                                                        ? "bg-amber-950/20 text-amber-400 border-amber-500/20"
-                                                        : "bg-blue-950/20 text-blue-400 border-blue-500/20"
+                                                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
                                             )}>
                                                 {doc.status}
                                             </span>
                                         </div>
 
                                         {/* Title */}
-                                        <h3 className="text-xs sm:text-[13px] font-black text-white uppercase tracking-tight leading-snug line-clamp-2 group-hover:text-slate-100 transition-colors">
+                                        <h3 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                                             {doc.title}
                                         </h3>
 
                                         {/* Description */}
-                                        <p className="text-[10.5px] text-slate-400 font-medium italic line-clamp-2 leading-relaxed">
+                                        <p className="text-[10.5px] text-slate-600 dark:text-slate-400 font-medium italic line-clamp-2 leading-relaxed">
                                             {doc.description}
                                         </p>
                                     </div>
 
                                     {/* Card Footer */}
-                                    <div className="pt-3 mt-3 border-t border-slate-850 flex items-center justify-between gap-3">
+                                    <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between gap-3">
                                         <div className="flex flex-col">
-                                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">Date Approved</span>
-                                            <span className="text-[10px] font-bold text-slate-300 mt-1">{format(new Date(doc.dateApproved), "MMM dd, yyyy")}</span>
+                                            <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Date Approved</span>
+                                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-1">{format(new Date(doc.dateApproved), "MMM dd, yyyy")}</span>
                                         </div>
 
                                         {/* Action triggers */}
@@ -307,7 +307,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setSelectedDoc(doc)}
-                                                className="h-8.5 px-3 rounded-lg text-slate-400 hover:text-white dark:hover:bg-slate-800 text-[9px] font-black uppercase tracking-wider border border-slate-800 hover:border-slate-700"
+                                                className="h-8.5 px-3 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                                             >
                                                 <Eye className="w-3 h-3 mr-1.5" /> View Text
                                             </Button>
@@ -336,7 +336,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
 
                     {/* View All Redirect Link */}
                     {showViewAll && (
-                        <div className="flex justify-center pt-6 border-t border-slate-800/80">
+                        <div className="flex justify-center pt-6 border-t border-slate-200 dark:border-slate-800/80">
                             <Link
                                 href="/user/ordinances"
                                 className="inline-flex items-center gap-2 h-10 px-6 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg"
@@ -356,18 +356,18 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
             <Dialog open={selectedDoc !== null} onOpenChange={(open) => {
                 if (!open) setSelectedDoc(null);
             }}>
-                <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-[#0c101d] border-slate-800 shadow-2xl rounded-[2rem] text-white">
-                    <DialogHeader className="p-6 pb-4 border-b border-slate-800/80 bg-slate-950/20 flex flex-row items-center justify-between">
+                <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#0c101d] border border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem] text-slate-900 dark:text-white">
+                    <DialogHeader className="p-6 pb-4 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/20 flex flex-row items-center justify-between">
                         <div className="flex items-center space-x-3">
                             <span className={cn(
                                 "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest leading-none shadow-sm",
                                 selectedDoc?.type === "ORDINANCE"
-                                    ? "bg-purple-950/40 text-purple-400 border border-purple-500/20"
-                                    : "bg-teal-950/40 text-teal-400 border border-teal-500/20"
+                                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                                    : "bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20"
                             )}>
                                 {selectedDoc?.type}
                             </span>
-                            <DialogTitle className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <DialogTitle className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                                 {selectedDoc?.referenceNumber}
                             </DialogTitle>
                             <DialogDescription className="sr-only">
@@ -379,7 +379,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                             variant="ghost"
                             size="icon"
                             onClick={() => setSelectedDoc(null)}
-                            className="h-8 w-8 rounded-lg text-slate-500 hover:text-white shrink-0 hover:bg-slate-900"
+                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white shrink-0 hover:bg-slate-100 dark:hover:bg-slate-900"
                         >
                             <X className="w-4 h-4" />
                         </Button>
@@ -387,28 +387,28 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
 
                     <div className="p-6 space-y-5">
                         <div className="space-y-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Document Title</span>
-                            <h2 className="text-sm font-black text-white uppercase tracking-tight leading-snug">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Document Title</span>
+                            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug">
                                 {selectedDoc?.title}
                             </h2>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-200 dark:border-slate-800/80">
                             <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Date Approved</span>
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-                                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Date Approved</span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                                     <span>{selectedDoc ? format(new Date(selectedDoc.dateApproved), "MMMM dd, yyyy") : ""}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Current Status</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Current Status</span>
                                 <div className="mt-0.5">
                                     <span className={cn(
                                         "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border leading-none shadow-sm",
                                         selectedDoc?.status.includes("ACTIVE") || selectedDoc?.status.includes("ENFORCED")
-                                            ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/20"
-                                            : "bg-amber-950/20 text-amber-400 border-amber-500/20"
+                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                                     )}>
                                         {selectedDoc?.status}
                                     </span>
@@ -417,18 +417,18 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                         </div>
 
                         <div className="space-y-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Brief Description & Policy Content</span>
-                            <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">Brief Description & Policy Content</span>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                                 {selectedDoc?.description}
                             </p>
                         </div>
 
                         {selectedDoc?.tags && selectedDoc.tags.length > 0 && (
                             <div className="space-y-2">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Category Tags</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Category Tags</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {selectedDoc.tags.map(tag => (
-                                        <span key={tag} className="px-2 py-0.5 rounded bg-slate-900 text-[9px] font-bold text-slate-400 tracking-wider">
+                                        <span key={tag} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-[9px] font-bold text-slate-600 dark:text-slate-400 tracking-wider">
                                             {tag}
                                         </span>
                                     ))}
@@ -455,11 +455,11 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                         )}
                     </div>
 
-                    <div className="p-6 border-t border-slate-800/80 bg-slate-950/20 flex justify-end">
+                    <div className="p-6 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/20 flex justify-end">
                         <Button
                             type="button"
                             onClick={() => setSelectedDoc(null)}
-                            className="h-10 px-5 text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all border border-slate-800"
+                            className="h-10 px-5 text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all border border-slate-200 dark:border-slate-800"
                             style={{ backgroundColor: activeTheme }}
                         >
                             Close Details

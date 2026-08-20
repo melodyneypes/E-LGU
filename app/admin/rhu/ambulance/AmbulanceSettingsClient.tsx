@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { getAmbulanceSettings, updateAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 import { getRHUHealthCenters } from "@/app/admin/rhu/centers/actions";
+import { useSystemTheme } from "@/components/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -40,6 +41,14 @@ interface AmbulanceSettingsClientProps {
 }
 
 export default function AmbulanceSettingsClient({ isReadOnly = false, healthCenters = [] }: AmbulanceSettingsClientProps) {
+    let themeColor = "var(--primary-theme, #2563eb)";
+    try {
+        const sys = useSystemTheme();
+        if (sys?.themeColor) themeColor = sys.themeColor;
+    } catch {
+        // fallback
+    }
+
     const [fleet, setFleet] = useState<any[]>([]);
     const [hotlines, setHotlines] = useState<any[]>([]);
     const [centersList, setCentersList] = useState<any[]>(healthCenters || []);
@@ -87,11 +96,11 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
     // Status styling helper
     const getStatusColor = (status: string) => {
         if (status === "STANDBY") {
-            return "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+            return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
         } else if (status === "ON DUTY") {
-            return "text-blue-500 bg-blue-500/10 border-blue-500/20";
+            return "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20";
         } else {
-            return "text-amber-500 bg-amber-500/10 border-amber-500/20";
+            return "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
         }
     };
 
@@ -109,7 +118,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 icon: Siren,
                 color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
                 badgeColor: "text-rose-500 bg-rose-500/10",
-                accentBorder: "group-hover:border-rose-500/40 hover:bg-rose-500/5 dark:hover:bg-rose-500/10"
+                accentBorder: "hover:border-rose-500/40 hover:bg-rose-500/5 dark:hover:bg-rose-500/10"
             };
         }
         if (name.includes("rhu") || name.includes("health") || name.includes("hospital")) {
@@ -117,14 +126,14 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 icon: PhoneCall,
                 color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
                 badgeColor: "text-emerald-500 bg-emerald-500/10",
-                accentBorder: "group-hover:border-emerald-500/40 hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
+                accentBorder: "hover:border-emerald-500/40 hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10"
             };
         }
         return {
             icon: User,
             color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
             badgeColor: "text-indigo-500 bg-indigo-500/10",
-            accentBorder: "group-hover:border-indigo-500/40 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10"
+            accentBorder: "hover:border-indigo-500/40 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10"
         };
     };
 
@@ -316,35 +325,57 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Page Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-[#181e2b] to-[#121620] p-6 md:p-8 rounded-[1.75rem] border border-slate-800 shadow-2xl text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-                <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#161a24] p-6 md:p-8 rounded-[1.75rem] border border-slate-200/80 dark:border-slate-800/80 shadow-md relative overflow-hidden transition-colors">
+                <div 
+                    className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20 opacity-10 dark:opacity-20"
+                    style={{ backgroundColor: themeColor }}
+                />
+                <div 
+                    className="absolute bottom-0 left-1/3 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-5 dark:opacity-10"
+                    style={{ backgroundColor: themeColor }}
+                />
 
                 <div className="space-y-2 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest">
+                    <div 
+                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm"
+                        style={{
+                            backgroundColor: `${themeColor}12`,
+                            borderColor: `${themeColor}30`,
+                            color: themeColor
+                        }}
+                    >
                         <Activity className="w-3.5 h-3.5" /> Emergency Logistics & Communication Hub
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
-                        <Truck className="w-7 h-7 text-amber-500 shrink-0" />
+                    <h1 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white flex items-center gap-3">
+                        <Truck className="w-7 h-7 shrink-0" style={{ color: themeColor }} />
                         Ambulance Dispatch Configuration
                     </h1>
-                    <p className="text-xs font-semibold text-slate-400 max-w-2xl">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 max-w-2xl">
                         Monitor fleet readiness, manage vehicle station assignments, and update real-time public emergency direct dispatch hotlines.
                     </p>
                 </div>
             </div>
 
             {/* ======================================================== */}
-            {/* SECTION 1: AMBULANCE FLEET STATUS REGISTRY (AMBER THEME) */}
+            {/* SECTION 1: AMBULANCE FLEET STATUS REGISTRY */}
             {/* ======================================================== */}
-            <Card className="border-amber-500/20 dark:border-amber-500/20 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
-                {/* Visual Top Glow Bar */}
-                <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+            <Card className="border border-slate-200/80 dark:border-slate-800/80 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
+                {/* Visual Top Bar using themeColor */}
+                <div 
+                    className="h-1.5 w-full"
+                    style={{ background: `linear-gradient(to right, ${themeColor}, ${themeColor}cc, ${themeColor}88)` }}
+                />
                 
-                <CardHeader className="bg-amber-500/5 dark:bg-amber-500/[0.03] border-b border-amber-500/10 p-5 md:p-6 px-6 md:px-8">
+                <CardHeader className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-slate-800/80 p-5 md:p-6 px-6 md:px-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0 font-black">
+                            <div 
+                                className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shrink-0 font-black text-white"
+                                style={{
+                                    backgroundColor: themeColor,
+                                    boxShadow: `0 8px 20px -4px ${themeColor}40`
+                                }}
+                            >
                                 <Truck className="w-6 h-6" />
                             </div>
                             <div>
@@ -359,21 +390,21 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
 
                         {/* Status Summary Counters */}
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl font-bold">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                 {standbyCount} Standby
                             </span>
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl font-bold">
                                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                                 {onDutyCount} On Duty
                             </span>
                             {maintenanceCount > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-3 py-1 rounded-xl">
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-3 py-1 rounded-xl font-bold">
                                     <span className="w-2 h-2 rounded-full bg-amber-500" />
                                     {maintenanceCount} Maintenance
                                 </span>
                             )}
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1 rounded-xl">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1 rounded-xl font-bold">
                                 {fleet.length} Total Units
                             </span>
                         </div>
@@ -383,7 +414,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 <CardContent className="p-6 md:p-8 space-y-6">
                     {isLoading ? (
                         <div className="flex items-center justify-center p-12 text-slate-400 gap-3">
-                            <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                            <Loader2 className="w-6 h-6 animate-spin" style={{ color: themeColor }} />
                             <span className="text-xs font-bold uppercase tracking-wider">Loading Fleet Status...</span>
                         </div>
                     ) : (
@@ -391,21 +422,31 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                             {fleet.map((vehicle, idx) => (
                                 <div
                                     key={idx}
-                                    className="relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2c] hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 transition-all flex flex-col justify-between space-y-4 group"
+                                    className="relative p-5 rounded-2xl border border-slate-200/90 dark:border-[#2a3040] bg-slate-50/70 dark:bg-[#1a1f2c] hover:shadow-lg transition-all flex flex-col justify-between space-y-4 group"
                                 >
                                     <div className="space-y-3.5">
                                         {/* Header Row: Vehicle Icon, Unit Name, Actions */}
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="flex items-start gap-3 min-w-0 flex-1">
-                                                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                                                <div 
+                                                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border"
+                                                    style={{
+                                                        backgroundColor: `${themeColor}15`,
+                                                        borderColor: `${themeColor}30`,
+                                                        color: themeColor
+                                                    }}
+                                                >
                                                     <Car className="w-4 h-4" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <h5 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
                                                         {vehicle.unit}
                                                     </h5>
-                                                    {/* Metallic / Embossed License Plate Style */}
-                                                    <div className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-black/40 border border-slate-300 dark:border-white/10 font-mono text-[10px] font-black tracking-widest text-slate-700 dark:text-amber-400">
+                                                    {/* License Plate Style */}
+                                                    <div 
+                                                        className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-black/40 border border-slate-300 dark:border-white/10 font-mono text-[10px] font-black tracking-widest"
+                                                        style={{ color: themeColor }}
+                                                    >
                                                         {vehicle.plateNumber || "NO PLATE"}
                                                     </div>
                                                 </div>
@@ -416,7 +457,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                                     <button
                                                         type="button"
                                                         onClick={() => handleOpenEditAmbulance(idx)}
-                                                        className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+                                                        className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
                                                         title="Edit ambulance unit"
                                                     >
                                                         <Pencil className="w-3.5 h-3.5" />
@@ -434,14 +475,14 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                         </div>
 
                                         {/* Station Location Info */}
-                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-black/20 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
-                                            <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-black/20 p-2.5 rounded-xl border border-slate-200/70 dark:border-white/5">
+                                            <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
                                             <span className="truncate">{vehicle.station || "Unassigned Station"}</span>
                                         </div>
                                     </div>
 
                                     {/* Status Switcher Bar */}
-                                    <div className="pt-3 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-2">
+                                    <div className="pt-3 border-t border-slate-200/70 dark:border-white/5 flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-1.5">
                                             <span className={cn("w-2 h-2 rounded-full shadow-sm", getStatusDotColor(vehicle.status))} />
                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status:</span>
@@ -455,9 +496,9 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                                <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-500">STANDBY</SelectItem>
-                                                <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-500">ON DUTY</SelectItem>
-                                                <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-500">MAINTENANCE</SelectItem>
+                                                <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">STANDBY</SelectItem>
+                                                <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-600 dark:text-blue-400">ON DUTY</SelectItem>
+                                                <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-600 dark:text-amber-400">MAINTENANCE</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -468,13 +509,27 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                 <button
                                     type="button"
                                     onClick={handleOpenAddAmbulance}
-                                    className="p-6 rounded-2xl border-2 border-dashed border-amber-500/30 dark:border-amber-500/20 hover:border-amber-500 bg-amber-500/[0.02] dark:bg-amber-500/[0.02] hover:bg-amber-500/10 transition-all flex flex-col items-center justify-center gap-3 min-h-[175px] group cursor-pointer"
+                                    className="p-6 rounded-2xl border-2 border-dashed hover:shadow-md transition-all flex flex-col items-center justify-center gap-3 min-h-[175px] group cursor-pointer"
+                                    style={{
+                                        borderColor: `${themeColor}40`,
+                                        backgroundColor: `${themeColor}06`
+                                    }}
                                 >
-                                    <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 group-hover:bg-amber-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover:shadow-amber-500/30 group-hover:scale-105">
-                                        <Plus className="w-5 h-5 text-amber-500 group-hover:text-slate-950 transition-colors" />
+                                    <div 
+                                        className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 shadow-sm group-hover:scale-105"
+                                        style={{
+                                            backgroundColor: `${themeColor}18`,
+                                            border: `1px solid ${themeColor}35`,
+                                            color: themeColor
+                                        }}
+                                    >
+                                        <Plus className="w-5 h-5" />
                                     </div>
                                     <div className="text-center">
-                                        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 group-hover:text-amber-500 transition-colors block">
+                                        <span 
+                                            className="text-xs font-black uppercase tracking-wider transition-colors block"
+                                            style={{ color: themeColor }}
+                                        >
                                             + Add Ambulance Unit
                                         </span>
                                         <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">
@@ -489,16 +544,25 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             </Card>
 
             {/* ================================================================= */}
-            {/* SECTION 2: EMERGENCY DISPATCH CONTACT DIRECTORIES (CRIMSON/ROSE) */}
+            {/* SECTION 2: EMERGENCY DISPATCH CONTACT DIRECTORIES */}
             {/* ================================================================= */}
-            <Card className="border-rose-500/20 dark:border-rose-500/20 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
-                {/* Visual Top Glow Bar */}
-                <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 via-red-500 to-rose-600" />
+            <Card className="border border-slate-200/80 dark:border-slate-800/80 shadow-xl overflow-hidden rounded-[1.75rem] bg-white dark:bg-[#161a24] relative">
+                {/* Visual Top Bar using themeColor */}
+                <div 
+                    className="h-1.5 w-full"
+                    style={{ background: `linear-gradient(to right, ${themeColor}, ${themeColor}cc, ${themeColor}88)` }}
+                />
                 
-                <CardHeader className="bg-rose-500/5 dark:bg-rose-500/[0.03] border-b border-rose-500/10 p-5 md:p-6 px-6 md:px-8">
+                <CardHeader className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-slate-800/80 p-5 md:p-6 px-6 md:px-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0 font-black">
+                            <div 
+                                className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shrink-0 font-black text-white"
+                                style={{
+                                    backgroundColor: themeColor,
+                                    boxShadow: `0 8px 20px -4px ${themeColor}40`
+                                }}
+                            >
                                 <Radio className="w-6 h-6 animate-pulse" />
                             </div>
                             <div>
@@ -512,8 +576,15 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-3.5 py-1 rounded-xl">
-                                <Radio className="w-3 h-3 text-rose-500" />
+                            <span 
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-xl border"
+                                style={{
+                                    backgroundColor: `${themeColor}15`,
+                                    borderColor: `${themeColor}30`,
+                                    color: themeColor
+                                }}
+                            >
+                                <Radio className="w-3 h-3" style={{ color: themeColor }} />
                                 {hotlines.length} {hotlines.length === 1 ? "Hotline" : "Hotlines"} Active
                             </span>
                         </div>
@@ -530,7 +601,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                 <div
                                     key={idx}
                                     className={cn(
-                                        "relative p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2c] transition-all flex items-center justify-between gap-3 group shadow-sm",
+                                        "relative p-5 rounded-2xl border border-slate-200/90 dark:border-[#2a3040] bg-slate-50/70 dark:bg-[#1a1f2c] transition-all flex items-center justify-between gap-3 group shadow-sm",
                                         meta.accentBorder
                                     )}
                                 >
@@ -545,7 +616,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
 
                                         {/* Contact Details */}
                                         <div className="min-w-0 flex-1 space-y-0.5">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 block truncate">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                                                 {hotline.name}
                                             </span>
                                             <div className="flex items-center gap-1.5">
@@ -562,7 +633,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                             <button
                                                 type="button"
                                                 onClick={() => handleOpenEditHotline(idx)}
-                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
                                                 title="Edit hotline"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
@@ -585,13 +656,27 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                             <button
                                 type="button"
                                 onClick={handleOpenAddHotline}
-                                className="p-5 rounded-2xl border-2 border-dashed border-rose-500/30 dark:border-rose-500/20 hover:border-rose-500 bg-rose-500/[0.02] dark:bg-rose-500/[0.02] hover:bg-rose-500/10 transition-all flex items-center justify-center gap-3 min-h-[82px] group cursor-pointer"
+                                className="p-5 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center gap-3 min-h-[82px] group cursor-pointer"
+                                style={{
+                                    borderColor: `${themeColor}40`,
+                                    backgroundColor: `${themeColor}06`
+                                }}
                             >
-                                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 group-hover:bg-rose-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover:scale-105">
-                                    <Plus className="w-4 h-4 text-rose-500 group-hover:text-white transition-colors" />
+                                <div 
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 shadow-sm group-hover:scale-105"
+                                    style={{
+                                        backgroundColor: `${themeColor}18`,
+                                        border: `1px solid ${themeColor}35`,
+                                        color: themeColor
+                                    }}
+                                >
+                                    <Plus className="w-4 h-4" />
                                 </div>
                                 <div className="text-left">
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 group-hover:text-rose-500 transition-colors block">
+                                    <span 
+                                        className="text-xs font-black uppercase tracking-wider transition-colors block"
+                                        style={{ color: themeColor }}
+                                    >
                                         + Add Emergency Hotline
                                     </span>
                                     <span className="text-[10px] font-bold text-slate-400 block">
@@ -609,7 +694,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 <DialogContent className="sm:max-w-[480px] rounded-3xl bg-white dark:bg-[#161820] border-slate-200 dark:border-white/10 p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-                            <Truck className="w-5 h-5 text-amber-500" />
+                            <Truck className="w-5 h-5" style={{ color: themeColor }} />
                             {editingAmbulanceIdx !== null ? "Edit Ambulance Unit" : "Add Ambulance Unit"}
                         </DialogTitle>
                         <DialogDescription className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -658,9 +743,9 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                        <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-500">STANDBY</SelectItem>
-                                        <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-500">ON DUTY</SelectItem>
-                                        <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-500">MAINTENANCE</SelectItem>
+                                        <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">STANDBY</SelectItem>
+                                        <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-600 dark:text-blue-400">ON DUTY</SelectItem>
+                                        <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-600 dark:text-amber-400">MAINTENANCE</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -684,10 +769,10 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                         </div>
                                     ) : (
                                         centersList.map((center: any) => (
-                                            <SelectItem key={center.id} value={center.name} className="text-xs font-bold py-2 rounded-lg">
-                                                {center.name}
-                                            </SelectItem>
-                                        ))
+                                             <SelectItem key={center.id} value={center.name} className="text-xs font-bold py-2 rounded-lg">
+                                                 {center.name}
+                                             </SelectItem>
+                                         ))
                                     )}
                                     {ambulanceForm.station && !centersList.some((c: any) => c.name === ambulanceForm.station) && (
                                         <SelectItem value={ambulanceForm.station} className="text-xs font-bold py-2 rounded-lg opacity-70">
@@ -711,7 +796,11 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                             <Button
                                 type="submit"
                                 disabled={isSavingModal}
-                                className="h-10 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black uppercase text-xs tracking-wider shadow-lg shadow-amber-500/20"
+                                className="h-10 px-6 rounded-xl text-white font-black uppercase text-xs tracking-wider shadow-lg"
+                                style={{
+                                    backgroundColor: themeColor,
+                                    boxShadow: `0 8px 20px -4px ${themeColor}40`
+                                }}
                             >
                                 {isSavingModal ? (
                                     <>
@@ -732,7 +821,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 <DialogContent className="sm:max-w-[420px] rounded-3xl bg-white dark:bg-[#161820] border-slate-200 dark:border-white/10 p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-                            <Radio className="w-5 h-5 text-rose-500" />
+                            <Radio className="w-5 h-5" style={{ color: themeColor }} />
                             {editingHotlineIdx !== null ? "Edit Emergency Hotline" : "Add Emergency Hotline"}
                         </DialogTitle>
                         <DialogDescription className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -780,7 +869,11 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                             <Button
                                 type="submit"
                                 disabled={isSavingModal}
-                                className="h-10 px-6 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black uppercase text-xs tracking-wider shadow-lg shadow-rose-500/20"
+                                className="h-10 px-6 rounded-xl text-white font-black uppercase text-xs tracking-wider shadow-lg"
+                                style={{
+                                    backgroundColor: themeColor,
+                                    boxShadow: `0 8px 20px -4px ${themeColor}40`
+                                }}
                             >
                                 {isSavingModal ? (
                                     <>
