@@ -25,6 +25,8 @@ export default function robots(): MetadataRoute.Robots {
           // Administrative & Staff Dashboards
           "/admin",
           "/admin/*",
+          "/captain",
+          "/captain/*",
           "/mayor",
           "/mayor/*",
           "/poso",

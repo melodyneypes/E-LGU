@@ -181,7 +181,7 @@ export const authOptions: NextAuthOptions = {
                 let dbUser: any = null;
                 try {
                     const rawUsers: any[] = await prisma.$queryRaw`
-                        SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified"
+                        SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified", "managedBarangay"
                         FROM "User" WHERE "id" = ${token.id as string}
                     `;
                     dbUser = rawUsers[0] || null;
@@ -194,7 +194,8 @@ export const authOptions: NextAuthOptions = {
                                 department: true,
                                 accessiblePages: true,
                                 isPasswordChanged: true,
-                                isEmailVerified: true
+                                isEmailVerified: true,
+                                managedBarangay: true
                             }
                         });
                     } catch {
@@ -208,6 +209,7 @@ export const authOptions: NextAuthOptions = {
                     token.accessiblePages = dbUser.accessiblePages || [];
                     token.isPasswordChanged = dbUser.isPasswordChanged;
                     token.isEmailVerified = dbUser.isEmailVerified;
+                    token.managedBarangay = dbUser.managedBarangay || token.managedBarangay;
                 } else {
                     token.exp = 1;
                     token.deactivated = true;
