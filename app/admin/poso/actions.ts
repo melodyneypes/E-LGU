@@ -22,16 +22,77 @@ async function verifyAdminOrStaff() {
 // TRAFFIC VIOLATIONS ACTIONS
 // ----------------------------------------
 
-export async function getTrafficViolations() {
+export async function getTrafficViolations({
+    page = 1,
+    limit = 10,
+    search = "",
+    status = "ALL",
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: "ALL" | "ACTIVE" | "INACTIVE";
+} = {}) {
     try {
         await verifyAdminOrStaff();
-        const violations = await (prisma as any).trafficViolation.findMany({
-            orderBy: { createdAt: "desc" },
-        });
-        return { success: true, violations };
+        const skip = (page - 1) * limit;
+        const where: any = {};
+
+        if (status === "ACTIVE") {
+            where.isActive = true;
+        } else if (status === "INACTIVE") {
+            where.isActive = false;
+        }
+
+        if (search.trim()) {
+            const query = search.trim();
+            where.OR = [
+                { violationCode: { contains: query, mode: "insensitive" } },
+                { violationName: { contains: query, mode: "insensitive" } },
+                { remarks: { contains: query, mode: "insensitive" } },
+            ];
+        }
+
+        const [violations, totalFilteredCount, activeCount, inactiveCount] = await Promise.all([
+            (prisma as any).trafficViolation.findMany({
+                where,
+                select: {
+                    id: true,
+                    violationCode: true,
+                    violationName: true,
+                    firstOffenseFee: true,
+                    secondOffenseFee: true,
+                    thirdOffenseFee: true,
+                    remarks: true,
+                    isActive: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit,
+            }),
+            (prisma as any).trafficViolation.count({ where }),
+            (prisma as any).trafficViolation.count({ where: { isActive: true } }),
+            (prisma as any).trafficViolation.count({ where: { isActive: false } }),
+        ]);
+
+        return {
+            success: true,
+            violations,
+            totalCount: totalFilteredCount,
+            activeCount,
+            inactiveCount,
+        };
     } catch (error: any) {
         console.error("Failed to fetch traffic violations:", error);
-        return { success: false, error: error.message || "Failed to fetch traffic violations." };
+        return {
+            success: false,
+            error: error.message || "Failed to fetch traffic violations.",
+            violations: [],
+            totalCount: 0,
+            activeCount: 0,
+            inactiveCount: 0,
+        };
     }
 }
 
@@ -103,17 +164,19 @@ export async function updateTrafficViolation(id: string, formData: FormData) {
     }
 }
 
-export async function deleteTrafficViolation(id: string) {
+export async function toggleTrafficViolationStatus(id: string, isActive: boolean) {
     try {
         await verifyAdminOrStaff();
-        await (prisma as any).trafficViolation.delete({
+        const updatedViolation = await (prisma as any).trafficViolation.update({
             where: { id },
+            data: { isActive },
         });
+
         revalidatePath("/admin/poso/violations");
-        return { success: true };
+        return { success: true, violation: updatedViolation };
     } catch (error: any) {
-        console.error("Failed to delete traffic violation:", error);
-        return { success: false, error: error.message || "Failed to delete traffic violation." };
+        console.error("Failed to toggle traffic violation status:", error);
+        return { success: false, error: error.message || "Failed to update ordinance status." };
     }
 }
 
@@ -1086,18 +1149,70 @@ export async function markTicketAsSettled(id: string) {
     }
 }
 
-export async function getVehicleClassifications(onlyActive: boolean = true) {
+export async function getVehicleClassifications({
+    page = 1,
+    limit = 10,
+    search = "",
+    onlyActive = false,
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    onlyActive?: boolean;
+} = {}) {
     try {
         await verifyAdminOrStaff();
-        const where = onlyActive ? { isActive: true } : {};
-        const list = await (prisma as any).vehicleClassification.findMany({
-            where,
-            orderBy: { code: "asc" },
-        });
-        return { success: true, classifications: JSON.parse(JSON.stringify(list)) };
+        const skip = (page - 1) * limit;
+        const where: any = onlyActive ? { isActive: true } : {};
+
+        if (search.trim()) {
+            const query = search.trim();
+            where.OR = [
+                { code: { contains: query, mode: "insensitive" } },
+                { className: { contains: query, mode: "insensitive" } },
+                { description: { contains: query, mode: "insensitive" } },
+            ];
+        }
+
+        const [list, totalCount, activeCount, totalAll] = await Promise.all([
+            (prisma as any).vehicleClassification.findMany({
+                where,
+                select: {
+                    id: true,
+                    code: true,
+                    className: true,
+                    description: true,
+                    impoundFee: true,
+                    isActive: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: { code: "asc" },
+                skip,
+                take: limit,
+            }),
+            (prisma as any).vehicleClassification.count({ where }),
+            (prisma as any).vehicleClassification.count({ where: { isActive: true } }),
+            (prisma as any).vehicleClassification.count(),
+        ]);
+
+        return {
+            success: true,
+            classifications: JSON.parse(JSON.stringify(list)),
+            totalCount,
+            activeCount,
+            totalAll,
+        };
     } catch (error: any) {
         console.error("Failed to fetch vehicle classifications:", error);
-        return { success: false, error: error.message || "Failed to fetch vehicle classifications." };
+        return {
+            success: false,
+            error: error.message || "Failed to fetch vehicle classifications.",
+            classifications: [],
+            totalCount: 0,
+            activeCount: 0,
+            totalAll: 0,
+        };
     }
 }
 
@@ -1352,17 +1467,18 @@ export async function updatePosoOfficer(id: string, formData: FormData) {
     }
 }
 
-export async function deletePosoOfficer(id: string) {
+export async function togglePosoOfficerStatus(id: string, isActive: boolean) {
     try {
         await verifyAdminOrStaff();
-        await (prisma as any).user.delete({
+        const updatedOfficer = await (prisma as any).user.update({
             where: { id },
+            data: { isEmailVerified: isActive },
         });
         revalidatePath("/admin/poso/officers");
-        return { success: true };
+        return { success: true, officer: updatedOfficer };
     } catch (error: any) {
-        console.error("Failed to delete POSO officer:", error);
-        return { success: false, error: error.message || "Failed to delete POSO officer account." };
+        console.error("Failed to toggle POSO officer status:", error);
+        return { success: false, error: error.message || "Failed to update POSO officer status." };
     }
 }
 
