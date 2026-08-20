@@ -1149,18 +1149,70 @@ export async function markTicketAsSettled(id: string) {
     }
 }
 
-export async function getVehicleClassifications(onlyActive: boolean = true) {
+export async function getVehicleClassifications({
+    page = 1,
+    limit = 10,
+    search = "",
+    onlyActive = false,
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    onlyActive?: boolean;
+} = {}) {
     try {
         await verifyAdminOrStaff();
-        const where = onlyActive ? { isActive: true } : {};
-        const list = await (prisma as any).vehicleClassification.findMany({
-            where,
-            orderBy: { code: "asc" },
-        });
-        return { success: true, classifications: JSON.parse(JSON.stringify(list)) };
+        const skip = (page - 1) * limit;
+        const where: any = onlyActive ? { isActive: true } : {};
+
+        if (search.trim()) {
+            const query = search.trim();
+            where.OR = [
+                { code: { contains: query, mode: "insensitive" } },
+                { className: { contains: query, mode: "insensitive" } },
+                { description: { contains: query, mode: "insensitive" } },
+            ];
+        }
+
+        const [list, totalCount, activeCount, totalAll] = await Promise.all([
+            (prisma as any).vehicleClassification.findMany({
+                where,
+                select: {
+                    id: true,
+                    code: true,
+                    className: true,
+                    description: true,
+                    impoundFee: true,
+                    isActive: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: { code: "asc" },
+                skip,
+                take: limit,
+            }),
+            (prisma as any).vehicleClassification.count({ where }),
+            (prisma as any).vehicleClassification.count({ where: { isActive: true } }),
+            (prisma as any).vehicleClassification.count(),
+        ]);
+
+        return {
+            success: true,
+            classifications: JSON.parse(JSON.stringify(list)),
+            totalCount,
+            activeCount,
+            totalAll,
+        };
     } catch (error: any) {
         console.error("Failed to fetch vehicle classifications:", error);
-        return { success: false, error: error.message || "Failed to fetch vehicle classifications." };
+        return {
+            success: false,
+            error: error.message || "Failed to fetch vehicle classifications.",
+            classifications: [],
+            totalCount: 0,
+            activeCount: 0,
+            totalAll: 0,
+        };
     }
 }
 

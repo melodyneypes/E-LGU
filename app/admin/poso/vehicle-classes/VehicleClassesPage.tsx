@@ -12,6 +12,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -30,6 +37,8 @@ import {
     Truck,
     Shield,
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -52,11 +61,24 @@ export interface VehicleClassItem {
 
 interface VehicleClassesPageProps {
     initialClassifications: VehicleClassItem[];
+    initialTotalCount?: number;
+    initialActiveCount?: number;
+    initialTotalAll?: number;
 }
 
-export default function VehicleClassesPage({ initialClassifications }: VehicleClassesPageProps) {
+export default function VehicleClassesPage({
+    initialClassifications,
+    initialTotalCount = 0,
+    initialActiveCount = 0,
+    initialTotalAll = 0,
+}: VehicleClassesPageProps) {
     const [classifications, setClassifications] = useState<VehicleClassItem[]>(initialClassifications);
+    const [totalCount, setTotalCount] = useState(initialTotalCount || initialClassifications.length);
+    const [activeCount, setActiveCount] = useState(initialActiveCount);
+    const [totalAll, setTotalAll] = useState(initialTotalAll || initialClassifications.length);
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(10);
     const [isPending, setIsPending] = useState(false);
 
     // Modal States
@@ -75,33 +97,70 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
     const [editDescription, setEditDescription] = useState("");
     const [editImpoundFee, setEditImpoundFee] = useState("");
 
-    const refreshData = async () => {
-        setIsPending(true);
-        try {
-            const res = await getVehicleClassifications(false);
-            if (res.success && res.classifications) {
-                setClassifications(res.classifications);
+    React.useEffect(() => {
+        setClassifications(initialClassifications);
+        setTotalCount(initialTotalCount || initialClassifications.length);
+        setActiveCount(initialActiveCount);
+        setTotalAll(initialTotalAll || initialClassifications.length);
+    }, [initialClassifications, initialTotalCount, initialActiveCount, initialTotalAll]);
+
+    const fetchData = React.useCallback(
+        async (p: number, s: string, customLimit?: number) => {
+            setIsPending(true);
+            try {
+                const limitToUse = customLimit !== undefined ? customLimit : pageSize;
+                const res = await getVehicleClassifications({
+                    page: p,
+                    limit: limitToUse,
+                    search: s,
+                    onlyActive: false,
+                });
+                if (res.success && res.classifications) {
+                    setClassifications(res.classifications);
+                    setTotalCount(res.totalCount || 0);
+                    if (res.activeCount !== undefined) setActiveCount(res.activeCount);
+                    if (res.totalAll !== undefined) setTotalAll(res.totalAll);
+                }
+            } catch {
+                toast.error("Failed to load vehicle classifications.");
+            } finally {
+                setIsPending(false);
             }
-        } catch {
-            toast.error("Failed to refresh vehicle classifications.");
-        } finally {
-            setIsPending(false);
-        }
-    };
+        },
+        [pageSize]
+    );
+
+    const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearch(e.target.value);
+        const val = e.target.value;
+        setSearch(val);
+        setPage(1);
+
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        searchTimerRef.current = setTimeout(() => {
+            fetchData(1, val, pageSize);
+        }, 400);
     };
 
-    const filteredList = classifications.filter((item) => {
-        const query = search.toLowerCase().trim();
-        if (!query) return true;
-        return (
-            item.code.toLowerCase().includes(query) ||
-            item.className.toLowerCase().includes(query) ||
-            (item.description && item.description.toLowerCase().includes(query))
-        );
-    });
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+        fetchData(newPage, search, pageSize);
+    };
+
+    const handlePageSizeChange = (newSizeStr: string) => {
+        const newSize = parseInt(newSizeStr, 10) || 10;
+        setPageSize(newSize);
+        setPage(1);
+        fetchData(1, search, newSize);
+    };
+
+    const refreshData = () => {
+        fetchData(page, search, pageSize);
+    };
 
     const handleOpenAdd = () => {
         setAddCode("");
@@ -138,7 +197,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
             if (res.success) {
                 toast.success("Vehicle Classification added successfully!");
                 setIsAddOpen(false);
-                refreshData();
+                fetchData(page, search, pageSize);
             } else {
                 toast.error(res.error || "Failed to add classification.");
             }
@@ -168,7 +227,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
             if (res.success) {
                 toast.success("Vehicle Classification updated successfully!");
                 setIsEditOpen(false);
-                refreshData();
+                fetchData(page, search, pageSize);
             } else {
                 toast.error(res.error || "Failed to update classification.");
             }
@@ -187,6 +246,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                 setClassifications((prev) =>
                     prev.map((c) => (c.id === item.id ? { ...c, isActive: !item.isActive } : c))
                 );
+                setActiveCount((prev) => (!item.isActive ? prev + 1 : Math.max(0, prev - 1)));
             } else {
                 toast.error(res.error || "Failed to update status.");
             }
@@ -195,10 +255,11 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
         }
     };
 
-    const activeCount = classifications.filter((c) => c.isActive).length;
     const avgFee = classifications.length > 0
         ? classifications.reduce((sum, c) => sum + c.impoundFee, 0) / classifications.length
         : 0;
+
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -244,7 +305,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                 <div className="bg-white dark:bg-[#151b2b] p-6 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
                     <div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Vehicle Classes</span>
-                        <p className="text-3xl font-black text-slate-900 dark:text-white italic mt-1">{classifications.length}</p>
+                        <p className="text-3xl font-black text-slate-900 dark:text-white italic mt-1">{totalAll}</p>
                     </div>
                     <div className="p-3.5 bg-blue-500/10 text-blue-600 rounded-2xl">
                         <Truck className="w-6 h-6 stroke-[2]" />
@@ -313,7 +374,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                         </TableHeader>
                         <TableBody>
                             {isPending ? (
-                                Array.from({ length: 3 }).map((_, idx) => (
+                                Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
                                     <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040] animate-pulse">
                                         <TableCell className="pl-8 py-5">
                                             <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
@@ -335,14 +396,14 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                                         </TableCell>
                                     </TableRow>
                                 ))
-                            ) : filteredList.length === 0 ? (
+                            ) : classifications.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-48 text-center text-slate-400 font-bold italic">
                                         No vehicle classifications found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredList.map((item) => (
+                                classifications.map((item) => (
                                     <TableRow key={item.id} className="border-b border-slate-100 dark:border-[#2a3040] hover:bg-amber-50/20 dark:hover:bg-amber-950/10 transition-colors">
                                         <TableCell className="pl-8 py-5 font-black text-xs text-amber-600 dark:text-amber-400 tracking-wider">
                                             {item.code}
@@ -381,6 +442,55 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {classifications.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+                            {Math.min(page * pageSize, totalCount)} of {totalCount} classifications
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page === 1 || isPending}
+                            onClick={() => handlePageChange(page - 1)}
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                        </Button>
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
+                            Page {page} of {totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page >= totalPages || isPending}
+                            onClick={() => handlePageChange(page + 1)}
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
+                        >
+                            Next <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                    </div>
                 </div>
             </div>
 
