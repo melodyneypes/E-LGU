@@ -3,6 +3,38 @@
 // Simple in-memory cache for matched health center per user to reduce DB queries on navigation
 const matchedCenterCache = new Map<string, Promise<any> | any>();
 
+let cachedRhuTypeIds: string[] | null = null;
+let cachedRhuTypeIdsTimestamp = 0;
+
+async function getRHUTypeIds(): Promise<string[]> {
+    const now = Date.now();
+    if (cachedRhuTypeIds && cachedRhuTypeIds.length > 0 && now - cachedRhuTypeIdsTimestamp < 300000) {
+        return cachedRhuTypeIds;
+    }
+    try {
+        const types: { id: string }[] = await prisma.$queryRaw`
+            SELECT id FROM "TransactionType"
+            WHERE LOWER(code) LIKE 'rhu_%' 
+               OR LOWER(code) LIKE '%rhu%'
+               OR LOWER(category) LIKE '%rhu%'
+               OR LOWER(category) LIKE '%health%'
+               OR LOWER(category) LIKE '%medical%'
+               OR LOWER(name) LIKE '%rhu%'
+               OR LOWER(name) LIKE '%rural health%'
+               OR LOWER(name) LIKE '%medical consultation%'
+               OR LOWER(name) LIKE '%health certificate%'
+               OR LOWER(name) LIKE '%consultation%'
+               OR LOWER(name) LIKE '%checkup%'
+               OR LOWER(name) LIKE '%check-up%'
+        `;
+        cachedRhuTypeIds = types.map(t => t.id);
+        cachedRhuTypeIdsTimestamp = now;
+        return cachedRhuTypeIds;
+    } catch {
+        return [];
+    }
+}
+
 import prisma from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
@@ -130,24 +162,15 @@ export async function getRHUAdminTransactions(params?: {
 
         const conditions: Prisma.Sql[] = [];
 
-        // Base condition: Only RHU transactions (uncorrelated subquery avoids slow full joins)
+        // Base condition: Pre-filtered RHU transaction type IDs with indexed lookups
+        const rhuTypeIds = await getRHUTypeIds();
+        const typeIdCondition = rhuTypeIds.length > 0
+            ? Prisma.sql`t."typeId" IN (${Prisma.join(rhuTypeIds)})`
+            : Prisma.sql`1=1`;
+
         conditions.push(Prisma.sql`
             (
-                t."typeId" IN (
-                    SELECT id FROM "TransactionType"
-                    WHERE LOWER(code) LIKE 'rhu_%' 
-                       OR LOWER(code) LIKE '%rhu%'
-                       OR LOWER(category) LIKE '%rhu%'
-                       OR LOWER(category) LIKE '%health%'
-                       OR LOWER(category) LIKE '%medical%'
-                       OR LOWER(name) LIKE '%rhu%'
-                       OR LOWER(name) LIKE '%rural health%'
-                       OR LOWER(name) LIKE '%medical consultation%'
-                       OR LOWER(name) LIKE '%health certificate%'
-                       OR LOWER(name) LIKE '%consultation%'
-                       OR LOWER(name) LIKE '%checkup%'
-                       OR LOWER(name) LIKE '%check-up%'
-                )
+                ${typeIdCondition}
                 OR (t."additionalData"->>'rhuStatus' IS NOT NULL)
                 OR (t."additionalData"->>'checkupType' IS NOT NULL)
                 OR (t."additionalData"->>'healthCenterName' IS NOT NULL)
@@ -504,24 +527,15 @@ export async function getRHUDashboardStats() {
 
         const conditions: Prisma.Sql[] = [];
 
-        // Base condition: Only RHU transactions (uncorrelated subquery avoids slow full joins)
+        // Base condition: Pre-filtered RHU transaction type IDs with indexed lookups
+        const rhuTypeIds = await getRHUTypeIds();
+        const typeIdCondition = rhuTypeIds.length > 0
+            ? Prisma.sql`t."typeId" IN (${Prisma.join(rhuTypeIds)})`
+            : Prisma.sql`1=1`;
+
         conditions.push(Prisma.sql`
             (
-                t."typeId" IN (
-                    SELECT id FROM "TransactionType"
-                    WHERE LOWER(code) LIKE 'rhu_%' 
-                       OR LOWER(code) LIKE '%rhu%'
-                       OR LOWER(category) LIKE '%rhu%'
-                       OR LOWER(category) LIKE '%health%'
-                       OR LOWER(category) LIKE '%medical%'
-                       OR LOWER(name) LIKE '%rhu%'
-                       OR LOWER(name) LIKE '%rural health%'
-                       OR LOWER(name) LIKE '%medical consultation%'
-                       OR LOWER(name) LIKE '%health certificate%'
-                       OR LOWER(name) LIKE '%consultation%'
-                       OR LOWER(name) LIKE '%checkup%'
-                       OR LOWER(name) LIKE '%check-up%'
-                )
+                ${typeIdCondition}
                 OR (t."additionalData"->>'rhuStatus' IS NOT NULL)
                 OR (t."additionalData"->>'checkupType' IS NOT NULL)
                 OR (t."additionalData"->>'healthCenterName' IS NOT NULL)

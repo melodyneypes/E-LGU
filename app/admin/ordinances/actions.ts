@@ -17,6 +17,21 @@ async function verifyLguAdmin() {
     return session.user;
 }
 
+interface CachedDocuments {
+    documents: any[];
+    totalCount: number;
+    expiresAt: number;
+}
+
+const _docCache = new Map<string, CachedDocuments>();
+let _cachedTags: { tags: string[]; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 60_000; // Cache for 60 seconds
+
+function clearCache() {
+    _docCache.clear();
+    _cachedTags = null;
+}
+
 export async function getLegislativeDocuments(options: {
     page?: number;
     pageSize?: number;
@@ -30,6 +45,13 @@ export async function getLegislativeDocuments(options: {
         const search = options.search || "";
         const type = options.type || "ALL";
         const status = options.status || "ALL";
+
+        const cacheKey = JSON.stringify({ page, pageSize, search, type, status });
+        const now = Date.now();
+        const cached = _docCache.get(cacheKey);
+        if (cached && cached.expiresAt > now) {
+            return { success: true, data: cached.documents, totalCount: cached.totalCount };
+        }
 
         const where: any = {};
 
@@ -58,6 +80,12 @@ export async function getLegislativeDocuments(options: {
             }),
             (prisma as any).legislativeDocument.count({ where }),
         ]);
+
+        _docCache.set(cacheKey, {
+            documents,
+            totalCount,
+            expiresAt: now + CACHE_TTL_MS
+        });
 
         return { success: true, data: documents, totalCount };
     } catch (error: any) {
@@ -126,6 +154,7 @@ export async function createLegislativeDocument(formData: FormData) {
             },
         });
 
+        clearCache();
         revalidatePath("/admin/ordinances");
 
         return { success: true, data: document };
@@ -196,6 +225,7 @@ export async function updateLegislativeDocument(id: string, formData: FormData) 
             },
         });
 
+        clearCache();
         revalidatePath("/admin/ordinances");
 
         return { success: true, data: updated };
@@ -229,6 +259,7 @@ export async function deleteLegislativeDocument(id: string) {
             }
         }
 
+        clearCache();
         revalidatePath("/admin/ordinances");
 
         return { success: true };
@@ -240,11 +271,22 @@ export async function deleteLegislativeDocument(id: string) {
 
 export async function getAllCategoryTags(): Promise<string[]> {
     try {
+        const now = Date.now();
+        if (_cachedTags && _cachedTags.expiresAt > now) {
+            return _cachedTags.tags;
+        }
+
         const docs = await (prisma as any).legislativeDocument.findMany({
             select: { tags: true },
         });
         const allTags: string[] = docs.flatMap((d: any) => d.tags || []);
         const unique = Array.from(new Set(allTags.map(t => t.trim().toUpperCase()))).filter(Boolean).sort();
+
+        _cachedTags = {
+            tags: unique,
+            expiresAt: now + CACHE_TTL_MS
+        };
+
         return unique;
     } catch (error) {
         console.error("Error getting category tags:", error);

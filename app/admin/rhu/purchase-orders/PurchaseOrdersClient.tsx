@@ -28,6 +28,7 @@ import {
     DialogFooter
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSystemTheme } from "@/components/providers/ThemeProvider";
 
 function getResidentSnapshot(tx: any): any {
     if (!tx?.residentSnapshot) return {};
@@ -89,6 +90,14 @@ function getPOOrdersDisplay(tx: any): string {
 }
 
 export default function PurchaseOrdersClient() {
+    let themeColor = "var(--primary-theme, #2563eb)";
+    try {
+        const sys = useSystemTheme();
+        if (sys?.themeColor) themeColor = sys.themeColor;
+    } catch {
+        // fallback
+    }
+
     const router = useRouter();
     const [transactions, setTransactions] = useState<any[]>([]);
     const [allTransactions, setAllTransactions] = useState<any[]>([]);
@@ -198,10 +207,10 @@ export default function PurchaseOrdersClient() {
             const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
             const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
             const fallbackStaff = staffName || (healthCenter ? `${healthCenter} Medical Admin` : "RHU Pharmacy Staff");
-            const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending Dispense");
+            const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending");
 
             return [
-                idx + 1,
+                (idx + 1).toString(),
                 controlNo,
                 patientName,
                 barangay,
@@ -214,22 +223,46 @@ export default function PurchaseOrdersClient() {
         });
 
         autoTable(doc, {
-            startY: 34,
-            head: [["#", "Ref / Control #", "Patient Name", "Barangay", "Doctor Prescribed", "Actual Pharmacy Dispensed Qty", "Appt Date & Slot", "Dispensed By (Pharmacy)", "Status"]],
+            startY: 32,
+            head: [["#", "PO / Control #", "Patient Name", "Barangay", "Doctor Prescribed", "Actual Pharmacy Dispensed Qty", "Appt Date & Slot", "Dispensed By (Pharmacy)", "Status"]],
             body: tableRows,
-            styles: { fontSize: 8, cellPadding: 3 },
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
+            theme: "grid",
+            headStyles: {
+                fillColor: [30, 41, 59],
+                textColor: [255, 255, 255],
+                fontStyle: "bold",
+                fontSize: 8,
+                halign: "left"
+            },
+            bodyStyles: {
+                fontSize: 7.5,
+                textColor: [30, 41, 59]
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252]
+            },
             columnStyles: {
-                0: { cellWidth: 8 },
-                1: { cellWidth: 22 },
-                2: { cellWidth: 30 },
-                3: { cellWidth: 20 },
+                0: { cellWidth: 8, halign: "center" },
+                1: { cellWidth: 22, fontStyle: "bold" },
+                2: { cellWidth: 32, fontStyle: "bold" },
+                3: { cellWidth: 22 },
                 4: { cellWidth: 42 },
-                5: { cellWidth: 45 },
+                5: { cellWidth: 42 },
                 6: { cellWidth: 32 },
                 7: { cellWidth: 35 },
-                8: { cellWidth: 24 },
+                8: { cellWidth: 25, halign: "center", fontStyle: "bold" }
+            },
+            margin: { top: 32, bottom: 20, left: 14, right: 14 },
+            didDrawPage: (data) => {
+                const pageSize = doc.internal.pageSize;
+                const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                doc.text(
+                    `Page ${data.pageNumber} — Official RHU EMapandan Electronic Purchase Order Summary`,
+                    14,
+                    pageHeight - 10
+                );
             }
         });
 
@@ -252,51 +285,40 @@ export default function PurchaseOrdersClient() {
 
             const XLSX = await import("xlsx");
 
-            // Build rows matching the PDF layout
-            const excelRows = dataToExport.map((tx, idx) => {
+            const rows = dataToExport.map((tx, idx) => {
                 const resident = getResidentSnapshot(tx);
                 const addData = getAdditionalData(tx);
-                const healthCenter = addData.healthCenterName || centerName || "RHU Main";
-                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
-                const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
-                const dispenseInfo = addData.dispenseInfo || {};
-                const fallbackStaff = staffName || (healthCenter ? `${healthCenter} Medical Admin` : "RHU Pharmacy Staff");
-                const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending Dispense");
-                const rawPrescription = addData.deos?.orders || addData.deos?.diagnosis || "Prescription Encoded";
-                const actualDispensedText = (dispenseInfo.items && Array.isArray(dispenseInfo.items) && dispenseInfo.items.length > 0)
-                    ? dispenseInfo.items.map((i: any) => `${i.name} — ${i.quantity} ${i.unit || "pcs"}`).join("; ")
-                    : (dispenseInfo.summaryText || "Awaiting Pharmacy Input");
                 const controlNo = tx.controlNumber || tx.id.slice(0, 8).toUpperCase();
                 const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
                 const barangay = resident.barangay || "Mapandan";
-                const apptDate = `${formatDateTime(tx.appointmentDate)} ${tx.appointmentSlot || "Regular"}`;
+                const healthCenter = addData.healthCenterName || centerName || "RHU Main";
+                const rawPrescription = addData.deos?.orders || addData.deos?.diagnosis || "Prescription Encoded";
+                const dispenseInfo = addData.dispenseInfo || {};
+                const actualDispensedText = (dispenseInfo.items && Array.isArray(dispenseInfo.items) && dispenseInfo.items.length > 0)
+                    ? dispenseInfo.items.map((i: any) => `• ${i.name} — ${i.quantity} ${i.unit || "pcs"}`).join("; ")
+                    : (dispenseInfo.summaryText || "Awaiting Pharmacy Input");
+                const apptDate = `${formatDateTime(tx.appointmentDate)} (${tx.appointmentSlot || "Regular"})`;
                 const statusInfo = getPOStatusInfo(tx);
-                return [
-                    idx + 1,
-                    controlNo,
-                    patientName,
-                    barangay,
-                    rawPrescription,
-                    actualDispensedText,
-                    apptDate,
-                    dispensedBy,
-                    statusInfo.label
-                ];
+                const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+                const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+                const fallbackStaff = staffName || (healthCenter ? `${healthCenter} Medical Admin` : "RHU Pharmacy Staff");
+                const dispensedBy = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? fallbackStaff : "Pending");
+
+                return {
+                    "No.": idx + 1,
+                    "PO / Control Number": controlNo,
+                    "Patient / Applicant": patientName,
+                    "Barangay": barangay,
+                    "Doctor Prescribed Items": rawPrescription,
+                    "Actual Pharmacy Dispensed Qty": actualDispensedText,
+                    "Appointment Date & Slot": apptDate,
+                    "Dispensed By (Pharmacy)": dispensedBy,
+                    "Status": statusInfo.label
+                };
             });
 
-            // Assemble worksheet data with header rows similar to PDF
-            const wsData = [
-                ["Approved Prescription Purchase Orders Summary"],
-                [centerName || "RHU Center"],
-                [`Generated: ${new Date().toLocaleString()}`],
-                [],
-                ["#", "Ref / Control #", "Patient Name", "Barangay", "Doctor Prescribed", "Actual Pharmacy Dispensed Qty", "Appt Date & Slot", "Dispensed By (Pharmacy)", "Status"],
-                ...excelRows
-            ];
-
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            // Optional column widths for readability
-            ws['!cols'] = [
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = [
                 { wch: 5 }, { wch: 20 }, { wch: 25 }, { wch: 15 },
                 { wch: 30 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 15 }
             ];
@@ -378,16 +400,23 @@ export default function PurchaseOrdersClient() {
     return (
         <div className="space-y-8 pb-16 w-full max-w-full">
             {/* Header Banner */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm">
-                <div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm relative overflow-hidden">
+                <div 
+                    className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20 opacity-10 dark:opacity-20"
+                    style={{ backgroundColor: themeColor }}
+                />
+                <div className="relative z-10">
                     <div className="flex items-center gap-2 mb-1">
-                        <ShoppingCart className="w-6 h-6 text-emerald-500" />
+                        <ShoppingCart className="w-6 h-6 shrink-0" style={{ color: themeColor }} />
                         <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
-                            RHU <span className="text-emerald-500">Purchase Orders</span>
+                            RHU <span style={{ color: themeColor }}>Purchase Orders</span>
                         </h1>
                     </div>
                     {centerName && (
-                        <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 opacity-90 pl-1 mb-1 mt-0.5">
+                        <p 
+                            className="text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 opacity-90 pl-1 mb-1 mt-0.5"
+                            style={{ color: themeColor }}
+                        >
                             📍 {centerName}
                         </p>
                     )}
@@ -395,7 +424,7 @@ export default function PurchaseOrdersClient() {
                         Manage, track, and export summaries for RHU prescription purchase orders.
                     </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap relative z-10">
                     <Button
                         onClick={() => handleOpenExportModal("pdf")}
                         disabled={loading || transactions.length === 0}
@@ -406,7 +435,11 @@ export default function PurchaseOrdersClient() {
                     <Button
                         onClick={() => handleOpenExportModal("excel")}
                         disabled={loading || transactions.length === 0}
-                        className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-xs rounded-xl shadow-sm flex items-center gap-2"
+                        className="h-10 px-4 text-white font-black uppercase tracking-wider text-xs rounded-xl shadow-sm flex items-center gap-2"
+                        style={{
+                            backgroundColor: themeColor,
+                            boxShadow: `0 4px 15px ${themeColor}30`
+                        }}
                     >
                         <FileSpreadsheet className="w-4 h-4" /> EXPORT EXCEL
                     </Button>
@@ -418,7 +451,7 @@ export default function PurchaseOrdersClient() {
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Orders</span>
-                        <ShoppingCart className="w-4 h-4 text-emerald-500" />
+                        <ShoppingCart className="w-4 h-4" style={{ color: themeColor }} />
                     </div>
                     <span className="text-3xl font-black text-slate-900 dark:text-white">{totalCount}</span>
                 </div>
@@ -609,7 +642,11 @@ export default function PurchaseOrdersClient() {
                                                 <Button
                                                     size="sm"
                                                     onClick={() => router.push(`/admin/rhu/purchase-orders/${tx.id}`)}
-                                                    className="h-8 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ml-auto"
+                                                    className="h-8 px-3 rounded-xl text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ml-auto shadow-sm"
+                                                    style={{
+                                                        backgroundColor: themeColor,
+                                                        boxShadow: `0 4px 12px ${themeColor}30`
+                                                    }}
                                                 >
                                                     <Eye className="w-3.5 h-3.5" /> VIEW PO
                                                 </Button>
