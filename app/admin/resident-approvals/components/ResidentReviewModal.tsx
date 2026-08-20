@@ -218,7 +218,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                             <h2 className="text-2xl font-black uppercase tracking-tighter italic text-slate-900 dark:text-white leading-none">
                                 {resident.lastName}, {resident.firstName} {resident.middleName ? `${resident.middleName[0]}.` : ""} {resident.suffix}
                             </h2>
-                            <p className="text-xs text-slate-500 mt-1 font-medium">{resident.email || "No email on file"}</p>
+                            <p className="text-xs text-slate-500 mt-1 font-medium">{resident.email || resident.user?.email || "No email on file"}</p>
                             
                             {/* Badges Container */}
                             <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -315,7 +315,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
 
                                     <Section icon={Phone} title="Contact Details">
                                         <Field label="Contact Number" value={resident.contactNumber} />
-                                        <Field label="Email Address" value={resident.email} />
+                                        <Field label="Email Address" value={resident.email || resident.user?.email} />
                                     </Section>
                                 </div>
                             )}
@@ -437,7 +437,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                                         <h4 className="text-sm font-black uppercase tracking-wider text-red-600">Rejection Reason</h4>
                                     </div>
                                     <p className="text-xs text-red-500 font-medium">
-                                        This message will be emailed to the resident at <strong>{resident.email || "their registered email"}</strong>.
+                                        This message will be emailed to the resident at <strong>{resident.email || resident.user?.email || "their registered email"}</strong>.
                                     </p>
                                     <textarea
                                         id="rejection-remarks"

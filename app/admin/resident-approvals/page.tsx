@@ -92,6 +92,14 @@ export default async function Page({
                 isPWD: true,
                 is4Ps: true,
                 createdAt: true,
+                userId: true,
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true
+                    }
+                },
                 category: {
                     select: {
                         id: true,

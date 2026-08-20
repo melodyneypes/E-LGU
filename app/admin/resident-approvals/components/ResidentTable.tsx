@@ -181,18 +181,23 @@ export function ResidentTable() {
                                             </span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col gap-0.5 items-start">
-                                            {resident.contactNumber ? (
-                                                <span className="text-xs font-black flex items-center gap-1"><Phone className="w-3 h-3 text-blue-500" /> {resident.contactNumber}</span>
-                                            ) : (
-                                                <span className="text-xs text-slate-400 italic">No Contact</span>
-                                            )}
-                                            {resident.email && (
-                                                <span className="text-[10px] text-slate-500 truncate max-w-[120px]">{resident.email}</span>
-                                            )}
-                                        </div>
-                                    </TableCell>
+                                     <TableCell>
+                                         <div className="flex flex-col gap-0.5 items-start">
+                                             {resident.contactNumber ? (
+                                                 <span className="text-xs font-black flex items-center gap-1"><Phone className="w-3 h-3 text-blue-500" /> {resident.contactNumber}</span>
+                                             ) : (
+                                                 <span className="text-xs text-slate-400 italic">No Contact</span>
+                                             )}
+                                             {(() => {
+                                                 const displayEmail = resident.email || resident.user?.email;
+                                                 return displayEmail ? (
+                                                     <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={displayEmail}>
+                                                         {displayEmail}
+                                                     </span>
+                                                 ) : null;
+                                             })()}
+                                         </div>
+                                     </TableCell>
                                 </TableRow>
                             ))
                         )}
