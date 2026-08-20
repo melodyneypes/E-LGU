@@ -13,6 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Trophy,
     RefreshCw,
     Shield,
@@ -65,7 +72,7 @@ export default function LeaderboardPage({
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [pageSize, setPageSize] = useState<number>(10);
     const [isPending, setIsPending] = useState(false);
 
     // 400ms Search Debounce
@@ -129,9 +136,27 @@ export default function LeaderboardPage({
         );
     });
 
-    const totalPages = Math.max(1, Math.ceil(filteredList.length / itemsPerPage));
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedList = filteredList.slice(startIndex, startIndex + itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize));
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedList = filteredList.slice(startIndex, startIndex + pageSize);
+
+    const handlePageSizeChange = (val: string) => {
+        const newSize = parseInt(val, 10) || 10;
+        setIsPending(true);
+        setPageSize(newSize);
+        setCurrentPage(1);
+        setTimeout(() => {
+            setIsPending(false);
+        }, 200);
+    };
+
+    const handlePageChange = (newPage: number) => {
+        setIsPending(true);
+        setCurrentPage(newPage);
+        setTimeout(() => {
+            setIsPending(false);
+        }, 200);
+    };
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -217,22 +242,23 @@ export default function LeaderboardPage({
                 </div>
             </div>
 
-            {/* Filter Bar */}
-            <div className="bg-white dark:bg-[#151b2b] p-6 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm space-y-4">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Main Table Card */}
+            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
+                {/* Search & Date Filter Bar */}
+                <div className="p-6 border-b border-slate-200 dark:border-[#2a3040] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Search & Metric Filter */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative w-full sm:w-64">
-                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <div className="relative w-full sm:w-64 group">
+                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                             <Input
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search officer name or badge..."
-                                className="pl-10 h-11 rounded-2xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs font-semibold"
+                                className="pl-10 h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 focus:ring-amber-500/20 text-xs font-semibold rounded-2xl"
                             />
                         </div>
 
-                        <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10">
+                        <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-[#1a1f2e] p-1 rounded-2xl border border-slate-200 dark:border-[#2a3040]">
                             <Button
                                 type="button"
                                 onClick={() => handleSortChange("ALL")}
@@ -268,7 +294,7 @@ export default function LeaderboardPage({
 
                     {/* Date Range Inputs */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center space-x-2 bg-slate-50 dark:bg-white/5 p-2 rounded-2xl border border-slate-200 dark:border-white/10">
+                        <div className="flex items-center space-x-2 bg-slate-50 dark:bg-[#1a1f2e] p-2 rounded-2xl border border-slate-200 dark:border-[#2a3040]">
                             <Calendar className="w-4 h-4 text-slate-400 ml-1" />
                             <div className="flex items-center space-x-1">
                                 <span className="text-[10px] font-bold uppercase text-slate-400">From:</span>
@@ -312,11 +338,11 @@ export default function LeaderboardPage({
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto border border-slate-200 dark:border-[#2a3040] rounded-2xl">
+                <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-slate-100/70 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
-                                <TableHead className="w-[90px] text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14">
+                            <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
+                                <TableHead className="w-[90px] text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-6">
                                     Rank
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
@@ -335,13 +361,13 @@ export default function LeaderboardPage({
                         </TableHeader>
                         <TableBody>
                             {isPending ? (
-                                Array.from({ length: 4 }).map((_, idx) => (
+                                Array.from({ length: Math.min(pageSize, 4) }).map((_, idx) => (
                                     <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040] animate-pulse">
-                                        <TableCell className="text-center py-5">
+                                        <TableCell className="text-center py-5 pl-6">
                                             <div className="h-6 w-6 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="space-y-1">
+                                            <div className="space-y-1.5">
                                                 <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
                                                 <div className="h-3 w-20 bg-slate-100 dark:bg-slate-800/60 rounded-lg"></div>
                                             </div>
@@ -365,8 +391,8 @@ export default function LeaderboardPage({
                                 </TableRow>
                             ) : (
                                 paginatedList.map((item) => (
-                                    <TableRow key={item.officerName} className="border-b border-slate-100 dark:border-[#2a3040]">
-                                        <TableCell className="text-center py-5">
+                                    <TableRow key={item.officerName} className="border-b border-slate-100 dark:border-[#2a3040] hover:bg-amber-50/20 dark:hover:bg-amber-950/10 transition-colors">
+                                        <TableCell className="text-center py-5 pl-6">
                                             {item.rank === 1 ? (
                                                 <Badge className="bg-amber-500 text-white font-black px-2.5 py-1 text-xs shadow-md shadow-amber-500/20">
                                                     🥇 #1
@@ -421,41 +447,60 @@ export default function LeaderboardPage({
                 </div>
 
                 {/* Pagination Controls Footer */}
-                {filteredList.length > 0 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
-                        <p className="text-xs font-semibold text-slate-500">
-                            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(startIndex + 1, filteredList.length)}</span> to{" "}
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(startIndex + itemsPerPage, filteredList.length)}</span> of{" "}
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{filteredList.length}</span> officers
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {filteredList.length > 0 ? startIndex + 1 : 0} to{" "}
+                            {Math.min(startIndex + pageSize, filteredList.length)} of {filteredList.length} officers
                         </p>
 
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1 || isPending}
-                                variant="outline"
-                                className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select
+                                value={pageSize.toString()}
+                                onValueChange={handlePageSizeChange}
                             >
-                                <ChevronLeft className="w-4 h-4 mr-1" />
-                                Previous
-                            </Button>
-
-                            <div className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-xl text-xs font-black text-slate-700 dark:text-slate-300">
-                                Page {currentPage} of {totalPages}
-                            </div>
-
-                            <Button
-                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage >= totalPages || isPending}
-                                variant="outline"
-                                className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
-                            >
-                                Next
-                                <ChevronRight className="w-4 h-4 ml-1" />
-                            </Button>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
-                )}
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                            disabled={currentPage === 1 || isPending}
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-1" />
+                            Prev
+                        </Button>
+
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
+                            Page {currentPage} of {totalPages}
+                        </span>
+
+                        <Button
+                            onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                            disabled={currentPage >= totalPages || isPending}
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
+                        >
+                            Next
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );

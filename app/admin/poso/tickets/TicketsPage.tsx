@@ -77,7 +77,7 @@ export default function TicketsPage({
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [page, setPage] = useState(1);
-    const pageSize = 10;
+    const [pageSize, setPageSize] = useState<number>(10);
 
     const [isPending, setIsPending] = useState(false);
 
@@ -105,12 +105,13 @@ export default function TicketsPage({
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
 
-    const fetchTickets = React.useCallback(async (p: number, s: string, st: string, from?: string, to?: string) => {
+    const fetchTickets = React.useCallback(async (p: number, s: string, st: string, from?: string, to?: string, customLimit?: number) => {
         setIsPending(true);
         try {
+            const limitToUse = customLimit !== undefined ? customLimit : pageSize;
             const res = await getTickets({
                 page: p,
-                limit: pageSize,
+                limit: limitToUse,
                 search: s,
                 status: st,
                 from: from !== undefined ? from : fromDate,
@@ -192,6 +193,13 @@ export default function TicketsPage({
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
         fetchTickets(newPage, search, statusFilter, fromDate, toDate);
+    };
+
+    const handlePageSizeChange = (newSizeStr: string) => {
+        const newSize = parseInt(newSizeStr, 10) || 10;
+        setPageSize(newSize);
+        setPage(1);
+        fetchTickets(1, search, statusFilter, fromDate, toDate, newSize);
     };
 
     // Batch Pay Selection State
@@ -882,22 +890,40 @@ export default function TicketsPage({
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-500">
-                        Showing {tickets.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
-                        {Math.min(page * pageSize, totalCount)} of {totalCount} tickets
-                    </p>
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {tickets.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+                            {Math.min(page * pageSize, totalCount)} of {totalCount} tickets
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
                             disabled={page === 1 || isPending}
                             onClick={() => handlePageChange(page - 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                         </Button>
-                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-lg">
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
                             Page {page} of {totalPages}
                         </span>
                         <Button
@@ -905,7 +931,7 @@ export default function TicketsPage({
                             size="sm"
                             disabled={page >= totalPages || isPending}
                             onClick={() => handlePageChange(page + 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             Next <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
