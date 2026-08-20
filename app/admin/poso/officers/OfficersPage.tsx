@@ -36,7 +36,6 @@ import {
     Edit2,
     ChevronLeft,
     ChevronRight,
-    RefreshCw,
     ShieldCheck,
     UserX,
     X,
@@ -246,16 +245,6 @@ export default function OfficersPage({
 
             {/* Main Table Card */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
-                {/* Glassmorphic Loading Overlay */}
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-[#151b2b]/50 backdrop-blur-sm z-20 flex items-center justify-center">
-                        <div className="flex items-center space-x-2 bg-white dark:bg-[#1a1f2e] px-4 py-2 rounded-full shadow-lg border border-slate-200 dark:border-[#2a3040]">
-                            <RefreshCw className="w-5 h-5 text-rose-600 animate-spin" />
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Updating officers...</span>
-                        </div>
-                    </div>
-                )}
-
                 {/* Search & Filter Bar */}
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
                     <div className="relative flex-1 max-w-md group">
@@ -303,7 +292,30 @@ export default function OfficersPage({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {officers.length === 0 ? (
+                            {isPending ? (
+                                Array.from({ length: 5 }).map((_, idx) => (
+                                    <TableRow key={idx} className="border-b border-slate-200 dark:border-[#2a3040] animate-pulse">
+                                        <TableCell className="pl-8 py-5">
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-36 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-5 w-24 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-8">
+                                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto"></div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : officers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">

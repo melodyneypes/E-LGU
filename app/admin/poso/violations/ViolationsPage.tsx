@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import {
+    getTrafficViolations,
     addTrafficViolation,
     updateTrafficViolation,
     toggleTrafficViolationStatus,
@@ -19,6 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -32,10 +40,10 @@ import {
     Edit2,
     Save,
     FileSpreadsheet,
-    RefreshCw,
     CheckCircle2,
     Archive,
-    ListFilter,
+    ChevronLeft,
+    ChevronRight,
     X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -55,13 +63,25 @@ export interface TrafficViolationItem {
 
 export default function ViolationsPage({
     initialViolations,
+    initialTotalCount = 0,
+    initialActiveCount = 0,
+    initialInactiveCount = 0,
 }: {
     initialViolations: TrafficViolationItem[];
+    initialTotalCount?: number;
+    initialActiveCount?: number;
+    initialInactiveCount?: number;
 }) {
     const router = useRouter();
     const [violations, setViolations] = useState<TrafficViolationItem[]>(initialViolations);
+    const [totalCount, setTotalCount] = useState(initialTotalCount);
+    const [activeCount, setActiveCount] = useState(initialActiveCount);
+    const [inactiveCount, setInactiveCount] = useState(initialInactiveCount);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(10);
+
     const [isPending, setIsPending] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<TrafficViolationItem | null>(null);
@@ -70,23 +90,79 @@ export default function ViolationsPage({
 
     React.useEffect(() => {
         setViolations(initialViolations);
+        setTotalCount(initialTotalCount);
+        setActiveCount(initialActiveCount);
+        setInactiveCount(initialInactiveCount);
         setIsPending(false);
-    }, [initialViolations]);
+    }, [initialViolations, initialTotalCount, initialActiveCount, initialInactiveCount]);
 
-    const filteredViolations = violations.filter((v) => {
-        const query = search.toLowerCase().trim();
-        const matchesQuery = !query || (
-            (v.violationCode && v.violationCode.toLowerCase().includes(query)) ||
-            v.violationName.toLowerCase().includes(query) ||
-            (v.remarks && v.remarks.toLowerCase().includes(query))
-        );
+    const fetchViolations = React.useCallback(
+        async (
+            p: number,
+            s: string,
+            st: "ALL" | "ACTIVE" | "INACTIVE",
+            customLimit?: number
+        ) => {
+            setIsPending(true);
+            try {
+                const limitToUse = customLimit !== undefined ? customLimit : pageSize;
+                const res = await getTrafficViolations({
+                    page: p,
+                    limit: limitToUse,
+                    search: s,
+                    status: st,
+                });
 
-        if (!matchesQuery) return false;
+                if (res.success && res.violations) {
+                    setViolations(res.violations);
+                    setTotalCount(res.totalCount || 0);
+                    if (res.activeCount !== undefined) setActiveCount(res.activeCount);
+                    if (res.inactiveCount !== undefined) setInactiveCount(res.inactiveCount);
+                } else if (!res.success) {
+                    toast.error(res.error || "Failed to load violations.");
+                }
+            } catch (err: any) {
+                toast.error(err.message || "Failed to load violations.");
+            } finally {
+                setIsPending(false);
+            }
+        },
+        [pageSize]
+    );
 
-        if (statusFilter === "ACTIVE") return v.isActive === true;
-        if (statusFilter === "INACTIVE") return v.isActive === false;
-        return true;
-    });
+    const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setSearch(val);
+        setPage(1);
+
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        searchTimerRef.current = setTimeout(() => {
+            fetchViolations(1, val, statusFilter, pageSize);
+        }, 400);
+    };
+
+    const handleStatusFilterChange = (st: "ALL" | "ACTIVE" | "INACTIVE") => {
+        setStatusFilter(st);
+        setPage(1);
+        fetchViolations(1, search, st, pageSize);
+    };
+
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+        fetchViolations(newPage, search, statusFilter, pageSize);
+    };
+
+    const handlePageSizeChange = (newSizeStr: string) => {
+        const newSize = parseInt(newSizeStr, 10) || 10;
+        setPageSize(newSize);
+        setPage(1);
+        fetchViolations(1, search, statusFilter, newSize);
+    };
 
     const handleCloseModal = () => {
         setIsAddModalOpen(false);
@@ -117,6 +193,8 @@ export default function ViolationsPage({
                 setViolations((prev) =>
                     prev.map((v) => (v.id === item.id ? { ...v, isActive: nextState } : v))
                 );
+                setActiveCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+                setInactiveCount((prev) => (nextState ? Math.max(0, prev - 1) : prev + 1));
             } else {
                 toast.error(res.error || "Failed to update ordinance status.");
             }
@@ -147,8 +225,7 @@ export default function ViolationsPage({
                         : "Violation ordinance added successfully!"
                 );
                 handleCloseModal();
-                setIsPending(true);
-                router.refresh();
+                fetchViolations(page, search, statusFilter, pageSize);
             } else {
                 toast.error(res.error || "Failed to save violation.");
             }
@@ -159,8 +236,7 @@ export default function ViolationsPage({
         }
     };
 
-    const activeCount = violations.filter((v) => v.isActive).length;
-    const inactiveCount = violations.filter((v) => !v.isActive).length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -181,8 +257,8 @@ export default function ViolationsPage({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-[#151b2b] p-5 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-black uppercase tracking-wider text-slate-500">Total Ordinances</p>
-                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{violations.length}</h3>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-500">Total Filtered</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalCount}</h3>
                     </div>
                     <div className="p-3 bg-rose-500/10 text-rose-600 rounded-xl">
                         <ShieldAlert className="w-6 h-6" />
@@ -212,16 +288,6 @@ export default function ViolationsPage({
 
             {/* Main Table Card */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
-                {/* Glassmorphic Loading Overlay */}
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-[#151b2b]/50 backdrop-blur-sm z-20 flex items-center justify-center">
-                        <div className="flex items-center space-x-2 bg-white dark:bg-[#1a1f2e] px-4 py-2 rounded-full shadow-lg border border-slate-200 dark:border-[#2a3040]">
-                            <RefreshCw className="w-5 h-5 text-rose-600 animate-spin" />
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Updating masterlist...</span>
-                        </div>
-                    </div>
-                )}
-
                 {/* Search & Filter Bar */}
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
@@ -230,7 +296,7 @@ export default function ViolationsPage({
                             <Input
                                 placeholder="Search violation code, name, remarks..."
                                 value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={handleSearchChange}
                                 className="pl-10 h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 focus:ring-rose-500/20 font-medium italic"
                             />
                         </div>
@@ -239,18 +305,18 @@ export default function ViolationsPage({
                         <div className="flex items-center bg-slate-100 dark:bg-[#1a1f2e] p-1 rounded-xl border border-slate-200 dark:border-[#2a3040]">
                             <button
                                 type="button"
-                                onClick={() => setStatusFilter("ALL")}
+                                onClick={() => handleStatusFilterChange("ALL")}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-black tracking-wider uppercase transition-all ${
                                     statusFilter === "ALL"
                                         ? "bg-white dark:bg-[#252b3d] text-slate-900 dark:text-white shadow-sm"
                                         : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
                                 }`}
                             >
-                                All ({violations.length})
+                                All
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setStatusFilter("ACTIVE")}
+                                onClick={() => handleStatusFilterChange("ACTIVE")}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-black tracking-wider uppercase transition-all ${
                                     statusFilter === "ACTIVE"
                                         ? "bg-emerald-600 text-white shadow-sm"
@@ -261,7 +327,7 @@ export default function ViolationsPage({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setStatusFilter("INACTIVE")}
+                                onClick={() => handleStatusFilterChange("INACTIVE")}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-black tracking-wider uppercase transition-all ${
                                     statusFilter === "INACTIVE"
                                         ? "bg-slate-700 text-white shadow-sm"
@@ -311,7 +377,36 @@ export default function ViolationsPage({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredViolations.length === 0 ? (
+                            {isPending ? (
+                                Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
+                                    <TableRow key={idx} className="border-b border-slate-200 dark:border-[#2a3040] animate-pulse">
+                                        <TableCell className="pl-8 py-5">
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="space-y-1.5">
+                                                <div className="h-4 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                                <div className="h-3 w-28 bg-slate-100 dark:bg-slate-800/60 rounded-lg"></div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="h-6 w-20 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-8">
+                                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto"></div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : violations.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
@@ -326,7 +421,7 @@ export default function ViolationsPage({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredViolations.map((item) => (
+                                violations.map((item) => (
                                     <TableRow
                                         key={item.id}
                                         className={`group transition-colors border-b border-slate-200 dark:border-[#2a3040] ${
@@ -400,6 +495,55 @@ export default function ViolationsPage({
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {violations.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+                            {Math.min(page * pageSize, totalCount)} of {totalCount} ordinances
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page === 1 || isPending}
+                            onClick={() => handlePageChange(page - 1)}
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                        </Button>
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
+                            Page {page} of {totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page >= totalPages || isPending}
+                            onClick={() => handlePageChange(page + 1)}
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
+                        >
+                            Next <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                    </div>
                 </div>
             </div>
 

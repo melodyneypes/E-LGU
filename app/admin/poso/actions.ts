@@ -22,16 +22,77 @@ async function verifyAdminOrStaff() {
 // TRAFFIC VIOLATIONS ACTIONS
 // ----------------------------------------
 
-export async function getTrafficViolations() {
+export async function getTrafficViolations({
+    page = 1,
+    limit = 10,
+    search = "",
+    status = "ALL",
+}: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: "ALL" | "ACTIVE" | "INACTIVE";
+} = {}) {
     try {
         await verifyAdminOrStaff();
-        const violations = await (prisma as any).trafficViolation.findMany({
-            orderBy: { createdAt: "desc" },
-        });
-        return { success: true, violations };
+        const skip = (page - 1) * limit;
+        const where: any = {};
+
+        if (status === "ACTIVE") {
+            where.isActive = true;
+        } else if (status === "INACTIVE") {
+            where.isActive = false;
+        }
+
+        if (search.trim()) {
+            const query = search.trim();
+            where.OR = [
+                { violationCode: { contains: query, mode: "insensitive" } },
+                { violationName: { contains: query, mode: "insensitive" } },
+                { remarks: { contains: query, mode: "insensitive" } },
+            ];
+        }
+
+        const [violations, totalFilteredCount, activeCount, inactiveCount] = await Promise.all([
+            (prisma as any).trafficViolation.findMany({
+                where,
+                select: {
+                    id: true,
+                    violationCode: true,
+                    violationName: true,
+                    firstOffenseFee: true,
+                    secondOffenseFee: true,
+                    thirdOffenseFee: true,
+                    remarks: true,
+                    isActive: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit,
+            }),
+            (prisma as any).trafficViolation.count({ where }),
+            (prisma as any).trafficViolation.count({ where: { isActive: true } }),
+            (prisma as any).trafficViolation.count({ where: { isActive: false } }),
+        ]);
+
+        return {
+            success: true,
+            violations,
+            totalCount: totalFilteredCount,
+            activeCount,
+            inactiveCount,
+        };
     } catch (error: any) {
         console.error("Failed to fetch traffic violations:", error);
-        return { success: false, error: error.message || "Failed to fetch traffic violations." };
+        return {
+            success: false,
+            error: error.message || "Failed to fetch traffic violations.",
+            violations: [],
+            totalCount: 0,
+            activeCount: 0,
+            inactiveCount: 0,
+        };
     }
 }
 

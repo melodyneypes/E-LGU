@@ -274,24 +274,27 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                 </div>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="bg-white dark:bg-[#151b2b] p-6 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm space-y-4">
-                <div className="relative max-w-md">
-                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <Input
-                        value={search}
-                        onChange={handleSearchChange}
-                        placeholder="Search class code, name, or vehicle types..."
-                        className="pl-11 h-12 rounded-2xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs font-semibold"
-                    />
+            {/* Main Table Card */}
+            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
+                {/* Search & Filter Bar */}
+                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
+                    <div className="relative flex-1 max-w-md group">
+                        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                        <Input
+                            value={search}
+                            onChange={handleSearchChange}
+                            placeholder="Search class code, name, or vehicle types..."
+                            className="pl-10 h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 focus:ring-amber-500/20 font-medium italic"
+                        />
+                    </div>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto border border-slate-200 dark:border-[#2a3040] rounded-2xl">
+                <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-slate-100/70 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
-                                <TableHead className="w-[140px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-6">
+                            <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
+                                <TableHead className="w-[140px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
                                     Class Code
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
@@ -303,7 +306,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                                 <TableHead className="text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Active Status
                                 </TableHead>
-                                <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pr-6">
+                                <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pr-8">
                                     Actions
                                 </TableHead>
                             </TableRow>
@@ -312,11 +315,11 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                             {isPending ? (
                                 Array.from({ length: 3 }).map((_, idx) => (
                                     <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040] animate-pulse">
-                                        <TableCell className="pl-6 py-5">
+                                        <TableCell className="pl-8 py-5">
                                             <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="space-y-1">
+                                            <div className="space-y-1.5">
                                                 <div className="h-4 w-44 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
                                                 <div className="h-3 w-32 bg-slate-100 dark:bg-slate-800/60 rounded-lg"></div>
                                             </div>
@@ -327,7 +330,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                                         <TableCell className="text-center">
                                             <div className="h-5 w-12 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
                                         </TableCell>
-                                        <TableCell className="text-right pr-6">
+                                        <TableCell className="text-right pr-8">
                                             <div className="h-8 w-16 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto"></div>
                                         </TableCell>
                                     </TableRow>
@@ -340,8 +343,8 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                                 </TableRow>
                             ) : (
                                 filteredList.map((item) => (
-                                    <TableRow key={item.id} className="border-b border-slate-100 dark:border-[#2a3040]">
-                                        <TableCell className="pl-6 py-5 font-black text-xs text-amber-600 dark:text-amber-400 tracking-wider">
+                                    <TableRow key={item.id} className="border-b border-slate-100 dark:border-[#2a3040] hover:bg-amber-50/20 dark:hover:bg-amber-950/10 transition-colors">
+                                        <TableCell className="pl-8 py-5 font-black text-xs text-amber-600 dark:text-amber-400 tracking-wider">
                                             {item.code}
                                         </TableCell>
                                         <TableCell>
@@ -363,7 +366,7 @@ export default function VehicleClassesPage({ initialClassifications }: VehicleCl
                                                 onCheckedChange={() => handleToggleStatus(item)}
                                             />
                                         </TableCell>
-                                        <TableCell className="text-right pr-6">
+                                        <TableCell className="text-right pr-8">
                                             <Button
                                                 onClick={() => handleOpenEdit(item)}
                                                 variant="outline"
