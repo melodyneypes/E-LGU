@@ -73,6 +73,24 @@ export interface RHUMedicalPersonnelFilterParams {
     status?: string;
 }
 
+async function checkEmailUniqueness(email: string, existingUserId?: string | null) {
+    if (!email || !email.trim()) return { isUnique: true };
+    const cleanEmail = email.trim().toLowerCase();
+    
+    try {
+        const raw: any[] = await prisma.$queryRaw`SELECT "id" FROM "User" WHERE "email" = ${cleanEmail}`;
+        if (raw && raw.length > 0) {
+            const existingUser = raw[0];
+            if (!existingUserId || existingUser.id !== existingUserId) {
+                return { isUnique: false, error: `The email address "${cleanEmail}" is already in use by another account.` };
+            }
+        }
+    } catch (err) {
+        console.error("Error checking email uniqueness:", err);
+    }
+    return { isUnique: true };
+}
+
 function getCenterModel() {
     return (prisma as any).rHUHealthCenter || (prisma as any).RHUHealthCenter;
 }
@@ -324,6 +342,19 @@ export async function createRHUHealthCenter(input: RHUHealthCenterInput) {
             return { success: false, error: "Location address is required" };
         }
 
+        if (input.accountEmail && input.accountEmail.trim()) {
+            const check = await checkEmailUniqueness(input.accountEmail);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
+        }
+        if (input.pharmacyEmail && input.pharmacyEmail.trim()) {
+            const check = await checkEmailUniqueness(input.pharmacyEmail);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
+        }
+
         const centerId = `cmrctr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
         const nameClean = input.name.trim();
         const codeClean = input.code?.trim() || null;
@@ -424,6 +455,28 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
 
         if (!id) {
             return { success: false, error: "Health center ID is required" };
+        }
+
+        // Fetch the existing center to get current user IDs
+        let existingCenter: any = null;
+        try {
+            const raw: any[] = await prisma.$queryRaw`SELECT * FROM "RHUHealthCenter" WHERE "id" = ${id}`;
+            existingCenter = raw[0];
+        } catch {}
+        const currentUserId = input.userId || existingCenter?.userId || null;
+        const currentPharmacyUserId = input.pharmacyUserId || existingCenter?.pharmacyUserId || null;
+
+        if (input.accountEmail && input.accountEmail.trim()) {
+            const check = await checkEmailUniqueness(input.accountEmail, currentUserId);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
+        }
+        if (input.pharmacyEmail && input.pharmacyEmail.trim()) {
+            const check = await checkEmailUniqueness(input.pharmacyEmail, currentPharmacyUserId);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
         }
 
         const nameClean = input.name?.trim();
@@ -773,6 +826,13 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
             return { success: false, error: "Medical role is required" };
         }
 
+        if (input.accountEmail && input.accountEmail.trim()) {
+            const check = await checkEmailUniqueness(input.accountEmail);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
+        }
+
         const id = `medpers${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
         const nameClean = input.name.trim();
         const roleClean = input.role;
@@ -862,6 +922,20 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
 
         if (!id) {
             return { success: false, error: "Medical personnel ID is required" };
+        }
+
+        let existingPersonnel: any = null;
+        try {
+            const raw: any[] = await prisma.$queryRaw`SELECT * FROM "RHUMedicalPersonnel" WHERE "id" = ${id}`;
+            existingPersonnel = raw[0];
+        } catch {}
+        const currentUserId = input.userId || existingPersonnel?.userId || null;
+
+        if (input.accountEmail && input.accountEmail.trim()) {
+            const check = await checkEmailUniqueness(input.accountEmail, currentUserId);
+            if (!check.isUnique) {
+                return { success: false, error: check.error };
+            }
         }
 
         const nameClean = input.name?.trim();

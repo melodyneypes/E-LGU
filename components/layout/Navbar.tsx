@@ -269,16 +269,32 @@ export function Navbar({
     // Scroll to section or navigate to page
     const handleNavClick = (e: React.MouseEvent, href: string) => {
         if (!href.startsWith("/#")) return;
+        if (pathname !== "/") return; // Allow default Link behavior if not on homepage
+
         const id = href.slice(2).split("?")[0];
-        const el = document.getElementById(id);
-        if (el) {
-            e.preventDefault();
-            const navbarHeight = 96;
-            const top = el.getBoundingClientRect().top + window.scrollY - navbarHeight;
-            window.scrollTo({ top, behavior: "smooth" });
-            window.history.pushState(null, "", `#${id}`);
-            setActiveSection(`#${id}`);
-        }
+        e.preventDefault();
+        window.history.pushState(null, "", `#${id}`);
+        setActiveSection(`#${id}`);
+
+        let attempts = 0;
+        const maxAttempts = 15;
+        const delays = [0, 50, 150, 300, 500, 700, 1000, 1300, 1600, 2000];
+
+        const scrollToTarget = () => {
+            const el = document.getElementById(id);
+            if (el) {
+                const navbarHeight = 96;
+                const top = el.getBoundingClientRect().top + window.scrollY - navbarHeight;
+                window.scrollTo({ top, behavior: "smooth" });
+                return;
+            }
+            if (attempts < maxAttempts) {
+                setTimeout(scrollToTarget, delays[attempts] || 300);
+                attempts++;
+            }
+        };
+
+        scrollToTarget();
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

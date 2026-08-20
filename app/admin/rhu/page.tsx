@@ -4,6 +4,7 @@ import { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getRHUDashboardStats, getRHUAdminTransactions } from "./actions";
 
 export const metadata: Metadata = {
     title: "RHU Hub | Mapandan Admin Portal",
@@ -28,9 +29,22 @@ export default async function RHUAdminPage() {
         redirect("/admin/rhu/centers");
     }
 
+    const [statsRes, recentRes] = await Promise.all([
+        getRHUDashboardStats(),
+        getRHUAdminTransactions({ page: 1, limit: 5 })
+    ]);
+
+    const initialStats = statsRes.success && statsRes.stats ? statsRes.stats : { total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+    const initialRecentBookings = recentRes.success && recentRes.data ? recentRes.data : [];
+    const initialCenterName = statsRes.centerName || recentRes.centerName || null;
+
     return (
         <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <RHUDashboard />
+            <RHUDashboard 
+                initialStats={initialStats}
+                initialRecentBookings={initialRecentBookings}
+                initialCenterName={initialCenterName}
+            />
         </div>
     );
 }

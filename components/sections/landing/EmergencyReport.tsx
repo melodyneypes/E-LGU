@@ -150,7 +150,7 @@ export function EmergencyReport({
     const onDutyCount = fleet.filter(f => f.status === "ON DUTY").length;
 
     return (
-        <section id="hotlines" className="pt-8 md:pt-12 pb-16 md:pb-28 px-6 bg-slate-950 text-white relative">
+        <section id="hotlines" className="pt-8 md:pt-12 pb-16 md:pb-28 px-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white relative border-t border-slate-200 dark:border-white/5">
             {/* Ambient Background Effects */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full" />
@@ -161,13 +161,13 @@ export function EmergencyReport({
             {/* Disaster Monitoring (Side by Side Maps) */}
             {showMap && (
                 <div className="max-w-7xl mx-auto mb-16 md:mb-24 relative z-10">
-                    <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-12">
+                    <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-12">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
                                 <CloudLightning className="w-8 h-8 text-blue-500 animate-pulse" />
-                                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">Map Monitoring</h2>
+                                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Map Monitoring</h2>
                             </div>
-                            <p className="text-slate-400 font-medium italic max-w-lg">
+                            <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-lg">
                                 Real-time visualization of regional weather patterns.
                             </p>
                         </div>
@@ -192,7 +192,7 @@ export function EmergencyReport({
 
                         {/* Live Weather / Typhoon Map */}
                         {isMobile ? (
-                            <div className="bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative">
+                            <div className="bg-slate-100 dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative">
                                 <iframe 
                                     width="100%" 
                                     height="100%" 
@@ -208,7 +208,7 @@ export function EmergencyReport({
                                 initial={{ opacity: 0, x: 24 }}
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
-                                className="bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative"
+                                className="bg-slate-100 dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden h-[350px] md:h-[500px] relative"
                             >
                                 <iframe 
                                     width="100%" 
@@ -232,9 +232,9 @@ export function EmergencyReport({
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
-                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">Emergency Hotlines</h2>
+                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Emergency Hotlines</h2>
                         </div>
-                        <p className="text-slate-400 font-medium italic max-w-lg text-xs md:text-base">
+                        <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-lg text-xs md:text-base">
                             In case of emergency, please contact the appropriate department immediately. 
                             Lines are open 24/7. Click to copy the number.
                         </p>
@@ -250,21 +250,21 @@ export function EmergencyReport({
                                     const hotlineCard = (
                                         <div
                                             onClick={() => copyToClipboard(primaryNumber, hotline.name)}
-                                            className="p-4 md:p-6 bg-white/5 border border-white/10 rounded-2xl md:rounded-[2rem] flex items-center gap-3 md:gap-4 hover:bg-white/10 transition-all group cursor-pointer relative"
+                                            className="p-4 md:p-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-[2rem] flex items-center gap-3 md:gap-4 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all group cursor-pointer relative shadow-sm"
                                         >
-                                            <div className="w-10 h-10 md:w-12 md:h-12 shrink-0 bg-white/10 rounded-xl md:rounded-2xl flex items-center justify-center group-hover:bg-primary transition-colors">
-                                                <Icon className="w-5 h-5 md:w-6 md:h-6 text-slate-300 group-hover:text-white" />
+                                            <div className="w-10 h-10 md:w-12 md:h-12 shrink-0 bg-slate-100 dark:bg-white/10 rounded-xl md:rounded-2xl flex items-center justify-center group-hover:bg-primary transition-colors">
+                                                <Icon className="w-5 h-5 md:w-6 md:h-6 text-slate-500 dark:text-slate-300 group-hover:text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-primary transition-colors truncate">{hotline.name}</p>
+                                                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-primary transition-colors truncate">{hotline.name}</p>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-base md:text-lg font-black tracking-tighter text-white">{primaryNumber}</p>
+                                                    <p className="text-base md:text-lg font-black tracking-tighter text-slate-900 dark:text-white">{primaryNumber}</p>
                                                     {copied === primaryNumber && (
                                                         <span className="text-[9px] md:text-[10px] font-bold text-emerald-500 italic animate-in fade-in zoom-in">Copied!</span>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="hidden md:flex w-8 h-8 rounded-full bg-white/5 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="hidden md:flex w-8 h-8 rounded-full bg-slate-100 dark:bg-white/5 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Copy className="w-3.5 h-3.5 text-slate-400" />
                                             </div>
                                         </div>
@@ -285,41 +285,41 @@ export function EmergencyReport({
                                                     </motion.div>
                                                 )}
                                             </TooltipTrigger>
-                                            <TooltipContent className="bg-slate-900 border-white/10 p-4 rounded-2xl max-w-xs shadow-2xl">
+                                            <TooltipContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 p-4 rounded-2xl max-w-xs shadow-2xl">
                                                 <div className="space-y-3">
-                                                    <p className="text-xs font-black uppercase tracking-widest text-primary italic border-b border-white/10 pb-2">{hotline.name}</p>
+                                                    <p className="text-xs font-black uppercase tracking-widest text-primary italic border-b border-slate-200 dark:border-white/10 pb-2">{hotline.name}</p>
                                                     
                                                     {hotline.mobileNumber && (
                                                         <div className="flex items-center gap-2">
                                                             <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-                                                            <span className="text-[11px] font-bold text-slate-300">Mobile: {hotline.mobileNumber}</span>
+                                                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Mobile: {hotline.mobileNumber}</span>
                                                         </div>
                                                     )}
                                                     
                                                     {hotline.telephone && (
                                                         <div className="flex items-center gap-2">
                                                             <Phone className="w-3.5 h-3.5 text-blue-500" />
-                                                            <span className="text-[11px] font-bold text-slate-300">Tele: {hotline.telephone}</span>
+                                                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Tele: {hotline.telephone}</span>
                                                         </div>
                                                     )}
                                                     
                                                     {hotline.address && (
                                                         <div className="flex items-center gap-2">
                                                             <MapPin className="w-3.5 h-3.5 text-red-500" />
-                                                            <span className="text-[11px] font-medium italic text-slate-400 leading-snug">{hotline.address}</span>
+                                                            <span className="text-[11px] font-medium italic text-slate-500 dark:text-slate-400 leading-snug">{hotline.address}</span>
                                                         </div>
                                                     )}
                                                     
                                                     <div className="pt-1">
-                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Click any card to copy the primary number</p>
+                                                        <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">Click any card to copy the primary number</p>
                                                     </div>
                                                 </div>
                                             </TooltipContent>
                                         </Tooltip>
                                     );
                                 }) : (
-                                    <div className="col-span-full py-12 text-center bg-white/5 rounded-[2rem] border border-dashed border-white/10">
-                                        <Info className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                                    <div className="col-span-full py-12 text-center bg-slate-100/50 dark:bg-white/5 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10">
+                                        <Info className="w-8 h-8 text-slate-400 mx-auto mb-3" />
                                         <p className="text-slate-500 font-bold uppercase tracking-widest text-xs italic">No active hotlines listed...</p>
                                     </div>
                                 )}
@@ -329,7 +329,7 @@ export function EmergencyReport({
 
                     <div className="hidden md:flex p-8 bg-primary/10 border border-primary/20 rounded-[2.5rem] items-start gap-4">
                         <Info className="w-6 h-6 text-primary shrink-0 mt-1" />
-                        <p className="text-sm font-medium italic text-primary/80">
+                        <p className="text-sm font-medium italic text-primary/90">
                             Non-emergency reports can be submitted using the form on the right. 
                             For life-threatening situations, always call the hotlines first.
                         </p>
@@ -357,36 +357,36 @@ export function EmergencyReport({
             {/* ======================================================== */}
             {/* AMBULANCE FLEET & DISPATCH STATUS SECTION (BELOW REPORTS) */}
             {/* ======================================================== */}
-            <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-white/10 relative z-10 scroll-mt-24">
-                <div className="bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-primary/20 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-2xl relative overflow-hidden">
+            <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-slate-200 dark:border-white/10 relative z-10 scroll-mt-28">
+                <div className="bg-white dark:bg-gradient-to-b dark:from-slate-900/90 dark:via-slate-900/60 dark:to-slate-950/90 border border-slate-200 dark:border-primary/20 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-xl dark:shadow-2xl relative overflow-hidden">
                     {/* Background glow effects */}
                     <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
 
                     {/* Section Header */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-white/10 relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-slate-200 dark:border-white/10 relative z-10">
                         <div className="space-y-3">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest">
                                 <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
                             </div>
                             <div className="flex items-center gap-3">
-                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white">
+                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
                                     Ambulance Fleet & <span className="text-primary">Dispatch</span>
                                 </h3>
                             </div>
-                            <p className="text-xs sm:text-sm font-medium italic text-slate-400 max-w-xl">
+                            <p className="text-xs sm:text-sm font-medium italic text-slate-500 dark:text-slate-400 max-w-xl">
                                 Real-time readiness monitoring for Mapandan Rural Health Unit ambulances and rapid emergency response teams.
                             </p>
                         </div>
 
                         {/* Summary Badges & Link */}
                         <div className="flex flex-wrap items-center gap-3 shrink-0">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl font-bold">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                 {standbyCount} Standby
                             </span>
                             {onDutyCount > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-xl">
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-xl font-bold">
                                     <span className="w-2 h-2 rounded-full bg-blue-500" />
                                     {onDutyCount} On Duty
                                 </span>
@@ -407,7 +407,7 @@ export function EmergencyReport({
                             {fleet.map((vehicle, idx) => (
                                 <div
                                     key={idx}
-                                    className="p-5 rounded-2xl md:rounded-3xl bg-white/[0.03] border border-white/10 hover:border-primary/40 hover:bg-white/[0.06] transition-all flex flex-col justify-between space-y-4 group relative"
+                                    className="p-5 rounded-2xl md:rounded-3xl bg-slate-50/90 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:bg-slate-100/80 dark:hover:bg-white/[0.06] transition-all flex flex-col justify-between space-y-4 group relative shadow-sm"
                                 >
                                     <div className="space-y-3">
                                         {/* Unit Name & Plate */}
@@ -416,28 +416,34 @@ export function EmergencyReport({
                                                 <Car className="w-5 h-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="text-xs font-black uppercase tracking-tight text-white truncate">
+                                                <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
                                                     {vehicle.unit}
                                                 </h4>
-                                                <div className="inline-block mt-1 px-2 py-0.5 rounded-md bg-black/40 border border-white/10 font-mono text-[9px] font-bold tracking-widest text-primary">
+                                                <div className="inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 font-mono text-[9px] font-bold tracking-widest text-primary">
                                                     {vehicle.plateNumber || "NO PLATE"}
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Station */}
-                                        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 bg-black/20 p-2.5 rounded-xl border border-white/5">
+                                        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-black/20 p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
                                             <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                                             <span className="truncate">{vehicle.station || "Main Station"}</span>
                                         </div>
                                     </div>
 
                                     {/* Status Badge */}
-                                    <div className="pt-3 border-t border-white/5 flex items-center justify-between">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Status</span>
+                                    <div className="pt-3 border-t border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</span>
                                         <span className={cn(
                                             "text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded-full",
-                                            vehicle.statusColor || "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                            vehicle.statusColor 
+                                                ? vehicle.statusColor 
+                                                : vehicle.status === "STANDBY"
+                                                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                                    : vehicle.status === "ON DUTY"
+                                                        ? "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20"
+                                                        : "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
                                         )}>
                                             {vehicle.status}
                                         </span>
@@ -447,8 +453,8 @@ export function EmergencyReport({
                         </div>
 
                         {/* Direct Emergency Dispatch Contact Directory */}
-                        <div className="pt-6 border-t border-white/10 space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic flex items-center gap-2">
+                        <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 italic flex items-center gap-2">
                                 <PhoneCall className="w-3.5 h-3.5 text-primary" /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -469,27 +475,27 @@ export function EmergencyReport({
                                             key={idx}
                                             href={`tel:${cleanNumber}`}
                                             onClick={() => handleDispatchCall(hotline.number)}
-                                            className="p-4 bg-white/5 hover:bg-primary/10 border border-white/10 hover:border-primary/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline"
+                                            className="p-4 bg-slate-50/90 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-primary/10 border border-slate-200 dark:border-white/10 hover:border-primary/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline shadow-sm"
                                         >
                                             <div className={cn(
                                                 "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
                                                 isCopied 
                                                     ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
-                                                    : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-slate-950"
+                                                    : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
                                             )}>
                                                 <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <span className={cn(
                                                     "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
-                                                    isCopied ? "text-emerald-400" : "text-slate-400 group-hover:text-primary"
+                                                    isCopied ? "text-emerald-600 dark:text-emerald-500" : "text-slate-600 dark:text-slate-400 group-hover:text-primary"
                                                 )}>
                                                     {hotline.name}
                                                 </span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-black tracking-tight text-white">{hotline.number}</span>
+                                                    <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white">{hotline.number}</span>
                                                     {isCopied && (
-                                                        <span className="text-[8px] font-bold text-emerald-400 italic animate-pulse">Dialing...</span>
+                                                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-500 italic animate-pulse">Dialing...</span>
                                                     )}
                                                 </div>
                                             </div>

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getRHUPurchaseOrders } from "../../actions";
+import { useSystemTheme } from "@/components/providers/ThemeProvider";
 
 function getResidentSnapshot(tx: any): any {
     if (!tx?.residentSnapshot) return {};
@@ -85,6 +86,14 @@ function parseOrderItems(ordersText: string) {
 }
 
 export default function PurchaseOrderDetail() {
+    let themeColor = "var(--primary-theme, #2563eb)";
+    try {
+        const sys = useSystemTheme();
+        if (sys?.themeColor) themeColor = sys.themeColor;
+    } catch {
+        // fallback
+    }
+
     const router = useRouter();
     const { id } = useParams();
     const [tx, setTx] = useState<any>(null);
@@ -228,13 +237,13 @@ export default function PurchaseOrderDetail() {
     const dispensedTime = formatFullDateTime(dispenseInfo.dispensedAt || addData.dispensedAt || tx.updatedAt);
 
     return (
-        <div className="w-full min-h-screen p-2 sm:p-4 md:p-6 space-y-6 text-slate-100 animate-in fade-in duration-500">
+        <div className="w-full min-h-screen p-2 sm:p-4 md:p-6 space-y-6 text-slate-900 dark:text-slate-100 animate-in fade-in duration-500">
             {/* Top Navigation & Action Toolbar (Hidden when printing) */}
             <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
                 <Button
                     variant="outline"
                     onClick={() => router.push("/admin/rhu/purchase-orders")}
-                    className="h-10 px-4 rounded-2xl border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs transition-all flex items-center gap-2"
+                    className="h-10 px-4 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to Purchase Orders
                 </Button>
@@ -243,21 +252,21 @@ export default function PurchaseOrderDetail() {
                     <Button
                         variant="outline"
                         onClick={handlePrint}
-                        className="h-10 px-4 rounded-2xl border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-2"
+                        className="h-10 px-4 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center gap-2 shadow-sm"
                     >
-                        <Printer className="w-3.5 h-3.5 text-teal-400" /> Print PO
+                        <Printer className="w-3.5 h-3.5" style={{ color: themeColor }} /> Print PO
                     </Button>
                     <Button
                         variant="outline"
                         onClick={handleExportPDF}
-                        className="h-10 px-4 rounded-2xl border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-2"
+                        className="h-10 px-4 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center gap-2 shadow-sm"
                     >
-                        <FileText className="w-3.5 h-3.5 text-emerald-400" /> Export PDF
+                        <FileText className="w-3.5 h-3.5 text-rose-500" /> Export PDF
                     </Button>
                     <Button
                         variant="ghost"
                         onClick={() => router.push(`/admin/rhu/${tx.id}`)}
-                        className="h-10 px-4 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/60 font-medium text-xs flex items-center gap-1.5"
+                        className="h-10 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 font-medium text-xs flex items-center gap-1.5"
                     >
                         <ExternalLink className="w-3.5 h-3.5" /> Full Consultation
                     </Button>
@@ -265,35 +274,46 @@ export default function PurchaseOrderDetail() {
             </div>
 
             {/* Main PO Voucher Document Card */}
-            <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-2xl shadow-2xl p-6 sm:p-10 space-y-8 print:p-0 print:border-none print:bg-white print:text-slate-900 print:shadow-none">
+            <div className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 shadow-xl p-6 sm:p-10 space-y-8 text-slate-900 dark:text-slate-100 print:p-0 print:border-none print:bg-white print:text-slate-900 print:shadow-none">
                 
                 {/* Decorative Accent Glow */}
-                <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none print:hidden" />
-                <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none print:hidden" />
+                <div 
+                    className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-10 dark:opacity-20 print:hidden"
+                    style={{ backgroundColor: themeColor }}
+                />
 
                 {/* Header Banner */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-slate-800/80 print:border-slate-300">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-slate-800/80 print:border-slate-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500/20 to-emerald-500/20 border border-teal-500/30 flex items-center justify-center shadow-inner print:bg-slate-100 print:border-slate-400">
-                            <Pill className="w-7 h-7 text-teal-400 print:text-slate-800" />
+                        <div 
+                            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-md print:bg-slate-100 print:border-slate-400 text-white font-black"
+                            style={{
+                                backgroundColor: themeColor,
+                                boxShadow: `0 8px 20px -4px ${themeColor}40`
+                            }}
+                        >
+                            <Pill className="w-7 h-7" />
                         </div>
                         <div>
-                            <span className="text-[11px] font-extrabold uppercase tracking-widest text-teal-400 print:text-slate-600 flex items-center gap-1.5">
+                            <span 
+                                className="text-[11px] font-extrabold uppercase tracking-widest print:text-slate-600 flex items-center gap-1.5"
+                                style={{ color: themeColor }}
+                            >
                                 <Building2 className="w-3.5 h-3.5" /> Municipality of Mapandan • RHU Pharmacy
                             </span>
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white print:text-slate-900 mt-0.5">
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white print:text-slate-900 mt-0.5">
                                 Prescription Purchase Order Slip
                             </h1>
-                            <p className="text-xs text-slate-400 print:text-slate-600">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
                                 Official Dispensing Summary & Dispenser Verification Record
                             </p>
                         </div>
                     </div>
 
                     <div className="flex flex-col sm:items-end gap-2">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 print:bg-slate-100 print:border-slate-300">
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 print:text-slate-600">Ref / PO #</span>
-                            <span className="font-mono text-sm font-black text-teal-300 print:text-slate-900 tracking-wider">#{controlNo}</span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 print:bg-slate-100 print:border-slate-300">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-slate-600">Ref / PO #</span>
+                            <span className="font-mono text-sm font-black tracking-wider" style={{ color: themeColor }}>#{controlNo}</span>
                         </div>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${statusBg} print:border-slate-400 print:text-slate-800`}>
                             <CheckCircle2 className="w-3.5 h-3.5" /> {statusLabel}
