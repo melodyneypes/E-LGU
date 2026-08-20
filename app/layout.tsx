@@ -31,6 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const logo = settings.get("site_logo") || "";
 
     return {
+      metadataBase: new URL("https://emapandan.com"),
       title: `${brand1}${brand2}`,
       description: `Official digital governance portal for ${brand1}${brand2}. Access public services, news, and community updates.`,
       ...(logo ? {

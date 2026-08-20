@@ -94,6 +94,11 @@ export async function rejectResident(residentId: string, remarks: string) {
                 lastName: true,
                 email: true,
                 userId: true,
+                user: {
+                    select: {
+                        email: true
+                    }
+                }
             }   
         });
 
@@ -108,17 +113,22 @@ export async function rejectResident(residentId: string, remarks: string) {
             });
         }
 
-        // Trigger rejection email directly from server
-        if (resident.email) {
+        // Determine recipient email: Priority is resident.email; if null/empty, fallback to user.email
+        const targetEmail = (resident.email && resident.email.trim() !== "") 
+            ? resident.email.trim() 
+            : (resident.user?.email && resident.user.email.trim() !== "" ? resident.user.email.trim() : null);
+
+        // Trigger rejection email directly from server to the single resolved recipient
+        if (targetEmail) {
             const emailResult = await sendEmail({
                 type: "REJECTED",
-                to: resident.email,
+                to: targetEmail,
                 name: `${resident.firstName} ${resident.lastName}`,
                 remarks: remarks.trim(),
             });
 
             if (!emailResult.success) {
-                console.warn(`Rejection recorded, but email failed to send: ${emailResult.error}`);
+                console.warn(`Rejection recorded, but email failed to send to ${targetEmail}: ${emailResult.error}`);
             }
         }
 
@@ -157,6 +167,13 @@ export async function getResidentForReview(residentId: string) {
             where: { id: residentId },
             include: {
                 category: true,
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true
+                    }
+                }
             }
         });
         return { success: true, resident };
