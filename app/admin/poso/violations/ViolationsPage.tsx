@@ -47,7 +47,6 @@ import {
     X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 export interface TrafficViolationItem {
     id: string;
@@ -72,7 +71,6 @@ export default function ViolationsPage({
     initialActiveCount?: number;
     initialInactiveCount?: number;
 }) {
-    const router = useRouter();
     const [violations, setViolations] = useState<TrafficViolationItem[]>(initialViolations);
     const [totalCount, setTotalCount] = useState(initialTotalCount);
     const [activeCount, setActiveCount] = useState(initialActiveCount);

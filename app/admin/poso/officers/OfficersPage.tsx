@@ -20,6 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -65,7 +72,7 @@ export default function OfficersPage({
     const [totalCount, setTotalCount] = useState(initialTotalCount);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
-    const pageSize = 10;
+    const [pageSize, setPageSize] = useState<number>(10);
 
     const [isPending, setIsPending] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -79,12 +86,13 @@ export default function OfficersPage({
         setTotalCount(initialTotalCount);
     }, [initialOfficers, initialTotalCount]);
 
-    const fetchOfficers = React.useCallback(async (p: number, s: string) => {
+    const fetchOfficers = React.useCallback(async (p: number, s: string, customLimit?: number) => {
         setIsPending(true);
         try {
+            const limitToUse = customLimit !== undefined ? customLimit : pageSize;
             const res = await getPosoOfficers({
                 page: p,
-                pageSize,
+                pageSize: limitToUse,
                 search: s,
             });
 
@@ -99,20 +107,32 @@ export default function OfficersPage({
         }
     }, [pageSize]);
 
+    const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setSearch(val);
         setPage(1);
         
-        const timeout = setTimeout(() => {
-            fetchOfficers(1, val);
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        searchTimerRef.current = setTimeout(() => {
+            fetchOfficers(1, val, pageSize);
         }, 400);
-        return () => clearTimeout(timeout);
     };
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
-        fetchOfficers(newPage, search);
+        fetchOfficers(newPage, search, pageSize);
+    };
+
+    const handlePageSizeChange = (newSizeStr: string) => {
+        const newSize = parseInt(newSizeStr, 10) || 10;
+        setPageSize(newSize);
+        setPage(1);
+        fetchOfficers(1, search, newSize);
     };
 
     const [editingData, setEditingData] = useState<OfficerItem | null>(null);
@@ -399,22 +419,40 @@ export default function OfficersPage({
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-500">
-                        Showing {officers.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
-                        {Math.min(page * pageSize, totalCount)} of {totalCount} officers
-                    </p>
+                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-xs font-bold text-slate-500">
+                            Showing {officers.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+                            {Math.min(page * pageSize, totalCount)} of {totalCount} officers
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-500">Rows per page:</span>
+                            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[85px] h-8 text-xs font-bold bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
                             disabled={page === 1 || isPending}
                             onClick={() => handlePageChange(page - 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                         </Button>
-                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-lg">
+                        <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-[#1a1f2e] rounded-xl border border-slate-200 dark:border-[#2a3040]">
                             Page {page} of {totalPages}
                         </span>
                         <Button
@@ -422,7 +460,7 @@ export default function OfficersPage({
                             size="sm"
                             disabled={page >= totalPages || isPending}
                             onClick={() => handlePageChange(page + 1)}
-                            className="h-9 px-3 font-bold text-xs"
+                            className="h-9 px-3 font-bold text-xs rounded-xl"
                         >
                             Next <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
