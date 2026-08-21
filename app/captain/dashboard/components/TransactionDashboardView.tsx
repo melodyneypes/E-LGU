@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -74,6 +74,7 @@ export function TransactionDashboardView({
   rowSpan = 1,
 }: TransactionDashboardViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
@@ -137,7 +138,7 @@ export function TransactionDashboardView({
     params.set("to", newTo);
     params.set("category", newCategory);
     startTransition(() => {
-      router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -149,7 +150,7 @@ export function TransactionDashboardView({
 
     // Clear URL parameters
     startTransition(() => {
-      router.push("/admin/dashboard", { scroll: false });
+      router.push(pathname, { scroll: false });
     });
   };
 

@@ -54,7 +54,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
         try {
             const params = new URLSearchParams();
             if (barangayRef.current) params.set("barangay", barangayRef.current);
-            const res = await fetch(`/api/mayor/reports/citizen?${params.toString()}`);
+            const res = await fetch(`/api/captain/reports/citizen?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 setReports(data.recentReports || []);
@@ -66,7 +66,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
 
     // Subscribe to SSE for realtime updates with debouncing
     useEffect(() => {
-        const eventSource = new EventSource("/api/mayor/reports/citizen/stream");
+        const eventSource = new EventSource("/api/captain/reports/citizen/stream");
         let debounceTimer: NodeJS.Timeout | null = null;
 
         eventSource.onmessage = (event) => {

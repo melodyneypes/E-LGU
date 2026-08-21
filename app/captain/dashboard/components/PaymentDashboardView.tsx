@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -78,6 +78,8 @@ export function PaymentDashboardView({
 
   const totalAmount = data.reduce((acc, curr) => acc + curr.amount, 0);
 
+  const pathname = usePathname();
+
   const handleFilterChange = (newFrom: string, newTo: string, newCategory: string, newMethod: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("payFrom", newFrom);
@@ -85,7 +87,7 @@ export function PaymentDashboardView({
     params.set("payCategory", newCategory);
     params.set("payMethod", newMethod);
     startTransition(() => {
-      router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -98,7 +100,7 @@ export function PaymentDashboardView({
       params.delete("payTo");
       params.delete("payCategory");
       params.delete("payMethod");
-      router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
+      router.push(pathname, { scroll: false });
     });
   };
 

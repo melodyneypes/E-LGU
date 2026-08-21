@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 import {
   ResponsiveContainer,
@@ -68,6 +68,7 @@ export function ResidentDashboardView({
   rowSpan = 1,
 }: ResidentDashboardViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
@@ -98,7 +99,7 @@ export function ResidentDashboardView({
     else params.delete("resSector");
 
     startTransition(() => {
-      router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -106,7 +107,7 @@ export function ResidentDashboardView({
     setFromDate(initialFrom);
     setToDate(initialTo);
     startTransition(() => {
-      router.push("/admin/dashboard", { scroll: false });
+      router.push(pathname, { scroll: false });
     });
   };
 

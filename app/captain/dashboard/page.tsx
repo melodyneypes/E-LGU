@@ -206,12 +206,16 @@ export default async function CaptainDashboardPage(props: {
         prisma.transaction.findMany({
             where: {
                 createdAt: { gte: fromDate, lte: toDate },
-                ...(selectedCategory && selectedCategory !== "ALL" ? { type: { category: selectedCategory } } : {}),
+                type: {
+                    level: 0,
+                    ...(selectedCategory && selectedCategory !== "ALL" ? { category: selectedCategory } : {})
+                },
                 ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
             },
             select: { createdAt: true, status: true }
         }),
         prisma.transactionType.findMany({
+            where: { level: 0, isActive: true },
             select: { category: true },
             distinct: ["category"]
         }),
@@ -219,9 +223,14 @@ export default async function CaptainDashboardPage(props: {
             where: {
                 status: "PAID",
                 createdAt: { gte: payFromDate, lte: payToDate },
-                ...(payCategory && payCategory !== "ALL" ? { transaction: { type: { category: payCategory } } } : {}),
+                transaction: {
+                    type: {
+                        level: 0,
+                        ...(payCategory && payCategory !== "ALL" ? { category: payCategory } : {})
+                    },
+                    ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+                },
                 ...(payMethod && payMethod !== "ALL" ? { method: payMethod as any } : {}),
-                ...(brgyFilter ? { transaction: { user: { residentProfile: { barangay: brgyFilter } } } } : {})
             },
             select: {
                 amount: true,
@@ -284,10 +293,20 @@ export default async function CaptainDashboardPage(props: {
             select: { id: true, firstName: true, lastName: true, createdAt: true }
         }),
         prisma.report.findMany({
-            where: selectedBarangay ? { barangay: { name: { equals: selectedBarangay, mode: "insensitive" } } } : {},
+            where: selectedBarangay ? {
+                barangay: { name: { equals: selectedBarangay, mode: "insensitive" } }
+            } : {},
             orderBy: { createdAt: "desc" },
             take: 5,
-            select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
+            select: {
+                id: true,
+                category: true,
+                status: true,
+                description: true,
+                createdAt: true,
+                user: { select: { name: true } },
+                barangay: { select: { name: true } }
+            }
         }),
         prisma.payment.findMany({
             where: {
@@ -619,6 +638,7 @@ export default async function CaptainDashboardPage(props: {
                 resGender={resGender}
                 resCivil={resCivil}
                 resSector={resSector}
+                recentReportsDetailed={recentReports}
             />
 
             {/* Community & News Grid */}

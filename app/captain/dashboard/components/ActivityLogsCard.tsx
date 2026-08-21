@@ -71,8 +71,8 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "", max
   }, [selectedBarangay]);
 
   useEffect(() => {
-    console.log("[ActivityLogsCard] Connecting to Supabase Realtime SSE stream...");
-    const eventSource = new EventSource("/api/admin/activity-logs/stream");
+    console.log("[ActivityLogsCard] Connecting to Captain Realtime SSE stream...");
+    const eventSource = new EventSource("/api/captain/activity-logs/stream");
     let debounceTimer: NodeJS.Timeout | null = null;
 
     eventSource.onmessage = (event) => {

@@ -45,8 +45,8 @@ export function StaffActivityLogsCard({ initialLogs = [], maxItems = 7 }: StaffA
   }, []);
 
   useEffect(() => {
-    console.log("[StaffActivityLogsCard] Connecting to SSE stream...");
-    const eventSource = new EventSource("/api/admin/activity-logs/stream");
+    console.log("[StaffActivityLogsCard] Connecting to Captain Realtime SSE stream...");
+    const eventSource = new EventSource("/api/captain/activity-logs/stream");
     let debounceTimer: NodeJS.Timeout | null = null;
 
     const handleRefresh = () => {
