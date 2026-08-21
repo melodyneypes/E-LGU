@@ -63,7 +63,7 @@ export function RecentAnnouncementsCard({ announcements, rowSpan = 1 }: RecentAn
             return (
               <Link
                 key={item.id}
-                href={`/mayor/announcements?announcementId=${item.id}`}
+                href={`/captain/announcements?announcementId=${item.id}`}
                 className="flex-1 flex items-center gap-4 py-3 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-2 px-3 rounded-xl transition-colors"
               >
                 {/* Priority Badge */}
@@ -98,7 +98,7 @@ export function RecentAnnouncementsCard({ announcements, rowSpan = 1 }: RecentAn
       {/* Bottom Right View All Action Button */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
         <Link
-          href="/mayor/announcements"
+          href="/captain/announcements"
           className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <span>View All Announcements</span>
