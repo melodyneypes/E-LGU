@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
     FileText,
     CheckCircle2,
@@ -264,10 +265,10 @@ export function CaptainDirectivesClient({
                 </div>
             </div>
 
-            {/* Notifications Feed List (Clean & Focused) */}
-            <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl overflow-hidden shadow-sm divide-y divide-slate-100 dark:divide-[#2a3040]/60">
+            {/* Notifications Feed List (Individual Spaced Cards) */}
+            <div className="space-y-4">
                 {filteredDirectives.length === 0 ? (
-                    <div className="p-16 text-center text-slate-400 italic">
+                    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-16 text-center text-slate-400 italic shadow-sm">
                         <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
                         <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No notifications found</p>
                         <p className="text-xs text-slate-400 mt-1">
@@ -287,13 +288,13 @@ export function CaptainDirectivesClient({
                         });
 
                         return (
-                            <a
+                            <Link
                                 key={item.id}
                                 href={`/captain/notifications/${item.id}`}
-                                className={`p-5 sm:p-6 transition-all block cursor-pointer group ${
+                                className={`p-5 sm:p-6 transition-all duration-200 block cursor-pointer group bg-white dark:bg-[#151b2b] border rounded-3xl shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-500/40 hover:-translate-y-0.5 ${
                                     !item.isRead
-                                        ? "bg-indigo-50/40 dark:bg-indigo-500/[0.04] hover:bg-indigo-50/70 dark:hover:bg-indigo-500/[0.08]"
-                                        : "hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+                                        ? "border-indigo-200 dark:border-indigo-500/30 bg-gradient-to-r from-indigo-50/50 via-white to-white dark:from-indigo-500/[0.07] dark:via-[#151b2b] dark:to-[#151b2b]"
+                                        : "border-slate-200 dark:border-[#2a3040]"
                                 }`}
                             >
                                 <div className="flex items-start justify-between gap-4">
@@ -354,7 +355,7 @@ export function CaptainDirectivesClient({
                                         <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </div>
-                            </a>
+                            </Link>
                         );
                     })
                 )}

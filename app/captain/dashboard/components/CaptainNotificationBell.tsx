@@ -140,9 +140,7 @@ export function CaptainNotificationBell() {
     const handleSelectNotification = async (notif: NotificationItem) => {
         setIsOpen(false);
         if (!notif.isRead) {
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
-            );
+            setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
             setUnreadCount((prev) => Math.max(0, prev - 1));
             await markDirectiveAsRead(notif.id);
         }
@@ -150,11 +148,13 @@ export function CaptainNotificationBell() {
     };
 
     const handleMarkAllRead = async () => {
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setNotifications([]);
         setUnreadCount(0);
         await markAllDirectivesAsRead();
         toast.success("All directives marked as read.");
     };
+
+    const unreadNotifications = notifications.filter((n) => !n.isRead);
 
     const getPriorityBadge = (p: string) => {
         if (p === "CRITICAL") {
@@ -220,13 +220,14 @@ export function CaptainNotificationBell() {
                     </div>
 
                     <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100 dark:divide-[#2a3040]/50">
-                        {notifications.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400 italic">
-                                <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                                <p className="text-xs">No executive directives or notices yet.</p>
+                        {unreadNotifications.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400">
+                                <CheckCheck className="w-8 h-8 mx-auto mb-2 text-emerald-500 opacity-80" />
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">All caught up!</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">No unread executive notifications.</p>
                             </div>
                         ) : (
-                            notifications.map((item) => {
+                            unreadNotifications.map((item) => {
                                 const timeStr = new Date(item.createdAt).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -236,16 +237,10 @@ export function CaptainNotificationBell() {
                                     <div
                                         key={item.id}
                                         onClick={() => handleSelectNotification(item)}
-                                        className={`p-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors cursor-pointer flex gap-3 items-start ${
-                                            !item.isRead ? "bg-blue-50/40 dark:bg-blue-500/[0.04]" : ""
-                                        }`}
+                                        className="p-4 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 bg-blue-50/30 dark:bg-blue-500/[0.03] transition-colors cursor-pointer flex gap-3 items-start"
                                     >
                                         <div className="mt-0.5 shrink-0">
-                                            {!item.isRead ? (
-                                                <span className="block w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200 dark:ring-blue-900" />
-                                            ) : (
-                                                <span className="block w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
-                                            )}
+                                            <span className="block w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-200 dark:ring-rose-900 animate-pulse" />
                                         </div>
 
                                         <div className="flex-1 min-w-0 space-y-1">

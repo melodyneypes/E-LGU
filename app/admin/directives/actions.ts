@@ -109,7 +109,9 @@ export async function createExecutiveDirective(formData: FormData) {
             }
         }
         const targetBarangay = targetBarangays.length > 0 ? targetBarangays.join(", ") : null;
-        const senderName = (formData.get("senderName") as string) || "Office of the Municipal Mayor";
+        
+        // Save the authenticated user's name as senderName
+        const senderName = (user as any).name || (user as any).email || "Office of the Municipal Mayor";
 
         if (!title || !title.trim()) {
             return { success: false, error: "Directive title is required." };
@@ -126,15 +128,20 @@ export async function createExecutiveDirective(formData: FormData) {
         let attachmentSize: string | null = null;
 
         const file = formData.get("attachment") as File | null;
-        if (file && file.size > 0 && file.name !== "undefined") {
+        if (file && typeof file !== "string" && file.size > 0 && file.name && file.name !== "undefined") {
             const buffer = Buffer.from(await file.arrayBuffer());
             const sanitizedBase = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
             const fileName = `directives/${Date.now()}_${sanitizedBase}`;
             const mimeType = file.type || "application/pdf";
 
-            attachmentUrl = await uploadFile(buffer, fileName, mimeType);
-            attachmentName = file.name;
-            attachmentSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+            const uploadedUrl = await uploadFile(buffer, fileName, "system-assets", mimeType);
+            if (uploadedUrl) {
+                attachmentUrl = uploadedUrl;
+                attachmentName = file.name;
+                attachmentSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+            } else {
+                console.error("[Directive Creation] PDF uploadFile returned null for:", file.name);
+            }
         }
 
         const directive = await (prisma as any).executiveDirective.create({
@@ -162,6 +169,66 @@ export async function createExecutiveDirective(formData: FormData) {
     } catch (error: any) {
         console.error("Error creating executive directive:", error);
         return { success: false, error: error.message || "Failed to issue directive." };
+    }
+}
+
+export async function getExecutiveDirectiveById(id: string) {
+    try {
+        await verifyAdminOrMayor();
+
+        const directive = await (prisma as any).executiveDirective.findUnique({
+            where: { id },
+            include: {
+                reads: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                managedBarangay: true,
+                                role: true,
+                            }
+                        }
+                    },
+                    orderBy: { readAt: "desc" }
+                }
+            }
+        });
+
+        if (!directive) {
+            return { success: false, error: "Directive not found." };
+        }
+
+        return {
+            success: true,
+            data: {
+                id: directive.id,
+                title: directive.title,
+                content: directive.content,
+                category: directive.category,
+                priority: directive.priority,
+                targetScope: directive.targetScope,
+                targetBarangay: directive.targetBarangay,
+                targetBarangays: directive.targetBarangays || [],
+                attachmentUrl: directive.attachmentUrl,
+                attachmentName: directive.attachmentName,
+                attachmentSize: directive.attachmentSize,
+                senderName: directive.senderName || "Office of the Municipal Mayor",
+                createdAt: directive.createdAt.toISOString(),
+                reads: (directive.reads || []).map((r: any) => ({
+                    id: r.id,
+                    userId: r.userId,
+                    userName: r.user?.name || "Barangay Official",
+                    userEmail: r.user?.email,
+                    managedBarangay: r.user?.managedBarangay || "Unassigned",
+                    readAt: r.readAt.toISOString(),
+                }))
+            }
+        };
+    } catch (error: any) {
+        console.error("Error fetching directive by ID:", error);
+        return { success: false, error: error.message || "Failed to load directive details." };
     }
 }
 

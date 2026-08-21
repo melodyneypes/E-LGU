@@ -7,8 +7,6 @@ import {
     Plus,
     Search,
     Trash2,
-    Download,
-    Eye,
     Building2,
     AlertCircle,
     CheckCircle2,
@@ -16,8 +14,10 @@ import {
     Loader2,
     Paperclip,
     Send,
+    ChevronDown,
 } from "lucide-react";
 import { createExecutiveDirective, deleteExecutiveDirective } from "../actions";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 interface DirectiveItem {
@@ -72,7 +72,6 @@ export function DirectivesClient({
     const [directives, setDirectives] = useState<DirectiveItem[]>(initialData);
     const [isPending, startTransition] = useTransition();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedDirective, setSelectedDirective] = useState<DirectiveItem | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -80,6 +79,52 @@ export function DirectivesClient({
     useEffect(() => {
         setDirectives(initialData);
     }, [initialData]);
+
+    // Realtime Supabase Listener for instant Read Counts & Directive updates
+    useEffect(() => {
+        if (!supabase) return;
+
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("admin-directives-live-reads")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "DirectiveRecipientRead",
+                    },
+                    () => {
+                        startTransition(() => {
+                            router.refresh();
+                        });
+                    }
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "ExecutiveDirective",
+                    },
+                    () => {
+                        startTransition(() => {
+                            router.refresh();
+                        });
+                    }
+                )
+                .subscribe();
+        } catch (err) {
+            console.warn("[Admin Directives Realtime] Sub error:", err);
+        }
+
+        return () => {
+            if (channel && supabase) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [router]);
 
     // Form state
     const [title, setTitle] = useState("");
@@ -275,38 +320,47 @@ export function DirectivesClient({
                     </form>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <select
-                            value={initCategory}
-                            onChange={(e) => updateFilters({ category: e.target.value, page: 1 })}
-                            className="px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                        >
-                            <option value="ALL">All Categories</option>
-                            <option value="MEMORANDUM">Memorandum</option>
-                            <option value="ADVISORY">Executive Advisory</option>
-                            <option value="DIRECTIVE">Mayoral Directive</option>
-                            <option value="EXECUTIVE_ORDER">Executive Order</option>
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={initCategory}
+                                onChange={(e) => updateFilters({ category: e.target.value, page: 1 })}
+                                className="appearance-none px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer pr-9 shadow-sm"
+                            >
+                                <option value="ALL">All Categories</option>
+                                <option value="MEMORANDUM">Memorandum</option>
+                                <option value="ADVISORY">Executive Advisory</option>
+                                <option value="DIRECTIVE">Mayoral Directive</option>
+                                <option value="EXECUTIVE_ORDER">Executive Order</option>
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
 
-                        <select
-                            value={initPriority}
-                            onChange={(e) => updateFilters({ priority: e.target.value, page: 1 })}
-                            className="px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                        >
-                            <option value="ALL">All Priorities</option>
-                            <option value="NORMAL">Normal</option>
-                            <option value="URGENT">Urgent</option>
-                            <option value="CRITICAL">Critical</option>
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={initPriority}
+                                onChange={(e) => updateFilters({ priority: e.target.value, page: 1 })}
+                                className="appearance-none px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer pr-9 shadow-sm"
+                            >
+                                <option value="ALL">All Priorities</option>
+                                <option value="NORMAL">Normal Priority</option>
+                                <option value="URGENT">Urgent Priority</option>
+                                <option value="CRITICAL">Critical Priority</option>
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
 
-                        <select
-                            value={initScope}
-                            onChange={(e) => updateFilters({ targetScope: e.target.value, page: 1 })}
-                            className="px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                        >
-                            <option value="ALL">All Recipients</option>
-                            <option value="ALL_CAPTAINS">All 15 Captains</option>
-                            <option value="SPECIFIC_BARANGAY">Specific Barangay</option>
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={initScope}
+                                onChange={(e) => updateFilters({ targetScope: e.target.value, page: 1 })}
+                                className="appearance-none px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer pr-9 shadow-sm"
+                            >
+                                <option value="ALL">All Recipients</option>
+                                <option value="ALL_CAPTAINS">All 15 Captains</option>
+                                <option value="SPECIFIC_BARANGAY">Specific Barangay</option>
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -367,9 +421,13 @@ export function DirectivesClient({
                                     const readsCount = d.reads?.length || 0;
 
                                     return (
-                                        <tr key={d.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                                        <tr
+                                            key={d.id}
+                                            onClick={() => router.push(`/admin/directives/${d.id}`)}
+                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+                                        >
                                             <td className="py-4 px-6 max-w-xs">
-                                                <p className="font-bold text-slate-900 dark:text-white line-clamp-1">
+                                                <p className="font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                                     {d.title}
                                                 </p>
                                                 <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">
@@ -398,7 +456,7 @@ export function DirectivesClient({
                                                 )}
                                             </td>
 
-                                            <td className="py-4 px-6">
+                                            <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                                                 {d.attachmentUrl ? (
                                                     <a
                                                         href={d.attachmentUrl}
@@ -407,7 +465,7 @@ export function DirectivesClient({
                                                         className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                                                     >
                                                         <Paperclip className="w-3.5 h-3.5" />
-                                                        <span className="max-w-[140px] truncate">{d.attachmentName || "View PDF"}</span>
+                                                        <span className="max-w-[140px] truncate">{d.attachmentName || "View File"}</span>
                                                         <span className="text-[10px] text-slate-400">({d.attachmentSize})</span>
                                                     </a>
                                                 ) : (
@@ -422,19 +480,12 @@ export function DirectivesClient({
                                                 </span>
                                             </td>
 
-                                            <td className="py-4 px-6 text-right">
+                                            <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => setSelectedDirective(d)}
-                                                        className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                                                        title="View Directive Details"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
                                                     <button
                                                         onClick={() => handleDelete(d.id)}
                                                         disabled={deleteId === d.id}
-                                                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors disabled:opacity-40"
+                                                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors disabled:opacity-40 cursor-pointer"
                                                         title="Delete Directive"
                                                     >
                                                         {deleteId === d.id ? (
@@ -500,31 +551,37 @@ export function DirectivesClient({
                                     <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
                                         Issuance Category
                                     </label>
-                                    <select
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
-                                    >
-                                        <option value="MEMORANDUM">Memorandum (Circular)</option>
-                                        <option value="ADVISORY">Executive Advisory</option>
-                                        <option value="DIRECTIVE">Mayoral Directive</option>
-                                        <option value="EXECUTIVE_ORDER">Executive Order</option>
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={category}
+                                            onChange={(e) => setCategory(e.target.value)}
+                                            className="w-full appearance-none px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer pr-10"
+                                        >
+                                            <option value="MEMORANDUM">Memorandum (Circular)</option>
+                                            <option value="ADVISORY">Executive Advisory</option>
+                                            <option value="DIRECTIVE">Mayoral Directive</option>
+                                            <option value="EXECUTIVE_ORDER">Executive Order</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
                                 </div>
 
                                 <div>
                                     <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
                                         Priority Level
                                     </label>
-                                    <select
-                                        value={priority}
-                                        onChange={(e) => setPriority(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
-                                    >
-                                        <option value="NORMAL">Normal Priority</option>
-                                        <option value="URGENT">Urgent (High Notice)</option>
-                                        <option value="CRITICAL">Critical (Immediate Action)</option>
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={priority}
+                                            onChange={(e) => setPriority(e.target.value)}
+                                            className="w-full appearance-none px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer pr-10"
+                                        >
+                                            <option value="NORMAL">Normal Priority</option>
+                                            <option value="URGENT">Urgent (High Notice)</option>
+                                            <option value="CRITICAL">Critical (Immediate Action)</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -643,39 +700,43 @@ export function DirectivesClient({
 
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
-                                    Attach Official PDF Memorandum (Optional)
+                                    Attach Official Document or Image (PDF, PNG, JPG, WEBP)
                                 </label>
-                                <input
-                                    type="file"
-                                    accept="application/pdf"
-                                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-500/10 dark:file:text-indigo-300 hover:file:bg-indigo-100 cursor-pointer"
-                                />
-                                <p className="text-[10px] text-slate-400 mt-1 italic">
-                                    Supported: Signed PDF circulars, official memorandum files (Max 15MB)
-                                </p>
+                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                                    <input
+                                        type="file"
+                                        accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-500/10 dark:file:text-indigo-300 hover:file:bg-indigo-100 cursor-pointer"
+                                    />
+                                    <p className="text-[10px] text-slate-400 italic">
+                                        Supported: Official PDF memorandums, circular scans, infographics, and JPG/PNG/WEBP advisory images (Max 15MB)
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="px-5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                                    className="px-5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/20 disabled:opacity-40 cursor-pointer"
+                                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                                 >
                                     {isSubmitting ? (
                                         <>
-                                            <Loader2 className="w-4 h-4 animate-spin" /> Dispatching...
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Dispatching...
                                         </>
                                     ) : (
                                         <>
-                                            <Send className="w-4 h-4" /> Dispatch Directive
+                                            <Send className="w-4 h-4" />
+                                            Issue Directive
                                         </>
                                     )}
                                 </button>
@@ -684,92 +745,6 @@ export function DirectivesClient({
                     </div>
                 </div>
             )}
-
-            {/* View Detail Modal */}
-            {selectedDirective && (
-                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-                            <div>
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black uppercase">
-                                        {selectedDirective.category}
-                                    </span>
-                                    {getPriorityBadge(selectedDirective.priority)}
-                                </div>
-                                <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                                    {selectedDirective.title}
-                                </h3>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    Issued by: {selectedDirective.senderName} · {new Date(selectedDirective.createdAt).toLocaleString()}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setSelectedDirective(null)}
-                                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                                <p className="text-xs font-bold uppercase text-slate-400 mb-2">Message Body</p>
-                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-                                    {selectedDirective.content}
-                                </p>
-                            </div>
-
-                            {selectedDirective.attachmentUrl && (
-                                <div className="p-4 rounded-2xl border border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/10 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
-                                            <Paperclip className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-900 dark:text-white">
-                                                {selectedDirective.attachmentName || "Official PDF Memo"}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400">
-                                                PDF Document · {selectedDirective.attachmentSize}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <a
-                                        href={selectedDirective.attachmentUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs inline-flex items-center gap-1.5"
-                                    >
-                                        <Download className="w-3.5 h-3.5" /> View PDF
-                                    </a>
-                                </div>
-                            )}
-
-                            <div>
-                                <p className="text-xs font-bold uppercase text-slate-400 mb-2">
-                                    Captains Read Receipts ({selectedDirective.reads?.length || 0})
-                                </p>
-                                {selectedDirective.reads && selectedDirective.reads.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                        {selectedDirective.reads.map((r, i) => (
-                                            <span
-                                                key={i}
-                                                className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1 border border-emerald-500/20"
-                                            >
-                                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                                {r.user?.name || "Captain"} (Brgy. {r.user?.managedBarangay || "N/A"})
-                                            </span>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-slate-400 italic">No captains have marked this as read yet.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
-}
+};

@@ -19,20 +19,9 @@ export async function getCaptainNotifications() {
         const managedBarangay = user.managedBarangay || "Apaya";
 
         // Query directives that are either broadcast to ALL_CAPTAINS or specifically targeted to this Captain's barangay
-        const directives = await (prisma as any).executiveDirective.findMany({
+        const allDirectives = await (prisma as any).executiveDirective.findMany({
             where: {
                 isPublished: true,
-                OR: [
-                    { targetScope: "ALL_CAPTAINS" },
-                    {
-                        targetScope: "SPECIFIC_BARANGAY",
-                        targetBarangay: { equals: managedBarangay, mode: "insensitive" }
-                    },
-                    {
-                        targetScope: "SPECIFIC_BARANGAY",
-                        targetBarangays: { has: managedBarangay }
-                    }
-                ]
             },
             include: {
                 reads: {
@@ -40,7 +29,30 @@ export async function getCaptainNotifications() {
                 }
             },
             orderBy: { createdAt: "desc" },
-            take: 20
+            take: 30
+        });
+
+        // Robust multi-tenant barangay matching (Case-Insensitive for string, array, or substring list)
+        const managedClean = (managedBarangay || "").trim().toLowerCase();
+        const directives = allDirectives.filter((d: any) => {
+            if (d.targetScope === "ALL_CAPTAINS") return true;
+
+            // Check targetBarangay string (e.g. "Apaya" or "Apaya, Coral, Aserda")
+            if (d.targetBarangay) {
+                const parts = d.targetBarangay.split(",").map((p: string) => p.trim().toLowerCase());
+                if (parts.includes(managedClean)) return true;
+                if (d.targetBarangay.toLowerCase().includes(managedClean)) return true;
+            }
+
+            // Check targetBarangays string array
+            if (Array.isArray(d.targetBarangays) && d.targetBarangays.length > 0) {
+                const hasMatch = d.targetBarangays.some(
+                    (b: string) => b.trim().toLowerCase() === managedClean
+                );
+                if (hasMatch) return true;
+            }
+
+            return false;
         });
 
         const notifications = directives.map((d: any) => ({

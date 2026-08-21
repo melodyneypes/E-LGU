@@ -145,11 +145,11 @@ export default async function CaptainSingleDirectivePage(props: {
                         </div>
                     </div>
 
-                    {/* Official PDF Attachment Card (Clean & Responsive) */}
+                    {/* Official Attachment Card (PDF or Image) */}
                     {directive.attachmentUrl && (
-                        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
                             <h2 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                <Paperclip className="w-3.5 h-3.5" /> Official Signed PDF Memorandum Document
+                                <Paperclip className="w-3.5 h-3.5" /> Official Attached Document / Notice
                             </h2>
 
                             <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -159,10 +159,10 @@ export default async function CaptainSingleDirectivePage(props: {
                                     </div>
                                     <div>
                                         <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
-                                            {directive.attachmentName || "Signed_Memorandum_Circular.pdf"}
+                                            {directive.attachmentName || "Official_Attachment_File"}
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                            Official PDF Document · {directive.attachmentSize || "Official Attachment"}
+                                            Official Attached File · {directive.attachmentSize || "Official Attachment"}
                                         </p>
                                     </div>
                                 </div>
@@ -173,9 +173,21 @@ export default async function CaptainSingleDirectivePage(props: {
                                     rel="noreferrer"
                                     className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/20 inline-flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                                 >
-                                    <Download className="w-4 h-4" /> Download / Open PDF Document
+                                    <Download className="w-4 h-4" /> Download / Open Attachment
                                 </a>
                             </div>
+
+                            {/* If attachment is an image (jpg, png, webp), render image preview */}
+                            {/\.(jpe?g|png|webp)(\?.*)?$/i.test(directive.attachmentUrl || "") && (
+                                <div className="rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden bg-slate-100 dark:bg-slate-950 p-2 shadow-inner">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={directive.attachmentUrl}
+                                        alt={directive.attachmentName || "Executive Directive Attachment"}
+                                        className="w-full max-h-[550px] object-contain rounded-2xl mx-auto"
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
