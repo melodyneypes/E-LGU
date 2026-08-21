@@ -148,7 +148,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                                             const params = new URLSearchParams();
                                             if (barangay) params.set("barangay", barangay);
                                             params.set("reportId", report.id);
-                                            window.location.href = `/mayor/reports?${params.toString()}`;
+                                            window.location.href = `/captain/reports?${params.toString()}`;
                                         }}
                                         className="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
                                         title="Click to view details in Reports management"
@@ -213,7 +213,7 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
             {/* View All Action Button at the bottom */}
             <div className="pt-4 border-t border-slate-100 dark:border-[#2a3040]/50 flex justify-end">
                 <Link
-                    href="/mayor/reports"
+                    href="/captain/reports"
                     prefetch={false}
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all active:scale-95 hover:opacity-90"
                     style={{
