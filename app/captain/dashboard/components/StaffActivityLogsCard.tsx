@@ -31,7 +31,7 @@ export function StaffActivityLogsCard({ initialLogs = [], maxItems = 7 }: StaffA
 
   const refreshLogs = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/staff-activity-logs", { cache: "no-store" });
+      const res = await fetch("/api/captain/staff-activity-logs", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.logs) {
@@ -115,41 +115,43 @@ export function StaffActivityLogsCard({ initialLogs = [], maxItems = 7 }: StaffA
               </div>
 
               {/* Content */}
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <span className="font-black text-slate-900 dark:text-white text-sm truncate">{log.userName}</span>
-                    {log.department && (
-                      <span className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase tracking-wider border border-indigo-500/20">
-                        {log.department}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic shrink-0">
-                    {(() => {
-                      const rawStr = String(log.createdAt || "").trim();
-                      const createdDate = new Date(rawStr);
-                      if (isNaN(createdDate.getTime())) return log.time;
-                      let dateMs = createdDate.getTime();
-                      const nowMs = Date.now();
-                      if (dateMs > nowMs + 60000) {
-                        dateMs -= 8 * 60 * 60 * 1000;
-                      }
-                      const sec = Math.floor((nowMs - dateMs) / 1000);
-                      if (sec < 60) return "Just now";
-                      const min = Math.floor(sec / 60);
-                      if (min < 60) return `${min} min${min > 1 ? "s" : ""} ago`;
-                      const hr = Math.floor(min / 60);
-                      if (hr < 24) return `${hr} hr${hr > 1 ? "s" : ""} ago`;
-                      const day = Math.floor(hr / 24);
-                      return `${day} day${day > 1 ? "s" : ""} ago`;
-                    })()}
-                  </span>
+              <div className="flex-1 min-w-0 space-y-0.5">
+                {/* Line 1: Staff Name & Badge */}
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="font-black text-slate-900 dark:text-white text-xs truncate">{log.userName}</span>
+                  {log.department && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[9px] uppercase tracking-wider border border-indigo-500/20">
+                      {log.department}
+                    </span>
+                  )}
                 </div>
 
-                <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-snug break-words">
-                  <span className="font-black text-indigo-500 dark:text-indigo-400 mr-1 uppercase italic">{log.action}</span>
-                  {log.details}
+                {/* Line 2: Action & Details */}
+                <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-tight truncate">
+                  <span className="font-black text-indigo-500 dark:text-indigo-400 mr-1.5 uppercase italic">{log.action}</span>
+                  <span className="font-medium text-slate-600 dark:text-slate-300">{log.details}</span>
+                </p>
+
+                {/* Line 3: Timestamp below */}
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic">
+                  {(() => {
+                    const rawStr = String(log.createdAt || "").trim();
+                    const createdDate = new Date(rawStr);
+                    if (isNaN(createdDate.getTime())) return log.time;
+                    let dateMs = createdDate.getTime();
+                    const nowMs = Date.now();
+                    if (dateMs > nowMs + 60000) {
+                      dateMs -= 8 * 60 * 60 * 1000;
+                    }
+                    const sec = Math.floor((nowMs - dateMs) / 1000);
+                    if (sec < 60) return "Just now";
+                    const min = Math.floor(sec / 60);
+                    if (min < 60) return `${min} min${min > 1 ? "s" : ""} ago`;
+                    const hr = Math.floor(min / 60);
+                    if (hr < 24) return `${hr} hr${hr > 1 ? "s" : ""} ago`;
+                    const day = Math.floor(hr / 24);
+                    return `${day} day${day > 1 ? "s" : ""} ago`;
+                  })()}
                 </p>
               </div>
             </div>

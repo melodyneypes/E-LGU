@@ -165,6 +165,10 @@ export default async function CaptainDashboardPage(props: {
         }
     }
 
+    const brgyFilter = selectedBarangay
+        ? { equals: selectedBarangay, mode: "insensitive" as const }
+        : undefined;
+
     const [
         settingsList,
         residentsCount,
@@ -192,18 +196,18 @@ export default async function CaptainDashboardPage(props: {
             where: {
                 registrationStatus: "APPROVED",
                 category: { name: "Resident" },
-                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
+                ...(brgyFilter ? { barangay: brgyFilter } : {})
             }
         }),
-        prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
-        prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
-        prisma.project.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
+        prisma.job.count({ where: brgyFilter ? { barangay: brgyFilter } : {} }),
+        prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: { equals: selectedBarangay, mode: "insensitive" } } } : {}) } }),
+        prisma.project.count({ where: brgyFilter ? { barangay: brgyFilter } : {} }),
         prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
         prisma.transaction.findMany({
             where: {
                 createdAt: { gte: fromDate, lte: toDate },
                 ...(selectedCategory && selectedCategory !== "ALL" ? { type: { category: selectedCategory } } : {}),
-                ...(selectedBarangay ? { user: { residentProfile: { barangay: selectedBarangay } } } : {})
+                ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
             },
             select: { createdAt: true, status: true }
         }),
@@ -217,7 +221,7 @@ export default async function CaptainDashboardPage(props: {
                 createdAt: { gte: payFromDate, lte: payToDate },
                 ...(payCategory && payCategory !== "ALL" ? { transaction: { type: { category: payCategory } } } : {}),
                 ...(payMethod && payMethod !== "ALL" ? { method: payMethod as any } : {}),
-                ...(selectedBarangay ? { transaction: { user: { residentProfile: { barangay: selectedBarangay } } } } : {})
+                ...(brgyFilter ? { transaction: { user: { residentProfile: { barangay: brgyFilter } } } } : {})
             },
             select: {
                 amount: true,
@@ -230,7 +234,7 @@ export default async function CaptainDashboardPage(props: {
                 registrationStatus: "APPROVED",
                 category: { name: "Resident" },
                 createdAt: { gte: resFromDate, lte: resToDate },
-                ...(selectedBarangay ? { barangay: selectedBarangay } : {}),
+                ...(brgyFilter ? { barangay: brgyFilter } : {}),
                 ...(resGender && resGender !== "ALL" ? { gender: resGender } : {}),
                 ...(resCivil && resCivil !== "ALL" ? { civilStatus: resCivil } : {}),
                 ...(resSector === "SENIOR" ? { isSenior: true } : {}),
@@ -241,49 +245,58 @@ export default async function CaptainDashboardPage(props: {
             select: { createdAt: true }
         }),
         prisma.announcement.findMany({
-            where: selectedBarangay ? { barangay: selectedBarangay } : {},
+            where: brgyFilter ? { barangay: brgyFilter } : {},
             orderBy: { createdAt: "desc" },
             take: 5,
             select: { id: true, title: true, priority: true, category: true, isActive: true, createdAt: true }
         }),
         prisma.news.findMany({
-            where: selectedBarangay ? { barangay: selectedBarangay } : {},
+            where: brgyFilter ? { barangay: brgyFilter } : {},
             orderBy: { publishDate: "desc" },
             take: 5,
             select: { id: true, title: true, author: true, category: true, imageUrl: true, isPublished: true, publishDate: true }
         }),
         prisma.event.findMany({
-            where: { endDate: { gte: new Date() }, isPublished: true, ...(selectedBarangay ? { barangay: selectedBarangay } : {}) },
+            where: { endDate: { gte: new Date() }, isPublished: true, ...(brgyFilter ? { barangay: brgyFilter } : {}) },
             orderBy: { startDate: "asc" },
             take: 5,
             select: { id: true, title: true, category: true, startDate: true, endDate: true, venueName: true, isPublished: true }
         }),
         prisma.event.findMany({
-            where: { endDate: { lt: new Date() }, isPublished: true, ...(selectedBarangay ? { barangay: selectedBarangay } : {}) },
+            where: { endDate: { lt: new Date() }, isPublished: true, ...(brgyFilter ? { barangay: brgyFilter } : {}) },
             orderBy: { endDate: "desc" },
             take: 5,
             select: { id: true, title: true, category: true, startDate: true, endDate: true, venueName: true, isPublished: true }
         }),
         prisma.project.findMany({
-            where: { isPublished: true, ...(selectedBarangay ? { barangay: selectedBarangay } : {}) },
+            where: { isPublished: true, ...(brgyFilter ? { barangay: brgyFilter } : {}) },
             orderBy: [{ status: "asc" }, { progress: "desc" }],
             take: 5,
             select: { id: true, title: true, category: true, status: true, location: true, progress: true }
         }),
         prisma.resident.findMany({
-            where: { registrationStatus: "APPROVED", ...(selectedBarangay ? { barangay: selectedBarangay } : {}) },
+            where: {
+                registrationStatus: "APPROVED",
+                ...(brgyFilter ? { barangay: brgyFilter } : {})
+            },
             orderBy: { createdAt: "desc" },
             take: 5,
             select: { id: true, firstName: true, lastName: true, createdAt: true }
         }),
         prisma.report.findMany({
-            where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {},
+            where: selectedBarangay ? { barangay: { name: { equals: selectedBarangay, mode: "insensitive" } } } : {},
             orderBy: { createdAt: "desc" },
             take: 5,
             select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
         }),
         prisma.payment.findMany({
-            where: { status: "PAID", ...(selectedBarangay ? { transaction: { user: { residentProfile: { barangay: selectedBarangay } } } } : {}) },
+            where: {
+                status: "PAID",
+                transaction: {
+                    type: { level: 0 },
+                    ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+                }
+            },
             orderBy: { createdAt: "desc" },
             take: 5,
             select: {
@@ -292,7 +305,10 @@ export default async function CaptainDashboardPage(props: {
             }
         }),
         prisma.transaction.findMany({
-            where: selectedBarangay ? { user: { residentProfile: { barangay: selectedBarangay } } } : {},
+            where: {
+                type: { level: 0 },
+                ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+            },
             orderBy: { createdAt: "desc" },
             take: 5,
             select: {
@@ -300,14 +316,29 @@ export default async function CaptainDashboardPage(props: {
                 user: { select: { name: true } }, type: { select: { name: true } }
             }
         }),
+        // 18. Barangay Staff Operations Audit (Resident reviews + Barangay transactions)
         Promise.all([
-            prisma.ticketHeader.findMany({
+            prisma.resident.findMany({
+                where: {
+                    ...(brgyFilter ? { barangay: brgyFilter } : {}),
+                    OR: [
+                        { reviewedBy: { not: null } },
+                        { receivedBy: { not: null } },
+                    ],
+                },
                 orderBy: { createdAt: "desc" },
                 take: 5,
-                select: { id: true, ticketNo: true, officerName: true, badgeNo: true, violatorName: true, totalAmount: true, status: true, createdAt: true }
+                select: {
+                    id: true, firstName: true, lastName: true, registrationStatus: true,
+                    reviewedBy: true, reviewedAt: true, receivedBy: true, officialPosition: true, dateReceived: true, createdAt: true
+                }
             }),
             prisma.transaction.findMany({
-                where: { processedBy: { not: null } },
+                where: {
+                    processedBy: { not: null },
+                    type: { level: 0 },
+                    ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+                },
                 orderBy: { updatedAt: "desc" },
                 take: 5,
                 select: {
@@ -462,35 +493,51 @@ export default async function CaptainDashboardPage(props: {
     }).slice(0, 7);
 
     // Batch-resolve processedBy CUIDs -> real staff names
-    const [staffTickets, staffTx] = (staffLogsRaw || [[], []]) as [any[], any[]];
-    const pbCuidIds = [...new Set(
-        staffTx.map((tx: any) => tx.processedBy as string | null)
-            .filter((v): v is string => !!v && (v.length > 20 || /^c[a-z0-9]{20,}$/i.test(v)))
-    )];
+    const [reviewedResidents, staffTx] = staffLogsRaw as [any[], any[]];
+    const pbCuidIds: string[] = [
+        ...new Set([
+            ...reviewedResidents.map((r: any) => r.reviewedBy).filter((v: any): v is string => !!v && v.length > 20),
+            ...staffTx.map((tx: any) => tx.processedBy).filter((v: any): v is string => !!v && v.length > 20),
+        ]),
+    ];
+
     const pbStaffUsers = pbCuidIds.length > 0
         ? await prisma.user.findMany({
             where: { id: { in: pbCuidIds } },
-            select: { id: true, name: true, department: true }
+            select: { id: true, name: true, role: true, department: true }
         })
         : [];
-    const pbStaffMap = new Map<string, { name: string; department?: string | null }>(
-        pbStaffUsers.map((u) => [u.id, { name: u.name ?? "Municipal Staff", department: u.department }])
+    const pbStaffMap = new Map<string, { name: string; role?: string | null; department?: string | null }>(
+        pbStaffUsers.map((u) => [u.id, { name: u.name ?? "Barangay Official", role: u.role, department: u.department }])
     );
 
     const staffLogs = [
-        ...staffTickets.map((t: any) => {
-            const name = (t.officerName && t.officerName.length <= 20 && !/^c[a-z0-9]{20,}$/i.test(t.officerName))
-                ? t.officerName : "POSO Officer";
+        ...reviewedResidents.map((res: any) => {
+            const staffIdentifier = res.reviewedBy || res.receivedBy || "Barangay Admin";
+            const staff = pbStaffMap.has(staffIdentifier)
+                ? pbStaffMap.get(staffIdentifier)!
+                : {
+                    name: staffIdentifier,
+                    role: res.officialPosition || (res.reviewedBy ? "Barangay Reviewer" : "Barangay Intake Officer"),
+                    department: `Brgy. ${selectedBarangay}`,
+                };
+
+            const isApproved = res.registrationStatus === "APPROVED";
+            const date = res.reviewedAt || res.dateReceived || res.createdAt;
+            const actionText = res.reviewedBy
+                ? (isApproved ? "approved" : "reviewed")
+                : "received & encoded";
+
             return {
-                id: `ticket-${t.id}`,
-                userName: name,
-                userRole: "POSO_OFFICER",
-                department: "POSO",
-                action: "issued citation ticket",
-                module: "POSO Citation",
-                details: `POSO Traffic Violation Citation for ${(t.violatorName || "Violator").split(" ")[0]}`,
-                time: formatTimeAgo(t.createdAt),
-                createdAt: t.createdAt.toISOString()
+                id: `resident-review-${res.id}`,
+                userName: staff.name,
+                userRole: staff.role || "Barangay Staff",
+                department: `Brgy. ${selectedBarangay}`,
+                action: actionText,
+                module: "Resident Verification",
+                details: `${res.firstName} ${res.lastName}`,
+                time: formatTimeAgo(date),
+                createdAt: date ? new Date(date).toISOString() : new Date().toISOString()
             };
         }),
         ...staffTx.map((tx: any) => {
@@ -510,33 +557,22 @@ export default async function CaptainDashboardPage(props: {
             }
 
             const dept = staffDept || addData.servingDepartment || tx.type?.category || "LGU Staff";
-            const st = String(tx.status);
-            const isApprovedOrPaid = ["APPROVED", "RELEASED", "PAID", "DELIVERED"].includes(st);
-            const isRejected = st === "REJECTED";
             const requesterName = (tx.user?.name || addData.violatorName || "Resident").split(" ")[0];
+            const docName = tx.type?.name || "Service Document";
 
             return {
                 id: `tx-${tx.id}`,
                 userName: staffName,
-                userRole: "STAFF",
-                department: String(dept).toUpperCase(),
-                action: isApprovedOrPaid ? "processed payment / approved" : isRejected ? "rejected request for" : "updated status for",
-                module: tx.type?.name || "Service Request",
-                details: `${tx.type?.name || "Document"} for ${requesterName}`,
+                userRole: "Staff",
+                department: dept,
+                action: `processed ${String(tx.status).toLowerCase()}`,
+                module: "Citizen Requests",
+                details: `${docName} for ${requesterName} marked as ${tx.status}`,
                 time: formatTimeAgo(tx.updatedAt),
-                createdAt: tx.updatedAt.toISOString()
+                createdAt: tx.updatedAt ? new Date(tx.updatedAt).toISOString() : new Date().toISOString()
             };
         })
-    ].sort((a, b) => {
-        const getMs = (input: any) => {
-            const dateObj = new Date(input);
-            let ms = dateObj.getTime();
-            if (isNaN(ms)) return 0;
-            if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
-            return ms;
-        };
-        return getMs(b.createdAt) - getMs(a.createdAt);
-    });
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const settingsMap = settingsList as Map<string, string>;
     const themeColor = settingsMap.get("theme_color") || "#2563eb";
