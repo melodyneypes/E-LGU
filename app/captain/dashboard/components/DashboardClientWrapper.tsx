@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import DashboardLoading from "../loading";
 import { LayoutGrid, Shield, BarChart3, Users2 } from "lucide-react";
 import { CaptainDashboardHeader } from "../CaptainDashboardHeader";
 
@@ -42,18 +40,24 @@ export function DashboardClientWrapper({
   managedBarangay,
   children,
 }: DashboardClientWrapperProps) {
-  const router = useRouter();
 
-  // Analytics Cards Visibility State
-  const [analyticsVisibilityMap, setAnalyticsVisibilityMap] = useState<Record<string, boolean>>({
+  // Unified Card Visibility State for All Sections
+  const [cardVisibility, setCardVisibility] = useState<Record<string, boolean>>({
+    // Top metric cards
+    residents: true,
+    jobs: true,
+    reports: true,
+    projects: true,
+    // Strategic ops cards
+    admin_services: true,
+    resident_activity: true,
+    staff_audit: true,
+    // Analytics cards
     daily_requests: true,
     collections_ledger: true,
     resident_analytics: true,
     citizen_reports: true,
-  });
-
-  // Community Cards Visibility State
-  const [communityVisibilityMap, setCommunityVisibilityMap] = useState<Record<string, boolean>>({
+    // Community cards
     recent_announcements: true,
     latest_news: true,
     upcoming_events: true,
@@ -70,13 +74,9 @@ export function DashboardClientWrapper({
 
   useEffect(() => {
     try {
-      const savedAnalytics = localStorage.getItem("captain_analytics_visibility_v1");
-      if (savedAnalytics) {
-        setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedAnalytics) }));
-      }
-      const savedCommunity = localStorage.getItem("captain_community_visibility_v1");
-      if (savedCommunity) {
-        setCommunityVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedCommunity) }));
+      const savedVisibility = localStorage.getItem("captain_dashboard_card_visibility_v1");
+      if (savedVisibility) {
+        setCardVisibility((prev) => ({ ...prev, ...JSON.parse(savedVisibility) }));
       }
       const savedSectionOrder = localStorage.getItem("captain_dashboard_section_order_v1");
       if (savedSectionOrder) {
@@ -97,38 +97,19 @@ export function DashboardClientWrapper({
     } catch {}
   };
 
-  const toggleAnalyticsVisibility = (key: string) => {
-    setAnalyticsVisibilityMap((prev) => {
-      const updated = { ...prev, [key]: !prev[key] };
+  const handleToggleVisibility = (key: string) => {
+    setCardVisibility((prev) => {
+      const updated = { ...prev, [key]: prev[key] === false ? true : false };
       try {
-        localStorage.setItem("captain_analytics_visibility_v1", JSON.stringify(updated));
+        localStorage.setItem("captain_dashboard_card_visibility_v1", JSON.stringify(updated));
       } catch {}
       return updated;
     });
-  };
-
-  const toggleCommunityVisibility = (key: string) => {
-    setCommunityVisibilityMap((prev) => {
-      const updated = { ...prev, [key]: !prev[key] };
-      try {
-        localStorage.setItem("captain_community_visibility_v1", JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-  };
-
-  const handleToggleCommunityOrAnalytics = (key: string) => {
-    if (["recent_announcements", "latest_news", "upcoming_events", "lgu_projects"].includes(key)) {
-      toggleCommunityVisibility(key);
-    } else {
-      toggleAnalyticsVisibility(key);
-    }
   };
 
   const handleResetAll = () => {
     try {
-      localStorage.removeItem("captain_analytics_visibility_v1");
-      localStorage.removeItem("captain_community_visibility_v1");
+      localStorage.removeItem("captain_dashboard_card_visibility_v1");
       localStorage.removeItem("captain_dashboard_section_order_v1");
       localStorage.removeItem("captain_metric_cards_individual_grid_v5");
       localStorage.removeItem("captain_metric_cards_order_v5");
@@ -140,11 +121,6 @@ export function DashboardClientWrapper({
       localStorage.removeItem("captain_community_cards_order_v5");
       window.location.reload();
     } catch {}
-  };
-
-  const mergedVisibilityMap: Record<string, boolean> = {
-    ...analyticsVisibilityMap,
-    ...communityVisibilityMap,
   };
 
   const childrenArray = React.Children.toArray(children);
@@ -162,8 +138,8 @@ export function DashboardClientWrapper({
         session={session}
         themeColor={themeColor}
         managedBarangay={managedBarangay}
-        cardVisibility={mergedVisibilityMap}
-        onToggleVisibility={handleToggleCommunityOrAnalytics}
+        cardVisibility={cardVisibility}
+        onToggleVisibility={handleToggleVisibility}
         onResetAll={handleResetAll}
         sectionOrder={sectionOrder}
         onReorderSections={handleReorderSections}
@@ -195,11 +171,13 @@ export function DashboardClientWrapper({
                   </div>
                 )}
                 {React.cloneElement(child as React.ReactElement<any>, {
-                  analyticsVisibilityMap,
-                  onToggleAnalyticsVisibility: handleToggleCommunityOrAnalytics,
-                  communityVisibilityMap,
-                  onToggleCommunityVisibility: toggleCommunityVisibility,
-                  cardVisibility: mergedVisibilityMap,
+                  cardVisibility,
+                  visibilityMap: cardVisibility,
+                  analyticsVisibilityMap: cardVisibility,
+                  communityVisibilityMap: cardVisibility,
+                  onToggleVisibility: handleToggleVisibility,
+                  onToggleAnalyticsVisibility: handleToggleVisibility,
+                  onToggleCommunityVisibility: handleToggleVisibility,
                   sectionOrder,
                   onReorderSections: handleReorderSections,
                 })}

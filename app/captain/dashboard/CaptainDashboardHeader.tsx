@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { ShieldCheck, ChevronDown, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
-import { BarangaySwitcher } from "@/app/admin/components/BarangaySwitcher";
 import { MayorDashboardSettingsSidebar } from "./components/MayorDashboardSettingsSidebar";
 
 interface CaptainDashboardHeaderProps {

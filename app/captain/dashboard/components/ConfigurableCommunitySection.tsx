@@ -38,8 +38,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     lgu_projects: { defaultCols: 6, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "mayor_community_cards_individual_grid_v5";
-const ORDER_STORAGE_KEY = "mayor_community_cards_order_v5";
+const STORAGE_KEY = "captain_community_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "captain_community_cards_order_v5";
 
 export function ConfigurableCommunitySection({
     announcements,

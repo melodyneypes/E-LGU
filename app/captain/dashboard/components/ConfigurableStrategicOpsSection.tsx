@@ -21,6 +21,7 @@ interface ConfigurableStrategicOpsSectionProps {
     activityLogs: any[];
     staffLogs: any[];
     selectedBarangay?: string;
+    cardVisibility?: Record<string, boolean>;
     visibilityMap?: Record<string, boolean>;
     onToggleVisibility?: (key: string) => void;
 }
@@ -33,15 +34,16 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     staff_audit: { defaultCols: 4, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "mayor_strategic_ops_individual_grid_v5";
-const ORDER_STORAGE_KEY = "mayor_strategic_ops_order_v5";
+const STORAGE_KEY = "captain_strategic_ops_individual_grid_v5";
+const ORDER_STORAGE_KEY = "captain_strategic_ops_order_v5";
 
 export function ConfigurableStrategicOpsSection({
     themeColor,
     activityLogs,
     staffLogs,
     selectedBarangay,
-    visibilityMap,
+    cardVisibility = {},
+    visibilityMap = {},
 }: ConfigurableStrategicOpsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -381,7 +383,7 @@ export function ConfigurableStrategicOpsSection({
         <div className="grid grid-cols-12 gap-6 items-stretch transition-all duration-500 ease-in-out">
             {cardOrder.map((key) => {
                 const cfg = configs[key] || { id: key, colSpan: 4, rowSpan: 1, hidden: false };
-                if (cfg.hidden) return null;
+                if (cfg.hidden || cardVisibility[key] === false || visibilityMap[key] === false) return null;
 
                 const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 lg:col-span-4";
                 const isBeingDragged = draggedKey === key;

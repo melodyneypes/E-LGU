@@ -18,6 +18,7 @@ interface ConfigurableMetricCardsSectionProps {
     jobsCount: number;
     reportsCount: number;
     projectsCount: number;
+    cardVisibility?: Record<string, boolean>;
 }
 
 const DEFAULT_KEYS = ["residents", "jobs", "reports", "projects"];
@@ -29,14 +30,15 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     projects: { defaultCols: 3, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "mayor_metric_cards_individual_grid_v5";
-const ORDER_STORAGE_KEY = "mayor_metric_cards_order_v5";
+const STORAGE_KEY = "captain_metric_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "captain_metric_cards_order_v5";
 
 export function ConfigurableMetricCardsSection({
     residentsCount,
     jobsCount,
     reportsCount,
     projectsCount,
+    cardVisibility = {},
 }: ConfigurableMetricCardsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -327,7 +329,7 @@ export function ConfigurableMetricCardsSection({
             <div className="grid grid-cols-12 gap-6 items-start transition-all duration-500 ease-in-out">
                 {cardOrder.map((key) => {
                     const cfg = configs[key] || { id: key, colSpan: 3, rowSpan: 1, hidden: false };
-                    if (cfg.hidden) return null;
+                    if (cfg.hidden || cardVisibility[key] === false) return null;
 
                     const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-3";
                     const isBeingDragged = draggedKey === key;

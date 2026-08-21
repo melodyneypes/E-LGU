@@ -175,7 +175,6 @@ export default async function CaptainDashboardPage(props: {
         jobsCount,
         reportsCount,
         projectsCount,
-        activeBarangays,
         transactionsList,
         categoriesList,
         paymentsList,
@@ -202,7 +201,6 @@ export default async function CaptainDashboardPage(props: {
         prisma.job.count({ where: brgyFilter ? { barangay: brgyFilter } : {} }),
         prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: { equals: selectedBarangay, mode: "insensitive" } } } : {}) } }),
         prisma.project.count({ where: brgyFilter ? { barangay: brgyFilter } : {} }),
-        prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
         prisma.transaction.findMany({
             where: {
                 createdAt: { gte: fromDate, lte: toDate },

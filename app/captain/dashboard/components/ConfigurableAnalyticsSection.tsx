@@ -60,8 +60,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     citizen_reports: { defaultCols: 12, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "mayor_analytics_cards_individual_grid_v5";
-const ORDER_STORAGE_KEY = "mayor_analytics_cards_order_v5";
+const STORAGE_KEY = "captain_analytics_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "captain_analytics_cards_order_v5";
 
 export function ConfigurableAnalyticsSection({
     chartData,
