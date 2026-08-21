@@ -76,6 +76,9 @@ export default async function CaptainPaymentsPage(props: {
                 session={session}
                 themeColor={themeColor}
                 managedBarangay={managedBarangay}
+                title="Barangay Collections & Revenue Ledger"
+                subtitle={`Barangay ${managedBarangay} Level 0 Document & Certificate Official Payments`}
+                iconName="credit-card"
             />
 
             <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-6 animate-in fade-in duration-500">

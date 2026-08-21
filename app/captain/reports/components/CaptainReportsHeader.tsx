@@ -3,23 +3,42 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Flag, ChevronDown, Moon, Sun, LogOut, ArrowLeft, Building2 } from "lucide-react";
+import { Flag, FileText, CreditCard, Megaphone, Newspaper, Calendar, FolderKanban, ChevronDown, Moon, Sun, LogOut, ArrowLeft, Building2, LucideIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface CaptainReportsHeaderProps {
     session: any;
     themeColor: string;
     managedBarangay?: string;
+    title?: string;
+    subtitle?: string;
+    iconName?: string;
 }
+
+const iconMap: Record<string, LucideIcon> = {
+    flag: Flag,
+    "file-text": FileText,
+    "credit-card": CreditCard,
+    megaphone: Megaphone,
+    newspaper: Newspaper,
+    calendar: Calendar,
+    "folder-kanban": FolderKanban,
+};
 
 export function CaptainReportsHeader({
     session,
     themeColor,
     managedBarangay = "Apaya",
+    title = "Citizen Incident Reports",
+    subtitle,
+    iconName = "flag",
 }: CaptainReportsHeaderProps) {
     const { theme, setTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const IconComponent = iconMap[iconName] || Flag;
+    const defaultSubtitle = `Barangay ${managedBarangay} Public Safety & Incident Resolution`;
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -59,14 +78,14 @@ export function CaptainReportsHeader({
                             className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0"
                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}44` }}
                         >
-                            <Flag className="w-5 h-5" />
+                            <IconComponent className="w-5 h-5" />
                         </div>
                         <div>
                             <h1 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
-                                Citizen Incident Reports
+                                {title}
                             </h1>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                Barangay {managedBarangay} Public Safety & Incident Resolution
+                                {subtitle || defaultSubtitle}
                             </p>
                         </div>
                     </div>

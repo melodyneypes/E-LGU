@@ -78,6 +78,9 @@ export default async function CaptainDailyRequestsReportPage(props: {
                 session={session}
                 themeColor={themeColor}
                 managedBarangay={managedBarangay}
+                title="Daily Service Requests Audit"
+                subtitle={`Barangay ${managedBarangay} Level 0 Document & Certificate Requests`}
+                iconName="file-text"
             />
 
             <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-6 animate-in fade-in duration-500">

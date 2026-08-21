@@ -4,18 +4,17 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSystemSetting } from "@/lib/settings";
 import { CaptainReportsHeader } from "@/app/captain/reports/components/CaptainReportsHeader";
-import { MayorAnnouncementsProvider } from "@/app/mayor/announcements/components/MayorAnnouncementsProvider";
-import { MayorAnnouncementCards } from "@/app/mayor/announcements/components/MayorAnnouncementCards";
-import { MayorAnnouncementFilters } from "@/app/mayor/announcements/components/MayorAnnouncementFilters";
-import { MayorAnnouncementTable } from "@/app/mayor/announcements/components/MayorAnnouncementTable";
+import { MayorEventsProvider } from "@/app/mayor/events/components/MayorEventsProvider";
+import { MayorEventsCards } from "@/app/mayor/events/components/MayorEventsCards";
+import { MayorEventsFilters } from "@/app/mayor/events/components/MayorEventsFilters";
+import { MayorEventsTable } from "@/app/mayor/events/components/MayorEventsTable";
 
 export const dynamic = "force-dynamic";
 
-export default async function CaptainAnnouncementsPage(props: {
+export default async function CaptainEventsPage(props: {
     searchParams: Promise<{
         search?: string;
         category?: string;
-        priority?: string;
         page?: string;
         pageSize?: string;
     }>;
@@ -35,73 +34,52 @@ export default async function CaptainAnnouncementsPage(props: {
     const pageSize = Math.max(1, Math.min(50, parseInt(params.pageSize || "10", 10)));
     const search = params.search || "";
     const category = params.category || "All";
-    const priority = params.priority || "All";
 
-    // Strict Barangay Scope (Case-Insensitive) or Town-wide announcement matching
+    // Strict Barangay Scope with case-insensitivity
     const where: any = {
         barangay: { equals: managedBarangay, mode: "insensitive" }
     };
 
-    // Category filter
     if (category && category !== "All") {
         where.category = category;
     }
 
-    // Priority filter
-    if (priority && priority !== "All") {
-        where.priority = priority;
-    }
-
-    // Search filter across title & content
     if (search.trim()) {
         where.AND = [
             {
                 OR: [
                     { title: { contains: search.trim(), mode: "insensitive" } },
-                    { content: { contains: search.trim(), mode: "insensitive" } },
+                    { description: { contains: search.trim(), mode: "insensitive" } },
+                    { venueName: { contains: search.trim(), mode: "insensitive" } },
                 ]
             }
         ];
     }
 
-    const announcementDelegate = (prisma as any).announcement;
-
-    if (!announcementDelegate) {
-        return (
-            <div className="p-8">
-                <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-red-600">
-                    Database model &apos;announcement&apos; not found.
-                </div>
-            </div>
-        );
-    }
-
-    // Execute paginated findMany and total count concurrently
-    const [announcements, totalCount] = await Promise.all([
-        announcementDelegate.findMany({
+    const [eventItems, totalCount] = await Promise.all([
+        prisma.event.findMany({
             where,
             select: {
                 id: true,
                 title: true,
-                content: true,
-                imageUrl: true,
-                priority: true,
+                description: true,
                 category: true,
-                isPinned: true,
-                isActive: true,
+                startDate: true,
+                endDate: true,
+                venueName: true,
+                address: true,
+                contactNumber: true,
+                imageUrl: true,
                 barangay: true,
-                expiryDate: true,
-                eventSchedule: true,
-                authorEmail: true,
-                authorId: true,
+                isPublished: true,
                 createdAt: true,
                 updatedAt: true,
             },
-            orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+            orderBy: { startDate: "asc" },
             skip: (page - 1) * pageSize,
             take: pageSize,
         }),
-        announcementDelegate.count({ where }),
+        prisma.event.count({ where }),
     ]);
 
     const themeColor = await getSystemSetting("theme_color", "#2563eb");
@@ -112,40 +90,39 @@ export default async function CaptainAnnouncementsPage(props: {
                 session={session}
                 themeColor={themeColor}
                 managedBarangay={managedBarangay}
-                title="Barangay Bulletins & Notices"
-                subtitle={`Barangay ${managedBarangay} Official Announcements & Public Advisories`}
-                iconName="megaphone"
+                title="Barangay Events & Calendar"
+                subtitle={`Barangay ${managedBarangay} Official Events, Celebrations & Programs`}
+                iconName="calendar"
             />
             <div className="max-w-7xl mx-auto p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight">
-                            Barangay Bulletins & Notices
+                            Barangay Events & Activities
                         </h1>
                         <p className="text-xs font-semibold text-slate-400 italic">
-                            Barangay {managedBarangay} Official Announcements & Public Advisories
+                            Barangay {managedBarangay} Public Activities, Fiestas & Town Meetings
                         </p>
                     </div>
                 </div>
 
-                <MayorAnnouncementsProvider
-                    initialData={announcements}
+                <MayorEventsProvider
+                    initialData={eventItems}
                     totalCount={totalCount}
                     page={page}
                     pageSize={pageSize}
                     search={search}
                     category={category}
-                    priority={priority}
                     currentBarangay={managedBarangay}
                     activeBarangays={[managedBarangay]}
                 >
-                    <MayorAnnouncementCards />
+                    <MayorEventsCards />
 
                     <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden">
-                        <MayorAnnouncementFilters />
-                        <MayorAnnouncementTable />
+                        <MayorEventsFilters />
+                        <MayorEventsTable />
                     </div>
-                </MayorAnnouncementsProvider>
+                </MayorEventsProvider>
             </div>
         </div>
     );

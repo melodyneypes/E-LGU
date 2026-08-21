@@ -129,7 +129,7 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
                 {upcoming.map((item) => (
                   <Link
                     key={item.id}
-                    href={`/mayor/events?eventId=${item.id}`}
+                    href={`/captain/events?eventId=${item.id}`}
                     className="flex items-center gap-4 py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
                   >
                     <div className="shrink-0 w-2 h-2 rounded-full bg-blue-400" />
@@ -171,7 +171,7 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
                 {pastEvents.map((item) => (
                   <Link
                     key={item.id}
-                    href={`/mayor/events?eventId=${item.id}`}
+                    href={`/captain/events?eventId=${item.id}`}
                     className="flex items-center gap-4 py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
                   >
                     <div className="shrink-0 w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
@@ -207,7 +207,7 @@ export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: Upcoming
       {/* Bottom Right View All Action Button */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
         <Link
-          href="/mayor/events"
+          href="/captain/events"
           className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <span>View All Events</span>

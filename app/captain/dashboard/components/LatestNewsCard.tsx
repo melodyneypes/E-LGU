@@ -58,7 +58,7 @@ export function LatestNewsCard({ news, rowSpan = 1 }: LatestNewsCardProps) {
             return (
               <Link
                 key={item.id}
-                href={`/mayor/news?newsId=${item.id}`}
+                href={`/captain/news?newsId=${item.id}`}
                 className="flex-1 flex items-center gap-4 py-3 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-2 px-3 rounded-xl transition-colors"
               >
                 {/* Thumbnail / Placeholder */}
@@ -101,7 +101,7 @@ export function LatestNewsCard({ news, rowSpan = 1 }: LatestNewsCardProps) {
       {/* Bottom Right View All Action Button */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
         <Link
-          href="/mayor/news"
+          href="/captain/news"
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <span>View All News</span>

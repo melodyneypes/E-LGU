@@ -66,7 +66,7 @@ export function LGUProjectsCard({ projects, rowSpan = 1 }: LGUProjectsCardProps)
             return (
               <Link
                 key={item.id}
-                href={`/mayor/projects?projectId=${item.id}`}
+                href={`/captain/projects?projectId=${item.id}`}
                 className="block py-4 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors border-b border-slate-100 dark:border-[#2a3040]/50 last:border-0"
               >
                 {/* Title + Status */}
@@ -115,7 +115,7 @@ export function LGUProjectsCard({ projects, rowSpan = 1 }: LGUProjectsCardProps)
       {/* Bottom Right View All Action Button */}
       <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
         <Link
-          href="/mayor/projects"
+          href="/captain/projects"
           className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <span>View All Projects</span>
