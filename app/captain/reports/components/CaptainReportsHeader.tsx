@@ -6,6 +6,8 @@ import { signOut } from "next-auth/react";
 import { Flag, FileText, CreditCard, Megaphone, Newspaper, Calendar, FolderKanban, ChevronDown, Moon, Sun, LogOut, ArrowLeft, Building2, LucideIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 
+import { CaptainNotificationBell } from "@/app/captain/dashboard/components/CaptainNotificationBell";
+
 interface CaptainReportsHeaderProps {
     session: any;
     themeColor: string;
@@ -91,8 +93,11 @@ export function CaptainReportsHeader({
                     </div>
                 </div>
 
-                {/* Right: Barangay Badge & User Menu */}
-                <div className="flex items-center gap-4">
+                {/* Right: Barangay Badge, Notifications & User Menu */}
+                <div className="flex items-center gap-3">
+                    {/* Notification Bell */}
+                    <CaptainNotificationBell />
+
                     {/* Fixed Barangay Jurisdiction Badge for Captain */}
                     <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
                         <Building2 className="w-4 h-4 shrink-0" />

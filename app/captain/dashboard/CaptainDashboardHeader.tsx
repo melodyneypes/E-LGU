@@ -6,6 +6,8 @@ import { ShieldCheck, ChevronDown, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { MayorDashboardSettingsSidebar } from "./components/MayorDashboardSettingsSidebar";
 
+import { CaptainNotificationBell } from "./components/CaptainNotificationBell";
+
 interface CaptainDashboardHeaderProps {
     session: any;
     themeColor: string;
@@ -73,7 +75,10 @@ export function CaptainDashboardHeader({
                 </div>
 
                 {/* Right: Controls & User Menu */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    {/* Notification Bell for Executive Directives & Circulars */}
+                    <CaptainNotificationBell />
+
                     {/* Customize Dashboard Sheet Sidebar Button */}
                     <MayorDashboardSettingsSidebar
                         cardVisibility={cardVisibility}
