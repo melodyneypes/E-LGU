@@ -52,23 +52,34 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const selectedBarangay = searchParams.get("barangay") || "";
 
-        const whereBarangayFilter = selectedBarangay ? { barangay: selectedBarangay } : {};
+        const brgyFilter = selectedBarangay
+            ? { equals: selectedBarangay, mode: "insensitive" as const }
+            : undefined;
 
         const [recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
-            (prisma as any).user.findMany({
-                where: { role: "USER", ...whereBarangayFilter },
+            (prisma as any).resident.findMany({
+                where: {
+                    registrationStatus: "APPROVED",
+                    ...(brgyFilter ? { barangay: brgyFilter } : {})
+                },
                 orderBy: { createdAt: "desc" },
                 take: 5,
-                select: { id: true, name: true, createdAt: true }
+                select: { id: true, firstName: true, lastName: true, createdAt: true }
             }),
             (prisma as any).report.findMany({
-                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
+                where: selectedBarangay ? { barangay: { name: { equals: selectedBarangay, mode: "insensitive" } } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
             }),
             (prisma as any).payment.findMany({
-                where: selectedBarangay ? { transaction: { user: { barangay: selectedBarangay } } } : {},
+                where: {
+                    status: "PAID",
+                    transaction: {
+                        type: { level: 0 },
+                        ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+                    }
+                },
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: {
@@ -86,7 +97,10 @@ export async function GET(req: NextRequest) {
                 }
             }),
             (prisma as any).transaction.findMany({
-                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
+                where: {
+                    type: { level: 0 },
+                    ...(brgyFilter ? { user: { residentProfile: { barangay: brgyFilter } } } : {})
+                },
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: {
@@ -104,7 +118,7 @@ export async function GET(req: NextRequest) {
             ...recentResidents.map((r: any) => ({
                 id: r.id,
                 type: "resident" as const,
-                user: r.name || "A Resident",
+                user: `${r.firstName} ${r.lastName}`,
                 action: "registered as a new",
                 details: "Resident Profile",
                 time: formatTimeAgo(r.createdAt),
