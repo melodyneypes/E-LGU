@@ -72,13 +72,20 @@ export function DashboardClientWrapper({
     "community",
   ]);
 
+  const userIdentifier = managedBarangay
+    ? `captain_${managedBarangay.toLowerCase().replace(/\s+/g, "_")}`
+    : `captain_${(session?.user as any)?.id || "default"}`;
+
+  const VISIBILITY_KEY = `${userIdentifier}_dashboard_card_visibility_v1`;
+  const SECTION_ORDER_KEY = `${userIdentifier}_dashboard_section_order_v1`;
+
   useEffect(() => {
     try {
-      const savedVisibility = localStorage.getItem("captain_dashboard_card_visibility_v1");
+      const savedVisibility = localStorage.getItem(VISIBILITY_KEY);
       if (savedVisibility) {
         setCardVisibility((prev) => ({ ...prev, ...JSON.parse(savedVisibility) }));
       }
-      const savedSectionOrder = localStorage.getItem("captain_dashboard_section_order_v1");
+      const savedSectionOrder = localStorage.getItem(SECTION_ORDER_KEY);
       if (savedSectionOrder) {
         const parsed: string[] = JSON.parse(savedSectionOrder);
         if (Array.isArray(parsed) && parsed.length === 4) {
@@ -88,12 +95,12 @@ export function DashboardClientWrapper({
     } catch {
       // Ignore errors
     }
-  }, []);
+  }, [VISIBILITY_KEY, SECTION_ORDER_KEY]);
 
   const handleReorderSections = (newOrder: string[]) => {
     setSectionOrder(newOrder);
     try {
-      localStorage.setItem("captain_dashboard_section_order_v1", JSON.stringify(newOrder));
+      localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(newOrder));
     } catch {}
   };
 
@@ -101,7 +108,7 @@ export function DashboardClientWrapper({
     setCardVisibility((prev) => {
       const updated = { ...prev, [key]: prev[key] === false ? true : false };
       try {
-        localStorage.setItem("captain_dashboard_card_visibility_v1", JSON.stringify(updated));
+        localStorage.setItem(VISIBILITY_KEY, JSON.stringify(updated));
       } catch {}
       return updated;
     });
@@ -109,16 +116,16 @@ export function DashboardClientWrapper({
 
   const handleResetAll = () => {
     try {
-      localStorage.removeItem("captain_dashboard_card_visibility_v1");
-      localStorage.removeItem("captain_dashboard_section_order_v1");
-      localStorage.removeItem("captain_metric_cards_individual_grid_v5");
-      localStorage.removeItem("captain_metric_cards_order_v5");
-      localStorage.removeItem("captain_strategic_ops_individual_grid_v5");
-      localStorage.removeItem("captain_strategic_ops_order_v5");
-      localStorage.removeItem("captain_analytics_cards_individual_grid_v5");
-      localStorage.removeItem("captain_analytics_cards_order_v5");
-      localStorage.removeItem("captain_community_cards_individual_grid_v5");
-      localStorage.removeItem("captain_community_cards_order_v5");
+      localStorage.removeItem(VISIBILITY_KEY);
+      localStorage.removeItem(SECTION_ORDER_KEY);
+      localStorage.removeItem(`${userIdentifier}_metric_cards_individual_grid_v5`);
+      localStorage.removeItem(`${userIdentifier}_metric_cards_order_v5`);
+      localStorage.removeItem(`${userIdentifier}_strategic_ops_individual_grid_v5`);
+      localStorage.removeItem(`${userIdentifier}_strategic_ops_order_v5`);
+      localStorage.removeItem(`${userIdentifier}_analytics_cards_individual_grid_v5`);
+      localStorage.removeItem(`${userIdentifier}_analytics_cards_order_v5`);
+      localStorage.removeItem(`${userIdentifier}_community_cards_individual_grid_v5`);
+      localStorage.removeItem(`${userIdentifier}_community_cards_order_v5`);
       window.location.reload();
     } catch {}
   };

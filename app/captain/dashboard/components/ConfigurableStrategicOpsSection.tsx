@@ -300,11 +300,11 @@ export function ConfigurableStrategicOpsSection({
                             </div>
                             <div className="overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between">
                                 {[
-                                    { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "View", path: "/mayor/kainan" },
-                                    { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/mayor/tuluyan" },
-                                    { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/mayor/tourism" },
-                                    { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/mayor/reports" },
-                                    { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/mayor/hotlines" }
+                                    { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "View", path: "/captain/kainan" },
+                                    { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/captain/tuluyan" },
+                                    { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/captain/tourism" },
+                                    { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "View", path: "/captain/reports" },
+                                    { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "View", path: "/captain/hotlines" }
                                 ].map((item, idx) => (
                                     <Link
                                         key={idx}
