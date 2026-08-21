@@ -4,7 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function getMayorReports(params?: {
+export async function getCaptainReports(params?: {
     page?: number;
     limit?: number;
     search?: string;
@@ -16,32 +16,36 @@ export async function getMayorReports(params?: {
         const limit = params?.limit ?? 10;
         const search = params?.search ?? "";
         const status = params?.status ?? "All";
-        const barangay = params?.barangay ?? "All";
 
         const session = await getServerSession(authOptions);
-        const userRole = (session?.user as any)?.role;
-        if (!session?.user?.id || (userRole !== "MAYOR" && userRole !== "ADMIN")) {
+        const user = session?.user as any;
+        const userRole = user?.role;
+        if (!session?.user?.id || (userRole !== "BARANGAY_CAPTAIN" && userRole !== "ADMIN")) {
             return { success: false, error: "Unauthorized" };
         }
 
-        const whereClause: any = {};
+        const managedBarangay = user?.managedBarangay || params?.barangay || "Apaya";
 
-        if (barangay && barangay !== "All") {
-            whereClause.barangay = {
-                name: { equals: barangay, mode: "insensitive" }
-            };
-        }
+        const whereClause: any = {
+            barangay: {
+                name: { equals: managedBarangay, mode: "insensitive" }
+            }
+        };
 
         if (status !== "All") {
             whereClause.status = status;
         }
 
         if (search) {
-            whereClause.OR = [
-                { category: { contains: search, mode: "insensitive" } },
-                { description: { contains: search, mode: "insensitive" } },
-                { user: { name: { contains: search, mode: "insensitive" } } },
-                { user: { email: { contains: search, mode: "insensitive" } } }
+            whereClause.AND = [
+                {
+                    OR: [
+                        { category: { contains: search, mode: "insensitive" } },
+                        { description: { contains: search, mode: "insensitive" } },
+                        { user: { name: { contains: search, mode: "insensitive" } } },
+                        { user: { email: { contains: search, mode: "insensitive" } } }
+                    ]
+                }
             ];
         }
 
@@ -79,6 +83,11 @@ export async function getMayorReports(params?: {
             (prisma as any).report.count({ where: whereClause }),
             (prisma as any).report.groupBy({
                 by: ["status"],
+                where: {
+                    barangay: {
+                        name: { equals: managedBarangay, mode: "insensitive" }
+                    }
+                },
                 _count: { status: true }
             })
         ]);
@@ -109,16 +118,17 @@ export async function getMayorReports(params?: {
             stats
         };
     } catch (error) {
-        console.error("Error in getMayorReports:", error);
+        console.error("Error in getCaptainReports:", error);
         return { success: false, error: "Failed to fetch reports." };
     }
 }
 
-export async function getMayorReportById(id: string) {
+export async function getCaptainReportById(id: string) {
     try {
         const session = await getServerSession(authOptions);
-        const userRole = (session?.user as any)?.role;
-        if (!session?.user?.id || (userRole !== "MAYOR" && userRole !== "ADMIN")) {
+        const user = session?.user as any;
+        const userRole = user?.role;
+        if (!session?.user?.id || (userRole !== "BARANGAY_CAPTAIN" && userRole !== "ADMIN")) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -156,8 +166,7 @@ export async function getMayorReportById(id: string) {
 
         return { success: true, report };
     } catch (error) {
-        console.error("Error in getMayorReportById:", error);
+        console.error("Error in getCaptainReportById:", error);
         return { success: false, error: "Failed to fetch report details." };
     }
 }
-

@@ -3,14 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import { redirect } from "next/navigation";
-import { MayorTourismHeader } from "./components/MayorTourismHeader";
-import { MayorTourismTable } from "./components/MayorTourismTable";
+import { CaptainTourismHeader } from "./components/CaptainTourismHeader";
+import { MayorTourismTable } from "@/app/mayor/tourism/components/MayorTourismTable";
 
 export const dynamic = "force-dynamic";
 
-export default async function MayorTourismPage(props: {
+export default async function CaptainTourismPage(props: {
     searchParams: Promise<{
-        barangay?: string;
         search?: string;
         status?: string;
         page?: string;
@@ -24,23 +23,21 @@ export default async function MayorTourismPage(props: {
         redirect("/auth/login");
     }
 
-    if (user?.role !== "MAYOR" && user?.role !== "ADMIN") {
+    if (user?.role !== "BARANGAY_CAPTAIN" && user?.role !== "ADMIN") {
         redirect("/auth/login");
     }
 
+    const managedBarangay = user?.managedBarangay || "Apaya";
     const params = await props.searchParams;
-    const selectedBarangay = params.barangay || "";
     const search = params.search || "";
     const status = params.status || "All";
 
     const page = Math.max(1, parseInt(params.page || "1", 10));
     const pageSize = Math.max(1, Math.min(50, parseInt(params.pageSize || "10", 10)));
 
-    const whereClause: any = {};
-
-    if (selectedBarangay && selectedBarangay !== "All") {
-        whereClause.barangay = { equals: selectedBarangay, mode: "insensitive" };
-    }
+    const whereClause: any = {
+        barangay: { equals: managedBarangay, mode: "insensitive" }
+    };
 
     if (status !== "All") {
         if (status === "Published" || status === "Active") whereClause.isPublished = true;
@@ -48,17 +45,20 @@ export default async function MayorTourismPage(props: {
     }
 
     if (search.trim()) {
-        whereClause.OR = [
-            { name: { contains: search.trim(), mode: "insensitive" } },
-            { address: { contains: search.trim(), mode: "insensitive" } },
-            { category: { contains: search.trim(), mode: "insensitive" } },
-            { description: { contains: search.trim(), mode: "insensitive" } },
+        whereClause.AND = [
+            {
+                OR: [
+                    { name: { contains: search.trim(), mode: "insensitive" } },
+                    { address: { contains: search.trim(), mode: "insensitive" } },
+                    { category: { contains: search.trim(), mode: "insensitive" } },
+                    { description: { contains: search.trim(), mode: "insensitive" } },
+                ]
+            }
         ];
     }
 
-    const [settingsList, activeBarangays, tourismData, totalCount] = await Promise.all([
+    const [settingsList, tourismData, totalCount] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
-        prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
         prisma.tourismSpot.findMany({
             where: whereClause,
             select: {
@@ -94,13 +94,14 @@ export default async function MayorTourismPage(props: {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0c111d] text-slate-900 dark:text-white transition-colors duration-300">
-            <MayorTourismHeader
+            {/* Header Navbar */}
+            <CaptainTourismHeader
                 session={session}
                 themeColor={themeColor}
-                activeBarangays={activeBarangays.map((b: { name: string }) => b.name)}
-                selectedBarangay={selectedBarangay}
+                managedBarangay={managedBarangay}
             />
 
+            {/* Page Main Content */}
             <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-6 animate-in fade-in duration-500">
                 <MayorTourismTable
                     tourismData={formattedData}
@@ -108,7 +109,7 @@ export default async function MayorTourismPage(props: {
                     currentPage={page}
                     pageSize={pageSize}
                     searchQuery={search}
-                    selectedBarangay={selectedBarangay}
+                    selectedBarangay={managedBarangay}
                     activeStatus={status}
                     themeColor={themeColor}
                 />
