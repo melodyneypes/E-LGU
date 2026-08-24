@@ -8,7 +8,8 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale,
+    FolderArchive
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -553,6 +554,8 @@ export function Sidebar({
         { href: "/admin/bplo/announcements", label: "BPLO Announcements", icon: Megaphone, category: "BPLO Department" },
         { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
+        { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
+        { href: "/admin/engineer/archive", label: "Permit Archives", icon: FolderArchive, category: "Engineering" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
@@ -700,7 +703,8 @@ export function Sidebar({
             }
         } else if (role === "ENGINEER") {
             menuItems = [
-                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }
+                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
+                { href: "/admin/engineer/archive", label: "Permit Archives", icon: FolderArchive, category: "Engineering" }
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [
