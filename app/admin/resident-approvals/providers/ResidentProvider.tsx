@@ -112,6 +112,12 @@ export type Resident = {
     officialPosition?: string | null;
     receivedBy?: string | null;
     dateReceived?: Date | null;
+    userId?: string | null;
+    user?: {
+        id?: string;
+        email?: string | null;
+        name?: string | null;
+    } | null;
 
     household?: {
         members: Resident[];

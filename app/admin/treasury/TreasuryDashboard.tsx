@@ -608,24 +608,24 @@ export default function TreasuryDashboard() {
                                                         <TableCell>
                                                             <div className="flex flex-col">
                                                                 <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                                     {(() => {
-                                                                         const rs = getResidentSnapshot(tx);
-                                                                         const add = (tx.additionalData as any) || {};
-                                                                         const fullName = rs.fullName || rs.violatorName || rs.applicantName || rs.name || add.violatorName || add.fullName || add.applicantName;
-                                                                         if (fullName && String(fullName).trim()) {
-                                                                             return String(fullName).trim();
-                                                                         }
-                                                                         if (rs.firstName || rs.lastName) {
-                                                                             return `${rs.firstName || ''} ${rs.lastName || ''}`.trim();
-                                                                         }
-                                                                         return tx.user?.name || "WALK-IN / CITATION CITIZEN";
-                                                                     })()}
-                                                                 </span>
-                                                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
-                                                                     {tx.type?.requiresBusinessName
-                                                                         ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
-                                                                         : tx.userId ? "Registered Resident" : "Walk-in / Citation Record"}
-                                                                 </span>
+                                                                    {(() => {
+                                                                        const rs = getResidentSnapshot(tx);
+                                                                        const add = (tx.additionalData as any) || {};
+                                                                        const fullName = rs.fullName || rs.violatorName || rs.applicantName || rs.name || add.violatorName || add.fullName || add.applicantName;
+                                                                        if (fullName && String(fullName).trim()) {
+                                                                            return String(fullName).trim();
+                                                                        }
+                                                                        if (rs.firstName || rs.lastName) {
+                                                                            return `${rs.firstName || ''} ${rs.lastName || ''}`.trim();
+                                                                        }
+                                                                        return tx.user?.name || "WALK-IN / CITATION CITIZEN";
+                                                                    })()}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
+                                                                    {tx.type?.requiresBusinessName
+                                                                        ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
+                                                                        : tx.userId ? "Registered Resident" : "Walk-in / Citation Record"}
+                                                                </span>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>

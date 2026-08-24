@@ -45,13 +45,15 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
             return;
         }
 
+        const role = (formData.get("role") as string) === "BARANGAY_CAPTAIN" ? "Barangay Captain" : "Barangay Admin";
+
         try {
             const result = await createBarangayAdmin(formData);
             if (result.success) {
-                toast.success(`Admin for ${managedBarangay} created successfully!`);
+                toast.success(`${role} for ${managedBarangay} created successfully!`);
                 onClose();
             } else {
-                toast.error(result.error || "Failed to create admin.");
+                toast.error(result.error || "Failed to create account.");
             }
         } catch {
             toast.error("An unexpected error occurred.");
@@ -137,6 +139,23 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
                                 </button>
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium">The admin can change this password after their first login.</p>
+                        </div>
+
+                        {/* Role Selector */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                                Official Role <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="role"
+                                required
+                                defaultValue="BARANGAY_ADMIN"
+                                className="w-full h-12 rounded-xl border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1a1f2e] text-slate-900 dark:text-white font-bold px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                            >
+                                <option value="BARANGAY_ADMIN">Barangay Admin</option>
+                                <option value="BARANGAY_CAPTAIN">Barangay Captain</option>
+                            </select>
+                            <p className="text-[10px] text-slate-400 font-medium">Choose whether this user will act as Barangay Admin or Barangay Captain.</p>
                         </div>
 
                         {/* Barangay Selector */}
