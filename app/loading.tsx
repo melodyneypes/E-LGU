@@ -3,18 +3,27 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 import LoadingClientBody from "@/app/LoadingClientBody";
 
 export default async function Loading() {
-    // 1. Fetch live branding from Admin Settings
-    const settings = await getMultipleSystemSettings([
-        "site_logo",
-        "brand_word_1",
-        "brand_word_2",
-        "theme_color"
-    ]);
+    let logoUrl = "";
+    let brand1 = "MAPANDAN";
+    let brand2 = "PORTAL";
+    let themeColor = "#2563eb";
 
-    const logoUrl = settings.get("site_logo") || "";
-    const brand1 = settings.get("brand_word_1") || "MAPANDAN";
-    const brand2 = settings.get("brand_word_2") || "PORTAL";
-    const themeColor = settings.get("theme_color") || "#2563eb";
+    try {
+        // 1. Fetch live branding from Admin Settings
+        const settings = await getMultipleSystemSettings([
+            "site_logo",
+            "brand_word_1",
+            "brand_word_2",
+            "theme_color"
+        ]);
+
+        logoUrl = settings.get("site_logo") || "";
+        brand1 = settings.get("brand_word_1") || "MAPANDAN";
+        brand2 = settings.get("brand_word_2") || "PORTAL";
+        themeColor = settings.get("theme_color") || "#2563eb";
+    } catch {
+        // Safe fallback if database is briefly unreachable during transient reconnects
+    }
 
     // 2. Delegate to Client Component for animations and forced duration
     return (

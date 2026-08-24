@@ -548,7 +548,7 @@ export function Navbar({
                                             <link.icon
                                                 className={cn(
                                                     "w-3.5 h-3.5 transition-all duration-200",
-                                                    isActive ? "opacity-100 scale-110 text-rose-500" : "opacity-70 text-rose-500 group-hover/emergency:opacity-100"
+                                                    isActive ? "opacity-100 scale-110 text-rose-500" : "opacity-70 group-hover/emergency:text-rose-500 group-hover/emergency:opacity-100"
                                                 )}
                                             />
                                             <span>

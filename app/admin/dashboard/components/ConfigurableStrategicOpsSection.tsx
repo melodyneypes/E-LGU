@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Utensils, Hotel, Image, Flag, Phone, GripVertical } from "lucide-react";
+import { Utensils, Hotel, Image, Flag, Phone, GripVertical, HeartPulse } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
 import { ActivityLogsCard } from "./ActivityLogsCard";
 import { StaffActivityLogsCard } from "./StaffActivityLogsCard";
@@ -298,6 +298,7 @@ export function ConfigurableStrategicOpsSection({
                             </div>
                             <div className="overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between">
                                 {[
+                                    { title: "Rural Health Unit", desc: "Consultations, health centers & pharmacies.", icon: HeartPulse, color: "rose", action: "View", path: "/admin/rhu" },
                                     { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "View", path: "/admin/dining" },
                                     { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "View", path: "/admin/accommodation" },
                                     { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "View", path: "/admin/tourism" },
