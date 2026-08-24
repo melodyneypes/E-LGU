@@ -86,6 +86,8 @@ export default function EngineerArchiveClient({
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [sourceType, setSourceType] = useState<"ALL" | "PHYSICAL" | "ONLINE">("ALL");
     const [barangayFilter, setBarangayFilter] = useState("ALL");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
@@ -131,7 +133,7 @@ export default function EngineerArchiveClient({
         const timer = setTimeout(() => {
             setDebouncedSearch(search);
             setCurrentPage(1);
-        }, 300);
+        }, 400);
         return () => clearTimeout(timer);
     }, [search]);
 
@@ -145,6 +147,8 @@ export default function EngineerArchiveClient({
                 search: debouncedSearch,
                 sourceType,
                 barangay: barangayFilter,
+                startDate,
+                endDate,
             });
 
             if (res.success && res.data) {
@@ -160,7 +164,7 @@ export default function EngineerArchiveClient({
         } finally {
             setLoading(false);
         }
-    }, [currentPage, itemsPerPage, debouncedSearch, sourceType, barangayFilter]);
+    }, [currentPage, itemsPerPage, debouncedSearch, sourceType, barangayFilter, startDate, endDate]);
 
     useEffect(() => {
         fetchArchives();
@@ -646,10 +650,10 @@ export default function EngineerArchiveClient({
             {/* Filter and Live Search Section */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 {/* Search Bar */}
-                <div className="sm:col-span-6 relative">
+                <div className="sm:col-span-4 relative">
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <Input
-                        placeholder="Search by Permit #, Applicant Name, or Project..."
+                        placeholder="Search by Permit #, Applicant, or Project..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="pl-10 h-11 rounded-2xl bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-sm font-medium"
@@ -657,7 +661,7 @@ export default function EngineerArchiveClient({
                 </div>
 
                 {/* Source Filter */}
-                <div className="sm:col-span-3">
+                <div className="sm:col-span-2">
                     <Select
                         value={sourceType}
                         onValueChange={(val: any) => {
@@ -669,15 +673,15 @@ export default function EngineerArchiveClient({
                             <SelectValue placeholder="All Sources" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="ALL">All Sources (Unified)</SelectItem>
-                            <SelectItem value="PHYSICAL">Physical Paper Archives</SelectItem>
-                            <SelectItem value="ONLINE">Online Portal Applications</SelectItem>
+                            <SelectItem value="ALL">All Sources</SelectItem>
+                            <SelectItem value="PHYSICAL">Paper Archives</SelectItem>
+                            <SelectItem value="ONLINE">Online Portal</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
 
                 {/* Barangay Filter */}
-                <div className="sm:col-span-3">
+                <div className="sm:col-span-2">
                     <Select
                         value={barangayFilter}
                         onValueChange={(val: string) => {
@@ -697,6 +701,53 @@ export default function EngineerArchiveClient({
                             ))}
                         </SelectContent>
                     </Select>
+                </div>
+
+                {/* Date Range Start & End */}
+                <div className="sm:col-span-4 flex items-center gap-2">
+                    <div className="flex-1 relative">
+                        <Input
+                            type="date"
+                            value={startDate}
+                            onChange={e => {
+                                setStartDate(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="h-11 rounded-2xl bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-sm text-xs font-bold"
+                            title="Start Date"
+                        />
+                    </div>
+                    <span className="text-slate-400 text-xs font-black uppercase">to</span>
+                    <div className="flex-1 relative">
+                        <Input
+                            type="date"
+                            value={endDate}
+                            onChange={e => {
+                                setEndDate(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="h-11 rounded-2xl bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-sm text-xs font-bold"
+                            title="End Date"
+                        />
+                    </div>
+                    {(startDate || endDate || search || sourceType !== "ALL" || barangayFilter !== "ALL") && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                                setSearch("");
+                                setSourceType("ALL");
+                                setBarangayFilter("ALL");
+                                setStartDate("");
+                                setEndDate("");
+                                setCurrentPage(1);
+                            }}
+                            className="h-11 px-3 rounded-2xl text-xs font-bold text-slate-500 hover:text-rose-500 hover:bg-rose-500/10"
+                            title="Reset all filters"
+                        >
+                            Reset
+                        </Button>
+                    )}
                 </div>
             </div>
 

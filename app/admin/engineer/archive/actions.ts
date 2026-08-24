@@ -28,7 +28,8 @@ export async function getArchivedBuildingPermits(params?: {
     search?: string;
     sourceType?: "ALL" | "PHYSICAL" | "ONLINE";
     barangay?: string;
-    year?: string;
+    startDate?: string;
+    endDate?: string;
 }) {
     try {
         await assertEngineerSession();
@@ -38,7 +39,8 @@ export async function getArchivedBuildingPermits(params?: {
         const search = params?.search?.trim() || "";
         const sourceType = params?.sourceType || "ALL";
         const barangay = params?.barangay || "ALL";
-        const year = params?.year || "ALL";
+        const startDate = params?.startDate?.trim() || "";
+        const endDate = params?.endDate?.trim() || "";
 
         const skip = (page - 1) * limit;
 
@@ -54,6 +56,7 @@ export async function getArchivedBuildingPermits(params?: {
 
         const where: any = {
             typeId: bpType.id,
+            status: "RELEASED",
             isCancelled: false,
         };
 
@@ -145,16 +148,23 @@ export async function getArchivedBuildingPermits(params?: {
             });
         }
 
-        // Year Filter at Database level
-        if (year !== "ALL") {
-            const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
-            const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
+        // Date Range Filter (Supports start date, end date, or both)
+        if (startDate || endDate) {
             where.AND = where.AND || [];
+            const dateFilter: any = {};
+            if (startDate) {
+                dateFilter.gte = new Date(`${startDate}T00:00:00.000Z`);
+            }
+            if (endDate) {
+                dateFilter.lte = new Date(`${endDate}T23:59:59.999Z`);
+            }
+
+            // Check against transaction createdAt or BuildingPermit dateIssued
             where.AND.push({
-                createdAt: {
-                    gte: startOfYear,
-                    lte: endOfYear
-                }
+                OR: [
+                    { createdAt: dateFilter },
+                    { buildingPermit: { dateIssued: dateFilter } }
+                ]
             });
         }
 
