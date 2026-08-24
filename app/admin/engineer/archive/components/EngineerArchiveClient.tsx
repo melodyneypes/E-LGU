@@ -13,8 +13,6 @@ import {
     Building2,
     RefreshCw,
     HardHat,
-    ArrowUpDown,
-    Download,
     CheckCircle2,
     Sparkles,
     Trash2,
@@ -34,7 +32,6 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
@@ -90,6 +87,7 @@ export default function EngineerArchiveClient({
     const [sourceType, setSourceType] = useState<"ALL" | "PHYSICAL" | "ONLINE">("ALL");
     const [barangayFilter, setBarangayFilter] = useState("ALL");
     const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
 
@@ -143,7 +141,7 @@ export default function EngineerArchiveClient({
         try {
             const res = await getArchivedBuildingPermits({
                 page: currentPage,
-                limit: 10,
+                limit: itemsPerPage,
                 search: debouncedSearch,
                 sourceType,
                 barangay: barangayFilter,
@@ -162,7 +160,7 @@ export default function EngineerArchiveClient({
         } finally {
             setLoading(false);
         }
-    }, [currentPage, debouncedSearch, sourceType, barangayFilter]);
+    }, [currentPage, itemsPerPage, debouncedSearch, sourceType, barangayFilter]);
 
     useEffect(() => {
         fetchArchives();
@@ -838,10 +836,31 @@ export default function EngineerArchiveClient({
                 </Table>
 
                 {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="p-4 border-t border-slate-100 dark:border-[#2a3040] flex items-center justify-between">
-                        <span className="text-xs text-slate-500 font-medium">
-                            Page {currentPage} of {totalPages} ({totalCount} total permits)
+                <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#121622]">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Rows per page:</span>
+                        <Select
+                            value={itemsPerPage.toString()}
+                            onValueChange={(val) => {
+                                setItemsPerPage(Number(val));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[72px] rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#151b2b] text-xs font-bold">
+                                <SelectValue placeholder={itemsPerPage} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b]">
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)}–{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} total permits
                         </span>
                         <div className="flex items-center gap-2">
                             <Button
@@ -849,22 +868,22 @@ export default function EngineerArchiveClient({
                                 disabled={currentPage === 1}
                                 variant="outline"
                                 size="sm"
-                                className="rounded-xl"
+                                className="h-9 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold text-xs"
                             >
                                 Previous
                             </Button>
                             <Button
                                 onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                                disabled={currentPage === totalPages}
+                                disabled={currentPage === totalPages || totalPages === 0}
                                 variant="outline"
                                 size="sm"
-                                className="rounded-xl"
+                                className="h-9 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold text-xs"
                             >
                                 Next
                             </Button>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Shared Document Viewer Modal for All Attached Records */}

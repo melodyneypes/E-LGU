@@ -113,6 +113,51 @@ export async function getArchivedBuildingPermits(params?: {
             ];
         }
 
+        // Barangay Filter at Database level
+        if (barangay !== "ALL") {
+            where.AND = where.AND || [];
+            where.AND.push({
+                OR: [
+                    {
+                        buildingPermit: {
+                            location: { contains: barangay, mode: "insensitive" }
+                        }
+                    },
+                    {
+                        additionalData: {
+                            path: ["barangay"],
+                            string_contains: barangay
+                        }
+                    },
+                    {
+                        residentSnapshot: {
+                            path: ["barangay"],
+                            string_contains: barangay
+                        }
+                    },
+                    {
+                        additionalData: {
+                            path: ["locationOfConstruction"],
+                            string_contains: barangay
+                        }
+                    }
+                ]
+            });
+        }
+
+        // Year Filter at Database level
+        if (year !== "ALL") {
+            const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
+            const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
+            where.AND = where.AND || [];
+            where.AND.push({
+                createdAt: {
+                    gte: startOfYear,
+                    lte: endOfYear
+                }
+            });
+        }
+
         const [transactions, totalCount] = await Promise.all([
             prisma.transaction.findMany({
                 where,
@@ -219,24 +264,9 @@ export async function getArchivedBuildingPermits(params?: {
             };
         });
 
-        // Optional post-query year/barangay filters if specified
-        let finalData = formattedData;
-        if (barangay !== "ALL") {
-            finalData = finalData.filter(item =>
-                item.location.toLowerCase().includes(barangay.toLowerCase()) ||
-                item.barangay.toLowerCase().includes(barangay.toLowerCase())
-            );
-        }
-        if (year !== "ALL") {
-            finalData = finalData.filter(item => {
-                const itemYear = new Date(item.dateIssued).getFullYear().toString();
-                return itemYear === year;
-            });
-        }
-
         return {
             success: true,
-            data: finalData,
+            data: formattedData,
             totalCount,
             totalPages: Math.ceil(totalCount / limit) || 1,
             currentPage: page,
