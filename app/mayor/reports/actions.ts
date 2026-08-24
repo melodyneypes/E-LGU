@@ -28,7 +28,7 @@ export async function getMayorReports(params?: {
 
         if (barangay && barangay !== "All") {
             whereClause.barangay = {
-                name: barangay
+                name: { equals: barangay, mode: "insensitive" }
             };
         }
 

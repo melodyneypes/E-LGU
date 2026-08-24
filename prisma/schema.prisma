@@ -41,6 +41,7 @@ model User {
   vendorStalls          Stall[]           @relation("VendorStalls")
   vendorCollections     StallCollection[] @relation("VendorCollections")
   collectorCollections  StallCollection[] @relation("CollectorCollections")
+  directiveReads        DirectiveRecipientRead[]
 
 }
 
@@ -1244,6 +1245,7 @@ enum UserRole {
   USER
   CONTENT_ADMIN
   BARANGAY_ADMIN
+  BARANGAY_CAPTAIN
   TREASURY_STAFF
   ADMIN_AIDE
   RIDER
@@ -1475,4 +1477,39 @@ model LegislativeDocument {
   barangay        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model ExecutiveDirective {
+  id              String                   @id @default(cuid())
+  title           String
+  content         String
+  category        String                   @default("MEMORANDUM") // MEMORANDUM, ADVISORY, DIRECTIVE, EXECUTIVE_ORDER
+  priority        String                   @default("NORMAL")     // NORMAL, URGENT, CRITICAL
+  attachmentUrl   String?
+  attachmentName  String?
+  attachmentSize  String?
+  targetScope     String                   @default("ALL_CAPTAINS") // ALL_CAPTAINS, SPECIFIC_BARANGAY
+  targetBarangays String[]                 @default([])
+  targetBarangay  String?
+  senderName      String?                  @default("Office of the Municipal Mayor")
+  senderId        String?
+  isPublished     Boolean                  @default(true)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  reads           DirectiveRecipientRead[]
+
+  @@index([targetScope])
+  @@index([createdAt])
+}
+
+model DirectiveRecipientRead {
+  id          String             @id @default(cuid())
+  directiveId String
+  userId      String
+  readAt      DateTime           @default(now())
+  directive   ExecutiveDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([directiveId, userId])
+  @@index([userId])
 }

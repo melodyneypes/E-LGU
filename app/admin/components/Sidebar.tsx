@@ -374,6 +374,7 @@ export function Sidebar({
         { href: "/admin/events", label: "Events", icon: Calendar },
         { href: "/admin/projects", label: "LGU Projects", icon: FolderKanban },
         { href: "/admin/ordinances", label: "Ordinances & Resolutions", icon: Scale },
+        { href: "/admin/directives", label: "Executive Directives", icon: FileText, category: "Governance" },
         { href: "/admin/dining", label: "Kainan (Dining)", icon: UtensilsCrossed },
         { href: "/admin/accommodation", label: "Tuluyan (Stay)", icon: BedDouble },
         { href: "/admin/tourism", label: "Gallery", icon: Map },

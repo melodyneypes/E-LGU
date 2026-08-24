@@ -4,7 +4,11 @@ import { BarangayAdminsWorkspace } from "./BarangayAdminsWorkspace";
 export default async function BarangayAdminsPage() {
     const [admins, barangays, themeColorSetting] = await Promise.all([
         prisma.user.findMany({
-            where: { role: 'BARANGAY_ADMIN' },
+            where: {
+                role: {
+                    in: ['BARANGAY_ADMIN', 'BARANGAY_CAPTAIN' as any]
+                }
+            },
             select: {
                 id: true,
                 name: true,

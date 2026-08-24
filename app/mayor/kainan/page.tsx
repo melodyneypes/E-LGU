@@ -39,7 +39,7 @@ export default async function MayorKainanPage(props: {
     const whereClause: any = {};
 
     if (selectedBarangay && selectedBarangay !== "All") {
-        whereClause.barangay = selectedBarangay;
+        whereClause.barangay = { equals: selectedBarangay, mode: "insensitive" };
     }
 
     if (status !== "All") {

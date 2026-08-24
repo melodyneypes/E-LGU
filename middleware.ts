@@ -48,9 +48,10 @@ export default withAuth(
     const isUserPath = url.pathname.startsWith("/user");
     const isAdminPath = url.pathname.startsWith("/admin");
     const isMayorPath = url.pathname.startsWith("/mayor");
+    const isCaptainPath = url.pathname.startsWith("/captain");
 
     // Clean redirect if trying to access protected paths without a session
-    if (!token && (isAdminPath || isMayorPath || (isUserPath && !isPublicUserPath))) {
+    if (!token && (isAdminPath || isMayorPath || isCaptainPath || (isUserPath && !isPublicUserPath))) {
       const redirectUrl = new URL("/auth/login", req.url);
       return NextResponse.redirect(redirectUrl);
     }
@@ -58,6 +59,23 @@ export default withAuth(
     // Guard: Force users who need password setup to go to /auth/verify-otp
     if (token && token.isPasswordChanged === false) {
       const redirectUrl = new URL("/auth/verify-otp", req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Guard: BARANGAY_CAPTAIN role is only allowed to access /captain
+    if (token?.role === "BARANGAY_CAPTAIN") {
+      if (!url.pathname.startsWith("/captain")) {
+        const redirectUrl = new URL("/captain/dashboard", req.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
+    // Guard: Non-BARANGAY_CAPTAIN roles cannot access /captain
+    if (token?.role !== "BARANGAY_CAPTAIN" && isCaptainPath) {
+      const redirectUrl = new URL(
+        token?.role === "USER" ? "/" : token?.role === "MAYOR" ? "/mayor/dashboard" : "/admin/dashboard",
+        req.url
+      );
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -185,5 +203,6 @@ export const config = {
     "/admin/:path*",
     "/user/:path*",
     "/mayor/:path*",
+    "/captain/:path*",
   ],
 };

@@ -67,8 +67,8 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 signOut({ callbackUrl: `/auth/login?error=${encodeURIComponent(errorVal)}` });
                 return;
             } else {
-                // If account is not verified, sign them out
-                if ((session.user as any).isEmailVerified === false) {
+                // If user is regular resident and account is not verified, sign them out
+                if ((session.user as any).role === "USER" && (session.user as any).isEmailVerified === false) {
                     signOut({ callbackUrl: "/auth/login?error=Email not verified" });
                     return;
                 }

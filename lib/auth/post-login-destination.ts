@@ -19,6 +19,9 @@ export function getPostLoginDestination(
     if (role === "MAYOR") {
         return "/mayor/dashboard";
     }
+    if (role === "BARANGAY_CAPTAIN") {
+        return "/captain/dashboard";
+    }
     if (role === "TREASURY_STAFF" || (role === "ADMIN" && department === "TREASURY")) {
         return "/admin/treasury?category=CEDULA";
     }
