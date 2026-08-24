@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export type MedicalPersonnelRole = "DOCTOR" | "NURSE" | "MIDWIFE" | "DENTIST" | "ADMIN" | "PHARMACY";
+export type MedicalPersonnelRole = string;
 
 async function checkCenterManageAuth() {
     const session = await getServerSession(authOptions);
