@@ -52,14 +52,13 @@ import {
     createRHUHealthCenter,
     updateRHUHealthCenter,
     deleteRHUHealthCenter,
-    RHUHealthCenterInput,
     getRHUHealthCenters,
     createRHUMedicalPersonnel,
     updateRHUMedicalPersonnel,
     deleteRHUMedicalPersonnel,
     getRHUMedicalPersonnel,
-    RHUMedicalPersonnelInput,
-    MedicalPersonnelRole
+    type RHUHealthCenterInput,
+    type RHUMedicalPersonnelInput
 } from "./actions";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
@@ -101,6 +100,12 @@ export const STANDARD_HEALTH_SERVICES = [
     "First Aid & Emergency Care",
     "Family Planning",
     "Nutrition & Wellness Counseling"
+];
+
+export const PRESET_ROLES = [
+    { value: "DOCTOR", label: "Doctor / Physician" },
+    { value: "ADMIN", label: "Center Medical Admin" },
+    { value: "PHARMACY", label: "Center Pharmacy Staff" }
 ];
 
 function formatPHPhoneNumber(value: string): string {
@@ -273,7 +278,7 @@ export default function RHUCentersClient({
             (p.licenseNumber && p.licenseNumber.toLowerCase().includes(personnelSearch.toLowerCase())) ||
             (p.assignedServices && p.assignedServices.toLowerCase().includes(personnelSearch.toLowerCase()));
 
-        const matchesRole = roleFilter === "ALL" || p.role === roleFilter;
+        const matchesRole = roleFilter === "ALL" || (p.role || "").toUpperCase() === roleFilter.toUpperCase();
         const matchesCenter =
             personnelCenterFilter === "ALL" ||
             (personnelCenterFilter === "UNASSIGNED" ? !p.healthCenterId : p.healthCenterId === personnelCenterFilter);
@@ -286,15 +291,16 @@ export default function RHUCentersClient({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const activeCentersCount = centers.filter(c => (c.status || "ACTIVE").toUpperCase() === "ACTIVE").length;
 
-    const totalDoctorsCount = personnelList.filter(p => p.role === "DOCTOR").length;
-    const totalNursesCount = personnelList.filter(p => p.role === "NURSE").length;
-    const totalMidwivesCount = personnelList.filter(p => p.role === "MIDWIFE").length;
-    const totalDentistsCount = personnelList.filter(p => p.role === "DENTIST").length;
+    const totalDoctorsCount = personnelList.filter(p => (p.role || "").toUpperCase() === "DOCTOR").length;
+    const totalNursesCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("NURSE")).length;
+    const totalMidwivesCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("MIDWIFE")).length;
+    const totalDentistsCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("DENTIST")).length;
     const totalPersonnelCount = personnelList.length;
 
-    // Center Management Authorization (Only RHU_CENTER_ADMIN and RHU/Global ADMIN can modify, RHU_STAFF can only view)
+    // Center Management Authorization (Only RHU_CENTER_ADMIN, RHU/Global ADMIN, and LGU department can modify, RHU_STAFF can only view)
     const userRole = (currentUser?.role || "").toUpperCase();
-    const canManageCenter = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN";
+    const userDept = (currentUser?.department || "").toUpperCase();
+    const canManageCenter = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userDept === "LGU";
 
     // Center Modal Controls
     const handleOpenCreateCenterModal = () => {
@@ -473,10 +479,10 @@ export default function RHUCentersClient({
 
         // Validate Admin Account Password
         if (formData.accountEmail && formData.accountEmail.trim()) {
-            const isNewInput = !editingCenter || 
-                               !editingCenter.accountEmail || 
-                               formData.accountEmail.trim().toLowerCase() !== editingCenter.accountEmail.trim().toLowerCase();
-                               
+            const isNewInput = !editingCenter ||
+                !editingCenter.accountEmail ||
+                formData.accountEmail.trim().toLowerCase() !== editingCenter.accountEmail.trim().toLowerCase();
+
             if (isNewInput) {
                 if (!formData.accountPassword || !formData.accountPassword.trim()) {
                     errs.accountPassword = "Password is required for new admin accounts";
@@ -493,7 +499,9 @@ export default function RHUCentersClient({
     const validatePersonnelForm = () => {
         const errs: Record<string, string> = {};
         if (!personnelData.name || !personnelData.name.trim()) errs.name = "Personnel full name is required";
-        if (!personnelData.role) errs.role = "Medical role selection is required";
+        if (!personnelData.role || !personnelData.role.trim() || personnelData.role === "OTHER") {
+            errs.role = "Please select or type a medical role/designation";
+        }
 
         // Validate Personnel Phone Number
         if (personnelData.contactNumber && personnelData.contactNumber.trim()) {
@@ -622,9 +630,11 @@ export default function RHUCentersClient({
     };
 
     // Role Helper Badges
-    const getRoleBadge = (role: MedicalPersonnelRole) => {
-        switch (role) {
+    const getRoleBadge = (role: string) => {
+        const r = (role || "").toUpperCase();
+        switch (r) {
             case "DOCTOR":
+            case "PHYSICIAN":
                 return {
                     label: "Doctor / Physician",
                     badgeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
@@ -644,17 +654,29 @@ export default function RHUCentersClient({
                 };
             case "DENTIST":
                 return {
-                    label: "Public Dentist",
+                    label: "Dentist",
                     badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
                     icon: ShieldCheck
                 };
-            case "ADMIN" as any:
+            case "MEDTECH":
+                return {
+                    label: "Medical Technologist",
+                    badgeClass: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+                    icon: Activity
+                };
+            case "BHW":
+                return {
+                    label: "Barangay Health Worker",
+                    badgeClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+                    icon: UserCheck
+                };
+            case "ADMIN":
                 return {
                     label: "Center Medical Admin",
                     badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
                     icon: ShieldCheck
                 };
-            case "PHARMACY" as any:
+            case "PHARMACY":
                 return {
                     label: "Center Pharmacy Staff",
                     badgeClass: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
@@ -662,8 +684,8 @@ export default function RHUCentersClient({
                 };
             default:
                 return {
-                    label: role,
-                    badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
+                    label: role || "Medical Staff",
+                    badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
                     icon: UserCheck
                 };
         }
@@ -1443,11 +1465,11 @@ export default function RHUCentersClient({
                                 <SelectContent>
                                     <SelectItem value="ALL">All Medical Roles</SelectItem>
                                     <SelectItem value="DOCTOR">Doctors / Physicians</SelectItem>
-                                    <SelectItem value="NURSE">Nurses</SelectItem>
-                                    <SelectItem value="MIDWIFE">Midwives</SelectItem>
-                                    <SelectItem value="DENTIST">Dentists</SelectItem>
                                     <SelectItem value="ADMIN">Center Medical Admins</SelectItem>
-                                    <SelectItem value="PHARMACY">Pharmacy Staff</SelectItem>
+                                    <SelectItem value="PHARMACY">Center Pharmacy Staff</SelectItem>
+                                    {Array.from(new Set(personnelList.map(p => p.role).filter(r => r && !["DOCTOR", "ADMIN", "PHARMACY"].includes(r.toUpperCase())))).map((customR) => (
+                                        <SelectItem key={customR} value={customR}>{customR}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
 
@@ -1744,11 +1766,10 @@ export default function RHUCentersClient({
                                                 setFormData({ ...formData, contactNumber: formatPHPhoneNumber(e.target.value) });
                                                 if (centerErrors.contactNumber) setCenterErrors(prev => ({ ...prev, contactNumber: "" }));
                                             }}
-                                            className={`h-10 text-xs rounded-xl border ${
-                                                centerErrors.contactNumber
+                                            className={`h-10 text-xs rounded-xl border ${centerErrors.contactNumber
                                                     ? "border-red-500 focus-visible:ring-red-500"
                                                     : "border-slate-200 dark:border-slate-700"
-                                            }`}
+                                                }`}
                                         />
                                         {centerErrors.contactNumber && (
                                             <p className="text-[10px] text-red-500 font-medium mt-1 animate-fadeIn">
@@ -1926,11 +1947,10 @@ export default function RHUCentersClient({
                                                     setFormData(prev => ({ ...prev, accountPassword: e.target.value }));
                                                     if (centerErrors.accountPassword) setCenterErrors(prev => ({ ...prev, accountPassword: "" }));
                                                 }}
-                                                className={`h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border ${
-                                                    centerErrors.accountPassword
+                                                className={`h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border ${centerErrors.accountPassword
                                                         ? "border-red-500 focus-visible:ring-red-500"
                                                         : "border-slate-200 dark:border-slate-700"
-                                                }`}
+                                                    }`}
                                             />
                                             {centerErrors.accountPassword && (
                                                 <p className="text-[10px] text-red-500 font-medium mt-1 animate-fadeIn">
@@ -2036,21 +2056,47 @@ export default function RHUCentersClient({
                                     Medical Role <span className="text-rose-500">*</span>
                                 </Label>
                                 <Select
-                                    value={personnelData.role || "DOCTOR"}
-                                    onValueChange={(val: MedicalPersonnelRole) => setPersonnelData({ ...personnelData, role: val })}
+                                    value={PRESET_ROLES.some(p => p.value === personnelData.role) ? personnelData.role : "OTHER"}
+                                    onValueChange={(val) => {
+                                        if (val === "OTHER") {
+                                            setPersonnelData(prev => ({ ...prev, role: "" }));
+                                        } else {
+                                            setPersonnelData(prev => ({ ...prev, role: val }));
+                                        }
+                                        if (personnelErrors.role) setPersonnelErrors(prev => ({ ...prev, role: "" }));
+                                    }}
                                 >
                                     <SelectTrigger className={cn("h-10 text-xs rounded-xl", personnelErrors.role ? "border-red-500 focus-visible:ring-red-500" : "")}>
                                         <SelectValue placeholder="Select Role" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="DOCTOR">Doctor / Physician</SelectItem>
-                                        <SelectItem value="NURSE">Public Health Nurse</SelectItem>
-                                        <SelectItem value="MIDWIFE">Rural Midwife</SelectItem>
-                                        <SelectItem value="DENTIST">Dentist</SelectItem>
-                                        <SelectItem value="ADMIN">Center Medical Admin</SelectItem>
-                                        <SelectItem value="PHARMACY">Center Pharmacy Staff</SelectItem>
+                                        {PRESET_ROLES.map((pr) => (
+                                            <SelectItem key={pr.value} value={pr.value}>{pr.label}</SelectItem>
+                                        ))}
+                                        <SelectItem value="OTHER">Other Role / Staff (Type custom...)</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {!PRESET_ROLES.some(p => p.value === personnelData.role) && (
+                                    <div className="pt-1.5 space-y-1">
+                                        <Input
+                                            type="text"
+                                            placeholder="e.g. Nurse, Midwife, Dentist, MedTech, BHW, etc."
+                                            value={personnelData.role || ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPersonnelData(prev => ({ ...prev, role: val }));
+                                                if (personnelErrors.role) setPersonnelErrors(prev => ({ ...prev, role: "" }));
+                                            }}
+                                            className={cn(
+                                                "h-10 text-xs rounded-xl",
+                                                personnelErrors.role ? "border-red-500 focus-visible:ring-red-500" : ""
+                                            )}
+                                        />
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                            💡 User account login in the database will be created with the <strong className="text-slate-700 dark:text-slate-300">RHU Staff</strong> system role.
+                                        </p>
+                                    </div>
+                                )}
                                 {personnelErrors.role && (
                                     <p className="text-[10px] text-red-500 font-medium">{personnelErrors.role}</p>
                                 )}
@@ -2120,41 +2166,40 @@ export default function RHUCentersClient({
                             </div>
                         </div>
 
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="flex flex-col gap-1">
-                                        <Input
-                                            type="text"
-                                            placeholder="Phone (e.g. 0917-123-4567)"
-                                            value={personnelData.contactNumber}
-                                            onChange={(e) => {
-                                                setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
-                                                if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
-                                            }}
-                                            className={`h-10 text-xs rounded-xl border ${
-                                                personnelErrors.contactNumber
-                                                    ? "border-red-500 focus-visible:ring-red-500"
-                                                    : "border-slate-200 dark:border-slate-700"
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <Input
+                                        type="text"
+                                        placeholder="Phone (e.g. 0917-123-4567)"
+                                        value={personnelData.contactNumber}
+                                        onChange={(e) => {
+                                            setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
+                                            if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
+                                        }}
+                                        className={`h-10 text-xs rounded-xl border ${personnelErrors.contactNumber
+                                                ? "border-red-500 focus-visible:ring-red-500"
+                                                : "border-slate-200 dark:border-slate-700"
                                             }`}
-                                        />
-                                        {personnelErrors.contactNumber && (
-                                            <p className="text-[10px] text-red-500 font-medium leading-none mt-1 animate-fadeIn">
-                                                {personnelErrors.contactNumber}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <Input
-                                            type="email"
-                                            placeholder="Email"
-                                            value={personnelData.email}
-                                            onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
-                                            className="h-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700"
-                                        />
-                                    </div>
+                                    />
+                                    {personnelErrors.contactNumber && (
+                                        <p className="text-[10px] text-red-500 font-medium leading-none mt-1 animate-fadeIn">
+                                            {personnelErrors.contactNumber}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <Input
+                                        type="email"
+                                        placeholder="Email"
+                                        value={personnelData.email}
+                                        onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
+                                        className="h-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700"
+                                    />
                                 </div>
                             </div>
+                        </div>
 
                         {/* Staff User Account Credentials */}
                         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-2.5">
@@ -2176,9 +2221,10 @@ export default function RHUCentersClient({
                                 <Input
                                     type="email"
                                     placeholder="Staff Login Email (dr.emil@mapandan.gov.ph)"
-                                    value={personnelData.accountEmail || personnelData.email || ""}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, accountEmail: e.target.value, email: e.target.value })}
+                                    value={personnelData.accountEmail || ""}
+                                    onChange={(e) => setPersonnelData({ ...personnelData, accountEmail: e.target.value })}
                                     className="h-10 text-xs rounded-xl"
+                                    autoComplete="off"
                                 />
                                 <Input
                                     type="password"
@@ -2186,6 +2232,7 @@ export default function RHUCentersClient({
                                     value={personnelData.accountPassword || ""}
                                     onChange={(e) => setPersonnelData({ ...personnelData, accountPassword: e.target.value })}
                                     className="h-10 text-xs rounded-xl"
+                                    autoComplete="new-password"
                                 />
                             </div>
                         </div>

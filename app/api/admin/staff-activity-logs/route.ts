@@ -192,8 +192,8 @@ export async function GET() {
                     action: isApprovedOrPaid
                         ? "processed payment / approved"
                         : isRejected
-                        ? "rejected request for"
-                        : "updated status for",
+                            ? "rejected request for"
+                            : "updated status for",
                     module: tx.type?.name || "Service Request",
                     details: `${tx.type?.name || "Document"} for ${requesterName}`,
                     time: formatTimeAgo(tx.updatedAt),

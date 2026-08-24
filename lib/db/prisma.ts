@@ -8,6 +8,7 @@ function getFormattedDatabaseUrl() {
     const parsedUrl = new URL(url);
     parsedUrl.searchParams.set("connection_limit", "15");
     parsedUrl.searchParams.set("pool_timeout", "30");
+    parsedUrl.searchParams.set("connect_timeout", "15");
     return parsedUrl.toString();
   } catch (error) {
     console.error("Error formatting database URL:", error);

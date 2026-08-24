@@ -14,9 +14,10 @@ async function checkCenterManageAuth() {
         return { authorized: false, error: "Unauthorized: Please log in." };
     }
     const role = ((session.user as any).role || "").toUpperCase();
-    const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN";
+    const dept = (((session.user as any).department || "").toUpperCase());
+    const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || dept === "LGU";
     if (!canManage) {
-        return { authorized: false, error: "Access Denied: Only RHU Center Admins and RHU Administrators can manage health centers and medical staff." };
+        return { authorized: false, error: "Access Denied: Only RHU Center Admins, RHU Administrators, and LGU Admins can manage health centers and medical staff." };
     }
     return { authorized: true, user: session.user };
 }
@@ -76,7 +77,7 @@ export interface RHUMedicalPersonnelFilterParams {
 async function checkEmailUniqueness(email: string, existingUserId?: string | null) {
     if (!email || !email.trim()) return { isUnique: true };
     const cleanEmail = email.trim().toLowerCase();
-    
+
     try {
         const raw: any[] = await prisma.$queryRaw`SELECT "id" FROM "User" WHERE "email" = ${cleanEmail}`;
         if (raw && raw.length > 0) {
@@ -120,20 +121,20 @@ export async function createOrUpdateLinkedUserAccount(params: {
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_DOCTOR';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_STAFF';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_PHARMACY';`);
-    } catch {}
+    } catch { }
 
     let user: any = null;
     if (params.existingUserId) {
         try {
             const raw: any[] = await prisma.$queryRaw`SELECT * FROM "User" WHERE "id" = ${params.existingUserId}`;
             user = raw[0];
-        } catch {}
+        } catch { }
     }
     if (!user) {
         try {
             const raw: any[] = await prisma.$queryRaw`SELECT * FROM "User" WHERE "email" = ${cleanEmail}`;
             user = raw[0];
-        } catch {}
+        } catch { }
     }
 
     const deptClean = params.department || defaultDept;
@@ -193,7 +194,7 @@ export async function ensureHealthCenterTableExists() {
         try {
             await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'ADMIN';`);
             await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'PHARMACY';`);
-        } catch {}
+        } catch { }
 
         await prisma.$executeRaw`
             CREATE TABLE IF NOT EXISTS "RHUHealthCenter" (
@@ -462,7 +463,7 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
         try {
             const raw: any[] = await prisma.$queryRaw`SELECT * FROM "RHUHealthCenter" WHERE "id" = ${id}`;
             existingCenter = raw[0];
-        } catch {}
+        } catch { }
         const currentUserId = input.userId || existingCenter?.userId || null;
         const currentPharmacyUserId = input.pharmacyUserId || existingCenter?.pharmacyUserId || null;
 
@@ -849,9 +850,10 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
         let linkedUserId: string | null = null;
         if (input.accountEmail && input.accountEmail.trim()) {
             let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
-            if (roleClean === "ADMIN") {
+            const roleUpper = (roleClean || "").toUpperCase();
+            if (roleUpper === "ADMIN" || roleUpper.includes("ADMIN")) {
                 userRole = "RHU_CENTER_ADMIN";
-            } else if (roleClean === "PHARMACY") {
+            } else if (roleUpper === "PHARMACY" || roleUpper.includes("PHARMACY")) {
                 userRole = "RHU_PHARMACY";
             } else {
                 userRole = "RHU_STAFF";
@@ -861,7 +863,8 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
                 name: nameClean,
                 email: input.accountEmail,
                 password: input.accountPassword,
-                role: userRole
+                role: userRole,
+                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : `RHU Medical Staff (${roleClean})`)
             });
         }
 
@@ -898,7 +901,7 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
                 INSERT INTO "RHUMedicalPersonnel" (
                     "id", "name", "role", "specialization", "licenseNumber", "contactNumber", "email", "schedule", "assignedServices", "status", "healthCenterId", "accountEmail", "userId", "createdAt", "updatedAt"
                 ) VALUES (
-                    ${id}, ${nameClean}, ${roleClean}::"MedicalRole", ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
+                    ${id}, ${nameClean}, ${roleClean}, ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
                 )
             `;
         }
@@ -928,7 +931,7 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
         try {
             const raw: any[] = await prisma.$queryRaw`SELECT * FROM "RHUMedicalPersonnel" WHERE "id" = ${id}`;
             existingPersonnel = raw[0];
-        } catch {}
+        } catch { }
         const currentUserId = input.userId || existingPersonnel?.userId || null;
 
         if (input.accountEmail && input.accountEmail.trim()) {
@@ -954,21 +957,23 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
 
         let linkedUserId: string | null = input.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
-            const roleToMap = input.role || "DOCTOR";
+            const roleToMap = input.role || existingPersonnel?.role || "DOCTOR";
+            const roleUpper = (roleToMap || "").toUpperCase();
             let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
-            if (roleToMap === "ADMIN") {
+            if (roleUpper === "ADMIN" || roleUpper.includes("ADMIN")) {
                 userRole = "RHU_CENTER_ADMIN";
-            } else if (roleToMap === "PHARMACY") {
+            } else if (roleUpper === "PHARMACY" || roleUpper.includes("PHARMACY")) {
                 userRole = "RHU_PHARMACY";
             } else {
                 userRole = "RHU_STAFF";
             }
             linkedUserId = await createOrUpdateLinkedUserAccount({
                 existingUserId: input.userId,
-                name: input.name || "Medical Personnel",
+                name: input.name || existingPersonnel?.name || "Medical Personnel",
                 email: input.accountEmail,
                 password: input.accountPassword,
-                role: userRole
+                role: userRole,
+                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : `RHU Medical Staff (${roleToMap})`)
             });
         } else if (input.accountEmail !== undefined && (!input.accountEmail || !input.accountEmail.trim())) {
             linkedUserId = null;
@@ -1007,7 +1012,7 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
             await prisma.$executeRaw`
                 UPDATE "RHUMedicalPersonnel"
                 SET "name" = COALESCE(${nameClean}, "name"),
-                    "role" = COALESCE(${roleClean}::"MedicalRole", "role"),
+                    "role" = COALESCE(${roleClean}, "role"),
                     "specialization" = ${specClean !== undefined ? specClean : null},
                     "licenseNumber" = ${licenseClean !== undefined ? licenseClean : null},
                     "contactNumber" = ${contactClean !== undefined ? contactClean : null},
