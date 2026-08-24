@@ -47,6 +47,38 @@ function BookViewerModal({ url, title, onClose }: BookViewerProps) {
     const bookContainerRef = useRef<HTMLDivElement | null>(null);
     const pageFlipInstance = useRef<any>(null);
     const isImage = !url.toLowerCase().endsWith(".pdf");
+    const flipAudioRef = useRef<HTMLAudioElement | null>(null);
+    const lastPlayedRef = useRef<number>(0);
+
+    // Initialize audio object on mount
+    useEffect(() => {
+        flipAudioRef.current = new Audio("/page-flip.mp3");
+        return () => {
+            if (flipAudioRef.current) {
+                flipAudioRef.current.pause();
+                flipAudioRef.current = null;
+            }
+        };
+    }, []);
+
+    const playFlipSound = () => {
+        const now = Date.now();
+        // Prevent double triggers within 500ms
+        if (now - lastPlayedRef.current < 500) return;
+        lastPlayedRef.current = now;
+
+        if (flipAudioRef.current) {
+            try {
+                flipAudioRef.current.currentTime = 0;
+                flipAudioRef.current.volume = 0.4;
+                flipAudioRef.current.play().catch(err => {
+                    console.log("Audio playback blocked/failed:", err);
+                });
+            } catch (e) {
+                console.error("Audio play error:", e);
+            }
+        }
+    };
 
     // Responsive screen width detection
     useEffect(() => {
@@ -219,6 +251,17 @@ function BookViewerModal({ url, title, onClose }: BookViewerProps) {
                 pageFlip.on("flip", (e: any) => {
                     if (active) {
                         setCurrentPageIndex(e.data);
+                    }
+                });
+
+                let isLoaded = false;
+                pageFlip.on("init", () => {
+                    isLoaded = true;
+                });
+
+                pageFlip.on("changeState", (e: any) => {
+                    if (active && e.data === "flipping" && isLoaded) {
+                        playFlipSound();
                     }
                 });
 

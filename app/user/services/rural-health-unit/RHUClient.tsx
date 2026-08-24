@@ -590,7 +590,7 @@ export function RHUClient({
                             <Truck className="w-6 h-6" style={{ color: themeColor }} />
                         </div>
                         <DialogTitle className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-center leading-none">
-                            Ambulance Fleet & <span style={{ color: themeColor }}>Dispatch</span>
+                            Ambulance Fleet & Dispatch
                         </DialogTitle>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
                             Emergency Response Logistics & Hotlines Directory

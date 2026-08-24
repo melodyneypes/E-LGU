@@ -18,8 +18,7 @@ import {
     PhoneCall,
     CheckCircle2,
     User,
-    ExternalLink,
-    Car
+    ExternalLink
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -358,20 +357,16 @@ export function EmergencyReport({
             {/* AMBULANCE FLEET & DISPATCH STATUS SECTION (BELOW REPORTS) */}
             {/* ======================================================== */}
             <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-slate-200 dark:border-white/10 relative z-10 scroll-mt-28">
-                <div className="bg-white dark:bg-gradient-to-b dark:from-slate-900/90 dark:via-slate-900/60 dark:to-slate-950/90 border border-slate-200 dark:border-primary/20 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-xl dark:shadow-2xl relative overflow-hidden">
-                    {/* Background glow effects */}
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
-
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-xl dark:shadow-2xl relative overflow-hidden">
                     {/* Section Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-slate-200 dark:border-white/10 relative z-10">
                         <div className="space-y-3">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest">
                                 <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
                             </div>
                             <div className="flex items-center gap-3">
                                 <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-                                    Ambulance Fleet & <span className="text-primary">Dispatch</span>
+                                    Ambulance Fleet & Dispatch
                                 </h3>
                             </div>
                             <p className="text-xs sm:text-sm font-medium italic text-slate-500 dark:text-slate-400 max-w-xl">
@@ -381,19 +376,19 @@ export function EmergencyReport({
 
                         {/* Summary Badges & Link */}
                         <div className="flex flex-wrap items-center gap-3 shrink-0">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl font-bold">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                 {standbyCount} Standby
                             </span>
                             {onDutyCount > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-xl font-bold">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-3 py-1.5 rounded-xl">
+                                    <span className="w-2 h-2 rounded-full bg-sky-500" />
                                     {onDutyCount} On Duty
                                 </span>
                             )}
                             <Link
                                 href="/user/services/rural-health-unit"
-                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/30 px-3.5 py-1.5 rounded-xl transition-all active:scale-95"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white bg-primary hover:bg-primary/90 border border-primary/20 px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-primary/10"
                             >
                                 <span>RHU Medical Hub</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -407,27 +402,27 @@ export function EmergencyReport({
                             {fleet.map((vehicle, idx) => (
                                 <div
                                     key={idx}
-                                    className="p-5 rounded-2xl md:rounded-3xl bg-slate-50/90 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:bg-slate-100/80 dark:hover:bg-white/[0.06] transition-all flex flex-col justify-between space-y-4 group relative shadow-sm"
+                                    className="p-5 rounded-2xl md:rounded-3xl bg-slate-50/90 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-rose-500/30 hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-all flex flex-col justify-between space-y-4 group relative shadow-sm"
                                 >
                                     <div className="space-y-3">
                                         {/* Unit Name & Plate */}
                                         <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                                <Car className="w-5 h-5" />
+                                            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
+                                                <Truck className="w-5 h-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
                                                     {vehicle.unit}
                                                 </h4>
-                                                <div className="inline-block mt-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 font-mono text-[9px] font-bold tracking-widest text-primary">
+                                                <div className="inline-flex mt-1.5 px-2.5 py-0.5 rounded-lg bg-slate-200/60 dark:bg-white/10 border border-slate-300/50 dark:border-white/5 font-mono text-[9.5px] font-black tracking-widest text-slate-700 dark:text-slate-200">
                                                     {vehicle.plateNumber || "NO PLATE"}
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Station */}
-                                        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100/70 dark:bg-black/20 p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
-                                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/70 dark:bg-white/[0.01] p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                                            <MapPin className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 shrink-0" />
                                             <span className="truncate">{vehicle.station || "Main Station"}</span>
                                         </div>
                                     </div>
@@ -437,13 +432,11 @@ export function EmergencyReport({
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</span>
                                         <span className={cn(
                                             "text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded-full",
-                                            vehicle.statusColor 
-                                                ? vehicle.statusColor 
-                                                : vehicle.status === "STANDBY"
-                                                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                                    : vehicle.status === "ON DUTY"
-                                                        ? "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20"
-                                                        : "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                            vehicle.status === "STANDBY"
+                                                ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                                : vehicle.status === "ON DUTY"
+                                                    ? "text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/20"
+                                                    : "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
                                         )}>
                                             {vehicle.status}
                                         </span>
@@ -455,7 +448,7 @@ export function EmergencyReport({
                         {/* Direct Emergency Dispatch Contact Directory */}
                         <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-3">
                             <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 italic flex items-center gap-2">
-                                <PhoneCall className="w-3.5 h-3.5 text-primary" /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
+                                <PhoneCall className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 {dispatchHotlines.map((hotline, idx) => {
@@ -475,25 +468,25 @@ export function EmergencyReport({
                                             key={idx}
                                             href={`tel:${cleanNumber}`}
                                             onClick={() => handleDispatchCall(hotline.number)}
-                                            className="p-4 bg-slate-50/90 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-primary/10 border border-slate-200 dark:border-white/10 hover:border-primary/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline shadow-sm"
+                                            className="p-4 bg-slate-50/90 dark:bg-white/[0.02] hover:bg-rose-500/5 dark:hover:bg-rose-500/5 border border-slate-200 dark:border-white/10 hover:border-rose-500/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline shadow-sm"
                                         >
                                             <div className={cn(
                                                 "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
                                                 isCopied 
                                                     ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
-                                                    : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
+                                                    : "bg-rose-500/10 text-rose-500 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white"
                                             )}>
                                                 <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <span className={cn(
                                                     "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
-                                                    isCopied ? "text-emerald-600 dark:text-emerald-500" : "text-slate-600 dark:text-slate-400 group-hover:text-primary"
+                                                    isCopied ? "text-emerald-600 dark:text-emerald-500" : "text-slate-500 dark:text-slate-400 group-hover:text-rose-500 dark:group-hover:text-rose-400"
                                                 )}>
                                                     {hotline.name}
                                                 </span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white">{hotline.number}</span>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-xs sm:text-sm font-black tracking-tight text-slate-800 dark:text-slate-100">{hotline.number}</span>
                                                     {isCopied && (
                                                         <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-500 italic animate-pulse">Dialing...</span>
                                                     )}

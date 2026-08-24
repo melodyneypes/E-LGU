@@ -59,8 +59,14 @@ export async function getMatchedCenterForUser(user: any) {
         const userDept = (user.department || "").toLowerCase();
         const userIdStr = String(user.id);
 
-        // Global admin accounts (rhu@mapandan.gov.ph) without medical personnel link see all centers
-        if (userEmail === "rhu@mapandan.gov.ph") {
+        const userRole = (user.role || "").toUpperCase();
+        // Global admin accounts (rhu@mapandan.gov.ph, admin@mapandan.gov.ph, LGU admin, Municipal Admin) without medical personnel link see all centers
+        if (
+            userEmail === "rhu@mapandan.gov.ph" ||
+            userEmail === "admin@mapandan.gov.ph" ||
+            userDept === "lgu" ||
+            (userRole === "ADMIN" && (userDept === "lgu" || !userDept))
+        ) {
             return null;
         }
 

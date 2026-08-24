@@ -62,9 +62,9 @@ import {
     adjustRHUBatchQuantity,
     deleteRHUInventoryBatch,
     updateRHUInventoryBatch,
-    RHUInventoryInput,
-    RHUStockBatchInput,
-    RHUBatchData
+    type RHUInventoryInput,
+    type RHUStockBatchInput,
+    type RHUBatchData
 } from "./actions";
 import { cn } from "@/lib/utils";
 
