@@ -35,15 +35,6 @@ export default async function EngineerPage() {
                         Review and evaluate building permit applications submitted by Residents.
                     </p>
                 </div>
-
-                <div>
-                    <Link
-                        href="/admin/engineer/archive"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm active:scale-95 cursor-pointer"
-                    >
-                        <span>📂 Open Permit Archives Vault</span>
-                    </Link>
-                </div>
             </div>
 
             <EngineerDashboard />
