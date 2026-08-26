@@ -2,19 +2,20 @@
 
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Eye, FileText, Download, ZoomIn, ZoomOut, RotateCw, RotateCcw, RefreshCw, Move, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { X, Eye, FileText, Download, ZoomIn, ZoomOut, RotateCw, RotateCcw, RefreshCw, Move, ChevronLeft, ChevronRight, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface DocumentViewerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    file: File | null;
-    fileUrl: string | null;
+    file?: File | null;
+    fileUrl?: string | null;
     title: string;
     themeColor?: string;
     documents?: { url?: string | null; label: string }[];
     initialIndex?: number;
+    showPrint?: boolean;
 }
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
@@ -46,7 +47,8 @@ export default function DocumentViewerModal({
     title,
     themeColor = "var(--primary-theme)",
     documents,
-    initialIndex
+    initialIndex,
+    showPrint = false
 }: DocumentViewerModalProps) {
 
     // Lock document.body background scrolling when modal is open
@@ -371,6 +373,117 @@ export default function DocumentViewerModal({
         }
     };
 
+    const handlePrint = () => {
+        const printUrl = pdfDataUrl || activeUrl;
+        if (!printUrl) return;
+
+        try {
+            if (isPdf) {
+                const iframe = document.createElement("iframe");
+                iframe.style.position = "fixed";
+                iframe.style.right = "0";
+                iframe.style.bottom = "0";
+                iframe.style.width = "0";
+                iframe.style.height = "0";
+                iframe.style.border = "0";
+                iframe.src = printUrl;
+
+                document.body.appendChild(iframe);
+                iframe.onload = () => {
+                    try {
+                        iframe.contentWindow?.focus();
+                        iframe.contentWindow?.print();
+                    } catch {
+                        window.open(printUrl, "_blank");
+                    }
+                    setTimeout(() => {
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
+                    }, 60000);
+                };
+            } else if (isImage) {
+                const printWindow = window.open("", "_blank");
+                if (printWindow) {
+                    printWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>${activeTitle || "Assessor Document Archive"}</title>
+                            <style>
+                                @page {
+                                    size: auto;
+                                    margin: 10mm;
+                                }
+                                body {
+                                    margin: 0;
+                                    padding: 0;
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    justify-content: center;
+                                    min-height: 100vh;
+                                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                                    background-color: #fff;
+                                }
+                                .header {
+                                    text-align: center;
+                                    margin-bottom: 12px;
+                                }
+                                .header h2 {
+                                    margin: 0;
+                                    font-size: 13pt;
+                                    text-transform: uppercase;
+                                    letter-spacing: 0.5px;
+                                    color: #1e293b;
+                                }
+                                .header p {
+                                    margin: 2px 0 0 0;
+                                    font-size: 8.5pt;
+                                    color: #64748b;
+                                }
+                                .img-container {
+                                    width: 100%;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                }
+                                img {
+                                    max-width: 100%;
+                                    max-height: 88vh;
+                                    object-fit: contain;
+                                }
+                                @media print {
+                                    body {
+                                        min-height: auto;
+                                    }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <h2>${activeTitle?.toLowerCase().includes("permit") || activeTitle?.toLowerCase().includes("engineer") || activeTitle?.toLowerCase().includes("building") ? "Municipality of Mapandan - Municipal Engineering Office" : activeTitle?.toLowerCase().includes("tax") || activeTitle?.toLowerCase().includes("tdn") || activeTitle?.toLowerCase().includes("rpt") ? "Municipality of Mapandan - Municipal Assessor Office" : "Municipality of Mapandan - Official Document Archive"}</h2>
+                                <p>${activeTitle || "Official Document Archive"} • Printed on ${new Date().toLocaleDateString()}</p>
+                            </div>
+                            <div class="img-container">
+                                <img src="${printUrl}" onload="window.print(); window.close();" />
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
+                } else {
+                    window.open(printUrl, "_blank");
+                }
+            } else {
+                window.open(printUrl, "_blank");
+            }
+        } catch (error) {
+            console.error("Print invocation failed:", error);
+            window.open(printUrl, "_blank");
+        }
+    };
+
     return (
         <AnimatePresence>
             {isOpen && activeUrl && (
@@ -471,6 +584,18 @@ export default function DocumentViewerModal({
                                             <RefreshCw className="w-4.5 h-4.5" />
                                         </Button>
                                     </div>
+                                )}
+
+                                {showPrint && (
+                                    <Button
+                                        onClick={handlePrint}
+                                        variant="ghost"
+                                        size="icon"
+                                        className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all shrink-0 cursor-pointer"
+                                        title="Print official document"
+                                    >
+                                        <Printer className="w-4 h-4" />
+                                    </Button>
                                 )}
 
                                 <Button
