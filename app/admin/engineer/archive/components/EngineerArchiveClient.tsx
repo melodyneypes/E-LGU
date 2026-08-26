@@ -189,6 +189,39 @@ export default function EngineerArchiveClient({
         setIsViewerOpen(true);
     };
 
+    // Reset form helper
+    const resetForm = () => {
+        setFormData({
+            permitNumber: "",
+            firstName: "",
+            lastName: "",
+            applicantName: "",
+            occupation: "",
+            citizenship: "Filipino",
+            civilStatus: "Single",
+            placeOfBirth: "",
+            province: "Pangasinan",
+            municipality: "Mapandan",
+            barangay: "Poblacion",
+            contactNumber: "",
+            email: "",
+            houseNumber: "",
+            street: "",
+            dateIssued: new Date().toISOString().split("T")[0],
+            projectType: "",
+            occupancyUse: "Residential",
+            estimatedCost: "",
+            totalFloors: "1",
+            isLotOwner: "Yes",
+            remarks: "",
+        });
+        setMainPermitFile(null);
+        setAdditionalAttachments([
+            { label: "Approved Architectural Plans", file: null },
+            { label: "Tax Declaration / Land Title", file: null },
+        ]);
+    };
+
     // Add extra document row
     const handleAddAttachmentRow = () => {
         setAdditionalAttachments(prev => [...prev, { label: "", file: null }]);
@@ -231,36 +264,7 @@ export default function EngineerArchiveClient({
             if (res.success) {
                 toast.success(`Permit #${res.permitNumber} successfully encoded to archives!`);
                 setIsCreateOpen(false);
-                // Reset form
-                setFormData({
-                    permitNumber: "",
-                    firstName: "",
-                    lastName: "",
-                    applicantName: "",
-                    occupation: "",
-                    citizenship: "Filipino",
-                    civilStatus: "Single",
-                    placeOfBirth: "",
-                    province: "Pangasinan",
-                    municipality: "Mapandan",
-                    barangay: "Poblacion",
-                    contactNumber: "",
-                    email: "",
-                    houseNumber: "",
-                    street: "",
-                    dateIssued: new Date().toISOString().split("T")[0],
-                    projectType: "",
-                    occupancyUse: "Residential",
-                    estimatedCost: "",
-                    totalFloors: "1",
-                    isLotOwner: "Yes",
-                    remarks: "",
-                });
-                setMainPermitFile(null);
-                setAdditionalAttachments([
-                    { label: "Approved Architectural Plans", file: null },
-                    { label: "Tax Declaration / Land Title", file: null },
-                ]);
+                resetForm();
                 fetchArchives();
             } else {
                 toast.error(res.error || "Failed to encode physical permit record.");
@@ -310,7 +314,13 @@ export default function EngineerArchiveClient({
                         <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-300 ${loading ? "animate-spin" : ""}`} />
                     </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                    <Dialog
+                        open={isCreateOpen}
+                        onOpenChange={open => {
+                            setIsCreateOpen(open);
+                            if (!open) resetForm();
+                        }}
+                    >
                         <DialogTrigger asChild>
                             <Button
                                 className="rounded-2xl text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 shadow-lg shadow-indigo-600/20 flex items-center gap-2"
@@ -643,9 +653,9 @@ export default function EngineerArchiveClient({
                                     </div>
 
                                     {/* Right Column: Document Scans & Uploads (5 Cols) */}
-                                    <div className="lg:col-span-5 space-y-6">
-                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm flex flex-col h-full">
-                                            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                    <div className="lg:col-span-5 flex flex-col">
+                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm flex flex-col">
+                                            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-[#2a3040] shrink-0">
                                                 <div className="flex items-center gap-2">
                                                     <FileText className="w-4 h-4 text-indigo-500" />
                                                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
@@ -657,14 +667,14 @@ export default function EngineerArchiveClient({
                                                     onClick={handleAddAttachmentRow}
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                                                    className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer"
                                                 >
                                                     <Plus className="w-3.5 h-3.5 mr-1" /> Add File
                                                 </Button>
                                             </div>
 
                                             {/* Primary Signed Permit Upload Box */}
-                                            <div className="p-4 rounded-2xl bg-indigo-500/5 border-2 border-dashed border-indigo-500/30 space-y-2.5">
+                                            <div className="p-4 rounded-2xl bg-indigo-500/5 border-2 border-dashed border-indigo-500/30 space-y-2.5 shrink-0">
                                                 <div className="flex items-center justify-between">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
                                                         <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> Official Signed Permit (Primary)
@@ -686,50 +696,66 @@ export default function EngineerArchiveClient({
                                                 </p>
                                             </div>
 
-                                            {/* Supplementary Attachments List */}
-                                            <div className="space-y-3 flex-1 overflow-y-auto max-h-[360px] pr-1">
-                                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                    Supplementary Plans, Clearances & Records
-                                                </p>
-                                                {additionalAttachments.map((att, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200 dark:border-[#2a3040] space-y-2 shadow-sm"
+                                            {/* Supplementary Attachments List - Capped with internal scrollbar when reaching bottom */}
+                                            <div className="space-y-3 flex flex-col">
+                                                <div className="flex items-center justify-between shrink-0">
+                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        Supplementary Plans, Clearances & Records ({additionalAttachments.length})
+                                                    </p>
+                                                </div>
+                                                
+                                                {additionalAttachments.length === 0 ? (
+                                                    <div 
+                                                        onClick={handleAddAttachmentRow}
+                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-indigo-500 hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all cursor-pointer text-center min-h-[160px]"
                                                     >
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <Input
-                                                                placeholder="Document Label (e.g. Architectural Plan)"
-                                                                value={att.label}
-                                                                onChange={e => {
-                                                                    const updated = [...additionalAttachments];
-                                                                    updated[idx].label = e.target.value;
-                                                                    setAdditionalAttachments(updated);
-                                                                }}
-                                                                className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b]"
-                                                            />
-                                                            <Button
-                                                                type="button"
-                                                                onClick={() => handleRemoveAttachmentRow(idx)}
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0"
-                                                                title="Remove file"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                        <Input
-                                                            type="file"
-                                                            accept="image/*,application/pdf"
-                                                            onChange={e => {
-                                                                const updated = [...additionalAttachments];
-                                                                updated[idx].file = e.target.files?.[0] || null;
-                                                                setAdditionalAttachments(updated);
-                                                            }}
-                                                            className="h-9 rounded-lg text-xs cursor-pointer bg-slate-50 dark:bg-[#151b2b]"
-                                                        />
+                                                        <UploadCloud className="w-8 h-8 text-indigo-400/80 mb-2 animate-bounce" />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">No Supplementary Files Added</span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">Click here or &ldquo;+ Add File&rdquo; to attach blueprints, clearances, or tax declarations</span>
                                                     </div>
-                                                ))}
+                                                ) : (
+                                                    <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
+                                                        {additionalAttachments.map((att, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200 dark:border-[#2a3040] space-y-2 shadow-sm"
+                                                            >
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <Input
+                                                                        placeholder="Document Label (e.g. Architectural Plan)"
+                                                                        value={att.label}
+                                                                        onChange={e => {
+                                                                            const updated = [...additionalAttachments];
+                                                                            updated[idx].label = e.target.value;
+                                                                            setAdditionalAttachments(updated);
+                                                                        }}
+                                                                        className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b]"
+                                                                    />
+                                                                    <Button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveAttachmentRow(idx)}
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
+                                                                        title="Remove file"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                </div>
+                                                                <Input
+                                                                    type="file"
+                                                                    accept="image/*,application/pdf"
+                                                                    onChange={e => {
+                                                                        const updated = [...additionalAttachments];
+                                                                        updated[idx].file = e.target.files?.[0] || null;
+                                                                        setAdditionalAttachments(updated);
+                                                                    }}
+                                                                    className="h-9 rounded-lg text-xs cursor-pointer bg-slate-50 dark:bg-[#151b2b]"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -746,7 +772,10 @@ export default function EngineerArchiveClient({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => setIsCreateOpen(false)}
+                                        onClick={() => {
+                                            setIsCreateOpen(false);
+                                            resetForm();
+                                        }}
                                         className="rounded-2xl px-5"
                                         disabled={isSubmitting}
                                     >
@@ -1075,6 +1104,7 @@ export default function EngineerArchiveClient({
                 title={viewerTitle}
                 themeColor={themeColor}
                 documents={selectedDocuments}
+                showPrint={true}
             />
         </div>
     );

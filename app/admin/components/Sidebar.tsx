@@ -547,6 +547,7 @@ export function Sidebar({
             ]
         },
         { href: "/admin/assessor/appointment-settings", label: "Assessor Appointment Settings", icon: Calendar, category: "Assessor Office" },
+        { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
         { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
@@ -555,7 +556,7 @@ export function Sidebar({
         { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-        { href: "/admin/engineer/archive", label: "Permit Archives", icon: FolderArchive, category: "Engineering" },
+        { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
@@ -704,7 +705,7 @@ export function Sidebar({
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-                { href: "/admin/engineer/archive", label: "Permit Archives", icon: FolderArchive, category: "Engineering" }
+                { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" }
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [
@@ -724,6 +725,7 @@ export function Sidebar({
                     ]
                 },
                 { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
+                { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
             ];
         } else if (role === "BFP") {
             menuItems = [
