@@ -189,6 +189,39 @@ export default function EngineerArchiveClient({
         setIsViewerOpen(true);
     };
 
+    // Reset form helper
+    const resetForm = () => {
+        setFormData({
+            permitNumber: "",
+            firstName: "",
+            lastName: "",
+            applicantName: "",
+            occupation: "",
+            citizenship: "Filipino",
+            civilStatus: "Single",
+            placeOfBirth: "",
+            province: "Pangasinan",
+            municipality: "Mapandan",
+            barangay: "Poblacion",
+            contactNumber: "",
+            email: "",
+            houseNumber: "",
+            street: "",
+            dateIssued: new Date().toISOString().split("T")[0],
+            projectType: "",
+            occupancyUse: "Residential",
+            estimatedCost: "",
+            totalFloors: "1",
+            isLotOwner: "Yes",
+            remarks: "",
+        });
+        setMainPermitFile(null);
+        setAdditionalAttachments([
+            { label: "Approved Architectural Plans", file: null },
+            { label: "Tax Declaration / Land Title", file: null },
+        ]);
+    };
+
     // Add extra document row
     const handleAddAttachmentRow = () => {
         setAdditionalAttachments(prev => [...prev, { label: "", file: null }]);
@@ -231,36 +264,7 @@ export default function EngineerArchiveClient({
             if (res.success) {
                 toast.success(`Permit #${res.permitNumber} successfully encoded to archives!`);
                 setIsCreateOpen(false);
-                // Reset form
-                setFormData({
-                    permitNumber: "",
-                    firstName: "",
-                    lastName: "",
-                    applicantName: "",
-                    occupation: "",
-                    citizenship: "Filipino",
-                    civilStatus: "Single",
-                    placeOfBirth: "",
-                    province: "Pangasinan",
-                    municipality: "Mapandan",
-                    barangay: "Poblacion",
-                    contactNumber: "",
-                    email: "",
-                    houseNumber: "",
-                    street: "",
-                    dateIssued: new Date().toISOString().split("T")[0],
-                    projectType: "",
-                    occupancyUse: "Residential",
-                    estimatedCost: "",
-                    totalFloors: "1",
-                    isLotOwner: "Yes",
-                    remarks: "",
-                });
-                setMainPermitFile(null);
-                setAdditionalAttachments([
-                    { label: "Approved Architectural Plans", file: null },
-                    { label: "Tax Declaration / Land Title", file: null },
-                ]);
+                resetForm();
                 fetchArchives();
             } else {
                 toast.error(res.error || "Failed to encode physical permit record.");
@@ -310,7 +314,13 @@ export default function EngineerArchiveClient({
                         <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-300 ${loading ? "animate-spin" : ""}`} />
                     </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                    <Dialog
+                        open={isCreateOpen}
+                        onOpenChange={open => {
+                            setIsCreateOpen(open);
+                            if (!open) resetForm();
+                        }}
+                    >
                         <DialogTrigger asChild>
                             <Button
                                 className="rounded-2xl text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 shadow-lg shadow-indigo-600/20 flex items-center gap-2"
@@ -762,7 +772,10 @@ export default function EngineerArchiveClient({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => setIsCreateOpen(false)}
+                                        onClick={() => {
+                                            setIsCreateOpen(false);
+                                            resetForm();
+                                        }}
                                         className="rounded-2xl px-5"
                                         disabled={isSubmitting}
                                     >
@@ -1091,6 +1104,7 @@ export default function EngineerArchiveClient({
                 title={viewerTitle}
                 themeColor={themeColor}
                 documents={selectedDocuments}
+                showPrint={true}
             />
         </div>
     );

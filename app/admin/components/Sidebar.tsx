@@ -547,6 +547,7 @@ export function Sidebar({
             ]
         },
         { href: "/admin/assessor/appointment-settings", label: "Assessor Appointment Settings", icon: Calendar, category: "Assessor Office" },
+        { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
         { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
@@ -724,6 +725,7 @@ export function Sidebar({
                     ]
                 },
                 { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
+                { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
             ];
         } else if (role === "BFP") {
             menuItems = [

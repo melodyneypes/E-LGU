@@ -170,6 +170,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                 fileUrl={viewerUrl}
                 title={viewerTitle}
                 themeColor={themeColor}
+                showPrint={true}
             />
             <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
                 <div className="flex items-center gap-4">
