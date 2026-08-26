@@ -38,9 +38,10 @@ import {
 interface AmbulanceSettingsClientProps {
     isReadOnly?: boolean;
     healthCenters?: any[];
+    matchedCenterId?: string | null;
 }
 
-export default function AmbulanceSettingsClient({ isReadOnly = false, healthCenters = [] }: AmbulanceSettingsClientProps) {
+export default function AmbulanceSettingsClient({ isReadOnly = false, healthCenters = [], matchedCenterId = null }: AmbulanceSettingsClientProps) {
     let themeColor = "var(--primary-theme, #2563eb)";
     try {
         const sys = useSystemTheme();
@@ -62,7 +63,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
         unit: "",
         plateNumber: "",
         station: "",
-        status: "STANDBY"
+        status: "ACTIVE"
     });
 
     // Hotline Modal State
@@ -70,7 +71,8 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
     const [editingHotlineIdx, setEditingHotlineIdx] = useState<number | null>(null);
     const [hotlineForm, setHotlineForm] = useState({
         name: "",
-        number: ""
+        number: "",
+        status: "ACTIVE"
     });
 
     useEffect(() => {
@@ -80,8 +82,14 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             getRHUHealthCenters()
         ]).then(([ambRes, centersRes]) => {
             if (ambRes.success) {
-                setFleet(ambRes.fleet || []);
-                setHotlines(ambRes.hotlines || []);
+                let fetchedFleet = ambRes.fleet || [];
+                let fetchedHotlines = ambRes.hotlines || [];
+                if (matchedCenterId) {
+                    fetchedFleet = fetchedFleet.filter((v: any) => v.assigned_center_id === matchedCenterId);
+                    fetchedHotlines = fetchedHotlines.filter((h: any) => h.assigned_center_id === matchedCenterId);
+                }
+                setFleet(fetchedFleet);
+                setHotlines(fetchedHotlines);
             } else {
                 toast.error(ambRes.error || "Failed to load ambulance settings");
             }
@@ -91,23 +99,20 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
         }).finally(() => {
             setIsLoading(false);
         });
-    }, []);
+    }, [matchedCenterId]);
 
     // Status styling helper
     const getStatusColor = (status: string) => {
-        if (status === "STANDBY") {
+        if (status === "ACTIVE" || status === "STANDBY" || status === "ON DUTY" || status === "MAINTENANCE") {
             return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-        } else if (status === "ON DUTY") {
-            return "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20";
         } else {
-            return "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
+            return "text-slate-600 dark:text-slate-400 bg-slate-500/10 border-slate-500/20";
         }
     };
 
     const getStatusDotColor = (status: string) => {
-        if (status === "STANDBY") return "bg-emerald-500 shadow-emerald-500/50";
-        if (status === "ON DUTY") return "bg-blue-500 shadow-blue-500/50";
-        return "bg-amber-500 shadow-amber-500/50";
+        if (status === "ACTIVE" || status === "STANDBY" || status === "ON DUTY" || status === "MAINTENANCE") return "bg-emerald-500 shadow-emerald-500/50";
+        return "bg-slate-500 shadow-slate-500/50";
     };
 
     // Hotline category icon & badge styling helper
@@ -144,7 +149,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             unit: `Ambulance Unit ${fleet.length + 1}`,
             plateNumber: "",
             station: centersList[0]?.name || "",
-            status: "STANDBY"
+            status: "ACTIVE"
         });
         setIsAmbulanceModalOpen(true);
     };
@@ -157,7 +162,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             unit: item.unit || "",
             plateNumber: item.plateNumber || "",
             station: item.station || centersList[0]?.name || "",
-            status: item.status || "STANDBY"
+            status: item.status || "ACTIVE"
         });
         setIsAmbulanceModalOpen(true);
     };
@@ -170,6 +175,11 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             return;
         }
 
+        if (matchedCenterId && editingAmbulanceIdx !== null && fleet[editingAmbulanceIdx]?.assigned_center_id !== matchedCenterId) {
+            toast.error("Failsafe: You cannot edit an asset belonging to another facility.");
+            return;
+        }
+
         setIsSavingModal(true);
         try {
             const statusColor = getStatusColor(ambulanceForm.status);
@@ -178,7 +188,8 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                 unit: ambulanceForm.unit.trim(),
                 plateNumber: ambulanceForm.plateNumber.trim() || "N/A",
                 station: ambulanceForm.station || "Main Station",
-                statusColor
+                statusColor,
+                assigned_center_id: matchedCenterId
             };
 
             let updatedFleet: any[];
@@ -225,6 +236,11 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
 
     // Quick Status Change on card
     const handleQuickStatusChange = async (idx: number, newStatus: string) => {
+        if (matchedCenterId && fleet[idx]?.assigned_center_id !== matchedCenterId) {
+            toast.error("Failsafe: You cannot edit status of an asset belonging to another facility.");
+            return;
+        }
+
         const updatedFleet = [...fleet];
         updatedFleet[idx].status = newStatus;
         updatedFleet[idx].statusColor = getStatusColor(newStatus);
@@ -245,7 +261,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
     // Open Add Hotline Modal
     const handleOpenAddHotline = () => {
         setEditingHotlineIdx(null);
-        setHotlineForm({ name: "", number: "" });
+        setHotlineForm({ name: "", number: "", status: "ACTIVE" });
         setIsHotlineModalOpen(true);
     };
 
@@ -255,7 +271,8 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
         setEditingHotlineIdx(idx);
         setHotlineForm({
             name: item.name || "",
-            number: item.number || ""
+            number: item.number || "",
+            status: item.status || "ACTIVE"
         });
         setIsHotlineModalOpen(true);
     };
@@ -268,11 +285,18 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             return;
         }
 
+        if (matchedCenterId && editingHotlineIdx !== null && hotlines[editingHotlineIdx]?.assigned_center_id !== matchedCenterId) {
+            toast.error("Failsafe: You cannot edit a hotline belonging to another facility.");
+            return;
+        }
+
         setIsSavingModal(true);
         try {
             const updatedItem = {
                 name: hotlineForm.name.trim(),
-                number: hotlineForm.number.trim()
+                number: hotlineForm.number.trim(),
+                status: hotlineForm.status || "ACTIVE",
+                assigned_center_id: matchedCenterId
             };
 
             let updatedHotlines: any[];
@@ -318,9 +342,8 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
     };
 
     // Counts
-    const standbyCount = fleet.filter(f => f.status === "STANDBY").length;
-    const onDutyCount = fleet.filter(f => f.status === "ON DUTY").length;
-    const maintenanceCount = fleet.filter(f => f.status === "MAINTENANCE").length;
+    const activeCount = fleet.filter(f => f.status === "ACTIVE" || f.status === "STANDBY" || f.status === "ON DUTY" || f.status === "MAINTENANCE").length;
+    const inactiveCount = fleet.filter(f => f.status === "INACTIVE").length;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -392,16 +415,12 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl font-bold">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                {standbyCount} Standby
+                                {activeCount} Active
                             </span>
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl font-bold">
-                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                {onDutyCount} On Duty
-                            </span>
-                            {maintenanceCount > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-3 py-1 rounded-xl font-bold">
-                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                    {maintenanceCount} Maintenance
+                            {inactiveCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 px-3 py-1 rounded-xl font-bold">
+                                    <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                    {inactiveCount} Inactive
                                 </span>
                             )}
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1 rounded-xl font-bold">
@@ -465,7 +484,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDeleteAmbulance(idx)}
-                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
                                                         title="Delete ambulance unit"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
@@ -489,16 +508,15 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                         </div>
                                         <Select
                                             disabled={isReadOnly}
-                                            value={vehicle.status}
+                                            value={vehicle.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
                                             onValueChange={(val) => handleQuickStatusChange(idx, val)}
                                         >
-                                            <SelectTrigger className={cn("h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-wider border shadow-sm", vehicle.statusColor)}>
+                                            <SelectTrigger className={cn("h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-wider border shadow-sm", getStatusColor(vehicle.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"))}>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                                <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">STANDBY</SelectItem>
-                                                <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-600 dark:text-blue-400">ON DUTY</SelectItem>
-                                                <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-600 dark:text-amber-400">MAINTENANCE</SelectItem>
+                                                <SelectItem value="ACTIVE" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">ACTIVE</SelectItem>
+                                                <SelectItem value="INACTIVE" className="text-xs font-bold py-2 rounded-lg text-slate-500 dark:text-slate-400">INACTIVE</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -609,16 +627,25 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                         {/* Avatar / Category Badge */}
                                         <div className={cn(
                                             "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner transition-transform duration-200 group-hover:scale-105",
-                                            meta.color
+                                            hotline.status === "INACTIVE" 
+                                                ? "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                                                : meta.color
                                         )}>
                                             <IconComponent className="w-5 h-5" />
                                         </div>
 
                                         {/* Contact Details */}
                                         <div className="min-w-0 flex-1 space-y-0.5">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
-                                                {hotline.name}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
+                                                    {hotline.name}
+                                                </span>
+                                                {hotline.status === "INACTIVE" && (
+                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-500 border border-slate-500/20 uppercase tracking-wider leading-none">
+                                                        Inactive
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-1.5">
                                                 <Phone className="w-3 h-3 text-rose-500 shrink-0" />
                                                 <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white font-mono block truncate">
@@ -641,7 +668,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteHotline(idx)}
-                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
                                                 title="Delete hotline"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -736,16 +763,15 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                     Availability Status
                                 </Label>
                                 <Select
-                                    value={ambulanceForm.status}
+                                    value={ambulanceForm.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
                                     onValueChange={(val) => setAmbulanceForm({ ...ambulanceForm, status: val })}
                                 >
                                     <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
-                                        <SelectItem value="STANDBY" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">STANDBY</SelectItem>
-                                        <SelectItem value="ON DUTY" className="text-xs font-bold py-2 rounded-lg text-blue-600 dark:text-blue-400">ON DUTY</SelectItem>
-                                        <SelectItem value="MAINTENANCE" className="text-xs font-bold py-2 rounded-lg text-amber-600 dark:text-amber-400">MAINTENANCE</SelectItem>
+                                        <SelectItem value="ACTIVE" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">ACTIVE</SelectItem>
+                                        <SelectItem value="INACTIVE" className="text-xs font-bold py-2 rounded-lg text-slate-500 dark:text-slate-400">INACTIVE</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -854,6 +880,24 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                 placeholder="e.g. 0917-555-0199 or (075) 529-1234"
                                 className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs"
                             />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Hotline Status
+                            </Label>
+                            <Select
+                                value={hotlineForm.status || "ACTIVE"}
+                                onValueChange={(val) => setHotlineForm({ ...hotlineForm, status: val })}
+                            >
+                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161820] text-slate-900 dark:text-white">
+                                    <SelectItem value="ACTIVE" className="text-xs font-bold py-2 rounded-lg text-emerald-600 dark:text-emerald-400">ACTIVE</SelectItem>
+                                    <SelectItem value="INACTIVE" className="text-xs font-bold py-2 rounded-lg text-slate-500 dark:text-slate-400">INACTIVE</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <DialogFooter className="pt-4 flex flex-row items-center justify-end gap-2">

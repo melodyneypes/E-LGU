@@ -27,11 +27,11 @@ export default async function RHUCentersPage() {
 
     if (matchedCenter) {
         initialCenters = initialCenters.filter((c: any) => c.id === matchedCenter.id);
-        initialPersonnel = initialPersonnel.filter((p: any) => p.healthCenterId === matchedCenter.id);
+        initialPersonnel = initialPersonnel.filter((p: any) => p.healthCenterId === matchedCenter.id || !p.healthCenterId || p.healthCenterId === "NONE");
     } else if (currentUser?.managedBarangay) {
         initialCenters = initialCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
         const validCenterIds = new Set(initialCenters.map((c: any) => c.id));
-        initialPersonnel = initialPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId));
+        initialPersonnel = initialPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId) || !p.healthCenterId || p.healthCenterId === "NONE");
     }
 
     return (

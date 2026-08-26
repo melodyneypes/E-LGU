@@ -57,21 +57,21 @@ const defaultFleet: InitialAmbulance[] = [
         unit: "Ambulance Unit 1 (Foton Transporter)",
         plateNumber: "SAB-1234",
         station: "Poblacion Main Station",
-        status: "STANDBY",
+        status: "ACTIVE",
         statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
     },
     {
         unit: "Ambulance Unit 2 (Toyota Hiace)",
         plateNumber: "SAB-5678",
         station: "Luyan South Station",
-        status: "ON DUTY",
-        statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20"
+        status: "ACTIVE",
+        statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
     },
     {
         unit: "Ambulance Unit 3 (Barangay Response)",
         plateNumber: "SAB-9012",
         station: "Nilombot Station",
-        status: "STANDBY",
+        status: "ACTIVE",
         statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
     }
 ];
@@ -97,8 +97,12 @@ export function EmergencyReport({
 }) {
     const [copied, setCopied] = React.useState<string | null>(null);
     const [copiedDispatch, setCopiedDispatch] = React.useState<string | null>(null);
-    const [fleet, setFleet] = React.useState<InitialAmbulance[]>(initialFleet.length > 0 ? initialFleet : defaultFleet);
-    const [dispatchHotlines, setDispatchHotlines] = React.useState<InitialDispatchHotline[]>(initialDispatchHotlines.length > 0 ? initialDispatchHotlines : defaultDispatchHotlines);
+    const [fleet, setFleet] = React.useState<InitialAmbulance[]>(
+        (initialFleet.length > 0 ? initialFleet : defaultFleet).filter(v => v.status !== "INACTIVE")
+    );
+    const [dispatchHotlines, setDispatchHotlines] = React.useState<InitialDispatchHotline[]>(
+        (initialDispatchHotlines.length > 0 ? initialDispatchHotlines : defaultDispatchHotlines).filter(h => (h as any).status !== "INACTIVE")
+    );
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
     React.useEffect(() => {
@@ -113,8 +117,12 @@ export function EmergencyReport({
         if (initialFleet.length === 0 || initialDispatchHotlines.length === 0) {
             getAmbulanceSettings().then((res) => {
                 if (res.success) {
-                    if (res.fleet && res.fleet.length > 0) setFleet(res.fleet);
-                    if (res.hotlines && res.hotlines.length > 0) setDispatchHotlines(res.hotlines);
+                    if (res.fleet && res.fleet.length > 0) {
+                        setFleet(res.fleet.filter((v: any) => v.status !== "INACTIVE"));
+                    }
+                    if (res.hotlines && res.hotlines.length > 0) {
+                        setDispatchHotlines(res.hotlines.filter((h: any) => h.status !== "INACTIVE"));
+                    }
                 }
             }).catch(() => {});
         }
@@ -145,8 +153,7 @@ export function EmergencyReport({
         setTimeout(() => setCopiedDispatch(null), 2000);
     };
 
-    const standbyCount = fleet.filter(f => f.status === "STANDBY").length;
-    const onDutyCount = fleet.filter(f => f.status === "ON DUTY").length;
+    const activeCount = fleet.filter(f => f.status === "ACTIVE" || f.status === "STANDBY" || f.status === "ON DUTY" || f.status === "MAINTENANCE").length;
 
     return (
         <section id="hotlines" className="pt-8 md:pt-12 pb-16 md:pb-28 px-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white relative border-t border-slate-200 dark:border-white/5">
@@ -378,14 +385,8 @@ export function EmergencyReport({
                         <div className="flex flex-wrap items-center gap-3 shrink-0">
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                {standbyCount} Standby
+                                {activeCount} Active
                             </span>
-                            {onDutyCount > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-3 py-1.5 rounded-xl">
-                                    <span className="w-2 h-2 rounded-full bg-sky-500" />
-                                    {onDutyCount} On Duty
-                                </span>
-                            )}
                             <Link
                                 href="/user/services/rural-health-unit"
                                 className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white bg-primary hover:bg-primary/90 border border-primary/20 px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-primary/10"
@@ -432,13 +433,11 @@ export function EmergencyReport({
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</span>
                                         <span className={cn(
                                             "text-[9px] font-black uppercase tracking-widest border px-3 py-1 rounded-full",
-                                            vehicle.status === "STANDBY"
-                                                ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                                : vehicle.status === "ON DUTY"
-                                                    ? "text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/20"
-                                                    : "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                            vehicle.status === "INACTIVE"
+                                                ? "text-slate-600 dark:text-slate-400 bg-slate-500/10 border-slate-500/20"
+                                                : "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                                         )}>
-                                            {vehicle.status}
+                                            {vehicle.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
                                         </span>
                                     </div>
                                 </div>
