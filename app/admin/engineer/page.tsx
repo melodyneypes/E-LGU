@@ -4,7 +4,6 @@ import { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "Engineer Hub | Mapandan Portal",
