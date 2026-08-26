@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
     getArchivedAssessorRecords,
-    createArchivedAssessorRecord,
-    deleteArchivedAssessorRecord
+    createArchivedAssessorRecord
 } from "../actions";
 import {
     Search,
@@ -311,25 +310,6 @@ export default function AssessorArchiveClient({
             toast.error("An error occurred while uploading documents.");
         } finally {
             setIsSubmitting(false);
-        }
-    };
-
-    // Handle Delete Physical Record
-    const handleDeleteRecord = async (id: string, tdn: string) => {
-        if (!confirm(`Are you sure you want to delete Tax Declaration "${tdn}" from the archives?`)) {
-            return;
-        }
-
-        try {
-            const res = await deleteArchivedAssessorRecord(id);
-            if (res.success) {
-                toast.success(res.message);
-                fetchArchives();
-            } else {
-                toast.error(res.error || "Failed to delete record.");
-            }
-        } catch {
-            toast.error("An error occurred during deletion.");
         }
     };
 
@@ -1158,7 +1138,7 @@ export default function AssessorArchiveClient({
 
                                     {/* Actions */}
                                     <TableCell className="py-3.5 text-right">
-                                        <div className="flex items-center justify-end gap-1.5">
+                                        <div className="flex items-center justify-end">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -1171,18 +1151,6 @@ export default function AssessorArchiveClient({
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </Button>
-
-                                            {r.isPhysicalArchive && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleDeleteRecord(r.id, r.tdn)}
-                                                    className="h-8 w-8 rounded-xl text-rose-500 hover:bg-rose-500/10 cursor-pointer"
-                                                    title="Delete Archived Record"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </Button>
-                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>
