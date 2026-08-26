@@ -710,7 +710,7 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
         section_map: settings.section_map !== "false",
         section_app_download: settings.section_app_download !== "false",
     });
-    const [isSaving, setIsSaving] = useState(false);
+    const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
     const sections = [
         { key: "section_dining_lodging", label: "Kainan at Tuluyan", description: "Dining and lodging establishments" },
@@ -727,21 +727,27 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
         { key: "section_app_download", label: "Mobile App Downloads", description: "Google Play, App Store, and APK download links" },
     ];
 
-    const handleToggle = (key: string) => {
-        setSectionStates(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
-    };
+    const handleToggle = async (key: string, label: string) => {
+        const currentVal = sectionStates[key as keyof typeof sectionStates];
+        const nextVal = !currentVal;
 
-    const handleSave = async () => {
-        setIsSaving(true);
+        // Optimistic UI Update
+        setSectionStates(prev => ({ ...prev, [key]: nextVal }));
+        setUpdatingKey(key);
+
         try {
-            for (const [key, value] of Object.entries(sectionStates)) {
-                await updateSystemSetting(key, value.toString());
+            const res = await updateSystemSetting(key, nextVal.toString());
+            if (res.success) {
+                toast.success(`${label} ${nextVal ? "enabled" : "disabled"} on public landing page!`);
+            } else {
+                throw new Error("Failed to save");
             }
-            toast.success("Section visibility updated successfully!");
         } catch {
-            toast.error("Failed to save section settings");
+            // Revert state on failure
+            setSectionStates(prev => ({ ...prev, [key]: currentVal }));
+            toast.error(`Failed to update ${label}. Please try again.`);
         } finally {
-            setIsSaving(false);
+            setUpdatingKey(null);
         }
     };
 
@@ -752,39 +758,38 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
                     <Layout className="w-5 h-5 text-blue-600" />
                     Landing Page Sections
                 </CardTitle>
-                <CardDescription>Show or hide sections on the public landing page.</CardDescription>
+                <CardDescription>Show or hide sections on the public landing page. Changes are saved automatically in real-time.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-                {sections.map((section) => (
-                    <div
-                        key={section.key}
-                        className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800"
-                    >
-                        <div className="space-y-1">
-                            <Label className="text-base font-bold text-slate-900 dark:text-white">
-                                {section.label}
-                            </Label>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-                                {section.description}
-                            </p>
+                {sections.map((section) => {
+                    const isChecked = sectionStates[section.key as keyof typeof sectionStates];
+                    const isBusy = updatingKey === section.key;
+
+                    return (
+                        <div
+                            key={section.key}
+                            className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 transition-all hover:border-slate-300 dark:hover:border-slate-700"
+                        >
+                            <div className="space-y-1">
+                                <Label className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    {section.label}
+                                    {isBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
+                                </Label>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                                    {section.description}
+                                </p>
+                            </div>
+                            <Switch
+                                checked={isChecked}
+                                disabled={isBusy}
+                                onCheckedChange={() => handleToggle(section.key, section.label)}
+                                style={{
+                                    backgroundColor: isChecked ? themeColor : undefined
+                                }}
+                            />
                         </div>
-                        <Switch
-                            checked={sectionStates[section.key as keyof typeof sectionStates]}
-                            onCheckedChange={() => handleToggle(section.key)}
-                            style={{
-                                backgroundColor: sectionStates[section.key as keyof typeof sectionStates] ? themeColor : undefined
-                            }}
-                        />
-                    </div>
-                ))}
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    style={{ backgroundColor: themeColor }}
-                    className="w-full h-12 text-white rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
-                >
-                    {isSaving ? "Saving..." : "Save Section Settings"}
-                </Button>
+                    );
+                })}
             </CardContent>
         </Card>
     );

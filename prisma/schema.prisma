@@ -42,6 +42,7 @@ model User {
   vendorCollections     StallCollection[] @relation("VendorCollections")
   collectorCollections  StallCollection[] @relation("CollectorCollections")
   directiveReads        DirectiveRecipientRead[]
+  auditLogs             AuditLog[]                @relation("UserAuditLogs")
 
 }
 
@@ -1451,6 +1452,7 @@ model RHUAmbulanceHotline {
   id        String   @id @default(cuid())
   name      String
   number    String
+  status    String?  @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1512,4 +1514,31 @@ model DirectiveRecipientRead {
 
   @@unique([directiveId, userId])
   @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  userName    String
+  userEmail   String?
+  userRole    String
+  department  String?
+  action      String   // CREATE, UPDATE, DELETE, APPROVE, REJECT, DIGITIZE, PRINT, LOGIN, STATUS_CHANGE
+  entityType  String   // Transaction, BuildingPermit, TaxDeclaration, Resident, User, Official, etc.
+  entityId    String?
+  entityName  String?  // Reference identifier (e.g. TDN #, Permit #, Citizen Name)
+  description String
+  metadata    Json?    @default("{}") // Changed fields, snapshots, diffs
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userRole])
+  @@index([department])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { processImageUpload, deleteUploadedFile } from "@/app/admin/settings/actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/audit";
 
 export async function getAboutData(barangayName?: string | null) {
     if (barangayName) {
@@ -106,6 +107,15 @@ export async function upsertAboutData(formData: FormData) {
             }
         }
 
+        // Log About Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "AboutPage",
+            entityName: role === "BARANGAY_ADMIN" ? `Brgy. ${managedBarangay}` : "Municipal Overview",
+            description: `Updated ${role === "BARANGAY_ADMIN" ? `Barangay ${managedBarangay} profile & history` : "Municipality About Us content"}`,
+            metadata: { barangay: managedBarangay || null }
+        });
+
         revalidatePath("/about");
         revalidatePath("/admin/about");
         revalidatePath("/admin/about/past-mayors");
@@ -158,6 +168,16 @@ export async function upsertPastMayor(id: string | null, formData: FormData) {
             });
         }
 
+        // Log Past Mayor Action
+        await logActivity({
+            action: id ? "UPDATE" : "CREATE",
+            entityType: "PastMayor",
+            entityId: id || undefined,
+            entityName: data.name,
+            description: `${id ? "Updated" : "Added"} historical leader: "${data.name}" (${data.termStart} - ${data.termEnd})`,
+            metadata: { name: data.name, term: `${data.termStart} - ${data.termEnd}` }
+        });
+
         revalidatePath("/about");
         revalidatePath("/admin/about");
         revalidatePath("/admin/about/past-mayors");
@@ -172,6 +192,17 @@ export async function deletePastMayor(id: string) {
         const item = await (prisma as any).pastMayor.findUnique({ where: { id } });
         if (item?.imageUrl) await deleteUploadedFile(item.imageUrl);
         await (prisma as any).pastMayor.delete({ where: { id } });
+
+        // Log Past Mayor Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "PastMayor",
+            entityId: id,
+            entityName: item?.name || "Past Mayor",
+            description: `Deleted historical leader entry: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/about");
         revalidatePath("/admin/about");
         revalidatePath("/admin/about/past-mayors");

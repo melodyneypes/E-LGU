@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { uploadFile } from "@/lib/storage";
 import { sanitizeObject } from "@/lib/validation";
 import { broadcastRealtimeUpdate } from "@/app/api/realtime/stream/route";
+import { logActivity } from "@/lib/audit";
 
 async function assertEngineerSession() {
     const session = await getServerSession(authOptions);
@@ -459,6 +460,24 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         revalidatePath("/admin/engineer");
         revalidatePath("/admin/engineer/archive");
+
+        // Log Engineer Digitization Event
+        await logActivity({
+            action: "DIGITIZE",
+            entityType: "BuildingPermit",
+            entityId: transaction.id,
+            entityName: `Permit #${permitNumber} (${applicantName})`,
+            description: `Digitized physical Building Permit for ${applicantName} at ${fullLocation}`,
+            metadata: {
+                permitNumber,
+                applicantName,
+                projectType,
+                occupancyUse,
+                estimatedCost,
+                location: fullLocation,
+                dateIssued
+            }
+        });
 
         try {
             broadcastRealtimeUpdate({

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { uploadFile } from "@/lib/storage";
 import { broadcastRealtimeUpdate } from "@/app/api/realtime/stream/route";
+import { logActivity } from "@/lib/audit";
 
 async function assertAssessorSession() {
     const session = await getServerSession(authOptions);
@@ -576,6 +577,26 @@ export async function createArchivedAssessorRecord(formData: FormData) {
         } catch {
             // Non-blocking realtime event
         }
+
+        // Log Digitization Activity
+        await logActivity({
+            action: "DIGITIZE",
+            entityType: "RealPropertyTax",
+            entityId: newRecord.id,
+            entityName: `TDN: ${tdn} (${ownerName})`,
+            description: `Digitized legacy paper Tax Declaration for ${ownerName} in Brgy. ${barangay}`,
+            metadata: {
+                tdn,
+                pin,
+                titleNumber,
+                ownerName,
+                barangay,
+                propertyKind,
+                marketValue,
+                assessedValue,
+                totalTaxDue
+            }
+        });
 
         revalidatePath("/admin/assessor/archive");
         revalidatePath("/admin/assessor");

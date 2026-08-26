@@ -566,8 +566,8 @@ export function Sidebar({
         { href: "/admin/poso/leaderboard", label: "Enforcer Leaderboard", icon: Trophy, category: "Public Order & Safety" },
         { href: "/admin/poso/officers", label: "POSO Officers", icon: UserCheck, category: "Public Order & Safety" },
         { href: "/admin/poso/payment-ledger", label: "POSO Payment Ledger", icon: DollarSign, category: "Public Order & Safety" },
-        { href: "/admin/poso/settings", label: "POSO Settings", icon: Settings, category: "Public Order & Safety" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
+        { href: "/admin/audit-logs", label: "Audit Logs & Activity", icon: Activity, category: "Security & Accounts" },
     ];
 
     const contentAdminAllowed = [

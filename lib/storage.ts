@@ -127,20 +127,47 @@ export async function deleteFileByUrl(url: string, bucket: string = DEFAULT_BUCK
     if (!url) return;
     
     try {
-        // Extract the path from the public URL
-        // Example: https://.../storage/v1/object/public/system-assets/logos/my-logo.png
-        // We need: 'logos/my-logo.png'
-        const urlParts = url.split(`${bucket}/`);
-        if (urlParts.length < 2) return;
-        
-        const path = urlParts[1];
+        // Extract bucket and path from Supabase storage URL
+        // Example format 1: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+        // Example format 2: https://<project>.supabase.co/storage/v1/object/sign/<bucket>/<path>?token=...
+        let targetBucket = bucket;
+        let filePath = "";
+
+        if (url.includes("/storage/v1/object/public/")) {
+            const parts = url.split("/storage/v1/object/public/")[1]?.split("/");
+            if (parts && parts.length >= 2) {
+                targetBucket = parts[0];
+                filePath = parts.slice(1).join("/").split("?")[0];
+            }
+        } else if (url.includes("/storage/v1/object/sign/")) {
+            const parts = url.split("/storage/v1/object/sign/")[1]?.split("/");
+            if (parts && parts.length >= 2) {
+                targetBucket = parts[0];
+                filePath = parts.slice(1).join("/").split("?")[0];
+            }
+        } else if (url.includes(`${bucket}/`)) {
+            const urlParts = url.split(`${bucket}/`);
+            if (urlParts.length >= 2) {
+                filePath = urlParts[1].split("?")[0];
+            }
+        }
+
+        if (!filePath) {
+            console.warn("[deleteFileByUrl] Could not extract file path from URL:", url);
+            return;
+        }
+
+        const decodedPath = decodeURIComponent(filePath);
+        console.log(`[Storage Cleanup] Deleting "${decodedPath}" from Supabase bucket "${targetBucket}"...`);
         
         const { error } = await supabaseAdmin.storage
-            .from(bucket)
-            .remove([path]);
+            .from(targetBucket)
+            .remove([decodedPath]);
 
         if (error) {
             console.error("Supabase Storage Delete Error:", error);
+        } else {
+            console.log(`[Storage Cleanup] Successfully deleted "${decodedPath}" from bucket "${targetBucket}".`);
         }
     } catch (error) {
         console.error("Storage Service Delete Error:", error);

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/audit";
 
 async function verifyAdmin() {
     const session = await getServerSession(authOptions);
@@ -63,6 +64,16 @@ export async function createCitizenCharter(formData: FormData) {
         revalidatePath("/user/citizens-charter");
         revalidatePath("/admin/citizens-charter");
 
+        // Log Citizen Charter Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "CitizenCharter",
+            entityId: charter.id,
+            entityName: officeName.trim(),
+            description: `Published Citizen's Charter for: "${officeName.trim()}"`,
+            metadata: { officeName: officeName.trim() }
+        });
+
         return { success: true, data: charter };
     } catch (error: any) {
         console.error("Error creating charter:", error);
@@ -120,6 +131,19 @@ export async function updateCitizenCharter(id: string, formData: FormData) {
         revalidatePath("/user/citizens-charter");
         revalidatePath("/admin/citizens-charter");
 
+        // Log Citizen Charter Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "CitizenCharter",
+            entityId: id,
+            entityName: updated.officeName,
+            description: `Updated Citizen's Charter for: "${updated.officeName}"`,
+            metadata: {
+                previousOffice: existing.officeName,
+                newOffice: updated.officeName
+            }
+        });
+
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Error updating charter:", error);
@@ -174,6 +198,16 @@ export async function deleteCitizenCharter(id: string) {
 
         revalidatePath("/user/citizens-charter");
         revalidatePath("/admin/citizens-charter");
+
+        // Log Citizen Charter Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "CitizenCharter",
+            entityId: id,
+            entityName: existing.officeName,
+            description: `Deleted Citizen's Charter for: "${existing.officeName}"`,
+            metadata: { officeName: existing.officeName }
+        });
 
         return { success: true };
     } catch (error: any) {

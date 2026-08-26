@@ -117,7 +117,13 @@ export function AddNewsModal() {
                             <input
                                 type="hidden"
                                 name="imageUrl"
-                                value={imagePreview && !imagePreview.startsWith("blob:") && !imagePreview.startsWith("data:") ? imagePreview : (editingData?.imageUrl || "")}
+                                value={imagePreview && !imagePreview.startsWith("blob:") && !imagePreview.startsWith("data:") ? imagePreview : ""}
+                            />
+                            {/* Explicit flag to tell server the image was deleted if imagePreview is null and editingData had an image */}
+                            <input
+                                type="hidden"
+                                name="imageRemoved"
+                                value={!imagePreview && editingData?.imageUrl ? "true" : "false"}
                             />
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                 {/* Left Column: Article Logic */}

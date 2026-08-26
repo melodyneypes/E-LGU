@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/audit";
 
 async function verifyLguAdmin() {
     const session = await getServerSession(authOptions);
@@ -157,6 +158,16 @@ export async function createLegislativeDocument(formData: FormData) {
         clearCache();
         revalidatePath("/admin/ordinances");
 
+        // Log Legislative Document Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "LegislativeDocument",
+            entityId: document.id,
+            entityName: `${type} ${referenceNumber}`,
+            description: `Published ${type}: "${referenceNumber} - ${title}"`,
+            metadata: { type, referenceNumber, title, status }
+        });
+
         return { success: true, data: document };
     } catch (error: any) {
         console.error("Error creating legislative document:", error);
@@ -228,6 +239,16 @@ export async function updateLegislativeDocument(id: string, formData: FormData) 
         clearCache();
         revalidatePath("/admin/ordinances");
 
+        // Log Legislative Document Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "LegislativeDocument",
+            entityId: id,
+            entityName: `${updated.type} ${updated.referenceNumber}`,
+            description: `Updated ${updated.type}: "${updated.referenceNumber} - ${updated.title}"`,
+            metadata: { type: updated.type, referenceNumber: updated.referenceNumber, title: updated.title }
+        });
+
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Error updating legislative document:", error);
@@ -261,6 +282,16 @@ export async function deleteLegislativeDocument(id: string) {
 
         clearCache();
         revalidatePath("/admin/ordinances");
+
+        // Log Legislative Document Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "LegislativeDocument",
+            entityId: id,
+            entityName: `${existing.type} ${existing.referenceNumber}`,
+            description: `Deleted ${existing.type}: "${existing.referenceNumber} - ${existing.title}"`,
+            metadata: { type: existing.type, referenceNumber: existing.referenceNumber }
+        });
 
         return { success: true };
     } catch (error: any) {

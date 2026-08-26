@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 import { sendRHUAnnouncementNotification } from "@/lib/services/fcm";
+import { logActivity } from "@/lib/audit";
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -246,6 +247,16 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
             }
         }
 
+        // Log Announcement Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Announcement",
+            entityId: newAnnouncement.id,
+            entityName: title,
+            description: `Created announcement: "${title}" (${category || "General"})`,
+            metadata: { title, category, priority, barangay }
+        });
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -375,6 +386,20 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
             }
         }
 
+        // Log Announcement Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Announcement",
+            entityId: id,
+            entityName: title,
+            description: `Updated announcement: "${title}"`,
+            metadata: {
+                previousTitle: existing?.title,
+                newTitle: title,
+                category
+            }
+        });
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -412,6 +437,17 @@ export async function deleteAnnouncement(id: string): Promise<ActionResponse> {
         }
 
         await announcementDelegate.delete({ where: { id } });
+
+        // Log Announcement Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Announcement",
+            entityId: id,
+            entityName: existing?.title || "Announcement",
+            description: `Deleted announcement: "${existing?.title || id}"`,
+            metadata: { title: existing?.title }
+        });
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");

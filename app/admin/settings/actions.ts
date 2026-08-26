@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 import { uploadFile, deleteFileByUrl } from "@/lib/storage";
+import { logActivity } from "@/lib/audit";
 
 async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
@@ -174,6 +175,23 @@ export async function updateSystemSetting(key: string, value: string) {
         }
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Friendly description mapping
+        let description = `Updated system configuration: ${key}`;
+        if (key.startsWith("section_")) {
+            const sectionName = key.replace("section_", "").replaceAll("_", " ");
+            description = `${value === "true" || value === "1" ? "Enabled" : "Disabled"} landing section: "${sectionName.toUpperCase()}"`;
+        }
+
+        // Log System Setting Change
+        await logActivity({
+            action: "UPDATE",
+            entityType: "LandingSection",
+            entityName: key,
+            description,
+            metadata: { key, value, isEnabled: value === "true" || value === "1" }
+        });
+
         return { success: true };
     } catch (error) {
         console.error("Error updating system setting:", error);
@@ -200,6 +218,16 @@ export async function updateLogoSetting(formData: FormData) {
 
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Log Logo Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Settings",
+            entityName: "Site Logo",
+            description: "Updated municipal portal official logo",
+            metadata: { logoUrl: finalUrl }
+        });
+
         return { success: true, imageUrl: finalUrl };
     } catch (error) {
         console.error("Error updating logo:", error);
@@ -229,6 +257,16 @@ export async function createHeroSlide(formData: FormData) {
         });
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Log Hero Slide Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "HeroCarousel",
+            entityName: (formData.get("title") as string) || "Hero Slide",
+            description: `Added hero banner slide: "${(formData.get("title") as string) || "Hero Banner"}"`,
+            metadata: { title: formData.get("title"), subtitle: formData.get("subtitle") }
+        });
+
         return { success: true };
     } catch (error) {
         console.error("Error creating hero slide:", error);
@@ -246,6 +284,17 @@ export async function deleteHeroSlide(id: string) {
         await prisma.heroSlide.delete({ where: { id } });
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Log Hero Slide Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "HeroCarousel",
+            entityId: id,
+            entityName: slide?.title || "Hero Slide",
+            description: `Deleted hero banner slide: "${slide?.title || id}"`,
+            metadata: { title: slide?.title }
+        });
+
         return { success: true };
     } catch (error) {
         console.error("Error deleting hero slide:", error);
@@ -281,6 +330,17 @@ export async function updateHeroSlide(id: string, formData: FormData) {
         });
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Log Hero Slide Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "HeroCarousel",
+            entityId: id,
+            entityName: (formData.get("title") as string) || oldSlide?.title || "Hero Slide",
+            description: `Updated hero banner slide: "${(formData.get("title") as string) || oldSlide?.title || id}"`,
+            metadata: { title: formData.get("title"), previousTitle: oldSlide?.title }
+        });
+
         return { success: true };
     } catch (error) {
         console.error("Error updating hero slide:", error);
@@ -366,6 +426,19 @@ export async function updateTreasurySettings(formData: FormData) {
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/user/services/requests/[id]");
 
+        // Log Treasury Settings Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Settings",
+            entityName: "Treasury Payment Credentials",
+            description: "Updated GCash / Bank payment credentials & QR codes",
+            metadata: {
+                accountName,
+                accountNumber: accountNumber ? `***${accountNumber.slice(-4)}` : null,
+                bankName
+            }
+        });
+
         return {
             success: true,
             qrUrl: qrUrl || (formData.get("imageUrl") as string)
@@ -426,6 +499,16 @@ export async function updateMultipleSystemSettings(settings: { key: string, valu
 
         revalidatePath("/");
         revalidatePath("/admin/settings");
+
+        // Log Multiple Settings Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Settings",
+            entityName: "System Configurations",
+            description: `Updated ${settings.length} system platform parameters`,
+            metadata: { modifiedKeys: settings.map(s => s.key) }
+        });
+
         return { success: true };
     } catch (error) {
         console.error("Error updating multiple system settings:", error);

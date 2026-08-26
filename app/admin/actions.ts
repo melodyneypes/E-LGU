@@ -16,6 +16,7 @@ import { uploadFile, deleteFileByUrl, validatePayloadFiles } from "@/lib/storage
 import { isRateLimited, getClientIp } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/mail";
 import { supabaseAdmin } from "@/lib/supabase";
+import { logActivity } from "@/lib/audit";
 
 async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
@@ -470,6 +471,16 @@ export async function addDining(formData: FormData) {
             },
         });
 
+        // Log Dining Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Dining",
+            entityId: newDining.id,
+            entityName: formData.get("name") as string,
+            description: `Added dining establishment: "${formData.get("name") as string}"`,
+            metadata: { name: formData.get("name"), address: formData.get("address") }
+        });
+
         revalidatePath("/admin/dining");
         return { success: true, dining: newDining };
     } catch (error) {
@@ -488,6 +499,17 @@ export async function deleteDining(id: string) {
         await prisma.dining.delete({
             where: { id }
         });
+
+        // Log Dining Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Dining",
+            entityId: id,
+            entityName: item?.name || "Dining Spot",
+            description: `Deleted dining spot: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/admin/dining");
         return { success: true };
     } catch (error) {
@@ -523,6 +545,19 @@ export async function updateDining(id: string, formData: FormData) {
                 googleMapsUrl: formData.get("googleMapsUrl") as string,
                 barangay: barangay || null,
             },
+        });
+
+        // Log Dining Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Dining",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated dining spot: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldItem?.name,
+                newName: formData.get("name")
+            }
         });
 
         revalidatePath("/admin/dining");
@@ -577,6 +612,16 @@ export async function addAccommodation(formData: FormData) {
             },
         });
 
+        // Log Accommodation Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Accommodation",
+            entityId: newAccommodation.id,
+            entityName: formData.get("name") as string,
+            description: `Added accommodation: "${formData.get("name") as string}"`,
+            metadata: { name: formData.get("name"), type: formData.get("type") }
+        });
+
         revalidatePath("/admin/accommodation");
         return { success: true, accommodation: newAccommodation };
     } catch (error) {
@@ -595,6 +640,17 @@ export async function deleteAccommodation(id: string) {
         await prisma.accommodation.delete({
             where: { id }
         });
+
+        // Log Accommodation Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Accommodation",
+            entityId: id,
+            entityName: item?.name || "Accommodation Spot",
+            description: `Deleted accommodation: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/admin/accommodation");
         return { success: true };
     } catch (error) {
@@ -631,6 +687,19 @@ export async function updateAccommodation(id: string, formData: FormData) {
                 googleMapsUrl: formData.get("googleMapsUrl") as string,
                 barangay: barangay || null,
             },
+        });
+
+        // Log Accommodation Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Accommodation",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated accommodation: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldItem?.name,
+                newName: formData.get("name")
+            }
         });
 
         revalidatePath("/admin/accommodation");
@@ -684,6 +753,16 @@ export async function addTourismSpot(formData: FormData) {
             },
         });
 
+        // Log Tourism Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "TourismSpot",
+            entityId: newSpot.id,
+            entityName: formData.get("name") as string,
+            description: `Added tourism spot: "${formData.get("name") as string}"`,
+            metadata: { name: formData.get("name"), category: formData.get("category") }
+        });
+
         revalidatePath("/admin/tourism");
         return { success: true, tourismSpot: newSpot };
     } catch (error) {
@@ -702,6 +781,17 @@ export async function deleteTourismSpot(id: string) {
         await prisma.tourismSpot.delete({
             where: { id }
         });
+
+        // Log Tourism Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "TourismSpot",
+            entityId: id,
+            entityName: item?.name || "Tourism Spot",
+            description: `Deleted tourism spot: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/admin/tourism");
         return { success: true };
     } catch (error) {
@@ -737,6 +827,19 @@ export async function updateTourismSpot(id: string, formData: FormData) {
                 googleMapsUrl: formData.get("googleMapsUrl") as string,
                 barangay: barangay || null,
             },
+        });
+
+        // Log Tourism Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "TourismSpot",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated tourism spot: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldItem?.name,
+                newName: formData.get("name")
+            }
         });
 
         revalidatePath("/admin/tourism");
@@ -793,6 +896,20 @@ export async function addEvent(formData: FormData) {
             } as any,
         });
 
+        // Log Event Creation Activity
+        await logActivity({
+            action: "CREATE",
+            entityType: "Event",
+            entityId: newEvent.id,
+            entityName: formData.get("title") as string,
+            description: `Created municipal event: "${formData.get("title") as string}"`,
+            metadata: {
+                title: formData.get("title"),
+                category: formData.get("category"),
+                venue: formData.get("venueName")
+            }
+        });
+
         revalidatePath("/admin/events");
         return { success: true, event: newEvent };
     } catch (error) {
@@ -830,6 +947,19 @@ export async function updateEvent(id: string, formData: FormData) {
             } as any,
         });
 
+        // Log Event Update Activity
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Event",
+            entityId: id,
+            entityName: formData.get("title") as string,
+            description: `Updated municipal event: "${formData.get("title") as string}"`,
+            metadata: {
+                previousTitle: oldItem?.title,
+                newTitle: formData.get("title"),
+            }
+        });
+
         revalidatePath("/admin/events");
         return { success: true, event: updatedEvent };
     } catch (error) {
@@ -848,6 +978,17 @@ export async function deleteEvent(id: string) {
         await prisma.event.delete({
             where: { id }
         });
+
+        // Log Event Deletion Activity
+        await logActivity({
+            action: "DELETE",
+            entityType: "Event",
+            entityId: id,
+            entityName: item?.title || "Municipal Event",
+            description: `Deleted municipal event: "${item?.title || id}"`,
+            metadata: { title: item?.title }
+        });
+
         revalidatePath("/admin/events");
         return { success: true };
     } catch (error) {
@@ -894,18 +1035,30 @@ export async function addNews(formData: FormData) {
         await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData, "image");
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
+        const title = formData.get("title") as string;
+        const category = formData.get("category") as string;
 
         const newNews = await (prisma as any).news.create({
             data: {
-                title: formData.get("title") as string,
+                title,
                 content: formData.get("content") as string,
                 author: formData.get("author") as string | null,
-                category: formData.get("category") as string,
+                category,
                 publishDate: new Date(formData.get("publishDate") as string || Date.now()),
                 imageUrl: imageUrl,
                 isPublished: true,
                 barangay: barangay || null,
             } as any,
+        });
+
+        // Log News Creation Activity
+        await logActivity({
+            action: "CREATE",
+            entityType: "News",
+            entityId: newNews.id,
+            entityName: title,
+            description: `Published news article: "${title}" (${category})`,
+            metadata: { title, category, barangay }
         });
 
         revalidatePath("/admin/news");
@@ -921,21 +1074,47 @@ export async function updateNews(id: string, formData: FormData) {
         await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).news.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData, "image");
+        const title = formData.get("title") as string;
+        const category = formData.get("category") as string;
+        const isImageRemoved = formData.get("imageRemoved") === "true";
+        const rawImageUrl = formData.get("imageUrl") as string | null;
+        
+        let finalImageUrl: string | null = null;
+        if (imageUrl) {
+            finalImageUrl = imageUrl;
+        } else if (!isImageRemoved && rawImageUrl && rawImageUrl.trim() !== "") {
+            finalImageUrl = rawImageUrl;
+        }
 
-        if (imageUrl && oldItem?.imageUrl && oldItem.imageUrl !== imageUrl) {
+        // Delete old file if replaced or removed
+        if (oldItem?.imageUrl && oldItem.imageUrl !== finalImageUrl) {
             await deleteUploadedFile(oldItem.imageUrl);
         }
 
         const updatedNews = await (prisma as any).news.update({
             where: { id },
             data: {
-                title: formData.get("title") as string,
+                title,
                 content: formData.get("content") as string,
                 author: formData.get("author") as string | null,
-                category: formData.get("category") as string,
+                category,
                 publishDate: new Date(formData.get("publishDate") as string || Date.now()),
-                imageUrl: imageUrl || (formData.get("imageUrl") as string) || null,
+                imageUrl: finalImageUrl,
             } as any,
+        });
+
+        // Log News Update Activity
+        await logActivity({
+            action: "UPDATE",
+            entityType: "News",
+            entityId: id,
+            entityName: title,
+            description: `Updated news article: "${title}"`,
+            metadata: {
+                previousTitle: oldItem?.title,
+                newTitle: title,
+                category
+            }
         });
 
         revalidatePath("/admin/news");
@@ -956,6 +1135,17 @@ export async function deleteNews(id: string) {
         await prisma.news.delete({
             where: { id }
         });
+
+        // Log News Deletion Activity
+        await logActivity({
+            action: "DELETE",
+            entityType: "News",
+            entityId: id,
+            entityName: item?.title || "News Article",
+            description: `Deleted news article: "${item?.title || id}"`,
+            metadata: { title: item?.title }
+        });
+
         revalidatePath("/admin/news");
         return { success: true };
     } catch (error) {
@@ -1023,6 +1213,16 @@ export async function addJob(formData: FormData) {
             } as any,
         });
 
+        // Log Job Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Job",
+            entityId: newJob.id,
+            entityName: formData.get("title") as string,
+            description: `Posted municipal job vacancy: "${formData.get("title") as string}" (${formData.get("department") as string})`,
+            metadata: { title: formData.get("title"), department: formData.get("department") }
+        });
+
         revalidatePath("/");
         revalidatePath("/admin/jobs");
         return { success: true, job: newJob };
@@ -1035,6 +1235,7 @@ export async function addJob(formData: FormData) {
 export async function updateJob(id: string, formData: FormData) {
     try {
         await verifyAdminOrBarangayAdmin();
+        const oldItem = await (prisma as any).job.findUnique({ where: { id } });
         const linksJson = formData.get("linksJson") as string;
         const links = linksJson ? JSON.parse(linksJson) : [];
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -1057,6 +1258,19 @@ export async function updateJob(id: string, formData: FormData) {
             } as any,
         });
 
+        // Log Job Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Job",
+            entityId: id,
+            entityName: formData.get("title") as string,
+            description: `Updated job posting: "${formData.get("title") as string}"`,
+            metadata: {
+                previousTitle: oldItem?.title,
+                newTitle: formData.get("title")
+            }
+        });
+
         revalidatePath("/");
         revalidatePath("/admin/jobs");
         return { success: true, job: updatedJob };
@@ -1069,9 +1283,21 @@ export async function updateJob(id: string, formData: FormData) {
 export async function deleteJob(id: string) {
     try {
         await verifyAdminOrBarangayAdmin();
+        const item = await (prisma as any).job.findUnique({ where: { id } });
         await prisma.job.delete({
             where: { id }
         });
+
+        // Log Job Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Job",
+            entityId: id,
+            entityName: item?.title || "Job Posting",
+            description: `Deleted job posting: "${item?.title || id}"`,
+            metadata: { title: item?.title }
+        });
+
         revalidatePath("/admin/jobs");
         return { success: true };
     } catch (error) {
@@ -1132,6 +1358,16 @@ export async function addOfficial(formData: FormData) {
             } as any,
         });
 
+        // Log Official Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Official",
+            entityId: newOfficial.id,
+            entityName: formData.get("name") as string,
+            description: `Added government official profile: "${formData.get("name") as string}" (${formData.get("position") as string})`,
+            metadata: { name: formData.get("name"), position: formData.get("position") }
+        });
+
         revalidatePath("/");
         revalidatePath("/admin/officials");
         return { success: true, official: newOfficial };
@@ -1177,6 +1413,20 @@ export async function updateOfficial(id: string, formData: FormData) {
             } as any,
         });
 
+        // Log Official Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Official",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated official profile: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldItem?.name,
+                newName: formData.get("name"),
+                position: formData.get("position")
+            }
+        });
+
         revalidatePath("/");
         revalidatePath("/admin/officials");
         return { success: true, official: updatedOfficial };
@@ -1194,6 +1444,17 @@ export async function deleteOfficial(id: string) {
             await deleteUploadedFile(item.imageUrl);
         }
         await prisma.official.delete({ where: { id } });
+
+        // Log Official Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Official",
+            entityId: id,
+            entityName: item?.name || "Council Official",
+            description: `Deleted official profile: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/admin/officials");
         return { success: true };
     } catch (error) {
@@ -1236,6 +1497,16 @@ export async function addHotline(formData: FormData) {
             } as any,
         });
 
+        // Log Hotline Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Hotline",
+            entityId: newHotline.id,
+            entityName: formData.get("name") as string,
+            description: `Added emergency hotline: "${formData.get("name") as string}" (${formData.get("category") || "Emergency"})`,
+            metadata: { name: formData.get("name"), category: formData.get("category"), mobile: formData.get("mobileNumber"), telephone: formData.get("telephone") }
+        });
+
         revalidatePath("/admin/hotlines");
         return { success: true, hotline: newHotline };
     } catch (error) {
@@ -1247,6 +1518,7 @@ export async function addHotline(formData: FormData) {
 export async function updateHotline(id: string, formData: FormData) {
     try {
         await verifyAdminOrBarangayAdmin();
+        const oldHotline = await (prisma as any).hotline.findUnique({ where: { id } });
         const orderValue = formData.get("order") as string;
         const parsedOrder = orderValue ? parseInt(orderValue, 10) : 0;
 
@@ -1262,6 +1534,20 @@ export async function updateHotline(id: string, formData: FormData) {
             } as any,
         });
 
+        // Log Hotline Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Hotline",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated emergency hotline: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldHotline?.name,
+                newName: formData.get("name"),
+                category: formData.get("category")
+            }
+        });
+
         revalidatePath("/admin/hotlines");
         return { success: true, hotline: updatedHotline };
     } catch (error) {
@@ -1273,7 +1559,19 @@ export async function updateHotline(id: string, formData: FormData) {
 export async function deleteHotline(id: string) {
     try {
         await verifyAdminOrBarangayAdmin();
+        const oldHotline = await (prisma as any).hotline.findUnique({ where: { id } });
         await prisma.hotline.delete({ where: { id } });
+
+        // Log Hotline Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Hotline",
+            entityId: id,
+            entityName: oldHotline?.name || "Hotline",
+            description: `Deleted emergency hotline: "${oldHotline?.name || id}"`,
+            metadata: { name: oldHotline?.name }
+        });
+
         revalidatePath("/admin/hotlines");
         return { success: true };
     } catch (error) {
@@ -1323,6 +1621,16 @@ export async function addProject(formData: FormData) {
             } as any
         });
 
+        // Log Project Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Project",
+            entityId: project.id,
+            entityName: formData.get("title") as string,
+            description: `Created municipal project: "${formData.get("title") as string}"`,
+            metadata: { title: formData.get("title"), category: formData.get("category"), status: formData.get("status") }
+        });
+
         revalidatePath("/admin/projects");
         return { success: true, project };
     } catch (error) {
@@ -1356,6 +1664,21 @@ export async function updateProject(id: string, formData: FormData) {
                 progress: parseInt(formData.get("progress") as string || "0", 10),
                 imageUrl: imageUrl || (formData.get("imageUrl") as string) || null,
             } as any
+        });
+
+        // Log Project Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Project",
+            entityId: id,
+            entityName: formData.get("title") as string,
+            description: `Updated municipal project: "${formData.get("title") as string}"`,
+            metadata: {
+                previousTitle: oldItem?.title,
+                newTitle: formData.get("title"),
+                status: formData.get("status"),
+                progress: formData.get("progress")
+            }
         });
 
         revalidatePath("/admin/projects");
@@ -1434,6 +1757,17 @@ export async function deleteProject(id: string) {
             await deleteUploadedFile(item.imageUrl);
         }
         await (prisma as any).project.delete({ where: { id } });
+
+        // Log Project Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Project",
+            entityId: id,
+            entityName: item?.title || "Project",
+            description: `Deleted municipal project: "${item?.title || id}"`,
+            metadata: { title: item?.title }
+        });
+
         revalidatePath("/admin/projects");
         return { success: true };
     } catch (error) {
@@ -2294,6 +2628,22 @@ export async function updateResident(id: string, formData: FormData) {
             return mappedUpdate;
         }, { timeout: 25000 });
 
+        // Log Resident Update Activity
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Resident",
+            entityId: id,
+            entityName: `${mappedUpdate.firstName} ${mappedUpdate.lastName}`,
+            description: `Updated resident profile: "${mappedUpdate.firstName} ${mappedUpdate.lastName}" in Brgy. ${mappedUpdate.barangay || "N/A"}`,
+            metadata: {
+                firstName: mappedUpdate.firstName,
+                lastName: mappedUpdate.lastName,
+                barangay: mappedUpdate.barangay,
+                email: mappedUpdate.email,
+                contactNumber: mappedUpdate.contactNumber
+            }
+        });
+
         revalidatePath("/admin/residents");
         revalidatePath("/admin/households");
         return { success: true, data: mappedUpdate };
@@ -2396,6 +2746,16 @@ export async function deleteResident(id: string) {
             });
         }
 
+        // Log Resident Deletion Activity
+        await logActivity({
+            action: "DELETE",
+            entityType: "Resident",
+            entityId: id,
+            entityName: "Resident Profile",
+            description: `Deleted resident record (ID: ${id})`,
+            metadata: { residentId: id }
+        });
+
         // Delete or Deactivate the User account depending on completed transactions
         if (resident?.userId) {
             if (canDeleteUser) {
@@ -2458,10 +2818,21 @@ export async function updateResidentRFID(id: string, rfid: string) {
             return { success: false, error: "RFID already assigned to another resident." };
         }
 
-        await (prisma as any).resident.update({
+        const updated = await (prisma as any).resident.update({
             where: { id },
             data: { rfid: rfid.trim() }
         });
+
+        // Log RFID Assignment
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Resident",
+            entityId: id,
+            entityName: `${updated.firstName} ${updated.lastName}`,
+            description: `Assigned RFID Card (${rfid.trim()}) to ${updated.firstName} ${updated.lastName}`,
+            metadata: { rfid: rfid.trim() }
+        });
+
         revalidatePath("/admin/residents");
         return { success: true };
     } catch (error) {
@@ -3038,6 +3409,16 @@ export async function addBarangay(formData: FormData) {
             },
         });
 
+        // Log Barangay Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "Barangay",
+            entityId: newBarangay.id,
+            entityName: formData.get("name") as string,
+            description: `Created Barangay profile: "${formData.get("name") as string}"`,
+            metadata: { name: formData.get("name"), captain: formData.get("captainName") }
+        });
+
         revalidatePath("/admin/barangays/list");
         return { success: true, barangay: newBarangay };
     } catch (error) {
@@ -3080,6 +3461,20 @@ export async function updateBarangay(id: string, formData: FormData) {
             },
         });
 
+        // Log Barangay Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Barangay",
+            entityId: id,
+            entityName: formData.get("name") as string,
+            description: `Updated Barangay profile: "${formData.get("name") as string}"`,
+            metadata: {
+                previousName: oldItem?.name,
+                newName: formData.get("name"),
+                captain: formData.get("captainName")
+            }
+        });
+
         revalidatePath("/admin/barangays/list");
         return { success: true, barangay: updatedBarangay };
     } catch (error) {
@@ -3096,6 +3491,17 @@ export async function deleteBarangay(id: string) {
         if (item?.captainImageUrl) await deleteUploadedFile(item.captainImageUrl);
 
         await prisma.barangayInfo.delete({ where: { id } });
+
+        // Log Barangay Deletion
+        await logActivity({
+            action: "DELETE",
+            entityType: "Barangay",
+            entityId: id,
+            entityName: item?.name || "Barangay",
+            description: `Deleted Barangay profile: "${item?.name || id}"`,
+            metadata: { name: item?.name }
+        });
+
         revalidatePath("/admin/barangays/list");
         return { success: true };
     } catch (error) {
@@ -3158,6 +3564,16 @@ export async function createBarangayAdmin(formData: FormData) {
                 emailVerified: new Date(),
                 isPasswordChanged: true,
             }
+        });
+
+        // Log Barangay Admin Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "User",
+            entityId: newAdmin.id,
+            entityName: `${name} (${role})`,
+            description: `Created Barangay Officer account: "${name}" (${role}) for Brgy. ${managedBarangay}`,
+            metadata: { name, email, role, managedBarangay }
         });
 
         revalidatePath("/admin/barangays/admins");

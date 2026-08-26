@@ -21,6 +21,7 @@ import {
     isEngineeringPermitCode,
 } from "@/lib/transactions/engineering-permit";
 import { recordTransactionRejection } from "@/lib/transactions/rejection-tracker";
+import { logActivity } from "@/lib/audit";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 const engineeringPermitTypeWhere = {
@@ -1557,6 +1558,17 @@ export async function updateBarangayLogistics(id: string, data: { deliveryFee: n
         });
 
         revalidatePath("/admin/logistics");
+
+        // Log Logistics Configuration Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "LogisticsControl",
+            entityId: id,
+            entityName: updated.name,
+            description: `Updated delivery logistics for Brgy. ${updated.name}: ₱${data.deliveryFee} fee, ${data.estimatedDeliveryDays} days (Active: ${data.isLogisticsActive})`,
+            metadata: { barangay: updated.name, deliveryFee: data.deliveryFee, isLogisticsActive: data.isLogisticsActive }
+        });
+
         return { success: true, data: updated };
     } catch (error) {
         console.error("Error updating logistics:", error);
@@ -4749,6 +4761,17 @@ export async function createBarangayLogistics(name: string, data: { deliveryFee:
         });
 
         revalidatePath("/admin/logistics");
+
+        // Log Logistics Barangay Node Creation
+        await logActivity({
+            action: "CREATE",
+            entityType: "LogisticsControl",
+            entityId: created.id,
+            entityName: name,
+            description: `Created delivery logistics node for Brgy. ${name}: ₱${data.deliveryFee} fee`,
+            metadata: { barangay: name, deliveryFee: data.deliveryFee, isLogisticsActive: data.isLogisticsActive }
+        });
+
         return { success: true, data: created };
     } catch (error: any) {
         console.error("Error creating logistics:", error);

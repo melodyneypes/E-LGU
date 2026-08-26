@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 export function useNewsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useNews();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending, setNewsData } = useNews();
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
@@ -19,7 +19,10 @@ export function useNewsForm() {
 
         try {
             if (editingData) {
-                await updateNews(editingData.id, formData);
+                const res = await updateNews(editingData.id, formData);
+                if (res.success && res.news) {
+                    setNewsData((prev) => prev.map((item) => item.id === editingData.id ? { ...item, ...(res.news as any) } : item));
+                }
                 toast.success("News updated successfully!");
             } else {
                 await addNews(formData);
