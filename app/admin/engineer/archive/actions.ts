@@ -28,7 +28,8 @@ export async function getArchivedBuildingPermits(params?: {
     search?: string;
     sourceType?: "ALL" | "PHYSICAL" | "ONLINE";
     barangay?: string;
-    year?: string;
+    startDate?: string;
+    endDate?: string;
 }) {
     try {
         await assertEngineerSession();
@@ -38,7 +39,8 @@ export async function getArchivedBuildingPermits(params?: {
         const search = params?.search?.trim() || "";
         const sourceType = params?.sourceType || "ALL";
         const barangay = params?.barangay || "ALL";
-        const year = params?.year || "ALL";
+        const startDate = params?.startDate?.trim() || "";
+        const endDate = params?.endDate?.trim() || "";
 
         const skip = (page - 1) * limit;
 
@@ -54,6 +56,7 @@ export async function getArchivedBuildingPermits(params?: {
 
         const where: any = {
             typeId: bpType.id,
+            status: "RELEASED",
             isCancelled: false,
         };
 
@@ -145,16 +148,23 @@ export async function getArchivedBuildingPermits(params?: {
             });
         }
 
-        // Year Filter at Database level
-        if (year !== "ALL") {
-            const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`);
-            const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
+        // Date Range Filter (Supports start date, end date, or both)
+        if (startDate || endDate) {
             where.AND = where.AND || [];
+            const dateFilter: any = {};
+            if (startDate) {
+                dateFilter.gte = new Date(`${startDate}T00:00:00.000Z`);
+            }
+            if (endDate) {
+                dateFilter.lte = new Date(`${endDate}T23:59:59.999Z`);
+            }
+
+            // Check against transaction createdAt or BuildingPermit dateIssued
             where.AND.push({
-                createdAt: {
-                    gte: startOfYear,
-                    lte: endOfYear
-                }
+                OR: [
+                    { createdAt: dateFilter },
+                    { buildingPermit: { dateIssued: dateFilter } }
+                ]
             });
         }
 
@@ -206,42 +216,48 @@ export async function getArchivedBuildingPermits(params?: {
             const occupancyUse = bp?.occupancyUse || addData.occupancyUse || "Residential";
             const estimatedCost = bp?.estimatedCost || Number(addData.estimatedCost) || 0;
 
-            // Collect all documents for the shared DocumentViewerModal
+            // Collect all documents for the shared DocumentViewerModal (Strict URL Deduplication)
             const documents: { url: string; label: string }[] = [];
+            const seenUrls = new Set<string>();
 
-            if (bp?.documentUrl) {
-                documents.push({ url: bp.documentUrl, label: "Official Issued Permit Document" });
-            }
-            if (tx.eCopyUrl) {
-                documents.push({ url: tx.eCopyUrl, label: "Approved Electronic Copy (eCopy)" });
-            }
-            if (tx.orUrl) {
-                documents.push({ url: tx.orUrl, label: "Official Payment Receipt (OR)" });
-            }
+            const addDoc = (url?: string | null, label?: string) => {
+                if (url && typeof url === "string" && url.startsWith("http") && !seenUrls.has(url)) {
+                    seenUrls.add(url);
+                    documents.push({ url, label: label || "Document Attachment" });
+                }
+            };
 
-            // Extract documents dictionary from additionalData
+            // 1. Read all files directly from additionalData.documents map { [label]: url }
             if (addData.documents && typeof addData.documents === "object") {
                 const customLabels = addData.customLabels || {};
                 Object.entries(addData.documents).forEach(([key, url]) => {
                     if (typeof url === "string" && url.startsWith("http")) {
                         const customName = customLabels[key];
-                        let label = customName || key.replace(/_/g, " ").toUpperCase();
+                        let label = customName || key;
                         if (key === "newIdFile") label = "Applicant Valid ID (Front)";
                         if (key === "newIdFileBack") label = "Applicant Valid ID (Back)";
                         if (key === "tctFile") label = "Land Title / TCT";
-                        documents.push({ url, label });
+                        addDoc(url, label);
                     }
                 });
             }
 
-            // If extra uploaded archived files are saved
+            // 2. Primary / Official documents fallback
+            if (bp?.documentUrl) {
+                addDoc(bp.documentUrl, "Official Issued Permit Document");
+            }
+            if (tx.eCopyUrl) {
+                addDoc(tx.eCopyUrl, "Approved Electronic Copy (eCopy)");
+            }
+            if (tx.orUrl) {
+                addDoc(tx.orUrl, "Official Payment Receipt (OR)");
+            }
+
+            // 3. Backward compatibility for legacy archivedFiles array if present in older records
             if (Array.isArray(addData.archivedFiles)) {
                 addData.archivedFiles.forEach((fileItem: any) => {
                     if (fileItem?.url) {
-                        documents.push({
-                            url: fileItem.url,
-                            label: fileItem.name || "Archived Physical Attachment"
-                        });
+                        addDoc(fileItem.url, fileItem.name || "Archived Document");
                     }
                 });
             }
@@ -285,12 +301,24 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         const { user } = await assertEngineerSession();
 
         const permitNumber = (formData.get("permitNumber") as string)?.trim();
-        const applicantName = (formData.get("applicantName") as string)?.trim();
+        // Applicant Demographic & Location Fields (Optional)
+        const firstName = (formData.get("firstName") as string)?.trim() || "";
+        const lastName = (formData.get("lastName") as string)?.trim() || "";
+        const rawApplicantName = (formData.get("applicantName") as string)?.trim() || "";
+        const applicantName = rawApplicantName || `${firstName} ${lastName}`.trim() || "Walk-in Applicant";
+
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
+        const occupation = (formData.get("occupation") as string)?.trim() || "";
+        const citizenship = (formData.get("citizenship") as string)?.trim() || "FILIPINO";
+        const civilStatus = (formData.get("civilStatus") as string)?.trim() || "Single";
+        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "";
+        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
+        const barangay = (formData.get("barangay") as string)?.trim() || "Amanoaoac";
         const houseNumber = (formData.get("houseNumber") as string)?.trim() || "";
         const street = (formData.get("street") as string)?.trim() || "";
-        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
+
         const dateIssuedStr = formData.get("dateIssued") as string;
         const dateIssued = dateIssuedStr ? new Date(dateIssuedStr) : new Date();
         const projectType = (formData.get("projectType") as string)?.trim() || "Building Construction";
@@ -300,8 +328,8 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         const isLotOwner = (formData.get("isLotOwner") as string)?.trim() || "Yes";
         const remarks = (formData.get("remarks") as string)?.trim() || "";
 
-        if (!permitNumber || !applicantName) {
-            return { success: false, error: "Permit Number and Applicant Name are required." };
+        if (!permitNumber) {
+            return { success: false, error: "Permit Number is required." };
         }
 
         // Check if permit number already exists in BuildingPermit table
@@ -326,14 +354,14 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         const locationParts = [
             houseNumber ? `No. ${houseNumber}` : "",
             street,
-            `Brgy. ${barangay}`,
-            "Mapandan, Pangasinan"
+            barangay ? `Brgy. ${barangay}` : "",
+            municipality,
+            province
         ].filter(Boolean);
         const fullLocation = locationParts.join(", ");
 
-        // Process File Uploads (Scanned Documents)
+        // Process File Uploads (Scanned Documents strictly into documents map)
         const documents: Record<string, string> = {};
-        const archivedFiles: { name: string; url: string }[] = [];
         let primaryDocumentUrl: string | null = null;
 
         // Primary Scanned Building Permit
@@ -344,8 +372,7 @@ export async function createArchivedBuildingPermit(formData: FormData) {
             const path = `building-permits/archives/${timestamp}-PERMIT-${safeName}`;
             primaryDocumentUrl = await uploadFile(mainPermitFile, path);
             if (primaryDocumentUrl) {
-                documents["primary_permit"] = primaryDocumentUrl;
-                archivedFiles.push({ name: "Official Signed Building Permit", url: primaryDocumentUrl });
+                documents["Official Signed Building Permit"] = primaryDocumentUrl;
             }
         }
 
@@ -355,7 +382,7 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         for (let i = 0; i < attachedFiles.length; i++) {
             const file = attachedFiles[i];
-            const label = (attachedLabels[i] as string) || `Attached Document ${i + 1}`;
+            const label = (attachedLabels[i] as string)?.trim() || `Attached Document ${i + 1}`;
 
             if (file instanceof File && file.size > 0) {
                 const timestamp = Date.now();
@@ -363,49 +390,45 @@ export async function createArchivedBuildingPermit(formData: FormData) {
                 const path = `building-permits/archives/${timestamp}-${i}-${safeName}`;
                 const url = await uploadFile(file, path);
                 if (url) {
-                    documents[`archive_doc_${i}`] = url;
-                    archivedFiles.push({ name: label, url });
+                    documents[label] = url;
                 }
             }
         }
 
-        // Prepare Additional Data JSON
-        const additionalData = {
-            isPhysicalArchive: true,
-            sourceType: "PHYSICAL_COPY",
-            permitNumber,
-            applicantName,
+        // Prepare Complete Resident Snapshot JSON (Single source of truth for resident details)
+        const residentSnapshot = {
+            firstName: firstName || (rawApplicantName ? rawApplicantName.split(" ")[0] : ""),
+            lastName: lastName || (rawApplicantName ? rawApplicantName.split(" ").slice(1).join(" ") : ""),
+            fullName: applicantName,
+            barangay,
+            municipality,
+            province,
+            occupation,
+            citizenship,
+            civilStatus,
+            placeOfBirth,
             contactNumber,
             email,
             houseNumber,
             street,
-            barangay,
-            locationOfConstruction: fullLocation,
-            dateIssued: dateIssued.toISOString(),
-            projectType,
-            occupancyUse,
-            estimatedCost,
-            totalFloors,
-            isLotOwner,
-            remarks,
-            encodedBy: user.name || user.email || "Engineering Admin",
-            documents,
-            archivedFiles,
+            address: fullLocation,
         };
 
-        const residentSnapshot = {
-            firstName: applicantName.split(" ")[0] || applicantName,
-            lastName: applicantName.split(" ").slice(1).join(" ") || "",
-            contactNumber,
-            email,
-            address: fullLocation,
-            barangay,
+        // Prepare Additional Data JSON (Strictly for Scanned Documents & Archive Metadata)
+        const additionalData = {
+            isPhysicalArchive: true,
+            sourceType: "PHYSICAL_COPY",
+            encodedBy: user.name || user.email || "Engineering Admin",
+            remarks,
+            totalFloors,
+            isLotOwner,
+            documents,
         };
 
         const sanitizedAdditionalData = sanitizeObject(additionalData);
         const sanitizedResidentSnapshot = sanitizeObject(residentSnapshot);
 
-        // Create the Transaction record marked as RELEASED
+        // Create the Transaction record marked as RELEASED with residentSnapshot JSON
         const transaction = await prisma.transaction.create({
             data: {
                 typeId: bpType.id,

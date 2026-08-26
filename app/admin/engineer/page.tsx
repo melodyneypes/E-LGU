@@ -4,7 +4,6 @@ import { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "Engineer Hub | Mapandan Portal",
@@ -34,15 +33,6 @@ export default async function EngineerPage() {
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
                         Review and evaluate building permit applications submitted by Residents.
                     </p>
-                </div>
-
-                <div>
-                    <Link
-                        href="/admin/engineer/archive"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm active:scale-95 cursor-pointer"
-                    >
-                        <span>📂 Open Permit Archives Vault</span>
-                    </Link>
                 </div>
             </div>
 
