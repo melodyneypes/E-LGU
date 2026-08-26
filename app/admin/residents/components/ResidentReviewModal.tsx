@@ -5,9 +5,11 @@ import Image from "next/image";
 import {
     CheckCircle, XCircle, X, User, MapPin, Phone,
     Briefcase, Shield, Heart, Users, FileText, AlertTriangle,
-    Clock, RotateCw, RefreshCw, ZoomIn, ZoomOut
+    Clock, RotateCw, RefreshCw, ZoomIn, ZoomOut, Edit, Loader2
 } from "lucide-react";
 import type { Resident } from "../providers/ResidentProvider";
+import { useResident } from "../providers/ResidentProvider";
+import { getResidentById } from "../../actions";
 
 interface ResidentReviewModalProps {
     resident: Resident | null;
@@ -47,7 +49,28 @@ const Field = ({ label, value }: { label: string, value: string | null | undefin
 };
 
 export function ResidentReviewModal({ resident, isOpen, onClose, themeColor }: ResidentReviewModalProps) {
+    const { setEditingData, setIsAddModalOpen } = useResident();
     const [activeTab, setActiveTab] = useState<"profile" | "socio" | "family">("profile");
+    const [isEditingLoading, setIsEditingLoading] = useState(false);
+
+    const handleEdit = async () => {
+        if (!resident) return;
+        setIsEditingLoading(true);
+        try {
+            const res = await getResidentById(resident.id);
+            if (res.success && res.resident) {
+                setEditingData(res.resident as any);
+            } else {
+                setEditingData(resident);
+            }
+        } catch {
+            setEditingData(resident);
+        } finally {
+            setIsEditingLoading(false);
+            onClose(); // Explicitly terminate / close the Review Modal
+            setIsAddModalOpen(true); // Open the Edit Modal
+        }
+    };
 
     // Zoom, Rotation, and Drag Lightbox state
     const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
@@ -161,7 +184,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose, themeColor }: R
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
                         <X className="w-5 h-5 text-slate-500" />
                     </button>
                 </div>
@@ -282,10 +305,16 @@ export function ResidentReviewModal({ resident, isOpen, onClose, themeColor }: R
                                     </Section>
 
                                     <Section icon={Users} title="Parent Details">
-                                        <Field label="Mother's First Name" value={(resident as { motherFirstName?: string | null }).motherFirstName} />
-                                        <Field label="Mother's Last Name" value={(resident as { motherLastName?: string | null }).motherLastName} />
-                                        <Field label="Father's First Name" value={(resident as { fatherFirstName?: string | null }).fatherFirstName} />
-                                        <Field label="Father's Last Name" value={(resident as { fatherLastName?: string | null }).fatherLastName} />
+                                        <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
+                                            <Field label="Mother's First Name" value={resident.motherFirstName} />
+                                            <Field label="Mother's Middle Name" value={resident.motherMiddleName} />
+                                            <Field label="Mother's Last Name" value={resident.motherLastName} />
+                                        </div>
+                                        <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                                            <Field label="Father's First Name" value={resident.fatherFirstName} />
+                                            <Field label="Father's Middle Name" value={resident.fatherMiddleName} />
+                                            <Field label="Father's Last Name" value={resident.fatherLastName} />
+                                        </div>
                                     </Section>
 
                                     {((resident.household?.members && resident.household.members.length > 0) || (resident.familyMembers && resident.familyMembers.length > 0)) && (
@@ -432,22 +461,45 @@ export function ResidentReviewModal({ resident, isOpen, onClose, themeColor }: R
                     </div>
                 </div>
 
-                {/* Footer with guidance notice (Approve/Reject actions moved strictly to Resident Approvals module) */}
-                {resident.registrationStatus === "PENDING" && (
-                    <div className="p-6 border-t border-slate-100 dark:border-[#2a3040] flex items-center justify-center gap-3 flex-shrink-0 bg-slate-50/50 dark:bg-[#1a1f2e]/50 text-center">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold italic text-xs uppercase tracking-tight">
-                            <AlertTriangle className="w-4 h-4 text-amber-500 animate-pulse" />
-                            <span>Pending registration approval is strictly restricted to the <span className="text-primary not-italic font-black">Resident Approvals</span> module.</span>
-                        </div>
+                {/* Footer with Edit Action and guidance notice */}
+                <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0 bg-slate-50/50 dark:bg-[#1a1f2e]/50">
+                    <div className="text-xs text-slate-500 font-medium w-full sm:w-auto">
+                        {resident.registrationStatus === "PENDING" && (
+                            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                Pending registration approval is strictly restricted to the <span className="text-primary not-italic font-black ml-1">Resident Approvals</span> module.
+                            </span>
+                        )}
+                        {resident.registrationStatus === "REJECTED" && (resident as { rejectionRemarks?: string | null }).rejectionRemarks && (
+                            <span className="text-red-600 dark:text-red-400 font-semibold text-[11px]">
+                                Rejection on file: {(resident as { rejectionRemarks?: string | null }).rejectionRemarks}
+                            </span>
+                        )}
+                        {resident.registrationStatus === "APPROVED" && (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
+                                Verified & Approved Resident Profile
+                            </span>
+                        )}
                     </div>
-                )}
 
-                {resident.registrationStatus === "REJECTED" && (resident as { rejectionRemarks?: string | null }).rejectionRemarks && (
-                    <div className="p-6 border-t border-slate-100 dark:border-[#2a3040] flex-shrink-0 bg-red-50/50 dark:bg-red-900/5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Rejection Reason on File</p>
-                        <p className="text-sm text-red-700 dark:text-red-400 font-medium">{(resident as { rejectionRemarks?: string | null }).rejectionRemarks}</p>
+                    <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={handleEdit}
+                            disabled={isEditingLoading}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white shadow-md transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer w-full sm:w-auto"
+                            style={{ backgroundColor: themeColor || '#3b82f6' }}
+                            title="Edit Resident Information"
+                        >
+                            {isEditingLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Edit className="w-4 h-4" />
+                            )}
+                            <span>Edit Resident</span>
+                        </button>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Lightbox Preview Modal */}
