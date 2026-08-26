@@ -68,35 +68,35 @@ export function RHUClient({
     const [copiedHotline, setCopiedHotline] = React.useState<string | null>(null);
     const [loadingServiceId, setLoadingServiceId] = React.useState<string | null>(null);
 
-    const ambulanceFleet = initialAmbulanceFleet.length > 0 ? initialAmbulanceFleet : [
+    const ambulanceFleet = (initialAmbulanceFleet.length > 0 ? initialAmbulanceFleet : [
         {
             unit: "Ambulance Unit 1 (Foton Transporter)",
             station: "Poblacion Main Station",
-            status: "STANDBY",
+            status: "ACTIVE",
             statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-1234"
         },
         {
             unit: "Ambulance Unit 2 (Toyota Hiace)",
             station: "Luyan South Station",
-            status: "ON DUTY",
-            statusColor: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+            status: "ACTIVE",
+            statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-5678"
         },
         {
             unit: "Ambulance Unit 3 (Barangay Response)",
             station: "Nilombot Station",
-            status: "STANDBY",
+            status: "ACTIVE",
             statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
             plateNumber: "SAB-9012"
         }
-    ];
+    ]).filter((v: any) => v.status !== "INACTIVE");
 
-    const dispatchHotlines = initialDispatchHotlines.length > 0 ? initialDispatchHotlines : [
-        { name: "RHU Emergency Dispatch", number: "0917-555-0199" },
-        { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234" },
-        { name: "Municipal Health Officer", number: "0920-123-4567" }
-    ];
+    const dispatchHotlines = (initialDispatchHotlines.length > 0 ? initialDispatchHotlines : [
+        { name: "RHU Emergency Dispatch", number: "0917-555-0199", status: "ACTIVE" },
+        { name: "MDRRMO Mapandan Hotline", number: "(075) 529-1234", status: "ACTIVE" },
+        { name: "Municipal Health Officer", number: "0920-123-4567", status: "ACTIVE" }
+    ]).filter((h: any) => h.status !== "INACTIVE");
 
     const handleHotlineCall = async (number: string) => {
         await copyToClipboard(number);
@@ -613,8 +613,8 @@ export function RHUClient({
                                                 <MapPin className="w-3 h-3 text-slate-400" /> {vehicle.station}
                                             </p>
                                         </div>
-                                        <span className={cn("text-[9px] font-black uppercase tracking-widest border px-2.5 py-1 rounded-full shrink-0", vehicle.statusColor)}>
-                                            {vehicle.status}
+                                        <span className={cn("text-[9px] font-black uppercase tracking-widest border px-2.5 py-1 rounded-full shrink-0", vehicle.status === "INACTIVE" ? "text-slate-500 bg-slate-500/10 border-slate-500/20" : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20")}>
+                                            {vehicle.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
                                         </span>
                                     </div>
                                 ))}

@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock, CheckCircle2, XCircle
+    Archive, Clock, CheckCircle2, XCircle,
+    Calendar
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,8 @@ export default function RHULedgerPage() {
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [checkupFilter, setCheckupFilter] = useState("ALL");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -94,7 +97,9 @@ export default function RHULedgerPage() {
                 page: currentPage,
                 limit: itemsPerPage,
                 search: debouncedSearch,
-                checkupType: checkupFilter === "ALL" ? undefined : checkupFilter
+                checkupType: checkupFilter === "ALL" ? undefined : checkupFilter,
+                dateFrom: dateFrom || undefined,
+                dateTo: dateTo || undefined
             });
 
             if (res.success && res.data) {
@@ -125,7 +130,7 @@ export default function RHULedgerPage() {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, itemsPerPage, debouncedSearch, checkupFilter]);
+    }, [currentPage, itemsPerPage, debouncedSearch, checkupFilter, dateFrom, dateTo]);
 
     useEffect(() => {
         fetchTransactions();
@@ -136,7 +141,7 @@ export default function RHULedgerPage() {
             setCurrentPage(1);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedSearch, checkupFilter, itemsPerPage]);
+    }, [debouncedSearch, checkupFilter, itemsPerPage, dateFrom, dateTo]);
 
     // Sorting logic
     const sortedTransactions = useMemo(() => {
@@ -164,8 +169,8 @@ export default function RHULedgerPage() {
                     ? statusA.localeCompare(statusB)
                     : statusB.localeCompare(statusA);
             } else {
-                const dateA = new Date(a.updatedAt).getTime();
-                const dateB = new Date(b.updatedAt).getTime();
+                const dateA = new Date(a.appointmentDate || a.createdAt).getTime();
+                const dateB = new Date(b.appointmentDate || b.createdAt).getTime();
                 return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
         });
@@ -238,29 +243,63 @@ export default function RHULedgerPage() {
                 {/* Filters Row */}
                 <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
                     <div className="p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
-                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                            <div className="relative w-full sm:w-[350px]">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                                <Input
-                                    placeholder="Search patient name, control #, barangay..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-rose-500 rounded-xl text-xs font-bold"
-                                />
+                        <div className="flex flex-col lg:flex-row items-center gap-4 w-full lg:w-auto">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                                <div className="relative w-full sm:w-[350px]">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                    <Input
+                                        placeholder="Search patient name, control #, barangay..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-rose-500 rounded-xl text-xs font-bold"
+                                    />
+                                </div>
+
+                                <Select value={checkupFilter} onValueChange={(v) => setCheckupFilter(v)}>
+                                    <SelectTrigger className="h-11 w-full sm:w-52 rounded-xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] text-xs font-bold">
+                                        <SelectValue placeholder="Checkup Category" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-2xl">
+                                        {CHECKUP_TYPES.map((cat) => (
+                                            <SelectItem key={cat.id} value={cat.id} className="text-xs font-bold uppercase">
+                                                {cat.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
-                            <Select value={checkupFilter} onValueChange={(v) => setCheckupFilter(v)}>
-                                <SelectTrigger className="h-11 w-full sm:w-52 rounded-xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] text-xs font-bold">
-                                    <SelectValue placeholder="Checkup Category" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-2xl">
-                                    {CHECKUP_TYPES.map((cat) => (
-                                        <SelectItem key={cat.id} value={cat.id} className="text-xs font-bold uppercase">
-                                            {cat.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                {/* Date From */}
+                                <div className="flex items-center gap-2 px-3 h-11 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[170px] shrink-0">
+                                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <div className="flex flex-col w-full text-[9px] text-slate-400 font-bold uppercase">
+                                        <span className="leading-none text-[8px] mb-0.5">Date From</span>
+                                        <input
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full h-5"
+                                        />
+                                    </div>
+                                </div>
+
+                                <span className="text-slate-400 text-xs font-bold shrink-0">to</span>
+
+                                {/* Date To */}
+                                <div className="flex items-center gap-2 px-3 h-11 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[170px] shrink-0">
+                                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <div className="flex flex-col w-full text-[9px] text-slate-400 font-bold uppercase">
+                                        <span className="leading-none text-[8px] mb-0.5">Date To</span>
+                                        <input
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full h-5"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -315,7 +354,22 @@ export default function RHULedgerPage() {
                                         </span>
                                     </div>
                                 </TableHead>
-                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Appt Date & Slot</TableHead>
+                                <TableHead
+                                    className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-rose-500 transition-colors py-5"
+                                    onClick={() => handleSortToggle("date")}
+                                >
+                                    <div className="flex items-center gap-1.5 group">
+                                        <span>Appt Date & Slot</span>
+                                        <span className={cn(
+                                            "transition-colors duration-200 font-black text-[10px]",
+                                            sortBy === "date"
+                                                ? "text-rose-500 font-bold"
+                                                : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
+                                        )}>
+                                            {sortBy === "date" ? (sortDirection === "asc" ? "▲" : "▼") : "⇅"}
+                                        </span>
+                                    </div>
+                                </TableHead>
                                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Priority</TableHead>
                                 <TableHead
                                     className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-rose-500 transition-colors py-5"
@@ -330,22 +384,6 @@ export default function RHULedgerPage() {
                                                 : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
                                         )}>
                                             {sortBy === "status" ? (sortDirection === "asc" ? "▲" : "▼") : "⇅"}
-                                        </span>
-                                    </div>
-                                </TableHead>
-                                <TableHead
-                                    className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-rose-500 transition-colors py-5"
-                                    onClick={() => handleSortToggle("date")}
-                                >
-                                    <div className="flex items-center gap-1.5 group">
-                                        <span>Last Updated</span>
-                                        <span className={cn(
-                                            "transition-colors duration-200 font-black text-[10px]",
-                                            sortBy === "date"
-                                                ? "text-rose-500 font-bold"
-                                                : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
-                                        )}>
-                                            {sortBy === "date" ? (sortDirection === "asc" ? "▲" : "▼") : "⇅"}
                                         </span>
                                     </div>
                                 </TableHead>
@@ -372,7 +410,6 @@ export default function RHULedgerPage() {
                                         </TableCell>
                                         <TableCell className="py-4"><div className="h-4 w-16 bg-slate-200 dark:bg-white/10 rounded-lg" /></TableCell>
                                         <TableCell className="py-4"><div className="h-6 w-24 bg-slate-200 dark:bg-white/10 rounded-full" /></TableCell>
-                                        <TableCell className="py-4"><div className="h-4 w-20 bg-slate-200 dark:bg-white/10 rounded-lg" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : sortedTransactions.length > 0 ? (
@@ -439,27 +476,12 @@ export default function RHULedgerPage() {
                                             <TableCell>
                                                 {getStatusBadge(tx)}
                                             </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    {(() => {
-                                                        const f = formatDateTime(tx.updatedAt);
-                                                        return (
-                                                            <>
-                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
-                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                    <Clock className="w-2.5 h-2.5" />{f.time}
-                                                                </span>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </TableCell>
                                         </TableRow>
                                     );
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-[350px] text-center">
+                                    <TableCell colSpan={7} className="h-[350px] text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                                             <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
                                             <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No RHU consultations found</p>

@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sanitizeString, sanitizeObject } from "@/lib/validation";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export async function cleanupPastDueRHUAppointments(userId?: string) {
     try {
@@ -652,34 +653,80 @@ const defaultHotlines = [
 
 export async function getAmbulanceSettings() {
     try {
+        const session = await getServerSession(authOptions);
+        
+        let queryFilter: any = {};
+        let matchedCenterId: string | null = null;
+        let isClientAdmin = false;
+
+        if (session?.user) {
+            const role = ((session.user as any)?.role || "").toUpperCase();
+            isClientAdmin = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_") || role === "ADMIN_AIDE" || role === "RHU_CENTER_ADMIN" || role === "RHU_STAFF" || role === "RHU_DOCTOR";
+            
+            if (isClientAdmin) {
+                const matchedCenter = await getMatchedCenterForUser(session.user);
+                if (matchedCenter) {
+                    matchedCenterId = matchedCenter.id;
+                    queryFilter = { assigned_center_id: matchedCenter.id };
+                }
+            } else {
+                // Resident/standard user: only active assets
+                queryFilter = { status: { not: "INACTIVE" } };
+            }
+        } else {
+            // Unauthenticated view (public page): only active assets
+            queryFilter = { status: { not: "INACTIVE" } };
+        }
+
         let fleet = await (prisma as any).rHUAmbulance.findMany({
+            where: queryFilter,
             orderBy: { createdAt: "asc" }
         });
+
+        // Initialize defaults if empty for this center
         if (fleet.length === 0) {
-            await Promise.all(defaultFleet.map(item => 
+            const defaults = defaultFleet.map(item => ({
+                ...item,
+                assigned_center_id: matchedCenterId
+            }));
+            await Promise.all(defaults.map(item => 
                 (prisma as any).rHUAmbulance.create({ data: item })
             ));
             fleet = await (prisma as any).rHUAmbulance.findMany({
+                where: queryFilter,
                 orderBy: { createdAt: "asc" }
             });
+        }
+
+        const hotlineFilter: any = { ...queryFilter };
+        if (hotlineFilter.status) {
+            hotlineFilter.status = { not: "INACTIVE" };
         }
 
         let hotlines = await (prisma as any).rHUAmbulanceHotline.findMany({
+            where: hotlineFilter,
             orderBy: { createdAt: "asc" }
         });
+
         if (hotlines.length === 0) {
-            await Promise.all(defaultHotlines.map(item => 
+            const defaults = defaultHotlines.map(item => ({
+                ...item,
+                status: "ACTIVE",
+                assigned_center_id: matchedCenterId
+            }));
+            await Promise.all(defaults.map(item => 
                 (prisma as any).rHUAmbulanceHotline.create({ data: item })
             ));
             hotlines = await (prisma as any).rHUAmbulanceHotline.findMany({
+                where: hotlineFilter,
                 orderBy: { createdAt: "asc" }
             });
         }
 
-        return { success: true, fleet, hotlines };
+        return { success: true, fleet, hotlines, matchedCenterId };
     } catch (error: any) {
         console.error("getAmbulanceSettings error:", error);
-        return { success: false, fleet: defaultFleet, hotlines: defaultHotlines, error: error.message || "Failed to load settings" };
+        return { success: false, fleet: [], hotlines: [], error: error.message || "Failed to load settings" };
     }
 }
 
@@ -696,25 +743,44 @@ export async function updateAmbulanceSettings(fleet: any[], hotlines: any[]) {
             return { success: false, error: "Access Denied" };
         }
 
-        await (prisma as any).$transaction([
-            (prisma as any).rHUAmbulance.deleteMany({}),
-            (prisma as any).rHUAmbulanceHotline.deleteMany({}),
-            ...fleet.map(item => (prisma as any).rHUAmbulance.create({
-                data: {
-                    unit: item.unit,
-                    plateNumber: item.plateNumber,
-                    station: item.station,
-                    status: item.status,
-                    statusColor: item.statusColor
-                }
-            })),
-            ...hotlines.map(item => (prisma as any).rHUAmbulanceHotline.create({
-                data: {
-                    name: item.name,
-                    number: item.number
-                }
-            }))
-        ]);
+        const matchedCenter = await getMatchedCenterForUser(session.user);
+        const centerId = matchedCenter?.id || null;
+
+        // Perform transactional update restricted to the user's matched center
+        await (prisma as any).$transaction(async (tx: any) => {
+            // Delete existing for THIS center only (to prevent destroying other centers' data!)
+            await tx.rHUAmbulance.deleteMany({
+                where: { assigned_center_id: centerId }
+            });
+            await tx.rHUAmbulanceHotline.deleteMany({
+                where: { assigned_center_id: centerId }
+            });
+
+            // Re-create new list tagged with this center
+            if (fleet && fleet.length > 0) {
+                await Promise.all(fleet.map((item: any) => tx.rHUAmbulance.create({
+                    data: {
+                        unit: item.unit,
+                        plateNumber: item.plateNumber,
+                        station: item.station,
+                        status: item.status,
+                        statusColor: item.statusColor || "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+                        assigned_center_id: centerId
+                    }
+                })));
+            }
+
+            if (hotlines && hotlines.length > 0) {
+                await Promise.all(hotlines.map((item: any) => tx.rHUAmbulanceHotline.create({
+                    data: {
+                        name: item.name,
+                        number: item.number,
+                        status: item.status || "ACTIVE",
+                        assigned_center_id: centerId
+                    }
+                })));
+            }
+        });
 
         revalidatePath("/admin/rhu/ambulance");
         revalidatePath("/user/services/rural-health-unit");
