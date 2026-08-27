@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getRHUHealthCenters } from "@/app/admin/rhu/centers/actions";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
 export const metadata: Metadata = {
     title: "RHU Ambulance Settings | Mapandan Portal",
@@ -35,11 +36,15 @@ export default async function RHUAmbulanceSettingsPage() {
     const centersRes = await getRHUHealthCenters();
     const healthCenters = centersRes.success && centersRes.data ? centersRes.data : [];
 
+    const matchedCenter = session.user ? await getMatchedCenterForUser(session.user) : null;
+    const matchedCenterId = matchedCenter?.id || null;
+
     return (
         <div className="p-4 md:p-8 max-w-full mx-auto space-y-6 pb-20">
             <AmbulanceSettingsClient 
                 isReadOnly={isReadOnly}
                 healthCenters={healthCenters}
+                matchedCenterId={matchedCenterId}
             />
         </div>
     );

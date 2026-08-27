@@ -1,3 +1,4 @@
+// Triggering Next.js dev server restart to reload generated Prisma client
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@prisma/client", ".prisma/client", "mariadb", "@prisma/adapter-mariadb"],

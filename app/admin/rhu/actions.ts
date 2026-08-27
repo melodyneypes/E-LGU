@@ -145,6 +145,8 @@ export async function getRHUAdminTransactions(params?: {
     search?: string;
     checkupType?: string;
     allCenters?: boolean;
+    dateFrom?: string;
+    dateTo?: string;
 }) {
     try {
         const session = await getSession();
@@ -158,6 +160,8 @@ export async function getRHUAdminTransactions(params?: {
         const status = params?.status || "ALL";
         const checkupType = params?.checkupType || "ALL";
         const showAllCenters = params?.allCenters === true;
+        const dateFrom = params?.dateFrom;
+        const dateTo = params?.dateTo;
 
         const skip = (page - 1) * limit;
 
@@ -245,6 +249,19 @@ export async function getRHUAdminTransactions(params?: {
                     OR ${checkupType.toLowerCase()} LIKE CONCAT('%', LOWER(t."additionalData"->>'checkupType'), '%')
                 )
             `);
+        }
+
+        // Date Range condition
+        if (dateFrom) {
+            const start = new Date(dateFrom);
+            start.setHours(0, 0, 0, 0);
+            conditions.push(Prisma.sql`t."appointmentDate" >= ${start}`);
+        }
+
+        if (dateTo) {
+            const end = new Date(dateTo);
+            end.setHours(23, 59, 59, 999);
+            conditions.push(Prisma.sql`t."appointmentDate" <= ${end}`);
         }
 
         // Effective Status Expression

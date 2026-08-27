@@ -12,7 +12,10 @@ import {
     Calendar,
     User,
     Sparkles,
-    Loader2
+    Loader2,
+    Check,
+    ChevronsUpDown,
+    Search
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import dynamic from "next/dynamic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import SchedulePicker from "@/components/shared/SchedulePicker";
 import { submitRHUAppointment, getCenterAppointmentConfig } from "../actions";
@@ -89,9 +93,36 @@ export function MedicalConsultationForm({
         }
         return "";
     });
+    const [isCenterPopoverOpen, setIsCenterPopoverOpen] = useState(false);
+    const [centerSearchQuery, setCenterSearchQuery] = useState("");
     const [currentConfig, setCurrentConfig] = useState<any>(appointmentConfig);
 
     const selectedCenter = healthCenters.find((c: any) => c.id === selectedCenterId) || null;
+
+    // Reset search query when popover closes
+    useEffect(() => {
+        if (!isCenterPopoverOpen) {
+            setCenterSearchQuery("");
+        }
+    }, [isCenterPopoverOpen]);
+
+    // Available and filtered health centers for combobox
+    const availableCenters = useMemo(() => {
+        return healthCenters && healthCenters.length > 0
+            ? healthCenters
+            : (selectedCenter ? [selectedCenter] : []);
+    }, [healthCenters, selectedCenter]);
+
+    const filteredCenters = useMemo(() => {
+        if (!centerSearchQuery.trim()) return availableCenters;
+        const query = centerSearchQuery.toLowerCase();
+        return availableCenters.filter((center: any) => {
+            const name = (center?.name || "").toLowerCase();
+            const barangay = (center?.barangay || "").toLowerCase();
+            const location = (center?.location || "").toLowerCase();
+            return name.includes(query) || barangay.includes(query) || location.includes(query);
+        });
+    }, [availableCenters, centerSearchQuery]);
 
     // Dynamically parse services offered by the selected health center
     const availableCheckupServices = useMemo(() => {
@@ -109,6 +140,24 @@ export function MedicalConsultationForm({
         const unique = Array.from(new Set(all));
         return unique.length > 0 ? unique : ["General Consultation / Check-up"];
     }, [selectedCenter, healthCenters]);
+
+    const [isAppointmentPopoverOpen, setIsAppointmentPopoverOpen] = useState(false);
+    const [appointmentSearchQuery, setAppointmentSearchQuery] = useState("");
+
+    // Reset search query when popover closes
+    useEffect(() => {
+        if (!isAppointmentPopoverOpen) {
+            setAppointmentSearchQuery("");
+        }
+    }, [isAppointmentPopoverOpen]);
+
+    const filteredAppointmentServices = useMemo(() => {
+        if (!appointmentSearchQuery.trim()) return availableCheckupServices;
+        const query = appointmentSearchQuery.toLowerCase();
+        return availableCheckupServices.filter((svc: string) => 
+            svc.toLowerCase().includes(query)
+        );
+    }, [availableCheckupServices, appointmentSearchQuery]);
 
     // When user selects a different health center, dynamically load its schedule config
     useEffect(() => {
@@ -773,41 +822,105 @@ export function MedicalConsultationForm({
                             >
                                 {/* Check-up details */}
                                 <div className="space-y-4">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 italic border-b border-slate-100 dark:border-white/5 pb-2">Facility & Check-up Details</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 italic border-b border-slate-100 dark:border-white/5 pb-2">Facility & Appointment Details</h4>
                                     
                                     {/* 1. Health Center Selection comes FIRST */}
                                     <div className="space-y-3">
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1.5 flex flex-col">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
                                                 Health Center Location / Barangay Station <span className="text-red-500 font-bold ml-0.5">*</span>
                                             </Label>
-                                            <Select
-                                                value={selectedCenterId}
-                                                onValueChange={v => {
-                                                    setSelectedCenterId(v);
-                                                    const centerObj = healthCenters.find((c: any) => c.id === v);
-                                                    if (centerObj?.servicesOffered) {
-                                                        const list = centerObj.servicesOffered.split(",").map((s: string) => s.trim()).filter(Boolean);
-                                                        if (list.length > 0) {
-                                                            setAdditionalFields(prev => ({ ...prev, checkupType: list[0] }));
-                                                        }
-                                                    }
-                                                }}
-                                            >
-                                                <SelectTrigger className={cn(
-                                                    "h-11 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
-                                                    errors.selectedCenterId && "border-red-500 dark:border-red-500 focus:outline-red-500"
-                                                )}>
-                                                    <SelectValue placeholder="Select Health Center Location" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                    {(healthCenters && healthCenters.length > 0 ? healthCenters : (selectedCenter ? [selectedCenter] : [])).map((center: any) => (
-                                                        <SelectItem key={center?.id} value={center?.id} className="text-xs font-bold rounded-lg">
-                                                            {center?.name} ({center?.barangay || "Mapandan"})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Popover open={isCenterPopoverOpen} onOpenChange={setIsCenterPopoverOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        aria-expanded={isCenterPopoverOpen}
+                                                        className={cn(
+                                                            "w-full h-11 justify-between rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-xs font-bold px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-inherit dark:hover:text-inherit focus:outline-none theme-ring-focus",
+                                                            errors.selectedCenterId && "border-red-500 dark:border-red-500 focus:outline-red-500",
+                                                            !selectedCenterId && "text-slate-400 dark:text-slate-500 font-medium"
+                                                        )}
+                                                    >
+                                                        <span className="truncate">
+                                                            {selectedCenterId 
+                                                                ? `${availableCenters.find((c: any) => c.id === selectedCenterId)?.name} (${availableCenters.find((c: any) => c.id === selectedCenterId)?.barangay || "Mapandan"})`
+                                                                : "Select Health Center Location"
+                                                            }
+                                                        </span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent 
+                                                    align="start"
+                                                    style={{ width: "var(--radix-popover-trigger-width)" }}
+                                                    className="p-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-50"
+                                                >
+                                                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 px-3 bg-slate-50/50 dark:bg-slate-950/20">
+                                                        <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search location or barangay..."
+                                                            value={centerSearchQuery}
+                                                            onChange={(e) => setCenterSearchQuery(e.target.value)}
+                                                            className="flex-1 h-10 bg-transparent text-xs font-semibold focus:outline-none px-1 py-3 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-800 dark:text-slate-100"
+                                                        />
+                                                    </div>
+                                                    <div className="max-h-[240px] overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                                                        {filteredCenters.length > 0 ? (
+                                                            filteredCenters.map((center: any) => {
+                                                                const isSelected = selectedCenterId === center?.id;
+                                                                return (
+                                                                    <button
+                                                                        key={center?.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSelectedCenterId(center?.id);
+                                                                            if (center?.servicesOffered) {
+                                                                                const list = center.servicesOffered.split(",").map((s: string) => s.trim()).filter(Boolean);
+                                                                                if (list.length > 0) {
+                                                                                    setAdditionalFields(prev => ({ ...prev, checkupType: list[0] }));
+                                                                                }
+                                                                            }
+                                                                            setIsCenterPopoverOpen(false);
+                                                                        }}
+                                                                        className={cn(
+                                                                            "w-full flex items-center justify-between px-3 py-3 rounded-lg text-xs font-bold transition-all text-left border border-transparent",
+                                                                            isSelected 
+                                                                                ? "border-transparent" 
+                                                                                : "hover:bg-slate-100/70 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 hover:border-slate-100 dark:hover:border-white/5"
+                                                                        )}
+                                                                        style={{
+                                                                            backgroundColor: isSelected ? `${themeColor}15` : undefined,
+                                                                            color: isSelected ? themeColor : undefined
+                                                                        }}
+                                                                    >
+                                                                        <div className="flex flex-col gap-0.5 max-w-[90%]">
+                                                                            <span className="truncate leading-tight font-black uppercase text-[10px] sm:text-xs">
+                                                                                {center?.name}
+                                                                            </span>
+                                                                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase italic tracking-tight">
+                                                                                📍 {center?.barangay || "Mapandan"} Barangay Station
+                                                                            </span>
+                                                                        </div>
+                                                                        {isSelected && (
+                                                                            <Check 
+                                                                                className="w-3.5 h-3.5 shrink-0" 
+                                                                                style={{ color: themeColor }}
+                                                                            />
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500 font-bold italic">
+                                                                No health centers found
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
                                             {errors.selectedCenterId && (
                                                 <p className="text-[10px] text-red-500 font-medium mt-1">Health center location is required.</p>
                                             )}
@@ -862,11 +975,11 @@ export function MedicalConsultationForm({
                                         )}
                                     </div>
 
-                                    {/* 2. Type of Check-up (Dynamically loaded from selected center's servicesOffered) */}
-                                    <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                    {/* 2. Type of Appointment (Dynamically loaded from selected center's servicesOffered) */}
+                                    <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5 flex flex-col">
                                         <div className="flex items-center justify-between">
                                             <Label className="text-[10px] font-black uppercase tracking-wide text-slate-400 italic">
-                                                Type of Check-up <span className="text-red-500 font-bold ml-0.5">*</span>
+                                                Type of Appointment <span className="text-red-500 font-bold ml-0.5">*</span>
                                             </Label>
                                             {selectedCenter?.name && (
                                                 <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
@@ -874,26 +987,85 @@ export function MedicalConsultationForm({
                                                 </span>
                                             )}
                                         </div>
-                                        <Select
-                                            value={additionalFields.checkupType}
-                                            onValueChange={v => setAdditionalFields(prev => ({ ...prev, checkupType: v }))}
-                                        >
-                                            <SelectTrigger className={cn(
-                                                "h-10 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
-                                                errors.checkupType && "border-red-500 dark:border-red-500 focus:outline-red-500"
-                                            )}>
-                                                <SelectValue placeholder="Select type of check-up" />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
-                                                {availableCheckupServices.map((svc: string) => (
-                                                    <SelectItem key={svc} value={svc} className="text-xs font-bold rounded-lg">
-                                                        {svc}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Popover open={isAppointmentPopoverOpen} onOpenChange={setIsAppointmentPopoverOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={isAppointmentPopoverOpen}
+                                                    className={cn(
+                                                        "w-full h-11 justify-between rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-xs font-bold px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-inherit dark:hover:text-inherit focus:outline-none theme-ring-focus",
+                                                        errors.checkupType && "border-red-500 dark:border-red-500 focus:outline-red-500",
+                                                        !additionalFields.checkupType && "text-slate-400 dark:text-slate-500 font-medium"
+                                                    )}
+                                                >
+                                                    <span className="truncate">
+                                                        {additionalFields.checkupType || "Select Type of Appointment"}
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent 
+                                                align="start"
+                                                style={{ width: "var(--radix-popover-trigger-width)" }}
+                                                className="p-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl overflow-hidden z-50"
+                                            >
+                                                <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 px-3 bg-slate-50/50 dark:bg-slate-950/20">
+                                                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search services..."
+                                                        value={appointmentSearchQuery}
+                                                        onChange={(e) => setAppointmentSearchQuery(e.target.value)}
+                                                        className="flex-1 h-10 bg-transparent text-xs font-semibold focus:outline-none px-1 py-3 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-800 dark:text-slate-100"
+                                                    />
+                                                </div>
+                                                <div className="max-h-[240px] overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                                                    {filteredAppointmentServices.length > 0 ? (
+                                                        filteredAppointmentServices.map((svc: string) => {
+                                                            const isSelected = additionalFields.checkupType === svc;
+                                                            return (
+                                                                <button
+                                                                    key={svc}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setAdditionalFields(prev => ({ ...prev, checkupType: svc }));
+                                                                        setIsAppointmentPopoverOpen(false);
+                                                                    }}
+                                                                    className={cn(
+                                                                        "w-full flex items-center justify-between px-3 py-3 rounded-lg text-xs font-bold transition-all text-left border border-transparent",
+                                                                        isSelected 
+                                                                            ? "border-transparent" 
+                                                                            : "hover:bg-slate-100/70 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 hover:border-slate-100 dark:hover:border-white/5"
+                                                                    )}
+                                                                    style={{
+                                                                        backgroundColor: isSelected ? `${themeColor}15` : undefined,
+                                                                        color: isSelected ? themeColor : undefined
+                                                                    }}
+                                                                >
+                                                                    <span className="truncate leading-tight font-black uppercase text-[10px] sm:text-xs">
+                                                                        {svc}
+                                                                    </span>
+                                                                    {isSelected && (
+                                                                        <Check 
+                                                                            className="w-3.5 h-3.5 shrink-0" 
+                                                                            style={{ color: themeColor }}
+                                                                        />
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500 font-bold italic">
+                                                            No services found
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
                                         {errors.checkupType && (
-                                            <p className="text-[10px] text-red-500 font-medium mt-1">Type of check-up is required.</p>
+                                            <p className="text-[10px] text-red-500 font-medium mt-1">Type of appointment is required.</p>
                                         )}
                                     </div>
  
@@ -905,7 +1077,7 @@ export function MedicalConsultationForm({
                                         <Input
                                             value={additionalFields.symptomsPurpose}
                                             onChange={e => setAdditionalFields(prev => ({ ...prev, symptomsPurpose: e.target.value }))}
-                                            placeholder="Briefly describe why you are booking this check-up"
+                                            placeholder="Briefly describe why you are booking this appointment"
                                             className={cn(
                                                 "h-10 rounded-xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-xs font-bold theme-ring-focus",
                                                 errors.symptomsPurpose && "border-red-500 dark:border-red-500 focus-visible:outline-red-500 focus-visible:ring-red-500"
@@ -1020,7 +1192,7 @@ export function MedicalConsultationForm({
                                     
                                     <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
                                         <div>
-                                            <span className="text-[9px] font-bold text-slate-400 block">Check-up Type</span>
+                                            <span className="text-[9px] font-bold text-slate-400 block">Appointment Type</span>
                                             <span className="font-bold text-slate-800 dark:text-white uppercase">
                                                 {additionalFields.checkupType}
                                             </span>

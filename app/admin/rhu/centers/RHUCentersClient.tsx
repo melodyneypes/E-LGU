@@ -24,7 +24,8 @@ import {
     ShieldCheck,
     Activity,
     Eye,
-    X
+    X,
+    UserMinus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +56,6 @@ import {
     getRHUHealthCenters,
     createRHUMedicalPersonnel,
     updateRHUMedicalPersonnel,
-    deleteRHUMedicalPersonnel,
     getRHUMedicalPersonnel,
     type RHUHealthCenterInput,
     type RHUMedicalPersonnelInput
@@ -127,6 +127,147 @@ function formatPHPhoneNumber(value: string): string {
     return clean.slice(0, 11);
 }
 
+const convertTo24Hour = (timeStr: string): string => {
+    timeStr = timeStr.trim().toUpperCase();
+    const isPM = timeStr.includes("PM");
+    const isAM = timeStr.includes("AM");
+    const [hoursStr, minutesStr] = timeStr.replace(/(AM|PM)/g, "").trim().split(":");
+    if (!hoursStr || !minutesStr) return "08:00";
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+};
+
+const convertTo12Hour = (timeStr: string): string => {
+    if (!timeStr || !timeStr.includes(":")) return "8:00 AM";
+    const [hoursStr, minutesStr] = timeStr.split(":");
+    let hours = parseInt(hoursStr, 10);
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    return `${hours}:${minutesStr} ${ampm}`;
+};
+
+const formatDaysRange = (days: string[]): string => {
+    const orderedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const selectedOrdered = orderedDays.filter(d => days.includes(d));
+    
+    if (selectedOrdered.length === 5 && 
+        selectedOrdered.includes("Monday") && 
+        selectedOrdered.includes("Friday") && 
+        !selectedOrdered.includes("Saturday") && 
+        !selectedOrdered.includes("Sunday")) {
+        return "Mon-Fri";
+    }
+    if (selectedOrdered.length === 6 && 
+        selectedOrdered.includes("Monday") && 
+        selectedOrdered.includes("Saturday") && 
+        !selectedOrdered.includes("Sunday")) {
+        return "Mon-Sat";
+    }
+    if (selectedOrdered.length === 7) {
+        return "Mon-Sun";
+    }
+    return selectedOrdered.map(d => d.slice(0, 3)).join(", ");
+};
+
+interface SearchableSelectProps {
+    options: { value: string; label: string }[];
+    value: string;
+    onChange: (val: string) => void;
+    placeholder: string;
+    emptyText?: string;
+    className?: string;
+    footerAction?: React.ReactNode;
+}
+
+function SearchableSelect({
+    options,
+    value,
+    onChange,
+    placeholder,
+    emptyText = "No results found.",
+    className,
+    footerAction
+}: SearchableSelectProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+
+    const selectedOption = options.find(o => o.value === value);
+
+    const filtered = options.filter(o =>
+        o.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="relative w-full">
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    "flex items-center justify-between w-full h-10 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer select-none text-slate-700 dark:text-slate-200",
+                    className
+                )}
+            >
+                <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+                <span className="text-[10px] text-slate-400">▼</span>
+            </div>
+
+            {isOpen && (
+                <>
+                    <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => {
+                            setIsOpen(false);
+                            setSearch("");
+                        }} 
+                    />
+                    <div className="absolute left-0 right-0 mt-1.5 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full h-8 px-2.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-700 dark:text-slate-200"
+                            autoFocus
+                        />
+                        <div className="space-y-0.5">
+                            {filtered.length > 0 ? (
+                                filtered.map((opt) => (
+                                    <div
+                                        key={opt.value}
+                                        onClick={() => {
+                                            onChange(opt.value);
+                                            setIsOpen(false);
+                                            setSearch("");
+                                        }}
+                                        className={cn(
+                                            "px-2.5 py-1.5 text-xs rounded-lg cursor-pointer transition-colors text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+                                            opt.value === value && "bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold"
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="px-2.5 py-2 text-xs text-slate-400 italic text-center">
+                                    {emptyText}
+                                </div>
+                            )}
+                        </div>
+                        {footerAction && (
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 mt-1">
+                                {footerAction}
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 interface RHUCentersClientProps {
     initialCenters: any[];
     initialPersonnel: any[];
@@ -146,6 +287,7 @@ export default function RHUCentersClient({
 }: RHUCentersClientProps) {
     const [activeTab, setActiveTab] = useState<"centers" | "personnel">("centers");
     const [centers, setCenters] = useState<any[]>(initialCenters);
+    const myCenter = isCenterAdmin ? (centers[0] || null) : null;
     const [allActiveCount, setAllActiveCount] = useState(allActiveCentersCount);
     const [personnelList, setPersonnelList] = useState<any[]>(initialPersonnel);
     const [isPending, startTransition] = useTransition();
@@ -193,6 +335,25 @@ export default function RHUCentersClient({
     const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
     const [editingPersonnel, setEditingPersonnel] = useState<any | null>(null);
     const [deletePersonnelTarget, setDeletePersonnelTarget] = useState<any | null>(null);
+
+    // Personnel Assignment Tab State
+    const [personnelTab, setPersonnelTab] = useState<"register" | "assign">("register");
+    const [selectedUnassignedStaffId, setSelectedUnassignedStaffId] = useState<string>("");
+
+    // Staff roster pagination and search states
+    const [staffSearchQuery, setStaffSearchQuery] = useState("");
+    const [staffCurrentPage, setStaffCurrentPage] = useState(1);
+    const [staffRowsPerPage, setStaffRowsPerPage] = useState(5);
+
+    // Schedule split states
+    const [scheduleDays, setScheduleDays] = useState<string[]>(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+    const [scheduleStartTime, setScheduleStartTime] = useState("08:00");
+    const [scheduleEndTime, setScheduleEndTime] = useState("17:00");
+
+    // Dynamic role creation states
+    const [isAddingNewRole, setIsAddingNewRole] = useState(false);
+    const [newRoleName, setNewRoleName] = useState("");
+    const [newRoleError, setNewRoleError] = useState("");
 
     // Personnel Form Data
     const [personnelData, setPersonnelData] = useState<RHUMedicalPersonnelInput>({
@@ -242,11 +403,11 @@ export default function RHUCentersClient({
             );
             if (activeMatchedCenter) {
                 fetchedCenters = fetchedCenters.filter((c: any) => c.id === activeMatchedCenter.id);
-                fetchedPersonnel = fetchedPersonnel.filter((p: any) => p.healthCenterId === activeMatchedCenter.id);
+                fetchedPersonnel = fetchedPersonnel.filter((p: any) => p.healthCenterId === activeMatchedCenter.id || !p.healthCenterId || p.healthCenterId === "NONE");
             } else if (currentUser.managedBarangay) {
                 fetchedCenters = fetchedCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
                 const validCenterIds = new Set(fetchedCenters.map((c: any) => c.id));
-                fetchedPersonnel = fetchedPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId));
+                fetchedPersonnel = fetchedPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId) || !p.healthCenterId || p.healthCenterId === "NONE");
             }
         }
 
@@ -291,10 +452,10 @@ export default function RHUCentersClient({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const activeCentersCount = centers.filter(c => (c.status || "ACTIVE").toUpperCase() === "ACTIVE").length;
 
-    const totalDoctorsCount = personnelList.filter(p => (p.role || "").toUpperCase() === "DOCTOR").length;
-    const totalNursesCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("NURSE")).length;
-    const totalMidwivesCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("MIDWIFE")).length;
-    const totalDentistsCount = personnelList.filter(p => (p.role || "").toUpperCase().includes("DENTIST")).length;
+    const centerStaffCount = isCenterAdmin && myCenter
+        ? personnelList.filter(p => p.healthCenterId === myCenter.id).length
+        : personnelList.length;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const totalPersonnelCount = personnelList.length;
 
     // Center Management Authorization (Only RHU_CENTER_ADMIN, RHU/Global ADMIN, and LGU department can modify, RHU_STAFF can only view)
@@ -358,6 +519,15 @@ export default function RHUCentersClient({
     // Personnel Modal Controls
     const handleOpenCreatePersonnelModal = (preselectedCenterId?: string) => {
         setEditingPersonnel(null);
+        setPersonnelTab("register");
+        setSelectedUnassignedStaffId("");
+        setScheduleDays(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+        setScheduleStartTime("08:00");
+        setScheduleEndTime("17:00");
+        setIsAddingNewRole(false);
+        setNewRoleName("");
+        setNewRoleError("");
+
         setPersonnelData({
             name: "",
             role: "DOCTOR",
@@ -378,6 +548,47 @@ export default function RHUCentersClient({
 
     const handleOpenEditPersonnelModal = (p: any) => {
         setEditingPersonnel(p);
+        setPersonnelTab("register");
+        setSelectedUnassignedStaffId("");
+        setIsAddingNewRole(false);
+        setNewRoleName("");
+        setNewRoleError("");
+
+        // Parse days from p.schedule
+        const sched = p.schedule || "Mon-Fri 8:00 AM - 5:00 PM";
+        let days: string[] = [];
+        if (sched.toLowerCase().includes("mon-fri") || sched.toLowerCase().includes("monday-friday")) {
+            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+        } else if (sched.toLowerCase().includes("mon-sat")) {
+            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        } else if (sched.toLowerCase().includes("mon-sun")) {
+            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        } else {
+            const daysMap: Record<string, string> = {
+                mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday",
+                monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday"
+            };
+            Object.keys(daysMap).forEach(key => {
+                if (sched.toLowerCase().includes(key)) {
+                    if (!days.includes(daysMap[key])) days.push(daysMap[key]);
+                }
+            });
+        }
+        if (days.length === 0) days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+        setScheduleDays(days);
+
+        // Parse times: e.g. "8:00 AM - 5:00 PM"
+        const timeRegex = /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/g;
+        const matches = sched.match(timeRegex);
+        let startStr = "08:00";
+        let endStr = "17:00";
+        if (matches && matches.length >= 2) {
+            startStr = convertTo24Hour(matches[0]);
+            endStr = convertTo24Hour(matches[1]);
+        }
+        setScheduleStartTime(startStr);
+        setScheduleEndTime(endStr);
+
         setPersonnelData({
             name: p.name || "",
             role: p.role || "DOCTOR",
@@ -498,6 +709,14 @@ export default function RHUCentersClient({
 
     const validatePersonnelForm = () => {
         const errs: Record<string, string> = {};
+        if (personnelTab === "assign" && !editingPersonnel) {
+            if (!selectedUnassignedStaffId) {
+                errs.unassignedStaff = "Please select a staff member to assign";
+            }
+            setPersonnelErrors(errs);
+            return Object.keys(errs).length === 0;
+        }
+
         if (!personnelData.name || !personnelData.name.trim()) errs.name = "Personnel full name is required";
         if (!personnelData.role || !personnelData.role.trim() || personnelData.role === "OTHER") {
             errs.role = "Please select or type a medical role/designation";
@@ -531,8 +750,16 @@ export default function RHUCentersClient({
         if (!validateCenterForm()) return;
 
         startTransition(async () => {
+            const payload = { ...formData };
+            if (!payload.accountPassword || !payload.accountPassword.trim()) {
+                delete payload.accountPassword;
+            }
+            if (!payload.pharmacyPassword || !payload.pharmacyPassword.trim()) {
+                delete payload.pharmacyPassword;
+            }
+
             if (editingCenter) {
-                const res = await updateRHUHealthCenter(editingCenter.id, formData);
+                const res = await updateRHUHealthCenter(editingCenter.id, payload);
                 if (res.success) {
                     toast.success("Health center updated successfully!");
                     setIsFormModalOpen(false);
@@ -541,7 +768,7 @@ export default function RHUCentersClient({
                     toast.error(res.error || "Failed to update health center");
                 }
             } else {
-                const res = await createRHUHealthCenter(formData);
+                const res = await createRHUHealthCenter(payload);
                 if (res.success) {
                     toast.success("Health center added successfully!");
                     setIsFormModalOpen(false);
@@ -555,11 +782,43 @@ export default function RHUCentersClient({
 
     const handleSubmitPersonnelForm = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Compile schedule string if in register/edit mode
+        if (personnelTab === "register" || editingPersonnel) {
+            const scheduleVal = `${formatDaysRange(scheduleDays)} ${convertTo12Hour(scheduleStartTime)} - ${convertTo12Hour(scheduleEndTime)}`;
+            personnelData.schedule = scheduleVal;
+        }
+
         if (!validatePersonnelForm()) return;
 
         startTransition(async () => {
-            if (editingPersonnel) {
-                const res = await updateRHUMedicalPersonnel(editingPersonnel.id, personnelData);
+            if (personnelTab === "assign" && !editingPersonnel) {
+                const staffObj = personnelList.find(p => p.id === selectedUnassignedStaffId);
+                if (!staffObj) {
+                    toast.error("Selected staff not found.");
+                    return;
+                }
+                const updatePayload = {
+                    healthCenterId: personnelData.healthCenterId === "NONE" ? null : personnelData.healthCenterId,
+                    assignedServices: personnelData.assignedServices
+                };
+                const res = await updateRHUMedicalPersonnel(selectedUnassignedStaffId, updatePayload);
+                if (res.success) {
+                    toast.success(`Assigned ${staffObj.name} to health center!`);
+                    setIsPersonnelModalOpen(false);
+                    await refreshData();
+                } else {
+                    toast.error(res.error || "Failed to assign medical personnel");
+                }
+            } else if (editingPersonnel) {
+                const payload: any = {
+                    ...personnelData,
+                    healthCenterId: personnelData.healthCenterId === "NONE" ? null : personnelData.healthCenterId
+                };
+                if (!payload.accountPassword || !payload.accountPassword.trim()) {
+                    delete payload.accountPassword;
+                }
+                const res = await updateRHUMedicalPersonnel(editingPersonnel.id, payload);
                 if (res.success) {
                     toast.success(`Updated ${personnelData.name}'s details & assignments!`);
                     setIsPersonnelModalOpen(false);
@@ -568,7 +827,14 @@ export default function RHUCentersClient({
                     toast.error(res.error || "Failed to update medical personnel");
                 }
             } else {
-                const res = await createRHUMedicalPersonnel(personnelData);
+                const payload: any = {
+                    ...personnelData,
+                    healthCenterId: personnelData.healthCenterId === "NONE" ? null : personnelData.healthCenterId
+                };
+                if (!payload.accountPassword || !payload.accountPassword.trim()) {
+                    delete payload.accountPassword;
+                }
+                const res = await createRHUMedicalPersonnel(payload);
                 if (res.success) {
                     toast.success(`Assigned ${personnelData.name} to health center!`);
                     setIsPersonnelModalOpen(false);
@@ -595,13 +861,16 @@ export default function RHUCentersClient({
 
     const handleDeletePersonnel = (p: any) => {
         startTransition(async () => {
-            const res = await deleteRHUMedicalPersonnel(p.id);
+            const res = await updateRHUMedicalPersonnel(p.id, {
+                healthCenterId: "NONE",
+                assignedServices: ""
+            });
             if (res.success) {
-                toast.success(`Medical personnel "${p.name}" removed.`);
+                toast.success(`Medical personnel "${p.name}" unassigned from center.`);
                 setDeletePersonnelTarget(null);
                 await refreshData();
             } else {
-                toast.error(res.error || "Failed to remove personnel");
+                toast.error(res.error || "Failed to unassign personnel");
             }
         });
     };
@@ -691,7 +960,157 @@ export default function RHUCentersClient({
         }
     };
 
-    const myCenter = isCenterAdmin ? (centers[0] || null) : null;
+    const unassignedStaff = personnelList.filter(p => !p.healthCenterId || p.healthCenterId === "NONE");
+
+    const unassignedStaffOptions = React.useMemo(() => {
+        return unassignedStaff.map(p => ({
+            value: p.id,
+            label: `${p.name} (${p.role || "Staff"})`
+        }));
+    }, [unassignedStaff]);
+
+    const centerOptions = React.useMemo(() => {
+        const list = [{ value: "NONE", label: "-- Unassigned / Roaming --" }];
+        centers.forEach(c => {
+            list.push({ value: c.id, label: `${c.name} (${c.barangay || "Unknown"})` });
+        });
+        return list;
+    }, [centers]);
+
+    const headStaffOptions = React.useMemo(() => {
+        const list = [{ value: "", label: "-- None / Select Head Officer --" }];
+        
+        // Filter active doctors who are unassigned OR assigned to this editing center
+        const eligibleDoctors = personnelList.filter(p => {
+            const roleUpper = (p.role || "").toUpperCase();
+            const isDoctor = roleUpper === "DOCTOR" || roleUpper === "PHYSICIAN";
+            const isActive = (p.status || "").toUpperCase() === "ACTIVE";
+            const isUnassignedOrCurrentCenter = !p.healthCenterId || p.healthCenterId === "NONE" || (editingCenter && p.healthCenterId === editingCenter.id);
+            return isDoctor && isActive && isUnassignedOrCurrentCenter;
+        });
+
+        eligibleDoctors.forEach(d => {
+            list.push({ value: d.name, label: `${d.name} (${d.specialization || "General Physician"})` });
+        });
+
+        // Add the current head personnel if they are not in the list (so it doesn't break display of already selected value)
+        if (formData.headPersonnel && !eligibleDoctors.some(d => d.name === formData.headPersonnel)) {
+            list.push({ value: formData.headPersonnel, label: `${formData.headPersonnel} (Current)` });
+        }
+
+        return list;
+    }, [personnelList, editingCenter, formData.headPersonnel]);
+
+    const allRoles = React.useMemo(() => {
+        const list = [...PRESET_ROLES];
+        personnelList.forEach(p => {
+            const r = p.role;
+            if (r && !list.some(item => item.value === r || item.label === r)) {
+                list.push({ value: r, label: r });
+            }
+        });
+        return list;
+    }, [personnelList]);
+
+    const roleOptions = React.useMemo(() => {
+        return allRoles.map(r => ({ value: r.value, label: r.label }));
+    }, [allRoles]);
+
+    const handleRegisterNewRole = () => {
+        const clean = newRoleName.trim();
+        if (!clean) {
+            setNewRoleError("Role name cannot be empty");
+            return;
+        }
+        const exists = allRoles.some(
+            r => r.value.toLowerCase() === clean.toLowerCase() || r.label.toLowerCase() === clean.toLowerCase()
+        );
+        if (exists) {
+            setNewRoleError("This medical role already exists in the system.");
+            return;
+        }
+        setPersonnelData(prev => ({ ...prev, role: clean }));
+        setIsAddingNewRole(false);
+        setNewRoleName("");
+        setNewRoleError("");
+    };
+
+    const roleFooterAction = (
+        <div className="px-2 py-1 space-y-1">
+            {isAddingNewRole ? (
+                <div className="space-y-1.5 p-1 border border-rose-100 dark:border-rose-950 bg-rose-50/20 dark:bg-rose-950/10 rounded-lg">
+                    <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Register New Medical Role</p>
+                    <Input
+                        type="text"
+                        placeholder="Enter role name..."
+                        value={newRoleName}
+                        onChange={(e) => {
+                            setNewRoleName(e.target.value);
+                            if (newRoleError) setNewRoleError("");
+                        }}
+                        className="h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-md"
+                        autoFocus
+                    />
+                    {newRoleError && (
+                        <p className="text-[9px] text-red-500 font-medium leading-none">{newRoleError}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 justify-end">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setIsAddingNewRole(false);
+                                setNewRoleName("");
+                                setNewRoleError("");
+                            }}
+                            className="h-6 text-[10px] px-2"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleRegisterNewRole}
+                            className="h-6 text-[10px] px-2 bg-rose-600 hover:bg-rose-700 text-white rounded"
+                        >
+                            Add Role
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setIsAddingNewRole(true);
+                    }}
+                    className="w-full text-left px-2 py-1.5 text-xs text-rose-600 dark:text-rose-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1"
+                >
+                    <Plus className="w-3.5 h-3.5" /> + Register New Role
+                </button>
+            )}
+        </div>
+    );
+
+
+
+    const assignedStaffList = React.useMemo(() => {
+        if (!myCenter) return [];
+        const staff = personnelList.filter(p => p.healthCenterId === myCenter.id);
+        if (!staffSearchQuery.trim()) return staff;
+        const q = staffSearchQuery.toLowerCase().trim();
+        return staff.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.role || "").toLowerCase().includes(q) ||
+            (p.assignedServices || "").toLowerCase().includes(q)
+        );
+    }, [personnelList, myCenter, staffSearchQuery]);
+
+    const paginatedStaffList = React.useMemo(() => {
+        const startIndex = (staffCurrentPage - 1) * staffRowsPerPage;
+        return assignedStaffList.slice(startIndex, startIndex + staffRowsPerPage);
+    }, [assignedStaffList, staffCurrentPage, staffRowsPerPage]);
+
+    const totalStaffPages = Math.max(1, Math.ceil(assignedStaffList.length / staffRowsPerPage));
 
     return (
         <div className="space-y-6">
@@ -718,28 +1137,21 @@ export default function RHUCentersClient({
 
                 {canManageCenter ? (
                     <div className="flex flex-row items-center gap-2.5 shrink-0 flex-nowrap">
-                        {isCenterAdmin && myCenter && (
-                            <Button
-                                onClick={() => handleOpenEditCenterModal(myCenter)}
-                                variant="outline"
-                                className="border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl h-11 px-4 flex items-center gap-2 whitespace-nowrap shrink-0"
-                            >
-                                <Edit className="w-4 h-4" /> Edit Center Info
-                            </Button>
-                        )}
-                        <Button
-                            onClick={() => handleOpenCreatePersonnelModal(myCenter?.id)}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-11 px-5 shadow-lg shadow-rose-600/20 shrink-0 flex items-center gap-2 whitespace-nowrap"
-                        >
-                            <Stethoscope className="w-4 h-4" /> Assign Medical Personnel
-                        </Button>
                         {!isCenterAdmin && (
-                            <Button
-                                onClick={handleOpenCreateCenterModal}
-                                className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl h-11 px-5 shrink-0 flex items-center gap-2 whitespace-nowrap"
-                            >
-                                <Plus className="w-4 h-4" /> Add Health Center
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => handleOpenCreatePersonnelModal(myCenter?.id)}
+                                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl h-11 px-5 shadow-lg shadow-rose-600/20 shrink-0 flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    <Stethoscope className="w-4 h-4" /> Assign Medical Personnel
+                                </Button>
+                                <Button
+                                    onClick={handleOpenCreateCenterModal}
+                                    className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl h-11 px-5 shrink-0 flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    <Plus className="w-4 h-4" /> Add Health Center
+                                </Button>
+                            </>
                         )}
                     </div>
                 ) : (
@@ -771,21 +1183,27 @@ export default function RHUCentersClient({
                             : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                     )}
                 >
-                    <Users className="w-4 h-4" /> Medical Personnel & Staff ({totalPersonnelCount})
+                    <Users className="w-4 h-4" /> Medical Personnel & Staff
                 </button>
             </div>
 
             {/* Metric Overview Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
                     <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0 flex-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Center Status</p>
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                                {isCenterAdmin ? (myCenter?.status || "ACTIVE") : "ACTIVE"}
+                            <h3 
+                                className={cn(
+                                    "font-black text-slate-900 dark:text-white truncate",
+                                    (isCenterAdmin ? (myCenter?.status || "ACTIVE") : "ACTIVE").length > 10 ? "text-xs" : "text-sm sm:text-base md:text-lg lg:text-xl"
+                                )}
+                                title={isCenterAdmin ? (myCenter?.status || "ACTIVE").replace(/_/g, " ") : "ACTIVE"}
+                            >
+                                {isCenterAdmin ? (myCenter?.status || "ACTIVE").replace(/_/g, " ") : "ACTIVE"}
                             </h3>
                         </div>
-                        <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-2xl">
+                        <div className="p-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-2xl shrink-0 ml-2">
                             <Building2 className="w-4 h-4" />
                         </div>
                     </CardContent>
@@ -808,47 +1226,11 @@ export default function RHUCentersClient({
                 <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Doctors</p>
-                            <h3 className="text-xl font-black text-blue-600 dark:text-blue-400">{totalDoctorsCount}</h3>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Center Staffs</p>
+                            <h3 className="text-xl font-black text-blue-600 dark:text-blue-400">{centerStaffCount}</h3>
                         </div>
                         <div className="p-2.5 bg-blue-50 dark:bg-blue-950/30 text-blue-600 rounded-2xl">
-                            <Stethoscope className="w-4 h-4" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
-                    <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nurses</p>
-                            <h3 className="text-xl font-black text-emerald-600 dark:text-emerald-400">{totalNursesCount}</h3>
-                        </div>
-                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-2xl">
-                            <Activity className="w-4 h-4" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
-                    <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Midwives</p>
-                            <h3 className="text-xl font-black text-purple-600 dark:text-purple-400">{totalMidwivesCount}</h3>
-                        </div>
-                        <div className="p-2.5 bg-purple-50 dark:bg-purple-950/30 text-purple-600 rounded-2xl">
-                            <UserCheck className="w-4 h-4" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900">
-                    <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dentists</p>
-                            <h3 className="text-xl font-black text-amber-600 dark:text-amber-400">{totalDentistsCount}</h3>
-                        </div>
-                        <div className="p-2.5 bg-amber-50 dark:bg-amber-950/30 text-amber-600 rounded-2xl">
-                            <ShieldCheck className="w-4 h-4" />
+                            <Users className="w-4 h-4" />
                         </div>
                     </CardContent>
                 </Card>
@@ -958,16 +1340,6 @@ export default function RHUCentersClient({
                                                 Medical services registered for {myCenter.name} and current assigned staff.
                                             </p>
                                         </div>
-                                        {canManageCenter && (
-                                            <Button
-                                                onClick={() => handleOpenEditCenterModal(myCenter)}
-                                                variant="outline"
-                                                size="sm"
-                                                className="text-xs font-bold rounded-xl h-9 text-rose-600 border-rose-200 hover:bg-rose-50"
-                                            >
-                                                Manage Offered Services
-                                            </Button>
-                                        )}
                                     </div>
 
                                     {/* Services Grid */}
@@ -1030,76 +1402,144 @@ export default function RHUCentersClient({
 
                                 {/* Staff Roster Card */}
                                 <Card className="rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm bg-white dark:bg-slate-900 p-6 space-y-4">
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-                                        <div>
-                                            <h3 className="text-base font-black text-slate-900 dark:text-white">
-                                                Assigned Medical Staff ({personnelList.filter(p => p.healthCenterId === myCenter.id).length})
-                                            </h3>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Medical, pharmacy, and administrative staff actively stationed at {myCenter.name}.
-                                            </p>
+                                    <div className="flex flex-col gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                                                    Assigned Medical Staff ({assignedStaffList.length})
+                                                </h3>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    Medical, pharmacy, and administrative staff actively stationed at {myCenter.name}.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-2 max-w-md w-full sm:w-auto shrink-0">
+                                                <div className="relative flex-1 min-w-[140px]">
+                                                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Search staff..."
+                                                        value={staffSearchQuery}
+                                                        onChange={(e) => {
+                                                            setStaffSearchQuery(e.target.value);
+                                                            setStaffCurrentPage(1);
+                                                        }}
+                                                        className="h-8 pl-8 text-[11px] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                                                    />
+                                                </div>
+                                                {canManageCenter && (
+                                                    <Button
+                                                        onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
+                                                        className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg h-8 px-3 flex items-center gap-1 shrink-0 whitespace-nowrap"
+                                                    >
+                                                        <Plus className="w-3 h-3" /> Assign Personnel
+                                                     </Button>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        {canManageCenter && (
-                                            <Button
-                                                onClick={() => handleOpenCreatePersonnelModal(myCenter.id)}
-                                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl h-9 px-4 flex items-center gap-1.5 shrink-0"
-                                            >
-                                                <Plus className="w-3.5 h-3.5" /> Assign Personnel
-                                            </Button>
-                                        )}
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100/50 dark:border-slate-800/50">
+                                            <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                                <span>Rows per page:</span>
+                                                <select
+                                                    value={staffRowsPerPage}
+                                                    onChange={(e) => {
+                                                        setStaffRowsPerPage(Number(e.target.value));
+                                                        setStaffCurrentPage(1);
+                                                    }}
+                                                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md py-0.5 px-1 outline-none font-bold cursor-pointer"
+                                                >
+                                                    <option value={5}>5</option>
+                                                    <option value={10}>10</option>
+                                                    <option value={20}>20</option>
+                                                </select>
+                                                <span className="ml-2">
+                                                    Showing {assignedStaffList.length === 0 ? 0 : Math.min(assignedStaffList.length, (staffCurrentPage - 1) * staffRowsPerPage + 1)}-{Math.min(assignedStaffList.length, staffCurrentPage * staffRowsPerPage)} of {assignedStaffList.length}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                                                <Button
+                                                    onClick={() => setStaffCurrentPage(prev => Math.max(1, prev - 1))}
+                                                    disabled={staffCurrentPage === 1}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 px-2.5 text-[10px] rounded-lg border border-slate-200 dark:border-slate-800 disabled:opacity-50"
+                                                >
+                                                    Previous
+                                                </Button>
+                                                <span className="text-[10px] font-bold px-2 text-slate-600 dark:text-slate-400">
+                                                    Page {staffCurrentPage} of {totalStaffPages}
+                                                </span>
+                                                <Button
+                                                    onClick={() => setStaffCurrentPage(prev => Math.min(totalStaffPages, prev + 1))}
+                                                    disabled={staffCurrentPage === totalStaffPages}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 px-2.5 text-[10px] rounded-lg border border-slate-200 dark:border-slate-800 disabled:opacity-50"
+                                                >
+                                                    Next
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {personnelList.filter(p => p.healthCenterId === myCenter.id).length > 0 ? (
-                                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {personnelList.filter(p => p.healthCenterId === myCenter.id).map(personnel => {
-                                                const badgeMeta = getRoleBadge(personnel.role);
-                                                return (
-                                                    <div key={personnel.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 font-black text-sm flex items-center justify-center shrink-0">
-                                                                {personnel.name.charAt(0)}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">{personnel.name}</h4>
-                                                                    <span className={cn("px-2 py-0.5 text-[9px] font-black uppercase rounded-md border", badgeMeta.badgeClass)}>
-                                                                        {personnel.role}
-                                                                    </span>
+                                        assignedStaffList.length > 0 ? (
+                                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                {paginatedStaffList.map(personnel => {
+                                                    const badgeMeta = getRoleBadge(personnel.role);
+                                                    return (
+                                                        <div key={personnel.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 font-black text-sm flex items-center justify-center shrink-0">
+                                                                    {personnel.name.charAt(0)}
                                                                 </div>
-                                                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                                    {personnel.licenseNumber ? `PRC Lic: ${personnel.licenseNumber}` : "Registered Staff"}
-                                                                </p>
-                                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">
-                                                                    <span className="text-slate-400 dark:text-slate-500 font-normal">Assigned to:</span> {personnel.assignedServices || "General Consultation"}
-                                                                </p>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <h4 className="font-bold text-xs text-slate-900 dark:text-white">{personnel.name}</h4>
+                                                                        <span className={cn("px-2 py-0.5 text-[9px] font-black uppercase rounded-md border", badgeMeta.badgeClass)}>
+                                                                            {personnel.role}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                                        {personnel.licenseNumber ? `PRC Lic: ${personnel.licenseNumber}` : "Registered Staff"}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">
+                                                                        <span className="text-slate-400 dark:text-slate-500 font-normal">Assigned to:</span> {personnel.assignedServices || "General Consultation"}
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        </div>
 
-                                                        {canManageCenter && (
-                                                            <div className="flex items-center gap-2 self-end sm:self-center">
-                                                                <Button
-                                                                    onClick={() => handleOpenEditPersonnelModal(personnel)}
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                                >
-                                                                    <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => setDeletePersonnelTarget(personnel)}
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                                                                </Button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                            {canManageCenter && (
+                                                                <div className="flex items-center gap-2 self-end sm:self-center">
+                                                                    <Button
+                                                                        onClick={() => handleOpenEditPersonnelModal(personnel)}
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                    >
+                                                                        <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => setDeletePersonnelTarget(personnel)}
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 text-xs font-semibold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                                    >
+                                                                        <UserMinus className="w-3.5 h-3.5 mr-1" /> Unassign
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 italic">No medical staff found matching &quot;{staffSearchQuery}&quot;.</p>
+                                            </div>
+                                        )
                                     ) : (
                                         <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-3">
                                             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
@@ -1267,13 +1707,15 @@ export default function RHUCentersClient({
                                                             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                                                                 <Stethoscope className="w-3 h-3 text-blue-500" /> Assigned Medical Personnel ({centerPersonnel.length})
                                                             </p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenCreatePersonnelModal(center.id)}
-                                                                className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-0.5"
-                                                            >
-                                                                <Plus className="w-3 h-3" /> Assign Staff
-                                                            </button>
+                                                            {centerPersonnel.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenCreatePersonnelModal(center.id)}
+                                                                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-0.5"
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> Assign Staff
+                                                                </button>
+                                                            )}
                                                         </div>
 
                                                         {centerPersonnel.length > 0 ? (
@@ -1600,9 +2042,9 @@ export default function RHUCentersClient({
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setDeletePersonnelTarget(p)}
-                                                    className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                    className="h-8 px-3 text-xs font-semibold rounded-lg text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                                                    <UserMinus className="w-3.5 h-3.5 mr-1" /> Unassign
                                                 </Button>
                                             </div>
                                         )}
@@ -1747,12 +2189,12 @@ export default function RHUCentersClient({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Head Staff / Officer</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="e.g., Dr. Municipal Health Officer"
-                                            value={formData.headPersonnel}
-                                            onChange={(e) => setFormData({ ...formData, headPersonnel: e.target.value })}
-                                            className="h-10 text-xs rounded-xl"
+                                        <SearchableSelect
+                                            options={headStaffOptions}
+                                            value={formData.headPersonnel || ""}
+                                            onChange={(val) => setFormData({ ...formData, headPersonnel: val })}
+                                            placeholder="Search & Select Head Officer..."
+                                            emptyText="No active, unassigned doctors found."
                                         />
                                     </div>
 
@@ -1800,7 +2242,7 @@ export default function RHUCentersClient({
                                     <div className="space-y-1.5">
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Operational Status</Label>
                                         <Select
-                                            value={formData.status || "ACTIVE"}
+                                            value={formData.status === "ACTIVE" ? "ACTIVE" : "INACTIVE"}
                                             onValueChange={(val) => setFormData({ ...formData, status: val })}
                                         >
                                             <SelectTrigger className="h-10 text-xs rounded-xl">
@@ -1809,7 +2251,6 @@ export default function RHUCentersClient({
                                             <SelectContent>
                                                 <SelectItem value="ACTIVE">Active</SelectItem>
                                                 <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                                <SelectItem value="UNDER_RENOVATION">Under Renovation</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1911,6 +2352,8 @@ export default function RHUCentersClient({
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <input type="text" name="dummy_username_center" style={{ display: 'none' }} tabIndex={-1} />
+                                        <input type="password" name="dummy_password_center" style={{ display: 'none' }} tabIndex={-1} />
                                         <div className="space-y-1">
                                             <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                                                 Admin Email Address
@@ -1921,6 +2364,7 @@ export default function RHUCentersClient({
                                                 value={formData.accountEmail || ""}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, accountEmail: e.target.value }))}
                                                 className="h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                                autoComplete="new-username"
                                             />
                                         </div>
 
@@ -1951,6 +2395,7 @@ export default function RHUCentersClient({
                                                         ? "border-red-500 focus-visible:ring-red-500"
                                                         : "border-slate-200 dark:border-slate-700"
                                                     }`}
+                                                autoComplete="new-password"
                                             />
                                             {centerErrors.accountPassword && (
                                                 <p className="text-[10px] text-red-500 font-medium mt-1 animate-fadeIn">
@@ -2026,216 +2471,303 @@ export default function RHUCentersClient({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleSubmitPersonnelForm} className="space-y-4 py-2">
-                        {/* Name & Role Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    Full Name & Honorific <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    type="text"
-                                    placeholder="e.g., Dr. Juan dela Cruz or Nurse Elena Garcia"
-                                    value={personnelData.name}
-                                    onChange={(e) => {
-                                        setPersonnelData({ ...personnelData, name: e.target.value });
-                                        if (personnelErrors.name) setPersonnelErrors({ ...personnelErrors, name: "" });
-                                    }}
-                                    className={cn(
-                                        "h-10 text-xs rounded-xl",
-                                        personnelErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""
-                                    )}
-                                />
-                                {personnelErrors.name && (
-                                    <p className="text-[10px] text-red-500 font-medium">{personnelErrors.name}</p>
+                    {/* Register / Select Toggle switch at top of modal when creating assignment */}
+                    {!editingPersonnel && (
+                        <div className="flex border-b border-slate-100 dark:border-white/5 pb-2 mb-3">
+                            <button
+                                type="button"
+                                onClick={() => setPersonnelTab("register")}
+                                className={cn(
+                                    "flex-1 py-2 text-xs font-bold border-b-2 transition-all",
+                                    personnelTab === "register"
+                                        ? "border-rose-600 text-rose-600 dark:text-rose-400"
+                                        : "border-transparent text-slate-400 hover:text-slate-600"
                                 )}
-                            </div>
+                            >
+                                Register New Staff
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPersonnelTab("assign")}
+                                className={cn(
+                                    "flex-1 py-2 text-xs font-bold border-b-2 transition-all",
+                                    personnelTab === "assign"
+                                        ? "border-rose-600 text-rose-600 dark:text-rose-400"
+                                        : "border-transparent text-slate-400 hover:text-slate-600"
+                                )}
+                            >
+                                Select Unassigned Staff
+                            </button>
+                        </div>
+                    )}
 
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    Medical Role <span className="text-rose-500">*</span>
-                                </Label>
-                                <Select
-                                    value={PRESET_ROLES.some(p => p.value === personnelData.role) ? personnelData.role : "OTHER"}
-                                    onValueChange={(val) => {
-                                        if (val === "OTHER") {
-                                            setPersonnelData(prev => ({ ...prev, role: "" }));
-                                        } else {
-                                            setPersonnelData(prev => ({ ...prev, role: val }));
-                                        }
-                                        if (personnelErrors.role) setPersonnelErrors(prev => ({ ...prev, role: "" }));
-                                    }}
-                                >
-                                    <SelectTrigger className={cn("h-10 text-xs rounded-xl", personnelErrors.role ? "border-red-500 focus-visible:ring-red-500" : "")}>
-                                        <SelectValue placeholder="Select Role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {PRESET_ROLES.map((pr) => (
-                                            <SelectItem key={pr.value} value={pr.value}>{pr.label}</SelectItem>
-                                        ))}
-                                        <SelectItem value="OTHER">Other Role / Staff (Type custom...)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {!PRESET_ROLES.some(p => p.value === personnelData.role) && (
-                                    <div className="pt-1.5 space-y-1">
-                                        <Input
-                                            type="text"
-                                            placeholder="e.g. Nurse, Midwife, Dentist, MedTech, BHW, etc."
-                                            value={personnelData.role || ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setPersonnelData(prev => ({ ...prev, role: val }));
-                                                if (personnelErrors.role) setPersonnelErrors(prev => ({ ...prev, role: "" }));
-                                            }}
-                                            className={cn(
-                                                "h-10 text-xs rounded-xl",
-                                                personnelErrors.role ? "border-red-500 focus-visible:ring-red-500" : ""
+                    <form onSubmit={handleSubmitPersonnelForm} className="space-y-4 py-2">
+                        {personnelTab === "assign" && !editingPersonnel ? (
+                            /* SELECT UNASSIGNED STAFF VIEW */
+                            <div className="space-y-4">
+                                {unassignedStaff.length > 0 ? (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                Choose Unassigned Staff Member <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <SearchableSelect
+                                                options={unassignedStaffOptions}
+                                                value={selectedUnassignedStaffId}
+                                                onChange={(val) => {
+                                                    setSelectedUnassignedStaffId(val);
+                                                    if (personnelErrors.unassignedStaff) {
+                                                        setPersonnelErrors(prev => ({ ...prev, unassignedStaff: "" }));
+                                                    }
+                                                }}
+                                                placeholder="Search & Select Unassigned Medical Staff..."
+                                                emptyText="No unassigned staff found."
+                                            />
+                                            {personnelErrors.unassignedStaff && (
+                                                <p className="text-[10px] text-red-500 font-medium">{personnelErrors.unassignedStaff}</p>
                                             )}
-                                        />
-                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                            💡 User account login in the database will be created with the <strong className="text-slate-700 dark:text-slate-300">RHU Staff</strong> system role.
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Assigned Health Center</Label>
+                                            <SearchableSelect
+                                                options={centerOptions}
+                                                value={personnelData.healthCenterId || "NONE"}
+                                                onChange={(val) => setPersonnelData({ ...personnelData, healthCenterId: val })}
+                                                placeholder="Search & Select Health Center..."
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center space-y-2">
+                                        <Users className="w-8 h-8 text-slate-400 mx-auto" />
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No Unassigned Staff Available</p>
+                                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
+                                            All registered medical personnel are currently assigned to health centers. To assign an existing staff member here, edit their profile in the roster and set their clinic to <strong className="text-slate-700 dark:text-slate-300">&quot;-- Unassigned / Roaming --&quot;</strong> first.
                                         </p>
                                     </div>
                                 )}
-                                {personnelErrors.role && (
-                                    <p className="text-[10px] text-red-500 font-medium">{personnelErrors.role}</p>
-                                )}
                             </div>
-                        </div>
+                        ) : (
+                            /* REGISTER NEW STAFF VIEW (STANDARD FORM) */
+                            <div className="space-y-4">
+                                {/* Name & Role Row */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                            Full Name & Honorific <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            placeholder="e.g., Dr. Juan dela Cruz or Nurse Elena Garcia"
+                                            value={personnelData.name}
+                                            onChange={(e) => {
+                                                setPersonnelData({ ...personnelData, name: e.target.value });
+                                                if (personnelErrors.name) setPersonnelErrors({ ...personnelErrors, name: "" });
+                                            }}
+                                            className={cn(
+                                                "h-10 text-xs rounded-xl",
+                                                personnelErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""
+                                            )}
+                                        />
+                                        {personnelErrors.name && (
+                                            <p className="text-[10px] text-red-500 font-medium">{personnelErrors.name}</p>
+                                        )}
+                                    </div>
 
-                        {/* License Number & Duty Status */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">PRC License Number</Label>
-                                <Input
-                                    type="text"
-                                    placeholder="e.g., PRC-0129843"
-                                    value={personnelData.licenseNumber}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, licenseNumber: e.target.value })}
-                                    className="h-10 text-xs rounded-xl"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Status</Label>
-                                <Select
-                                    value={personnelData.status || "ACTIVE"}
-                                    onValueChange={(val) => setPersonnelData({ ...personnelData, status: val })}
-                                >
-                                    <SelectTrigger className="h-10 text-xs rounded-xl">
-                                        <SelectValue placeholder="Duty Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ACTIVE">Active / On Duty</SelectItem>
-                                        <SelectItem value="ON_LEAVE">On Leave</SelectItem>
-                                        <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* Health Center & Schedule */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Assigned Health Center</Label>
-                                <Select
-                                    value={personnelData.healthCenterId || "NONE"}
-                                    onValueChange={(val) => setPersonnelData({ ...personnelData, healthCenterId: val })}
-                                >
-                                    <SelectTrigger className="h-10 text-xs rounded-xl">
-                                        <SelectValue placeholder="Select Health Center" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NONE">-- Unassigned / Roaming --</SelectItem>
-                                        {centers.map(c => (
-                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.barangay})</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Schedule</Label>
-                                <Input
-                                    type="text"
-                                    placeholder="e.g., Mon-Fri 8:00 AM - 5:00 PM"
-                                    value={personnelData.schedule}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, schedule: e.target.value })}
-                                    className="h-10 text-xs rounded-xl"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="flex flex-col gap-1">
-                                    <Input
-                                        type="text"
-                                        placeholder="Phone (e.g. 0917-123-4567)"
-                                        value={personnelData.contactNumber}
-                                        onChange={(e) => {
-                                            setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
-                                            if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
-                                        }}
-                                        className={`h-10 text-xs rounded-xl border ${personnelErrors.contactNumber
-                                                ? "border-red-500 focus-visible:ring-red-500"
-                                                : "border-slate-200 dark:border-slate-700"
-                                            }`}
-                                    />
-                                    {personnelErrors.contactNumber && (
-                                        <p className="text-[10px] text-red-500 font-medium leading-none mt-1 animate-fadeIn">
-                                            {personnelErrors.contactNumber}
-                                        </p>
-                                    )}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                            Medical Role <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <SearchableSelect
+                                            options={roleOptions}
+                                            value={personnelData.role || "DOCTOR"}
+                                            onChange={(val) => {
+                                                setPersonnelData(prev => ({ ...prev, role: val }));
+                                                if (personnelErrors.role) setPersonnelErrors(prev => ({ ...prev, role: "" }));
+                                            }}
+                                            placeholder="Search & Select Medical Role..."
+                                            footerAction={roleFooterAction}
+                                        />
+                                        {personnelErrors.role && (
+                                            <p className="text-[10px] text-red-500 font-medium">{personnelErrors.role}</p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                    <Input
-                                        type="email"
-                                        placeholder="Email"
-                                        value={personnelData.email}
-                                        onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
-                                        className="h-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700"
-                                    />
+
+                                {/* License Number & Duty Status */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">PRC License Number</Label>
+                                        <Input
+                                            type="text"
+                                            placeholder="e.g., PRC-0129843"
+                                            value={personnelData.licenseNumber}
+                                            onChange={(e) => setPersonnelData({ ...personnelData, licenseNumber: e.target.value })}
+                                            className="h-10 text-xs rounded-xl"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Status</Label>
+                                        <Select
+                                            value={personnelData.status || "ACTIVE"}
+                                            onValueChange={(val) => setPersonnelData({ ...personnelData, status: val })}
+                                        >
+                                            <SelectTrigger className="h-10 text-xs rounded-xl">
+                                                <SelectValue placeholder="Duty Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ACTIVE">Active / On Duty</SelectItem>
+                                                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Health Center & Schedule */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Assigned Health Center</Label>
+                                        <SearchableSelect
+                                            options={centerOptions}
+                                            value={personnelData.healthCenterId || "NONE"}
+                                            onChange={(val) => setPersonnelData({ ...personnelData, healthCenterId: val })}
+                                            placeholder="Search & Select Health Center..."
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Days</Label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => {
+                                                const isChecked = scheduleDays.includes(day);
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={day}
+                                                        onClick={() => {
+                                                            if (isChecked) {
+                                                                setScheduleDays(prev => prev.filter(d => d !== day));
+                                                            } else {
+                                                                setScheduleDays(prev => [...prev, day]);
+                                                            }
+                                                        }}
+                                                        className={cn(
+                                                            "px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all flex items-center gap-1",
+                                                            isChecked
+                                                                ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                                                                : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-rose-400"
+                                                        )}
+                                                    >
+                                                        {day.slice(0, 3)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Contact Number & Email</Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="flex flex-col gap-1">
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Phone (e.g. 0917-123-4567)"
+                                                    value={personnelData.contactNumber}
+                                                    onChange={(e) => {
+                                                        setPersonnelData({ ...personnelData, contactNumber: formatPHPhoneNumber(e.target.value) });
+                                                        if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
+                                                    }}
+                                                    className={`h-10 text-xs rounded-xl border ${personnelErrors.contactNumber
+                                                            ? "border-red-500 focus-visible:ring-red-500"
+                                                            : "border-slate-200 dark:border-slate-700"
+                                                        }`}
+                                                />
+                                                {personnelErrors.contactNumber && (
+                                                    <p className="text-[10px] text-red-500 font-medium leading-none mt-1 animate-fadeIn">
+                                                        {personnelErrors.contactNumber}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <Input
+                                                    type="email"
+                                                    placeholder="Email"
+                                                    value={personnelData.email}
+                                                    onChange={(e) => setPersonnelData({ ...personnelData, email: e.target.value })}
+                                                    className="h-10 text-xs rounded-xl border border-slate-200 dark:border-slate-700"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Duty Hours</Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] text-slate-400">Start Time</span>
+                                                <input
+                                                    type="time"
+                                                    value={scheduleStartTime}
+                                                    onChange={(e) => setScheduleStartTime(e.target.value)}
+                                                    className="w-full h-10 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-slate-700 dark:text-slate-200"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] text-slate-400">End Time</span>
+                                                <input
+                                                    type="time"
+                                                    value={scheduleEndTime}
+                                                    onChange={(e) => setScheduleEndTime(e.target.value)}
+                                                    className="w-full h-10 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-slate-700 dark:text-slate-200"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Staff User Account Credentials */}
+                                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                            <ShieldCheck className="w-4 h-4 text-rose-500" /> Staff User Account Login (Optional)
+                                        </Label>
+                                        {personnelData.accountEmail ? (
+                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                                🔐 Staff Login Active
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                                                No Login Created
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                        <input type="text" name="dummy_username" style={{ display: 'none' }} tabIndex={-1} />
+                                        <input type="password" name="dummy_password" style={{ display: 'none' }} tabIndex={-1} />
+                                        <Input
+                                            type="email"
+                                            placeholder="Staff Login Email (dr.emil@mapandan.gov.ph)"
+                                            value={personnelData.accountEmail || ""}
+                                            onChange={(e) => setPersonnelData({ ...personnelData, accountEmail: e.target.value })}
+                                            className="h-10 text-xs rounded-xl"
+                                            autoComplete="new-username"
+                                        />
+                                        <Input
+                                            type="password"
+                                            placeholder={editingPersonnel ? "Leave blank to keep current password" : "Staff Password (min 6 chars)"}
+                                            value={personnelData.accountPassword || ""}
+                                            onChange={(e) => setPersonnelData({ ...personnelData, accountPassword: e.target.value })}
+                                            className="h-10 text-xs rounded-xl"
+                                            autoComplete="new-password"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Staff User Account Credentials */}
-                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                    <ShieldCheck className="w-4 h-4 text-rose-500" /> Staff User Account Login (Optional)
-                                </Label>
-                                {personnelData.accountEmail ? (
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                                        🔐 Staff Login Active
-                                    </span>
-                                ) : (
-                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-                                        No Login Created
-                                    </span>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                <Input
-                                    type="email"
-                                    placeholder="Staff Login Email (dr.emil@mapandan.gov.ph)"
-                                    value={personnelData.accountEmail || ""}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, accountEmail: e.target.value })}
-                                    className="h-10 text-xs rounded-xl"
-                                    autoComplete="off"
-                                />
-                                <Input
-                                    type="password"
-                                    placeholder={editingPersonnel ? "Password (leave blank to keep)" : "Staff Password (min 6 chars)"}
-                                    value={personnelData.accountPassword || ""}
-                                    onChange={(e) => setPersonnelData({ ...personnelData, accountPassword: e.target.value })}
-                                    className="h-10 text-xs rounded-xl"
-                                    autoComplete="new-password"
-                                />
-                            </div>
-                        </div>
+                        )}
 
                         {/* Assigned Health Services Selection (Dynamic from Health Center input) */}
                         {(() => {
@@ -2317,6 +2849,9 @@ export default function RHUCentersClient({
                                         onChange={(e) => setPersonnelData({ ...personnelData, assignedServices: e.target.value })}
                                         className="h-10 text-xs rounded-xl mt-2"
                                     />
+                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 italic">
+                                        Type a service and press comma (,) to add as a new entry.
+                                    </p>
                                 </div>
                             );
                         })()}
@@ -2378,16 +2913,16 @@ export default function RHUCentersClient({
                 </DialogContent>
             </Dialog>
 
-            {/* DELETE PERSONNEL CONFIRMATION MODAL */}
+            {/* UNASSIGN PERSONNEL CONFIRMATION MODAL */}
             <Dialog open={!!deletePersonnelTarget} onOpenChange={(open) => !open && setDeletePersonnelTarget(null)}>
-                <DialogContent className="sm:max-w-[400px] rounded-2xl p-6">
+                <DialogContent className="sm:max-w-[420px] rounded-2xl p-6">
                     <DialogHeader className="space-y-2">
-                        <DialogTitle className="text-base font-bold text-rose-600 flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-rose-500" />
-                            Remove Medical Personnel
+                        <DialogTitle className="text-base font-bold text-amber-600 flex items-center gap-2">
+                            <UserMinus className="w-5 h-5 text-amber-500" />
+                            Unassign Medical Personnel
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-600 dark:text-slate-300">
-                            Are you sure you want to remove <strong>{deletePersonnelTarget?.name}</strong> from personnel assignments?
+                            Are you sure you want to unassign <strong>{deletePersonnelTarget?.name}</strong> from their current health center? They will be moved back to the unassigned personnel pool and can be reassigned later.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2405,9 +2940,9 @@ export default function RHUCentersClient({
                             type="button"
                             onClick={() => handleDeletePersonnel(deletePersonnelTarget)}
                             disabled={isPending}
-                            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs h-9 font-bold px-4"
+                            className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs h-9 font-bold px-4"
                         >
-                            {isPending ? "Removing..." : "Remove Personnel"}
+                            {isPending ? "Unassigning..." : "Unassign Personnel"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2415,3 +2950,5 @@ export default function RHUCentersClient({
         </div>
     );
 }
+
+
