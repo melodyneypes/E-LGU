@@ -6,6 +6,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 import { sendRHUAnnouncementNotification } from "@/lib/services/fcm";
+import { logActivity } from "@/lib/audit";
+import { deleteFileByUrl } from "@/lib/storage";
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -19,6 +21,7 @@ interface SessionUser {
     email?: string;
     role?: string;
     managedBarangay?: string;
+    accessiblePages?: string[];
 }
 
 /**
@@ -32,8 +35,10 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
         }
         
         const user = session.user as SessionUser;
+        const accessiblePages = user.accessiblePages || [];
+        const hasAssignedAccess = accessiblePages.includes("/admin/announcements") || accessiblePages.includes("/admin/content/announcements");
         const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF", "RHU_ADMIN"];
-        if (user.role && !allowedRoles.includes(user.role)) {
+        if (user.role && !allowedRoles.includes(user.role) && !hasAssignedAccess) {
             return { user: null, error: "Forbidden: You do not have administrative privileges." };
         }
 
@@ -50,7 +55,7 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
 async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ allowed: boolean; error?: string }> {
     const userEmail = (user.email || "").toLowerCase();
     const matchedCenter = await getMatchedCenterForUser(user);
-    const isSuperAdmin = (user.role === "ADMIN" || user.role === "RHU_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
+    const isGlobalManager = (user.role === "ADMIN" || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
 
     if (user.role === "RHU_STAFF") {
         return {
@@ -59,7 +64,7 @@ async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ 
         };
     }
 
-    if (isSuperAdmin || user.role === "RHU_ADMIN") {
+    if (isGlobalManager || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") {
         return { allowed: true };
     }
 
@@ -246,6 +251,30 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
             }
         }
 
+        // Log Announcement Creation
+        try {
+            await logActivity({
+                action: "CREATE",
+                entityType: "Announcement",
+                entityId: newAnnouncement.id,
+                entityName: title,
+                description: `Created announcement: "${title}" (${category || "General"})`,
+                metadata: {
+                    title,
+                    content,
+                    category: category || "General",
+                    priority: priority || "Normal",
+                    barangay: barangay || "Global Municipal",
+                    expiryDate: expiryDate ? new Date(expiryDate).toISOString().split("T")[0] : null,
+                    eventDate: eventDate ? new Date(eventDate).toISOString().split("T")[0] : null,
+                    isPinned: createData.isPinned ? "Pinned to Feed" : "Unpinned",
+                    isActive: createData.isActive ? "Published" : "Draft"
+                }
+            });
+        } catch (auditErr) {
+            console.warn("[addAnnouncement] Audit log warning (non-blocking):", auditErr);
+        }
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -334,6 +363,8 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
             updateData.imageUrl = imageUrl || null;
         }
 
+        const existingImageUrl = existing.imageUrl || null;
+
         let updated;
         try {
             updated = await announcementDelegate.update({
@@ -375,6 +406,58 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
             }
         }
 
+        // Automatic Old Image Cleanup: If new image replaced an old image in storage bucket
+        if (existingImageUrl && updateData.imageUrl && existingImageUrl !== updateData.imageUrl && existingImageUrl.includes("supabase.co")) {
+            try {
+                await deleteFileByUrl(existingImageUrl);
+            } catch (storageErr) {
+                console.warn("[updateAnnouncement] Failed to delete old image from storage bucket:", storageErr);
+            }
+        }
+
+        // 5. Audit Logging with Structured State Diffs
+        try {
+            const changes: Record<string, { old: any; new: any }> = {};
+            if (existing.title !== title) changes["title"] = { old: existing.title, new: title };
+            if (existing.content !== content) changes["content"] = { old: existing.content, new: content };
+            if (existing.category !== (category || "General")) changes["category"] = { old: existing.category, new: category || "General" };
+            if (existing.priority !== (priority || "Normal")) changes["priority"] = { old: existing.priority, new: priority || "Normal" };
+            if (existing.isPinned !== (formData.get("isPinned") === "on")) changes["isPinned"] = { old: existing.isPinned ? "Pinned" : "Unpinned", new: formData.get("isPinned") === "on" ? "Pinned" : "Unpinned" };
+            if (existing.isActive !== (formData.get("isActive") === "on")) changes["isActive"] = { old: existing.isActive ? "Published" : "Draft", new: formData.get("isActive") === "on" ? "Published" : "Draft" };
+            if (imageUrl !== undefined && existing.imageUrl !== imageUrl) changes["imageUrl"] = { old: existing.imageUrl || "None", new: imageUrl || "None" };
+
+            const oldExpiryStr = existing.expiryDate ? new Date(existing.expiryDate).toISOString().split("T")[0] : "No Expiry";
+            const newExpiryStr = expiryDate ? new Date(expiryDate).toISOString().split("T")[0] : "No Expiry";
+            if (oldExpiryStr !== newExpiryStr) {
+                changes["expiryDate"] = { old: oldExpiryStr, new: newExpiryStr };
+            }
+
+            const oldEventStr = existing.eventDate ? new Date(existing.eventDate).toISOString().split("T")[0] : "None";
+            const newEventStr = eventDate ? new Date(eventDate).toISOString().split("T")[0] : "None";
+            if (oldEventStr !== newEventStr) {
+                changes["eventDate"] = { old: oldEventStr, new: newEventStr };
+            }
+
+            if ((existing.eventSchedule || "") !== (eventSchedule || "")) {
+                changes["eventSchedule"] = { old: existing.eventSchedule || "None", new: eventSchedule || "None" };
+            }
+
+            await logActivity({
+                action: "UPDATE",
+                entityType: "Announcement",
+                entityId: id,
+                entityName: title,
+                description: `Updated announcement: "${title}"`,
+                metadata: {
+                    changes,
+                    changedFields: Object.keys(changes),
+                    category: category || "General"
+                }
+            });
+        } catch (auditErr) {
+            console.warn("[updateAnnouncement] Audit log warning (non-blocking):", auditErr);
+        }
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -411,7 +494,41 @@ export async function deleteAnnouncement(id: string): Promise<ActionResponse> {
             return { success: false, error: guard.error || "Forbidden" };
         }
 
+        // Automatic Image Cleanup: Delete announcement image from bucket if exists
+        if (existing?.imageUrl && existing.imageUrl.includes("supabase.co")) {
+            try {
+                await deleteFileByUrl(existing.imageUrl);
+            } catch (storageErr) {
+                console.warn("[deleteAnnouncement] Failed to delete image from bucket:", storageErr);
+            }
+        }
+
         await announcementDelegate.delete({ where: { id } });
+
+        // 5. Audit Logging with Snapshot
+        try {
+            await logActivity({
+                action: "DELETE",
+                entityType: "Announcement",
+                entityId: id,
+                entityName: existing?.title || "Announcement",
+                description: `Deleted announcement: "${existing?.title || id}"`,
+                metadata: {
+                    title: existing?.title,
+                    deletedRecordSnapshot: {
+                        id: existing.id,
+                        title: existing.title,
+                        category: existing.category,
+                        priority: existing.priority,
+                        barangay: existing.barangay || "Global Municipal",
+                        imageUrl: existing.imageUrl || null
+                    }
+                }
+            });
+        } catch (auditErr) {
+            console.warn("[deleteAnnouncement] Audit log warning (non-blocking):", auditErr);
+        }
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -449,6 +566,29 @@ export async function toggleAnnouncementStatus(id: string, isActive: boolean): P
         }
 
         await announcementDelegate.update({ where: { id }, data: { isActive } });
+
+        // 5. Audit Logging for Quick Status Toggle
+        try {
+            await logActivity({
+                action: "UPDATE",
+                entityType: "Announcement",
+                entityId: id,
+                entityName: existing?.title || "Announcement",
+                description: `${isActive ? "Published" : "Unpublished"} announcement: "${existing?.title || id}"`,
+                metadata: {
+                    status: isActive ? "PUBLISHED" : "DRAFT",
+                    changes: {
+                        isActive: {
+                            old: existing?.isActive ? "Published" : "Draft",
+                            new: isActive ? "Published" : "Draft"
+                        }
+                    }
+                }
+            });
+        } catch (auditErr) {
+            console.warn("[toggleAnnouncementStatus] Audit log warning (non-blocking):", auditErr);
+        }
+
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/");
@@ -486,6 +626,28 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean): Prom
         }
 
         await announcementDelegate.update({ where: { id }, data: { isPinned } });
+
+        // 5. Audit Logging for Quick Pin Toggle
+        try {
+            await logActivity({
+                action: "UPDATE",
+                entityType: "Announcement",
+                entityId: id,
+                entityName: existing?.title || "Announcement",
+                description: `${isPinned ? "Pinned to feed" : "Unpinned from feed"}: "${existing?.title || id}"`,
+                metadata: {
+                    isPinned,
+                    changes: {
+                        isPinned: {
+                            old: existing?.isPinned ? "Pinned to Feed" : "Unpinned",
+                            new: isPinned ? "Pinned to Feed" : "Unpinned"
+                        }
+                    }
+                }
+            });
+        } catch (auditErr) {
+            console.warn("[toggleAnnouncementPin] Audit log warning (non-blocking):", auditErr);
+        }
         revalidatePath("/admin/announcements");
         revalidatePath("/admin/rhu/announcements");
         revalidatePath("/admin/bplo/announcements");

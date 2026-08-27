@@ -27,6 +27,7 @@ export function AddEventModal() {
     const [selectedCategory, setSelectedCategory] = useState<string>("Community");
     const [otherCategory, setOtherCategory] = useState<string>("");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const [googleMapsUrl, setGoogleMapsUrl] = useState<string>("");
     const [lat, setLat] = useState<string>("");
     const [lng, setLng] = useState<string>("");
@@ -36,6 +37,7 @@ export function AddEventModal() {
 
     useEffect(() => {
         if (editingData) {
+            setIsImageRemoved(false);
             // Only set preview from data if NOT already uploading a new one locally
             if (editingData.imageUrl && !imagePreview?.startsWith("data:")) {
                 setImagePreview(editingData.imageUrl);
@@ -144,11 +146,14 @@ export function AddEventModal() {
     };
 
 
-    // Format date for input[type="datetime-local"]
+    // Format date for input[type="datetime-local"] preserving local timezone
     const formatDateForInput = (dateInput: Date | string | undefined) => {
         if (!dateInput) return "";
         const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-        return date.toISOString().slice(0, 16);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset() * 60000;
+        const localDate = new Date(date.getTime() - offset);
+        return localDate.toISOString().slice(0, 16);
     };
 
     return (
@@ -471,6 +476,7 @@ export function AddEventModal() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setImagePreview(null);
+                                                            setIsImageRemoved(true);
                                                             if (fileInputRef.current) fileInputRef.current.value = "";
                                                         }}
                                                     >
@@ -489,9 +495,17 @@ export function AddEventModal() {
                                                 accept="image/*"
                                                 className="hidden"
                                                 ref={fileInputRef}
-                                                onChange={handleImageChange}
+                                                onChange={(e) => {
+                                                    setIsImageRemoved(false);
+                                                    handleImageChange(e);
+                                                }}
                                             />
-                                            {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                            <input
+                                                type="hidden"
+                                                name="imageRemoved"
+                                                value={isImageRemoved ? "true" : "false"}
+                                            />
+                                            {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                                 <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                             )}
                                         </div>

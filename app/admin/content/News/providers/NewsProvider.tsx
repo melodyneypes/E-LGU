@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from "react";
 
 export interface News {
     id: string;
@@ -18,7 +18,7 @@ export interface News {
 
 interface NewsContextType {
     newsData: News[];
-    setNewsData: (data: News[]) => void;
+    setNewsData: Dispatch<SetStateAction<News[]>>;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     isAddModalOpen: boolean;

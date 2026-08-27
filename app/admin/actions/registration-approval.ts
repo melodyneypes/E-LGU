@@ -5,6 +5,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sendEmail } from "@/lib/mail";
+import { logActivity } from "@/lib/audit";
 
 
 export async function approveResident(residentId: string) {
@@ -58,6 +59,19 @@ export async function approveResident(residentId: string) {
                 // You can choose to throw or return partial success here
             }
         }
+
+        // Log Resident Approval Activity
+        await logActivity({
+            action: "APPROVE",
+            entityType: "Resident",
+            entityId: resident.id,
+            entityName: `${resident.firstName} ${resident.lastName}`,
+            description: `Approved citizen registration for ${resident.firstName} ${resident.lastName}`,
+            metadata: {
+                residentId: resident.id,
+                email: resident.email
+            }
+        });
 
         revalidatePath("/admin/residents");
         return { success: true };
@@ -131,6 +145,20 @@ export async function rejectResident(residentId: string, remarks: string) {
                 console.warn(`Rejection recorded, but email failed to send to ${targetEmail}: ${emailResult.error}`);
             }
         }
+
+        // Log Resident Rejection Activity
+        await logActivity({
+            action: "REJECT",
+            entityType: "Resident",
+            entityId: resident.id,
+            entityName: `${resident.firstName} ${resident.lastName}`,
+            description: `Rejected citizen registration for ${resident.firstName} ${resident.lastName}. Reason: ${remarks.trim()}`,
+            metadata: {
+                residentId: resident.id,
+                email: targetEmail,
+                remarks: remarks.trim()
+            }
+        });
 
         revalidatePath("/admin/residents");
         return { success: true };

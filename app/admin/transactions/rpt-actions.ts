@@ -4,6 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/audit";
 
 export async function getAssessorTransactions() {
     try {
@@ -182,7 +183,21 @@ export async function evaluateAssessorTransaction(
         revalidatePath("/admin/assessor");
         revalidatePath(`/admin/assessor/${id}`);
         revalidatePath("/admin/treasury");
-        revalidatePath("/admin/treasury");
+
+        // Log administrative evaluation event
+        await logActivity({
+            action: action === "APPROVE" ? "APPROVE" : action === "REJECT" ? "REJECT" : "EVALUATION",
+            entityType: "RealPropertyTax",
+            entityId: id,
+            entityName: `TDN: ${currentAddData.tdn || "N/A"} (${currentAddData.ownerName || "Declarant"})`,
+            description: `Assessor ${action === "APPROVE" ? "approved" : action === "REJECT" ? "rejected" : "scheduled inspection for"} tax declaration assessment. ${remarks ? `Remarks: ${remarks}` : ""}`.trim(),
+            metadata: {
+                previousStatus: tx.status,
+                newStatus: nextStatus,
+                assessorStatus,
+                remarks
+            }
+        });
 
         return { success: true };
     } catch (err: any) {
@@ -226,6 +241,20 @@ export async function releaseRptTransaction(
                     treasuryStatus: "COMPLETED",
                     releasedAt: new Date().toISOString()
                 }
+            }
+        });
+
+        // Log Treasury release event
+        await logActivity({
+            action: "RELEASE",
+            entityType: "RealPropertyTax",
+            entityId: id,
+            entityName: `TDN: ${currentAddData.tdn || "N/A"} (OR: ${orSeriesNumber || "Official"})`,
+            description: `Treasury released official tax receipt for ${currentAddData.ownerName || "Citizen"}`,
+            metadata: {
+                orSeriesNumber,
+                orUrl,
+                totalAmount: tx.totalAmount
             }
         });
 

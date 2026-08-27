@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
     upsertAboutData,
 } from "./actions";
+import { compressImage } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,12 +143,18 @@ function AboutManager({
                 formData.append("barangayName", barangayName || "");
                 formData.append("captainName", leaderName);
                 formData.append("captainMessage", message);
-                if (leaderFile) formData.append("captain-image", leaderFile);
+                if (leaderFile) {
+                    const compressed = await compressImage(leaderFile, 1400, 0.82);
+                    formData.append("captain-image", compressed);
+                }
                 formData.append("captainImageUrl", leaderPreview || "");
             } else {
                 formData.append("mayorName", leaderName);
                 formData.append("mayorMessage", message);
-                if (leaderFile) formData.append("mayor-image", leaderFile);
+                if (leaderFile) {
+                    const compressed = await compressImage(leaderFile, 1400, 0.82);
+                    formData.append("mayor-image", compressed);
+                }
                 formData.append("mayorImageUrl", leaderPreview || "");
             }
 

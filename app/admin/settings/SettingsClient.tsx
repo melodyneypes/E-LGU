@@ -16,7 +16,11 @@ import {
     DialogHeader,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting, updateMultipleSystemSettings } from "./actions";
+import { createHeroSlide, deleteHeroSlide, updateHeroSlide } from "./hero.actions";
+import { updateGeneralSettingToggle, updateSiteLogo, saveGeneralIdentitySettings } from "./general.actions";
+import { updateSystemCredentials } from "./credentials.actions";
+import { toggleLandingSectionVisibility } from "./sections.actions";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -37,8 +41,8 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
     const [maintenanceMode, setMaintenanceMode] = useState(settings.maintenance_mode === "true");
     const [kioskMaintenanceMode, setKioskMaintenanceMode] = useState(settings.kiosk_maintenance_mode === "true");
     const [logoUrl, setLogoUrl] = useState(settings.site_logo || "");
-    const [portalName, setPortalName] = useState(settings.portal_name || "Municipality of Mapandan");
-    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "911");
+    const [portalName, setPortalName] = useState(settings.portal_name || "");
+    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "");
     const [brandWord1, setBrandWord1] = useState(settings.brand_word_1 || "E");
     const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || "");
     const [themeColor, setThemeColor] = useState(settings.theme_color || "#2563eb");
@@ -140,12 +144,16 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                 const formData = new FormData();
                 formData.append("logo", logoFile);
                 formData.append("imageUrl", logoUrl);
-                const result = await updateLogoSetting(formData);
+                const result = await updateSiteLogo(formData);
                 if (result.success && result.imageUrl) {
                     setLogoUrl(result.imageUrl);
                     setLogoFile(null);
                     setLogoPreview(null);
                     logoUpdated = true;
+                } else if (!result.success) {
+                    toast.error(result.error || "Failed to upload logo.");
+                    setIsSaving(false);
+                    return;
                 }
             } else if (logoUrl !== (settings.site_logo || "")) {
                 settingsToUpdate.push({ key: "site_logo", value: logoUrl });
@@ -153,7 +161,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
 
             // Only run transaction if there is something to update
             if (settingsToUpdate.length > 0) {
-                const result = await updateMultipleSystemSettings(settingsToUpdate);
+                const result = await saveGeneralIdentitySettings(settingsToUpdate);
                 if (result.success) {
                     toast.success("Settings updated successfully!");
                     router.refresh();
@@ -169,6 +177,27 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
         } catch (error) {
             console.error("Error saving settings:", error);
             toast.error("Failed to save settings");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveCredentials = async () => {
+        setIsSaving(true);
+        try {
+            const result = await updateSystemCredentials({
+                portalName,
+                emergencyPhone
+            });
+            if (result.success) {
+                toast.success("System credentials updated successfully!");
+                router.refresh();
+            } else {
+                toast.error(result.error || "Failed to update credentials");
+            }
+        } catch (error) {
+            console.error("Error saving credentials:", error);
+            toast.error("Failed to update credentials");
         } finally {
             setIsSaving(false);
         }
@@ -247,59 +276,69 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                 <CardContent className="p-6 space-y-8">
                                     {/* Maintenance Mode */}
                                     <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-200 dark:border-amber-900/50">
-                                        <div className="space-y-1">
-                                            <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
-                                                <ShieldAlert className="w-4 h-4" />
-                                                Maintenance Mode
-                                            </Label>
-                                            <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
-                                                Redirects all public visitors to the maintenance page.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={maintenanceMode}
-                                            onCheckedChange={async (checked) => {
-                                                setMaintenanceMode(checked);
-                                                try {
-                                                    await updateSystemSetting("maintenance_mode", checked.toString());
-                                                    toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                    router.refresh();
-                                                } catch {
-                                                    toast.error("Failed to update maintenance mode");
-                                                    setMaintenanceMode(!checked);
-                                                }
-                                            }}
-                                            className="data-[state=checked]:bg-amber-600"
-                                        />
-                                    </div>
+                                         <div className="space-y-1">
+                                             <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
+                                                 <ShieldAlert className="w-4 h-4" />
+                                                 Maintenance Mode
+                                             </Label>
+                                             <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
+                                                 Redirects all public visitors to the maintenance page.
+                                             </p>
+                                         </div>
+                                         <Switch
+                                             checked={maintenanceMode}
+                                             onCheckedChange={async (checked) => {
+                                                 setMaintenanceMode(checked);
+                                                 try {
+                                                     const res = await updateGeneralSettingToggle("maintenance_mode", checked.toString());
+                                                     if (res.success) {
+                                                         toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                         router.refresh();
+                                                     } else {
+                                                         toast.error(res.error || "Failed to update maintenance mode");
+                                                         setMaintenanceMode(!checked);
+                                                     }
+                                                 } catch {
+                                                     toast.error("Failed to update maintenance mode");
+                                                     setMaintenanceMode(!checked);
+                                                 }
+                                             }}
+                                             className="data-[state=checked]:bg-amber-600"
+                                         />
+                                     </div>
 
-                                    {/* Kiosk Maintenance Mode */}
-                                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
-                                        <div className="space-y-1">
-                                            <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
-                                                <ShieldAlert className="w-4 h-4" />
-                                                Kiosk Maintenance Mode
-                                            </Label>
-                                            <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
-                                                Puts all local physical kiosk terminals into maintenance mode.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={kioskMaintenanceMode}
-                                            onCheckedChange={async (checked) => {
-                                                setKioskMaintenanceMode(checked);
-                                                try {
-                                                    await updateSystemSetting("kiosk_maintenance_mode", checked.toString());
-                                                    toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                    router.refresh();
-                                                } catch {
-                                                    toast.error("Failed to update kiosk maintenance mode");
-                                                    setKioskMaintenanceMode(!checked);
-                                                }
-                                            }}
-                                            className="data-[state=checked]:bg-orange-600"
-                                        />
-                                    </div>
+                                     {/* Kiosk Maintenance Mode */}
+                                     <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
+                                         <div className="space-y-1">
+                                             <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
+                                                 <ShieldAlert className="w-4 h-4" />
+                                                 Kiosk Maintenance Mode
+                                             </Label>
+                                             <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
+                                                 Puts all local physical kiosk terminals into maintenance mode.
+                                             </p>
+                                         </div>
+                                         <Switch
+                                             checked={kioskMaintenanceMode}
+                                             onCheckedChange={async (checked) => {
+                                                 setKioskMaintenanceMode(checked);
+                                                 try {
+                                                     const res = await updateGeneralSettingToggle("kiosk_maintenance_mode", checked.toString());
+                                                     if (res.success) {
+                                                         toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                         router.refresh();
+                                                     } else {
+                                                         toast.error(res.error || "Failed to update kiosk maintenance mode");
+                                                         setKioskMaintenanceMode(!checked);
+                                                     }
+                                                 } catch {
+                                                     toast.error("Failed to update kiosk maintenance mode");
+                                                     setKioskMaintenanceMode(!checked);
+                                                 }
+                                             }}
+                                             className="data-[state=checked]:bg-orange-600"
+                                         />
+                                     </div>
 
                                     {/* Site Logo */}
                                     <div className="space-y-4">
@@ -578,7 +617,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                         </div>
                                     </div>
                                     <Button
-                                        onClick={handleSaveSettings}
+                                        onClick={handleSaveCredentials}
                                         disabled={isSaving}
                                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                                         className="w-full text-white rounded-xl py-6 hover:opacity-90 transition-opacity font-bold"
@@ -621,22 +660,40 @@ function HeroSlidesManager({
 }) {
     const [slides, setSlides] = useState(initialSlides);
     const [showModal, setShowModal] = useState(false);
-
     const [editingSlide, setEditingSlide] = useState<any>(null);
+    const [slideToDelete, setSlideToDelete] = useState<any>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         setSlides(initialSlides);
     }, [initialSlides]);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this slide?")) return;
+    const handleConfirmDelete = async () => {
+        if (!slideToDelete) return;
+        
+        const targetId = slideToDelete.id;
+        const previousSlides = [...slides];
+        
+        // Optimistic UI Removal
+        setSlides(prev => prev.filter(s => s.id !== targetId));
+        setIsDeleting(true);
 
-        const result = await deleteHeroSlide(id);
-        if (result.success) {
-            toast.success("Slide deleted");
-            setSlides(slides.filter(s => s.id !== id));
-        } else {
-            toast.error("Failed to delete slide");
+        try {
+            const result = await deleteHeroSlide(targetId);
+            if (result.success) {
+                toast.success("Hero slide deleted successfully.");
+                setSlideToDelete(null);
+            } else {
+                // Rollback state on error
+                setSlides(previousSlides);
+                toast.error(result.error || "Failed to delete slide.");
+            }
+        } catch {
+            // Rollback state on unexpected failure
+            setSlides(previousSlides);
+            toast.error("An unexpected error occurred while deleting the slide.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -666,7 +723,13 @@ function HeroSlidesManager({
 
             <div className="grid grid-cols-1 gap-6">
                 {slides.map((slide) => (
-                    <SlideEditor key={slide.id} slide={slide} onEdit={() => handleEdit(slide)} onDelete={handleDelete} themeColor={themeColor} />
+                    <SlideEditor 
+                        key={slide.id} 
+                        slide={slide} 
+                        onEdit={() => handleEdit(slide)} 
+                        onDelete={() => setSlideToDelete(slide)} 
+                        themeColor={themeColor} 
+                    />
                 ))}
             </div>
 
@@ -680,6 +743,18 @@ function HeroSlidesManager({
                 order={slides.length}
                 themeColor={themeColor}
                 managedBarangay={managedBarangay}
+            />
+
+            {/* Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!slideToDelete}
+                onClose={() => {
+                    if (!isDeleting) setSlideToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="Delete Hero Slide"
+                description={`Are you sure you want to completely delete "${slideToDelete?.title || "this hero slide"}"? Its banner image will also be removed from storage.`}
+                isLoading={isDeleting}
             />
         </div>
     );
@@ -710,7 +785,7 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
         section_map: settings.section_map !== "false",
         section_app_download: settings.section_app_download !== "false",
     });
-    const [isSaving, setIsSaving] = useState(false);
+    const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
     const sections = [
         { key: "section_dining_lodging", label: "Kainan at Tuluyan", description: "Dining and lodging establishments" },
@@ -727,21 +802,27 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
         { key: "section_app_download", label: "Mobile App Downloads", description: "Google Play, App Store, and APK download links" },
     ];
 
-    const handleToggle = (key: string) => {
-        setSectionStates(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
-    };
+    const handleToggle = async (key: string, label: string) => {
+        const currentVal = sectionStates[key as keyof typeof sectionStates];
+        const nextVal = !currentVal;
 
-    const handleSave = async () => {
-        setIsSaving(true);
+        // Optimistic UI Update
+        setSectionStates(prev => ({ ...prev, [key]: nextVal }));
+        setUpdatingKey(key);
+
         try {
-            for (const [key, value] of Object.entries(sectionStates)) {
-                await updateSystemSetting(key, value.toString());
+            const res = await toggleLandingSectionVisibility(key, nextVal);
+            if (res.success) {
+                toast.success(`${label} ${nextVal ? "enabled" : "disabled"} on public landing page!`);
+            } else {
+                throw new Error(res.error || "Failed to save");
             }
-            toast.success("Section visibility updated successfully!");
-        } catch {
-            toast.error("Failed to save section settings");
+        } catch (err: any) {
+            // Revert state on failure
+            setSectionStates(prev => ({ ...prev, [key]: currentVal }));
+            toast.error(err?.message || `Failed to update ${label}. Please try again.`);
         } finally {
-            setIsSaving(false);
+            setUpdatingKey(null);
         }
     };
 
@@ -752,39 +833,38 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
                     <Layout className="w-5 h-5 text-blue-600" />
                     Landing Page Sections
                 </CardTitle>
-                <CardDescription>Show or hide sections on the public landing page.</CardDescription>
+                <CardDescription>Show or hide sections on the public landing page. Changes are saved automatically in real-time.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-                {sections.map((section) => (
-                    <div
-                        key={section.key}
-                        className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800"
-                    >
-                        <div className="space-y-1">
-                            <Label className="text-base font-bold text-slate-900 dark:text-white">
-                                {section.label}
-                            </Label>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-                                {section.description}
-                            </p>
+                {sections.map((section) => {
+                    const isChecked = sectionStates[section.key as keyof typeof sectionStates];
+                    const isBusy = updatingKey === section.key;
+
+                    return (
+                        <div
+                            key={section.key}
+                            className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 transition-all hover:border-slate-300 dark:hover:border-slate-700"
+                        >
+                            <div className="space-y-1">
+                                <Label className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    {section.label}
+                                    {isBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
+                                </Label>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                                    {section.description}
+                                </p>
+                            </div>
+                            <Switch
+                                checked={isChecked}
+                                disabled={isBusy}
+                                onCheckedChange={() => handleToggle(section.key, section.label)}
+                                style={{
+                                    backgroundColor: isChecked ? themeColor : undefined
+                                }}
+                            />
                         </div>
-                        <Switch
-                            checked={sectionStates[section.key as keyof typeof sectionStates]}
-                            onCheckedChange={() => handleToggle(section.key)}
-                            style={{
-                                backgroundColor: sectionStates[section.key as keyof typeof sectionStates] ? themeColor : undefined
-                            }}
-                        />
-                    </div>
-                ))}
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    style={{ backgroundColor: themeColor }}
-                    className="w-full h-12 text-white rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
-                >
-                    {isSaving ? "Saving..." : "Save Section Settings"}
-                </Button>
+                    );
+                })}
             </CardContent>
         </Card>
     );

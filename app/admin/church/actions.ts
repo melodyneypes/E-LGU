@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { processFileUpload, deleteUploadedFile } from "@/app/admin/settings/actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/audit";
 
 async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
@@ -47,6 +48,17 @@ export async function updateChurchInfo(id: string, formData: FormData) {
         });
         revalidatePath("/admin/church");
         revalidatePath("/");
+
+        // Log Church Info Update
+        await logActivity({
+            action: "UPDATE",
+            entityType: "ChurchInfo",
+            entityId: id,
+            entityName: updated.name || "Church Info",
+            description: `Updated church profile: "${updated.name}"`,
+            metadata: { name: updated.name, address: updated.address }
+        });
+
         return updated;
     } catch (error) {
         console.error("Error updating church info:", error);
@@ -70,6 +82,17 @@ export async function addMassSchedule(data: any) {
     });
     revalidatePath("/admin/church");
     revalidatePath("/");
+
+    // Log Mass Schedule Creation
+    await logActivity({
+        action: "CREATE",
+        entityType: "ChurchSchedule",
+        entityId: created.id,
+        entityName: `${data.day} ${data.time}`,
+        description: `Added mass schedule: ${data.day} at ${data.time} (${data.language})`,
+        metadata: { day: data.day, time: data.time, language: data.language }
+    });
+
     return created;
 }
 
@@ -89,6 +112,17 @@ export async function updateMassSchedule(id: string, data: any) {
     });
     revalidatePath("/admin/church");
     revalidatePath("/");
+
+    // Log Mass Schedule Update
+    await logActivity({
+        action: "UPDATE",
+        entityType: "ChurchSchedule",
+        entityId: id,
+        entityName: `${data.day} ${data.time}`,
+        description: `Updated mass schedule: ${data.day} at ${data.time}`,
+        metadata: { day: data.day, time: data.time }
+    });
+
     return updated;
 }
 
@@ -97,6 +131,16 @@ export async function deleteMassSchedule(id: string) {
     await (prisma as any).churchSchedule.delete({ where: { id } });
     revalidatePath("/admin/church");
     revalidatePath("/");
+
+    // Log Mass Schedule Deletion
+    await logActivity({
+        action: "DELETE",
+        entityType: "ChurchSchedule",
+        entityId: id,
+        entityName: "Mass Schedule",
+        description: `Deleted mass schedule (ID: ${id})`,
+        metadata: { scheduleId: id }
+    });
 }
 
 export async function saveChurchCollection(data: any) {
@@ -143,6 +187,17 @@ export async function saveChurchCollection(data: any) {
     
     revalidatePath("/admin/church");
     revalidatePath("/");
+
+    // Log Church Collection
+    await logActivity({
+        action: data.id ? "UPDATE" : "CREATE",
+        entityType: "ChurchCollection",
+        entityId: result.id,
+        entityName: `₱${total.toLocaleString()}`,
+        description: `${data.id ? "Updated" : "Recorded"} church collection of ₱${total.toLocaleString()} for ${new Date(data.date).toLocaleDateString()}`,
+        metadata: { totalAmount: total, date: data.date }
+    });
+
     return result;
 }
 
@@ -151,4 +206,14 @@ export async function deleteCollectionEntry(id: string) {
     await (prisma as any).churchCollection.delete({ where: { id } });
     revalidatePath("/admin/church");
     revalidatePath("/");
+
+    // Log Church Collection Deletion
+    await logActivity({
+        action: "DELETE",
+        entityType: "ChurchCollection",
+        entityId: id,
+        entityName: "Church Collection Record",
+        description: `Deleted church collection entry (ID: ${id})`,
+        metadata: { collectionId: id }
+    });
 }

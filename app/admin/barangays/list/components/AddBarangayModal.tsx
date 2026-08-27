@@ -5,10 +5,23 @@ import { X, Save, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { addBarangay, updateBarangay, deleteBarangay } from "../../../actions";
+import { addBarangay, updateBarangay } from "../actions";
 
- 
-export function AddBarangayModal({ isOpen, onClose, editingItem, themeColor = "#2563eb" }: { isOpen: boolean; onClose: () => void; editingItem?: any; themeColor?: string }) {
+interface AddBarangayModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSuccess?: () => void | Promise<void>;
+    editingItem?: any;
+    themeColor?: string;
+}
+
+export function AddBarangayModal({ 
+    isOpen, 
+    onClose, 
+    onSuccess,
+    editingItem, 
+    themeColor = "#2563eb" 
+}: AddBarangayModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     if (!isOpen) return null;
@@ -19,36 +32,22 @@ export function AddBarangayModal({ isOpen, onClose, editingItem, themeColor = "#
         const formData = new FormData(e.currentTarget);
         
         try {
-            if (editingItem?.logoUrl) formData.append("logoUrl", editingItem.logoUrl);
-            if (editingItem?.coverImageUrl) formData.append("coverImageUrl", editingItem.coverImageUrl);
-            if (editingItem?.captainImageUrl) formData.append("captainImageUrl", editingItem.captainImageUrl);
-
             const result = editingItem
                 ? await updateBarangay(editingItem.id, formData)
                 : await addBarangay(formData);
 
             if (result.success) {
-                toast.success(`Barangay ${editingItem ? "updated" : "added"} successfully!`);
+                toast.success(`Barangay "${formData.get("name")}" ${editingItem ? "updated" : "added"} successfully!`);
                 onClose();
+                if (onSuccess) {
+                    await onSuccess();
+                }
             } else {
                 toast.error(result.error || "Action failed");
             }
         } catch {
             toast.error("An unexpected error occurred.");
         } finally {
-            setIsSubmitting(false);
-        }
-    }
-
-    async function handleDelete() {
-        if (!confirm("Are you sure you want to completely remove this Barangay?")) return;
-        setIsSubmitting(true);
-        const result = await deleteBarangay(editingItem.id);
-        if (result.success) {
-            toast.success("Barangay deleted.");
-            onClose();
-        } else {
-            toast.error(result.error || "Failed to delete");
             setIsSubmitting(false);
         }
     }
@@ -81,24 +80,15 @@ export function AddBarangayModal({ isOpen, onClose, editingItem, themeColor = "#
                     </form>
                 </div>
                 
-                <div className="flex items-center justify-between p-6 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] rounded-b-3xl flex-shrink-0">
-                    <div>
-                        {editingItem && (
-                            <Button type="button" variant="ghost" onClick={handleDelete} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 font-bold uppercase tracking-widest text-[10px] px-6 py-5 rounded-2xl">
-                                Remove Barangay
-                            </Button>
-                        )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                        <Button 
-                            type="submit" form="barangayForm" disabled={isSubmitting}
-                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
-                            className="text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl hover:opacity-90 transition-all"
-                        >
-                            <Save className="w-4 h-4 mr-2" />
-                            {isSubmitting ? "Saving..." : editingItem ? "Save Changes" : "Register Barangay"}
-                        </Button>
-                    </div>
+                <div className="flex items-center justify-end p-6 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] rounded-b-3xl flex-shrink-0">
+                    <Button 
+                        type="submit" form="barangayForm" disabled={isSubmitting}
+                        style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                        className="text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl hover:opacity-90 transition-all cursor-pointer"
+                    >
+                        <Save className="w-4 h-4 mr-2" />
+                        {isSubmitting ? "Saving..." : editingItem ? "Save Changes" : "Register Barangay"}
+                    </Button>
                 </div>
             </div>
         </div>

@@ -60,6 +60,7 @@ export function AddOrdinanceModal({
     const [dateApproved, setDateApproved] = useState("");
     const [status, setStatus] = useState("ACTIVE / ENFORCED");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isFileRemoved, setIsFileRemoved] = useState<boolean>(false);
 
     // Category tags suggestion states
     const [allExistingTags, setAllExistingTags] = useState<string[]>([]);
@@ -128,10 +129,20 @@ export function AddOrdinanceModal({
         tagsInputRef.current?.focus();
     };
 
+    const formatDateForInput = (dateInput: Date | string | undefined | null) => {
+        if (!dateInput) return "";
+        const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset() * 60000;
+        const localDate = new Date(date.getTime() - offset);
+        return localDate.toISOString().slice(0, 10);
+    };
+
     useEffect(() => {
         if (isOpen) {
             setErrorMsg("");
             setSelectedFile(null);
+            setIsFileRemoved(false);
             setShowSuggestions(false);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
@@ -144,11 +155,7 @@ export function AddOrdinanceModal({
                 setDescription(editingData.description);
                 setTags(editingData.tags.join(", "));
                 setStatus(editingData.status);
-
-                // Format approved date to YYYY-MM-DD for date input
-                const dateObj = new Date(editingData.dateApproved);
-                const formattedDate = dateObj.toISOString().split("T")[0];
-                setDateApproved(formattedDate);
+                setDateApproved(formatDateForInput(editingData.dateApproved));
             } else {
                 setType("ORDINANCE");
                 setReferenceNumber("");
@@ -164,7 +171,16 @@ export function AddOrdinanceModal({
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setIsFileRemoved(false);
             setSelectedFile(file);
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setSelectedFile(null);
+        setIsFileRemoved(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
@@ -182,6 +198,7 @@ export function AddOrdinanceModal({
             formData.append("tags", tags);
             formData.append("dateApproved", dateApproved);
             formData.append("status", status);
+            formData.append("fileRemoved", isFileRemoved ? "true" : "false");
 
             if (selectedFile) {
                 formData.append("file", selectedFile);
@@ -416,16 +433,27 @@ export function AddOrdinanceModal({
 
                             {/* Document File Upload */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Document File (PDF / Image) {!editingData && <span className="text-red-500">*</span>}
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Document File (PDF / Image) {!editingData && <span className="text-red-500">*</span>}
+                                    </Label>
+                                    {(selectedFile || (editingData?.pdfUrl && !isFileRemoved)) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveFile}
+                                            className="text-[10px] font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X className="w-3 h-3" /> Remove File
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="relative">
                                     <Input
                                         type="file"
                                         accept="application/pdf,image/*"
                                         onChange={handleFileChange}
                                         ref={fileInputRef}
-                                        required={!editingData}
+                                        required={!editingData && !selectedFile}
                                         className="h-11 bg-slate-50/50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold file:hidden cursor-pointer pl-10 pr-4 flex items-center"
                                     />
                                     <Upload className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -440,9 +468,14 @@ export function AddOrdinanceModal({
                                             {selectedFile.name}
                                         </div>
                                     )}
-                                    {editingData?.pdfUrl && !selectedFile && (
+                                    {editingData?.pdfUrl && !selectedFile && !isFileRemoved && (
                                         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg max-w-[120px] truncate pointer-events-none">
                                             Keep current file
+                                        </div>
+                                    )}
+                                    {isFileRemoved && !selectedFile && (
+                                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-lg pointer-events-none">
+                                            File will be removed
                                         </div>
                                     )}
                                 </div>

@@ -1,7 +1,26 @@
 import prisma from "@/lib/db/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { BarangayAdminsWorkspace } from "./BarangayAdminsWorkspace";
 
 export default async function BarangayAdminsPage() {
+    const session = await getServerSession(authOptions);
+    const currentUserRole = (session?.user as any)?.role;
+    const currentDepartment = (session?.user as any)?.department;
+    const accessiblePages = ((session?.user as any)?.accessiblePages || []) as string[];
+
+    const isLguAdmin = currentUserRole === "ADMIN" && currentDepartment === "LGU";
+    const isAssignedAdmin = currentUserRole === "ADMIN" && accessiblePages.some(page => 
+        page === "/admin/barangays/admins" || 
+        page === "/admin/barangays" || 
+        page.startsWith("/admin/barangays/admins")
+    );
+
+    if (!session?.user?.id || (!isLguAdmin && !isAssignedAdmin)) {
+        redirect("/admin");
+    }
+
     const [admins, barangays, themeColorSetting] = await Promise.all([
         prisma.user.findMany({
             where: {

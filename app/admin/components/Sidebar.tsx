@@ -566,8 +566,8 @@ export function Sidebar({
         { href: "/admin/poso/leaderboard", label: "Enforcer Leaderboard", icon: Trophy, category: "Public Order & Safety" },
         { href: "/admin/poso/officers", label: "POSO Officers", icon: UserCheck, category: "Public Order & Safety" },
         { href: "/admin/poso/payment-ledger", label: "POSO Payment Ledger", icon: DollarSign, category: "Public Order & Safety" },
-        { href: "/admin/poso/settings", label: "POSO Settings", icon: Settings, category: "Public Order & Safety" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
+        { href: "/admin/audit-logs", label: "Audit Logs & Activity", icon: Activity, category: "Security & Accounts" },
     ];
 
     const contentAdminAllowed = [
@@ -576,6 +576,7 @@ export function Sidebar({
         "News & Updates",
         "Events",
         "LGU Projects",
+        "Ordinances & Resolutions",
         "Kainan (Dining)",
         "Tuluyan (Stay)",
         "Gallery",
@@ -687,7 +688,11 @@ export function Sidebar({
                 menuItems = allMenuItems;
             }
         } else if (role === "CONTENT_ADMIN") {
-            menuItems = allMenuItems.filter(item => contentAdminAllowed.includes(item.label));
+            menuItems = allMenuItems.filter(item => 
+                contentAdminAllowed.includes(item.label) && 
+                item.category !== "Rural Health Unit" &&
+                item.category !== "RHU"
+            );
         } else if (role === "BARANGAY_ADMIN") {
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {

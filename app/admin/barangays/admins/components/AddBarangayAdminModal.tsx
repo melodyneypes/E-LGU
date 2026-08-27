@@ -5,16 +5,17 @@ import { X, Save, Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { createBarangayAdmin } from "../../../actions";
+import { createBarangayAdmin } from "../actions";
 
 interface AddBarangayAdminModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onAdminAdded?: () => void | Promise<void>;
     barangays: string[];
     themeColor?: string;
 }
 
-export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor = "#2563eb" }: AddBarangayAdminModalProps) {
+export function AddBarangayAdminModal({ isOpen, onClose, onAdminAdded, barangays, themeColor = "#2563eb" }: AddBarangayAdminModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [selectedBarangay, setSelectedBarangay] = useState("");
@@ -52,6 +53,9 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor =
             if (result.success) {
                 toast.success(`${role} for ${managedBarangay} created successfully!`);
                 onClose();
+                if (onAdminAdded) {
+                    await onAdminAdded();
+                }
             } else {
                 toast.error(result.error || "Failed to create account.");
             }

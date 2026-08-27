@@ -164,6 +164,7 @@ export function AdminShell({
                 "/admin/news",
                 "/admin/events",
                 "/admin/projects",
+                "/admin/ordinances",
                 "/admin/dining",
                 "/admin/accommodation",
                 "/admin/tourism",

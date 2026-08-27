@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Edit2, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 import { upsertPastMayor, deletePastMayor } from "./actions";
 import { useRouter } from "next/navigation";
+import { compressImage } from "@/lib/image-compression";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 // Reusable Auto-Expanding Textarea Component
 interface AutoGrowingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -63,21 +65,31 @@ export function PastMayorsClient({ initialMayors, isBarangayAdmin, themeColor = 
     const [mayors, setMayors] = useState(initialMayors);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingMayor, setEditingMayor] = useState<any | null>(null);
+    const [deletingMayor, setDeletingMayor] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
     useEffect(() => {
         setMayors(initialMayors);
     }, [initialMayors]);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm(`Are you sure you want to delete this specific ${isBarangayAdmin ? "captain" : "mayor"} record?`)) return;
+    const handleConfirmDelete = async () => {
+        if (!deletingMayor) return;
 
-        const result = await deletePastMayor(id);
-        if (result.success) {
-            toast.success(`${isBarangayAdmin ? "Past Captain" : "Past Mayor"} removed`);
-            setMayors(mayors.filter(s => s.id !== id));
-        } else {
-            toast.error("Failed to delete record");
+        setIsDeleting(true);
+        try {
+            const result = await deletePastMayor(deletingMayor.id);
+            if (result.success) {
+                toast.success(`${isBarangayAdmin ? "Past Captain" : "Past Mayor"} removed`);
+                setMayors(prev => prev.filter(s => s.id !== deletingMayor.id));
+                setDeletingMayor(null);
+            } else {
+                toast.error("Failed to delete record");
+            }
+        } catch {
+            toast.error("An error occurred during deletion");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -133,8 +145,11 @@ export function PastMayorsClient({ initialMayors, isBarangayAdmin, themeColor = 
                                 <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <button 
                                         type="button" 
-                                        onClick={() => handleEdit(mayor)} 
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200/50 dark:border-slate-800 active:scale-90 transition-all hover:opacity-90"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(mayor);
+                                        }} 
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200/50 dark:border-slate-800 active:scale-90 transition-all hover:opacity-90 cursor-pointer"
                                         style={isHovered ? { color: themeColor } : undefined}
                                         title="Edit Profile"
                                     >
@@ -142,8 +157,11 @@ export function PastMayorsClient({ initialMayors, isBarangayAdmin, themeColor = 
                                     </button>
                                     <button 
                                         type="button" 
-                                        onClick={() => handleDelete(mayor.id)} 
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900 text-red-500 hover:text-red-650 shadow-md border border-slate-200/50 dark:border-slate-800 active:scale-90 transition-all"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeletingMayor(mayor);
+                                        }} 
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900 text-red-500 hover:text-red-600 shadow-md border border-slate-200/50 dark:border-slate-800 active:scale-90 transition-all cursor-pointer"
                                         title="Delete Profile"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -180,6 +198,27 @@ export function PastMayorsClient({ initialMayors, isBarangayAdmin, themeColor = 
                     })}
                 </div>
             )}
+
+            {/* Custom Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!deletingMayor}
+                onClose={() => setDeletingMayor(null)}
+                onConfirm={handleConfirmDelete}
+                isLoading={isDeleting}
+                title={`Delete ${isBarangayAdmin ? "Captain" : "Mayor"} Entry`}
+                description={
+                    deletingMayor ? (
+                        <span>
+                            Are you sure you want to permanently delete the historical record for{" "}
+                            <strong className="text-slate-900 dark:text-white font-black">
+                                &quot;{deletingMayor.name}&quot;
+                            </strong>{" "}
+                            ({deletingMayor.termStart} - {deletingMayor.termEnd})? This action will remove their official portrait and narrative.
+                        </span>
+                    ) : undefined
+                }
+                confirmText="Delete Entry"
+            />
 
             <MayorEditorModal
                 isOpen={showAddModal}
@@ -250,20 +289,22 @@ function MayorEditorModal({
         e.preventDefault();
         if (!formData.name) return toast.error("Name is required");
 
-        const data = new FormData();
-        data.append("name", formData.name);
-        data.append("termStart", formData.termStart);
-        data.append("termEnd", formData.termEnd);
-        data.append("description", formData.description);
-        data.append("order", formData.order.toString());
-        data.append("imageUrl", formData.imageUrl);
-
-        if (imageFile) {
-            data.append("past-mayor", imageFile);
-        }
-
         setIsSaving(true);
         try {
+            const data = new FormData();
+            data.append("name", formData.name);
+            data.append("termStart", formData.termStart);
+            data.append("termEnd", formData.termEnd);
+            data.append("description", formData.description);
+            data.append("order", formData.order.toString());
+            data.append("imageUrl", formData.imageUrl);
+
+            if (imageFile) {
+                // Compress image to lightweight WebP/JPEG (around 100-200KB) for lightning-fast network transmission
+                const compressed = await compressImage(imageFile, 1400, 0.82);
+                data.append("past-mayor", compressed);
+            }
+
             const result = await upsertPastMayor(initialData?.id || null, data);
             if (result.success) {
                 toast.success(initialData ? "Updated successfully!" : "Added successfully!");
