@@ -36,70 +36,129 @@ export async function upsertAboutData(formData: FormData) {
     const targetBarangay = isBarangayAdmin ? managedBarangay : formData.get("barangayName") as string;
 
     try {
+        // Compute granular changes for accurate audit trail
+        const changes: Record<string, { old: any; new: any }> = {};
+        const changedFieldNames: string[] = [];
+
+        const fieldsToTrack: { key: string; label: string }[] = targetBarangay
+            ? [
+                  { key: "history", label: "Historical Narrative" },
+                  { key: "geographyOrDemographics", label: "Geography & Demographics" },
+                  { key: "mission", label: "Mission Statement" },
+                  { key: "vision", label: "Vision Statement" },
+                  { key: "coreValues", label: "Core Values" },
+                  { key: "captainName", label: "Barangay Captain Name" },
+                  { key: "captainMessage", label: "Captain's Message" },
+                  { key: "description", label: "Brief Overview" },
+              ]
+            : [
+                  { key: "history", label: "Historical Narrative" },
+                  { key: "geographyOrDemographics", label: "Geography & Fact Sheet" },
+                  { key: "mission", label: "Mission Statement" },
+                  { key: "vision", label: "Vision Statement" },
+                  { key: "coreValues", label: "Core Values" },
+                  { key: "mayorName", label: "Mayor Name" },
+                  { key: "mayorMessage", label: "Mayor's Message" },
+              ];
+
+        const targetData: Record<string, any> = targetBarangay
+            ? {
+                  description: formData.get("description") as string,
+                  captainName: formData.get("captainName") as string,
+                  captainMessage: formData.get("captainMessage") as string,
+                  history: formData.get("history") as string,
+                  mission: formData.get("mission") as string,
+                  vision: formData.get("vision") as string,
+                  coreValues: formData.get("coreValues") as string,
+                  geographyOrDemographics: formData.get("geographyOrDemographics") as string,
+              }
+            : {
+                  history: formData.get("history") as string,
+                  mission: formData.get("mission") as string,
+                  vision: formData.get("vision") as string,
+                  coreValues: formData.get("coreValues") as string,
+                  geographyOrDemographics: formData.get("geographyOrDemographics") as string,
+                  mayorName: formData.get("mayorName") as string,
+                  mayorMessage: formData.get("mayorMessage") as string,
+              };
+
+        const existingRecord = targetBarangay
+            ? await (prisma as any).barangayInfo.findUnique({ where: { name: targetBarangay } })
+            : await (prisma as any).aboutPage.findFirst();
+
+        for (const field of fieldsToTrack) {
+            const oldVal = existingRecord ? existingRecord[field.key] ?? "" : "";
+            const newVal = targetData[field.key] ?? "";
+
+            if (oldVal !== newVal) {
+                changes[field.key] = {
+                    old: oldVal || null,
+                    new: newVal || null,
+                };
+                changedFieldNames.push(field.label);
+            }
+        }
+
         if (targetBarangay) {
-            const existing = await (prisma as any).barangayInfo.findUnique({ where: { name: targetBarangay } });
             const logoUrl = await processImageUpload(formData, "logo");
             const coverImageUrl = await processImageUpload(formData, "coverImage");
             const captainImageUrl = await processImageUpload(formData, "captain-image");
 
             // Auto-delete old images if replaced
-            if (logoUrl && existing?.logoUrl && existing.logoUrl !== logoUrl) await deleteUploadedFile(existing.logoUrl);
-            if (coverImageUrl && existing?.coverImageUrl && existing.coverImageUrl !== coverImageUrl) await deleteUploadedFile(existing.coverImageUrl);
-            if (captainImageUrl && existing?.captainImageUrl && existing.captainImageUrl !== captainImageUrl) await deleteUploadedFile(existing.captainImageUrl);
+            if (logoUrl && existingRecord?.logoUrl && existingRecord.logoUrl !== logoUrl) await deleteUploadedFile(existingRecord.logoUrl);
+            if (coverImageUrl && existingRecord?.coverImageUrl && existingRecord.coverImageUrl !== coverImageUrl) await deleteUploadedFile(existingRecord.coverImageUrl);
+            if (captainImageUrl && existingRecord?.captainImageUrl && existingRecord.captainImageUrl !== captainImageUrl) await deleteUploadedFile(existingRecord.captainImageUrl);
+
+            if (logoUrl && existingRecord?.logoUrl !== logoUrl) {
+                changes["logoUrl"] = { old: existingRecord?.logoUrl || null, new: logoUrl };
+                changedFieldNames.push("Official Logo");
+            }
+            if (coverImageUrl && existingRecord?.coverImageUrl !== coverImageUrl) {
+                changes["coverImageUrl"] = { old: existingRecord?.coverImageUrl || null, new: coverImageUrl };
+                changedFieldNames.push("Cover Banner Image");
+            }
+            if (captainImageUrl && existingRecord?.captainImageUrl !== captainImageUrl) {
+                changes["captainImageUrl"] = { old: existingRecord?.captainImageUrl || null, new: captainImageUrl };
+                changedFieldNames.push("Captain Portrait");
+            }
 
             await (prisma as any).barangayInfo.upsert({
                 where: { name: targetBarangay },
                 update: {
-                    description: formData.get("description") as string,
+                    ...targetData,
                     logoUrl: logoUrl || (formData.get("logoUrl") as string),
                     coverImageUrl: coverImageUrl || (formData.get("coverImageUrl") as string),
-                    captainName: formData.get("captainName") as string,
-                    captainMessage: formData.get("captainMessage") as string,
                     captainImageUrl: captainImageUrl || (formData.get("captainImageUrl") as string),
-                    history: formData.get("history") as string,
-                    mission: formData.get("mission") as string,
-                    vision: formData.get("vision") as string,
-                    coreValues: formData.get("coreValues") as string,
-                    geographyOrDemographics: formData.get("geographyOrDemographics") as string,
                 } as any,
                 create: {
                     name: targetBarangay,
-                    description: formData.get("description") as string,
+                    ...targetData,
                     logoUrl: logoUrl || (formData.get("logoUrl") as string),
                     coverImageUrl: coverImageUrl || (formData.get("coverImageUrl") as string),
-                    captainName: formData.get("captainName") as string,
-                    captainMessage: formData.get("captainMessage") as string,
                     captainImageUrl: captainImageUrl || (formData.get("captainImageUrl") as string),
-                    history: formData.get("history") as string,
-                    mission: formData.get("mission") as string,
-                    vision: formData.get("vision") as string,
-                    coreValues: formData.get("coreValues") as string,
-                    geographyOrDemographics: formData.get("geographyOrDemographics") as string,
                 } as any
             });
         } else {
             const mayorImageUrl = await processImageUpload(formData, "mayor-image");
-            const existing = await (prisma as any).aboutPage.findFirst();
 
             // Auto-delete old mayor image if replaced
-            if (mayorImageUrl && existing?.mayorImageUrl && existing.mayorImageUrl !== mayorImageUrl) {
-                await deleteUploadedFile(existing.mayorImageUrl);
+            if (mayorImageUrl && existingRecord?.mayorImageUrl && existingRecord.mayorImageUrl !== mayorImageUrl) {
+                await deleteUploadedFile(existingRecord.mayorImageUrl);
+            }
+
+            if (mayorImageUrl && existingRecord?.mayorImageUrl !== mayorImageUrl) {
+                changes["mayorImageUrl"] = { old: existingRecord?.mayorImageUrl || null, new: mayorImageUrl };
+                changedFieldNames.push("Mayor Official Portrait");
             }
 
             const data = {
-                history: formData.get("history") as string,
-                mission: formData.get("mission") as string,
-                vision: formData.get("vision") as string,
-                coreValues: formData.get("coreValues") as string,
-                geographyOrDemographics: formData.get("geographyOrDemographics") as string,
-                mayorName: formData.get("mayorName") as string,
-                mayorMessage: formData.get("mayorMessage") as string,
+                ...targetData,
                 mayorImageUrl: mayorImageUrl || (formData.get("mayorImageUrl") as string),
             };
 
-            if (existing) {
+            if (existingRecord) {
                 await (prisma as any).aboutPage.update({
-                    where: { id: existing.id },
+                    where: { id: existingRecord.id },
                     data
                 });
             } else {
@@ -107,13 +166,25 @@ export async function upsertAboutData(formData: FormData) {
             }
         }
 
-        // Log About Update
+        // Build clear, human-readable audit description
+        let dynamicDesc = "";
+        if (changedFieldNames.length > 0) {
+            dynamicDesc = `Updated ${changedFieldNames.join(", ")} for ${targetBarangay ? `Brgy. ${targetBarangay}` : "Municipal Overview"}`;
+        } else {
+            dynamicDesc = `Saved ${targetBarangay ? `Barangay ${targetBarangay} profile` : "Municipal About page"} (no content altered)`;
+        }
+
+        // Log About Update with exact state diffs
         await logActivity({
             action: "UPDATE",
             entityType: "AboutPage",
-            entityName: role === "BARANGAY_ADMIN" ? `Brgy. ${managedBarangay}` : "Municipal Overview",
-            description: `Updated ${role === "BARANGAY_ADMIN" ? `Barangay ${managedBarangay} profile & history` : "Municipality About Us content"}`,
-            metadata: { barangay: managedBarangay || null }
+            entityName: targetBarangay ? `Brgy. ${targetBarangay}` : "Municipal Overview",
+            description: dynamicDesc,
+            metadata: {
+                barangay: targetBarangay || null,
+                changedFields: changedFieldNames,
+                changes: Object.keys(changes).length > 0 ? changes : null
+            }
         });
 
         revalidatePath("/about");

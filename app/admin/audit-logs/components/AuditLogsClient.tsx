@@ -14,7 +14,13 @@ import {
     CheckCircle2,
     Clock,
     User,
-    Activity
+    Activity,
+    ArrowRight,
+    Code2,
+    Check,
+    Copy,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +44,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -113,6 +131,24 @@ export default function AuditLogsClient({
     // Inspector Modal State
     const [selectedLog, setSelectedLog] = useState<any | null>(null);
     const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+    const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({});
+    const [activeReaderModal, setActiveReaderModal] = useState<{
+        title: string;
+        type: "old" | "new";
+        text: string;
+    } | null>(null);
+
+    const toggleFieldExpand = (fieldKey: string) => {
+        setExpandedFields(prev => ({
+            ...prev,
+            [fieldKey]: !prev[fieldKey]
+        }));
+    };
+
+    const copyText = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(`${label} copied to clipboard`);
+    };
 
     // Debounce search input
     useEffect(() => {
@@ -449,22 +485,58 @@ export default function AuditLogsClient({
                             <TableHead className="text-[10px] font-black uppercase tracking-wider">Action</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-wider">Target Entity</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-wider">Description</TableHead>
-                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-right">Details</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="h-48 text-center">
-                                    <div className="flex flex-col items-center justify-center gap-2 text-slate-400">
-                                        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                                        <span className="text-xs font-bold uppercase tracking-wider">Loading System Audit Logs...</span>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
+                            Array.from({ length: 6 }).map((_, idx) => (
+                                <TableRow key={`skeleton-row-${idx}`} className="border-slate-100 dark:border-[#2a3040]/50">
+                                    {/* Timestamp */}
+                                    <TableCell className="py-3.5">
+                                        <div className="space-y-1.5">
+                                            <Skeleton className="h-3.5 w-24 rounded-md" />
+                                            <Skeleton className="h-2.5 w-16 rounded-md" />
+                                        </div>
+                                    </TableCell>
+
+                                    {/* Staff / Operator */}
+                                    <TableCell className="py-3.5">
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <Skeleton className="h-3.5 w-3.5 rounded-full" />
+                                                <Skeleton className="h-3.5 w-28 rounded-md" />
+                                            </div>
+                                            <Skeleton className="h-2.5 w-20 rounded-md" />
+                                        </div>
+                                    </TableCell>
+
+                                    {/* Office / Dept */}
+                                    <TableCell className="py-3.5">
+                                        <Skeleton className="h-3.5 w-24 rounded-md" />
+                                    </TableCell>
+
+                                    {/* Action Badge */}
+                                    <TableCell className="py-3.5">
+                                        <Skeleton className="h-5 w-20 rounded-full" />
+                                    </TableCell>
+
+                                    {/* Target Entity */}
+                                    <TableCell className="py-3.5">
+                                        <div className="space-y-1.5">
+                                            <Skeleton className="h-3.5 w-24 rounded-md" />
+                                            <Skeleton className="h-2.5 w-32 rounded-md" />
+                                        </div>
+                                    </TableCell>
+
+                                    {/* Description */}
+                                    <TableCell className="py-3.5">
+                                        <Skeleton className="h-3.5 w-48 rounded-md" />
+                                    </TableCell>
+                                </TableRow>
+                            ))
                         ) : logs.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-48 text-center">
+                                <TableCell colSpan={6} className="h-48 text-center">
                                     <div className="flex flex-col items-center justify-center gap-2 text-slate-400">
                                         <ShieldAlert className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                                         <span className="text-xs font-bold uppercase tracking-wider">No audit logs recorded matching your filter</span>
@@ -474,11 +546,19 @@ export default function AuditLogsClient({
                             </TableRow>
                         ) : (
                             logs.map((log: any) => (
-                                <TableRow key={log.id} className="border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                                <TableRow
+                                    key={log.id}
+                                    onClick={() => {
+                                        setSelectedLog(log);
+                                        setIsInspectorOpen(true);
+                                    }}
+                                    className="border-slate-100 dark:border-[#2a3040]/50 hover:bg-blue-50/50 dark:hover:bg-blue-500/[0.05] cursor-pointer transition-colors group"
+                                    title="Click to inspect event snapshot & diff details"
+                                >
                                     {/* Timestamp */}
                                     <TableCell className="py-3.5">
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                                 {format(new Date(log.createdAt), "MMM dd, yyyy")}
                                             </span>
                                             <span className="text-[10px] font-mono text-slate-400">
@@ -538,22 +618,6 @@ export default function AuditLogsClient({
                                             {log.description}
                                         </p>
                                     </TableCell>
-
-                                    {/* Inspect Metadata Button */}
-                                    <TableCell className="py-3.5 text-right">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => {
-                                                setSelectedLog(log);
-                                                setIsInspectorOpen(true);
-                                            }}
-                                            className="h-8 w-8 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-                                            title="Inspect Event Snapshot & Metadata"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </Button>
-                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
@@ -593,9 +657,20 @@ export default function AuditLogsClient({
             </div>
 
             {/* Event Metadata & Changes Inspector Modal */}
-            <Dialog open={isInspectorOpen} onOpenChange={setIsInspectorOpen}>
-                <DialogContent className="sm:max-w-2xl rounded-3xl p-6 bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2a3040]">
+            <Dialog
+                open={isInspectorOpen}
+                onOpenChange={open => {
+                    setIsInspectorOpen(open);
+                    if (!open) {
+                        // Immediately unmount & terminate memory payload
+                        setSelectedLog(null);
+                        setExpandedFields({});
+                        setActiveReaderModal(null);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col rounded-3xl p-6 bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] shadow-2xl overflow-hidden">
+                    <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2a3040] shrink-0">
                         <div className="flex items-center gap-2">
                             <Activity className="w-5 h-5 text-blue-600" />
                             <span>Audit Event Inspector</span>
@@ -613,56 +688,315 @@ export default function AuditLogsClient({
                     </DialogTitle>
 
                     {selectedLog && (
-                        <div className="space-y-4 pt-2 text-xs">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/60 dark:border-[#2a3040]">
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Operator Name</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedLog.userName}</span>
+                        <TooltipProvider delayDuration={200}>
+                            <div className="space-y-4 pt-2 text-xs overflow-y-auto pr-1 custom-scrollbar flex-1">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/60 dark:border-[#2a3040]">
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Operator Name</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">{selectedLog.userName}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Role & Office</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">{selectedLog.userRole} ({selectedLog.department || "GENERAL"})</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Timestamp</span>
+                                        <span className="font-mono text-slate-800 dark:text-slate-200">{format(new Date(selectedLog.createdAt), "yyyy-MM-dd HH:mm:ss")}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Target Entity Type</span>
+                                        <span className="font-bold text-blue-600 dark:text-blue-400">{selectedLog.entityType}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Entity Reference</span>
+                                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedLog.entityName || selectedLog.entityId || "N/A"}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">IP Address</span>
+                                        <span className="font-mono text-slate-600 dark:text-slate-400">{selectedLog.ipAddress || "Internal Server"}</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Role & Office</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedLog.userRole} ({selectedLog.department || "GENERAL"})</span>
+
+                                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Event Description</span>
+                                    <p className="text-slate-800 dark:text-slate-200 font-medium">{selectedLog.description}</p>
                                 </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Timestamp</span>
-                                    <span className="font-mono text-slate-800 dark:text-slate-200">{format(new Date(selectedLog.createdAt), "yyyy-MM-dd HH:mm:ss")}</span>
-                                </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Target Entity Type</span>
-                                    <span className="font-bold text-blue-600 dark:text-blue-400">{selectedLog.entityType}</span>
-                                </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Entity Reference</span>
-                                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedLog.entityName || selectedLog.entityId || "N/A"}</span>
-                                </div>
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">IP Address</span>
-                                    <span className="font-mono text-slate-600 dark:text-slate-400">{selectedLog.ipAddress || "Internal Server"}</span>
-                                </div>
+
+                                {/* Visual Changes & Diff Viewer */}
+                                {selectedLog.metadata?.changes ? (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                                <Code2 className="w-3.5 h-3.5 text-blue-600" />
+                                                Field-Level Modifications Detected
+                                            </span>
+                                            {selectedLog.metadata?.changedFields && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {selectedLog.metadata.changedFields.map((f: string, i: number) => (
+                                                        <span
+                                                            key={i}
+                                                            className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                                                        >
+                                                            {f}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {Object.entries(selectedLog.metadata.changes).map(([fieldKey, val]: [string, any]) => {
+                                                const isExpanded = !!expandedFields[fieldKey];
+                                                const oldStr = val?.old !== null && val?.old !== undefined && val?.old !== "" ? String(val.old) : null;
+                                                const newStr = val?.new !== null && val?.new !== undefined && val?.new !== "" ? String(val.new) : null;
+                                                const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
+
+                                                return (
+                                                    <div
+                                                        key={fieldKey}
+                                                        className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-3"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
+                                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                {fieldKey.replace(/([A-Z])/g, " $1").trim()}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {isLongText && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleFieldExpand(fieldKey)}
+                                                                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <>
+                                                                                <ChevronUp className="w-3 h-3" /> Show Less
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <ChevronDown className="w-3 h-3" /> Expand Full Diff
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                                <span className="text-[9px] font-mono text-slate-400 uppercase font-medium bg-slate-200/60 dark:bg-[#202738] px-2 py-0.5 rounded-md">
+                                                                    Field Diff
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                                            {/* Old Value */}
+                                                            <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 relative group">
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                                                                        Previous Value
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {oldStr && oldStr.length > 120 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setActiveReaderModal({
+                                                                                        title: `${fieldKey.replace(/([A-Z])/g, " $1").trim()} (Previous)`,
+                                                                                        type: "old",
+                                                                                        text: oldStr,
+                                                                                    })
+                                                                                }
+                                                                                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer"
+                                                                            >
+                                                                                Open Reader
+                                                                            </button>
+                                                                        )}
+
+                                                                        {oldStr && (
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => copyText(oldStr, "Previous value")}
+                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                    >
+                                                                                        <Copy className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p>Copy text</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className={`text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
+                                                                    {oldStr ? (
+                                                                        isExpanded ? (
+                                                                            <p>{oldStr}</p>
+                                                                        ) : (
+                                                                            <p className="line-clamp-3">{oldStr}</p>
+                                                                        )
+                                                                    ) : (
+                                                                        <span className="italic text-slate-400">Empty / Null</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* New Value */}
+                                                            <div className="p-3 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 relative group">
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                                                        Updated Value
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {newStr && newStr.length > 120 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setActiveReaderModal({
+                                                                                        title: `${fieldKey.replace(/([A-Z])/g, " $1").trim()} (Updated)`,
+                                                                                        type: "new",
+                                                                                        text: newStr,
+                                                                                    })
+                                                                                }
+                                                                                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 cursor-pointer"
+                                                                            >
+                                                                                Open Reader
+                                                                            </button>
+                                                                        )}
+
+                                                                        {newStr && (
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => copyText(newStr, "Updated value")}
+                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                    >
+                                                                                        <Copy className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p>Copy text</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className={`text-slate-800 dark:text-slate-200 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed font-medium ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
+                                                                    {newStr ? (
+                                                                        isExpanded ? (
+                                                                            <p>{newStr}</p>
+                                                                        ) : (
+                                                                            <p className="line-clamp-3">{newStr}</p>
+                                                                        )
+                                                                    ) : (
+                                                                        <span className="italic text-slate-400">Empty / Removed</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {/* Only show fallback metadata message if no structured changes exist */}
+                                {!selectedLog.metadata?.changes && selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+                                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                                            Additional Context
+                                        </span>
+                                        <p className="text-xs text-slate-700 dark:text-slate-300 font-mono">
+                                            {typeof selectedLog.metadata === "object"
+                                                ? Object.entries(selectedLog.metadata)
+                                                      .filter(([k]) => k !== "changes" && k !== "changedFields")
+                                                      .map(([k, v]) => `${k}: ${v}`)
+                                                      .join(", ") || "No additional parameters."
+                                                : String(selectedLog.metadata)}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] space-y-1">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Event Description</span>
-                                <p className="text-slate-800 dark:text-slate-200 font-medium">{selectedLog.description}</p>
-                            </div>
-
-                            {/* Metadata JSON Viewer */}
-                            <div className="space-y-1.5">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                                    Change Snapshot & Metadata (JSON)
-                                </span>
-                                <pre className="p-4 rounded-2xl bg-slate-950 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-56 custom-scrollbar border border-white/5">
-                                    {JSON.stringify(selectedLog.metadata, null, 2)}
-                                </pre>
-                            </div>
-
-                            <div className="flex justify-end pt-2">
+                            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-[#2a3040] shrink-0">
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsInspectorOpen(false)}
-                                    className="rounded-xl text-xs font-bold"
+                                    className="rounded-xl text-xs font-bold px-5"
                                 >
                                     Close Inspector
+                                </Button>
+                            </div>
+                        </TooltipProvider>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Dedicated High-Fidelity Text Reader Modal for Long Narratives */}
+            <Dialog open={!!activeReaderModal} onOpenChange={open => !open && setActiveReaderModal(null)}>
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col rounded-3xl p-6 bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] shadow-2xl z-[220]">
+                    <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2a3040] shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={`w-2.5 h-2.5 rounded-full ${
+                                    activeReaderModal?.type === "old" ? "bg-rose-500" : "bg-emerald-500"
+                                }`}
+                            />
+                            <span>{activeReaderModal?.title}</span>
+                        </div>
+                        {activeReaderModal && (
+                            <Badge
+                                variant="outline"
+                                className={`text-[9px] font-black uppercase tracking-wider border px-2.5 py-0.5 rounded-full ${
+                                    activeReaderModal.type === "old"
+                                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                        : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                }`}
+                            >
+                                {activeReaderModal.type === "old" ? "Previous Value Snapshot" : "Updated Value Snapshot"}
+                            </Badge>
+                        )}
+                    </DialogTitle>
+
+                    {activeReaderModal && (
+                        <div className="flex flex-col flex-1 min-h-0 space-y-4 pt-2">
+                            <div className="flex items-center justify-between text-xs text-slate-400">
+                                <span className="font-mono text-[11px]">
+                                    Length: {activeReaderModal.text.length.toLocaleString()} characters
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => copyText(activeReaderModal.text, activeReaderModal.title)}
+                                    className="h-7 text-xs flex items-center gap-1.5 rounded-xl border-slate-200 dark:border-[#2a3040]"
+                                >
+                                    <Copy className="w-3.5 h-3.5" /> Copy Entire Text
+                                </Button>
+                            </div>
+
+                            {/* Guaranteed Scroll Container */}
+                            <div
+                                className={`p-4 rounded-2xl flex-1 overflow-y-auto max-h-[50vh] custom-scrollbar border ${
+                                    activeReaderModal.type === "old"
+                                        ? "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 text-slate-800 dark:text-slate-200"
+                                        : "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20 text-slate-900 dark:text-white"
+                                }`}
+                            >
+                                <p className="font-mono text-xs whitespace-pre-wrap leading-relaxed">
+                                    {activeReaderModal.text}
+                                </p>
+                            </div>
+
+                            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-[#2a3040] shrink-0">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setActiveReaderModal(null)}
+                                    className="rounded-xl text-xs font-bold px-4"
+                                >
+                                    Close Reader
                                 </Button>
                             </div>
                         </div>
