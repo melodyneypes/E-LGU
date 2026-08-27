@@ -15,13 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Trash2, EyeOff, MapPin, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { deleteEvent, getEventById } from "@/app/admin/actions";
+import { deleteEvent, getEventById } from "../actions/events.actions";
 import { toast } from "sonner";
 import { formatDate } from "@/app/admin/content/Tourism/utils/date_and_time";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 export function EventsTable() {
     const {
@@ -29,7 +30,6 @@ export function EventsTable() {
         setEvents,
         setEditingData,
         setIsAddModalOpen,
-        themeColor,
         page,
         pageSize,
         totalCount,
@@ -41,8 +41,8 @@ export function EventsTable() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [fetchingId, setFetchingId] = useState<string | null>(null);
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -69,54 +69,53 @@ export function EventsTable() {
         router.push(`${pathname}?${params.toString()}`);
     };
 
+    // Fast Instant Edit Opening: Sets current row data immediately, then fetches full details if needed
     const handleEdit = async (eventItem: Event) => {
-        setFetchingId(eventItem.id);
+        setEditingData(eventItem);
+        setIsAddModalOpen(true);
+
         try {
             const res = (await getEventById(eventItem.id)) as { success: boolean; data?: Event; event?: Event; error?: string };
             if (res.success && (res.data || res.event)) {
                 setEditingData((res.data || res.event) as Event);
-                setIsAddModalOpen(true);
-            } else {
-                toast.error(res.error || "Failed to load event details.");
             }
         } catch {
-            toast.error("Error fetching event details.");
-        } finally {
-            setFetchingId(null);
+            // Keep editing with existing row data silently
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this event? This action cannot be undone.")) return;
-        setDeletingId(id);
+    const handleConfirmDelete = async () => {
+        if (!eventToDelete) return;
+        const id = eventToDelete.id;
+        const previousEvents = [...events];
+
+        setIsDeleting(true);
+        // Optimistic UI update
+        setEvents(events.filter((item) => item.id !== id));
+
         try {
-            await deleteEvent(id);
-            setEvents(events.filter((item) => item.id !== id));
-            toast.success("Event deleted successfully.");
+            const res = await deleteEvent(id);
+            if (res.success) {
+                toast.success("Event deleted successfully.");
+                setEventToDelete(null);
+                setIsPending(true);
+                router.refresh();
+            } else {
+                setEvents(previousEvents);
+                toast.error(res.error || "Failed to delete event.");
+            }
         } catch {
+            setEvents(previousEvents);
             toast.error("Failed to delete event. Please try again.");
-            setDeletingId(null);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
     return (
         <>
             <div className="overflow-x-auto relative">
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
-                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                            <span
-                                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
-                            />
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
-                                Refreshing events...
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
+                <Table>
                     <TableHeader className="bg-slate-50 dark:bg-[#1a1f2e]">
                         <TableRow className="border-b dark:border-[#2a3040]">
                             <TableHead className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider h-14 pl-8">Event Details</TableHead>
@@ -128,7 +127,45 @@ export function EventsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {events.length === 0 ? (
+                        {isPending ? (
+                            Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
+                                <TableRow key={`events-skeleton-${idx}`} className="border-b border-slate-100 dark:border-[#2a3040]/50 animate-pulse">
+                                    <TableCell className="py-4 pl-8">
+                                        <div className="flex items-center space-x-4">
+                                            <Skeleton className="w-14 h-14 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-44 bg-slate-200 dark:bg-[#1a2133]" />
+                                                <Skeleton className="h-4 w-20 bg-slate-200/60 dark:bg-[#1a2133]/60" />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-3.5 w-32 bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-3.5 w-32 bg-slate-200/60 dark:bg-[#1a2133]/60" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-36 bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-3 w-48 bg-slate-200/60 dark:bg-[#1a2133]/60" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                        <Skeleton className="h-5 w-28 rounded-md bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="py-4">
+                                        <Skeleton className="h-5 w-20 rounded-md bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="py-4 text-right pr-8">
+                                        <div className="flex justify-end gap-2">
+                                            <Skeleton className="h-9 w-9 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-9 w-9 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : events.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-64 text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-400">
@@ -140,7 +177,7 @@ export function EventsTable() {
                             </TableRow>
                         ) : (
                             events.map((event) => {
-                                const isRowLoading = deletingId === event.id || fetchingId === event.id;
+                                const isRowLoading = eventToDelete?.id === event.id && isDeleting;
                                 if (isRowLoading) {
                                     return (
                                         <TableRow
@@ -151,9 +188,9 @@ export function EventsTable() {
                                                 <div className="flex items-center space-x-4">
                                                     <Skeleton className="w-14 h-14 rounded-xl shrink-0" />
                                                     <div className="space-y-2">
-                                                        <Skeleton className="h-4 w-44 rounded-md" />
-                                                        <Skeleton className="h-4 w-20 rounded-md" />
-                                                    </div>
+                                                         <Skeleton className="h-4 w-44 rounded-md" />
+                                                         <Skeleton className="h-4 w-20 rounded-md" />
+                                                     </div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
@@ -249,16 +286,18 @@ export function EventsTable() {
                                         )}
                                     </TableCell>
                                     <TableCell className="py-4">
-                                        <Badge className={`font-black uppercase tracking-wider rounded-md text-[9px] py-1 px-2.5 shadow-sm inline-flex items-center gap-1 ${event.isPublished
-                                            ? "bg-emerald-500 text-white border-none"
-                                            : "bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
-                                            }`}>
-                                            {!event.isPublished && <EyeOff className="w-3 h-3" />}
-                                            {event.isPublished ? "Published" : "Hidden"}
-                                        </Badge>
+                                        {event.isPublished ? (
+                                            <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
+                                                Published
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="text-slate-500 border-slate-300 dark:border-slate-700 text-[10px] font-bold">
+                                                Draft
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                      <TableCell className="py-4 text-right pr-8">
-                                        <div className="flex justify-end items-center gap-2">
+                                        <div className="flex justify-end gap-2">
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
@@ -266,17 +305,12 @@ export function EventsTable() {
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() => handleEdit(event)}
-                                                            disabled={fetchingId === event.id}
-                                                            className="h-9 w-9 rounded-xl border border-transparent transition-all hover:bg-blue-50 dark:hover:bg-blue-900/20 border-slate-100 dark:border-white/5 text-blue-600"
+                                                            className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/40 border border-transparent hover:border-blue-200 transition-all"
                                                         >
-                                                            {fetchingId === event.id ? (
-                                                                <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                                                            ) : (
-                                                                <Edit className="w-4 h-4" />
-                                                            )}
+                                                            <Edit className="w-4 h-4" />
                                                         </Button>
                                                     </TooltipTrigger>
-                                                    <TooltipContent>Edit Event Details</TooltipContent>
+                                                    <TooltipContent>Edit Event</TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
 
@@ -286,7 +320,8 @@ export function EventsTable() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => handleDelete(event.id)}
+                                                            onClick={() => setEventToDelete(event)}
+                                                            disabled={isDeleting}
                                                             className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200 transition-all"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
@@ -358,6 +393,18 @@ export function EventsTable() {
                     </Button>
                 </div>
             </div>
+
+            {/* Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!eventToDelete}
+                onClose={() => {
+                    if (!isDeleting) setEventToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="Delete Municipal Event"
+                description={`Are you sure you want to permanently delete "${eventToDelete?.title || "this event"}"? If it has an attached cover poster, it will also be deleted from cloud storage.`}
+                isLoading={isDeleting}
+            />
         </>
     );
 }

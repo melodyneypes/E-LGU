@@ -25,12 +25,14 @@ export function AddNewsModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useNews();
     const { handleSubmit, loading } = useNewsForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("Local News");
     const [otherCategory, setOtherCategory] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isAddModalOpen) {
+            setIsImageRemoved(false);
             // Reset and sync image preview to active article data
             setImagePreview(editingData?.imageUrl || null);
 
@@ -52,12 +54,14 @@ export function AddNewsModal() {
             }
         } else {
             setImagePreview(null);
+            setIsImageRemoved(false);
         }
     }, [editingData, isAddModalOpen]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setIsImageRemoved(false);
             setImagePreview(URL.createObjectURL(file));
         }
     };
@@ -65,7 +69,10 @@ export function AddNewsModal() {
     const formatDateForInput = (dateInput: Date | string | undefined) => {
         if (!dateInput) return "";
         const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-        return date.toISOString().slice(0, 16);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset() * 60000;
+        const localDate = new Date(date.getTime() - offset);
+        return localDate.toISOString().slice(0, 16);
     };
 
     return (
@@ -295,6 +302,7 @@ export function AddNewsModal() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setImagePreview(null);
+                                                            setIsImageRemoved(true);
                                                             if (fileInputRef.current) fileInputRef.current.value = "";
                                                         }}
                                                     >
@@ -322,6 +330,14 @@ export function AddNewsModal() {
                                             onChange={handleImageChange}
                                             className="hidden"
                                         />
+                                        <input
+                                            type="hidden"
+                                            name="imageRemoved"
+                                            value={isImageRemoved ? "true" : "false"}
+                                        />
+                                        {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
+                                            <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
+                                        )}
                                     </div>
                                 </div>
                             </div>

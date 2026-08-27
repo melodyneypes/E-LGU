@@ -89,6 +89,11 @@ function formatFieldLabel(key: string): string {
         expiryDate: "Expiry Date",
         eventDate: "Event Date",
         eventSchedule: "Event Schedule / Time",
+        startDate: "Event Start Date & Time",
+        endDate: "Event End Date & Time",
+        venueName: "Venue / Place Name",
+        googleMapsUrl: "Google Maps Pin Link",
+        reminders: "Event Reminders & Guidelines",
         content: "Article Content / Narrative",
     };
 
@@ -988,18 +993,23 @@ export default function AuditLogsClient({
                                             })}
                                         </div>
                                     </div>
-                                ) : null}
-
-                                {/* Only show fallback metadata message if meaningful non-null context exists */}
+                                ) : null}                                {/* Metadata Display - Simplified & Limited for CREATE */}
                                 {(() => {
                                     if (!selectedLog.metadata || typeof selectedLog.metadata !== "object") return null;
                                     const hasChanges = !!(selectedLog.metadata.changes && Object.keys(selectedLog.metadata.changes).length > 0);
                                     
+                                    // For CREATE actions, show only limited core informative fields (Title, Category, Barangay/Venue, Author)
+                                    const createAllowedKeys = ["title", "name", "category", "barangay", "venueName", "author", "priority"];
+                                    
                                     const validEntries = Object.entries(selectedLog.metadata).filter(([k, v]) => {
-                                        if (k === "changes" || k === "changedFields" || k === "deletedRecordSnapshot") return false;
-                                        // If changes are already displayed side-by-side, hide redundant settingKey / status duplicates
+                                        if (k === "changes" || k === "changedFields" || k === "deletedRecordSnapshot" || k === "content") return false;
                                         if (hasChanges && (k === "settingKey" || k === "status")) return false;
                                         if (v === null || v === undefined || v === "" || v === "null") return false;
+                                        
+                                        // Strictly limit fields for CREATE action
+                                        if (selectedLog.action === "CREATE") {
+                                            return createAllowedKeys.includes(k);
+                                        }
                                         return true;
                                     });
 
@@ -1008,66 +1018,25 @@ export default function AuditLogsClient({
                                     return (
                                         <div className="space-y-3">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                                                {selectedLog.action === "CREATE" ? "Initial Creation Parameters & Record Details" : "Additional Parameters & Context"}
+                                                {selectedLog.action === "CREATE" ? "Created Record Summary" : "Additional Parameters & Context"}
                                             </span>
 
-                                            {/* Dedicated Block for Long Content/Narrative if present */}
-                                            {selectedLog.metadata?.content && (
-                                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
-                                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                                            Announcement Content / Narrative
-                                                        </span>
-                                                        <div className="flex items-center gap-2">
-                                                            {String(selectedLog.metadata.content).length > 120 && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setActiveReaderModal({
-                                                                            title: "Announcement Content / Narrative",
-                                                                            type: "new",
-                                                                            text: String(selectedLog.metadata.content),
-                                                                        })
-                                                                    }
-                                                                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 cursor-pointer"
-                                                                >
-                                                                    Open Reader
-                                                                </button>
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copyText(String(selectedLog.metadata.content), "Content")}
-                                                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                                                            >
-                                                                <Copy className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-3 rounded-xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
-                                                        {String(selectedLog.metadata.content)}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Badges for Key-Value Parameters (Excluding content which is rendered above) */}
+                                            {/* Badges for Key-Value Parameters */}
                                             <div className="flex flex-wrap gap-2 pt-0.5">
-                                                {validEntries
-                                                    .filter(([k]) => k !== "content")
-                                                    .map(([k, v]) => {
-                                                        const formattedLabel = formatFieldLabel(k);
-                                                        const formattedVal = typeof v === "string" ? formatFieldLabel(v) : String(v);
+                                                {validEntries.map(([k, v]) => {
+                                                    const formattedLabel = formatFieldLabel(k);
+                                                    const formattedVal = typeof v === "string" ? formatFieldLabel(v) : String(v);
 
-                                                        return (
-                                                            <span
-                                                                key={k}
-                                                                className="px-2.5 py-1 rounded-xl text-xs font-medium bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono shadow-xs"
-                                                            >
-                                                                <span className="text-slate-400 font-sans">{formattedLabel}:</span>{" "}
-                                                                <span className="font-bold text-slate-900 dark:text-white">{formattedVal}</span>
-                                                            </span>
-                                                        );
-                                                    })}
+                                                    return (
+                                                        <span
+                                                            key={k}
+                                                            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono shadow-xs"
+                                                        >
+                                                            <span className="text-slate-400 font-sans">{formattedLabel}:</span>{" "}
+                                                            <span className="font-bold text-slate-900 dark:text-white">{formattedVal}</span>
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );

@@ -687,7 +687,11 @@ export function Sidebar({
                 menuItems = allMenuItems;
             }
         } else if (role === "CONTENT_ADMIN") {
-            menuItems = allMenuItems.filter(item => contentAdminAllowed.includes(item.label));
+            menuItems = allMenuItems.filter(item => 
+                contentAdminAllowed.includes(item.label) && 
+                item.category !== "Rural Health Unit" &&
+                item.category !== "RHU"
+            );
         } else if (role === "BARANGAY_ADMIN") {
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {

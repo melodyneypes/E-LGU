@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useEvents } from "../providers/EventsProvider";
-import { addEvent, updateEvent } from "@/app/admin/actions";
+import { createEvent, updateEvent } from "../actions/events.actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -19,19 +19,29 @@ export function useEventsForm() {
 
         try {
             if (editingData) {
-                await updateEvent(editingData.id, formData);
-                toast.success("Event updated successfully!");
+                const res = await updateEvent(editingData.id, formData);
+                if (res.success) {
+                    toast.success("Event updated successfully!");
+                } else {
+                    toast.error(res.error || "Failed to update event.");
+                    return;
+                }
             } else {
-                await addEvent(formData);
-                toast.success("Event added successfully!");
+                const res = await createEvent(formData);
+                if (res.success) {
+                    toast.success("Event added successfully!");
+                } else {
+                    toast.error(res.error || "Failed to add event.");
+                    return;
+                }
             }
             setEditingData(null);
             setIsAddModalOpen(false);
             setIsPending(true);
             router.refresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving event:", error);
-            toast.error("Failed to save event. Please check the details and try again.");
+            toast.error(error?.message || "Failed to save event. Please check details and try again.");
         } finally {
             setLoading(false);
         }
