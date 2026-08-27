@@ -18,27 +18,45 @@ import { Loader2, FolderKanban, Upload, X, Image as ImageIcon } from "lucide-rea
 import Image from "next/image";
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 
 export function AddProjectModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, themeColor } = useProjects();
     const { handleSubmit, loading } = useProjectsForm();
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string>("Infrastructure");
+    const [selectedStatus, setSelectedStatus] = useState<string>("Planned");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const categories = ["Infrastructure", "Health", "Education", "Social Services", "Economic", "Environment", "Other"];
     const statuses = ["Planned", "Ongoing", "Completed", "Suspended"];
 
     useEffect(() => {
-        if (editingData?.imageUrl) {
-            setImagePreview(editingData.imageUrl);
+        if (isAddModalOpen) {
+            // Only set image from editingData if user hasn't uploaded a new file or explicitly removed the image
+            if (!isImageRemoved && !selectedFile) {
+                setImagePreview(editingData?.imageUrl || null);
+            }
+            if (editingData?.category) {
+                setSelectedCategory(editingData.category);
+            } else if (!editingData) {
+                setSelectedCategory("Infrastructure");
+            }
+            if (editingData?.status) {
+                setSelectedStatus(editingData.status);
+            } else if (!editingData) {
+                setSelectedStatus("Planned");
+            }
         } else {
             setImagePreview(null);
+            setIsImageRemoved(false);
+            setSelectedFile(null);
+            setSelectedCategory("Infrastructure");
+            setSelectedStatus("Planned");
         }
-        setSelectedFile(null);
-    }, [editingData, isAddModalOpen]);
+    }, [editingData, isAddModalOpen, isImageRemoved, selectedFile]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -47,6 +65,7 @@ export function AddProjectModal() {
                 toast.error("Image size should be less than 5MB");
                 return;
             }
+            setIsImageRemoved(false);
             setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -58,10 +77,20 @@ export function AddProjectModal() {
 
     const clearImage = () => {
         setImagePreview(null);
+        setIsImageRemoved(true);
         setSelectedFile(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
+    };
+
+    const formatDateForInput = (dateInput: Date | string | undefined | null) => {
+        if (!dateInput) return "";
+        const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+        if (isNaN(date.getTime())) return "";
+        const offset = date.getTimezoneOffset() * 60000;
+        const localDate = new Date(date.getTime() - offset);
+        return localDate.toISOString().slice(0, 10);
     };
 
     const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -158,7 +187,12 @@ export function AddProjectModal() {
                                         </div>
                                     )}
                                 </div>
-                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                <input
+                                    type="hidden"
+                                    name="imageRemoved"
+                                    value={isImageRemoved ? "true" : "false"}
+                                />
+                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                     <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                 )}
                             </div>
@@ -178,7 +212,7 @@ export function AddProjectModal() {
 
                                 <div className="space-y-2 min-w-0">
                                     <Label className="text-slate-700 dark:text-slate-300 font-bold">Category</Label>
-                                    <Select name="category" defaultValue={editingData?.category || categories[0]}>
+                                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                                         <SelectTrigger
                                             className="!w-full !h-12 min-h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040]"
                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
@@ -189,11 +223,12 @@ export function AddProjectModal() {
                                             {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    <input type="hidden" name="category" value={selectedCategory} />
                                 </div>
 
                                 <div className="space-y-2 min-w-0">
                                     <Label className="text-slate-700 dark:text-slate-300 font-bold">Status</Label>
-                                    <Select name="status" defaultValue={editingData?.status || statuses[0]}>
+                                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                                         <SelectTrigger
                                             className="!w-full !h-12 min-h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040]"
                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
@@ -204,6 +239,7 @@ export function AddProjectModal() {
                                             {statuses.map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    <input type="hidden" name="status" value={selectedStatus} />
                                 </div>
 
                                 <div className="space-y-2 md:col-span-2">
@@ -242,15 +278,7 @@ export function AddProjectModal() {
                                     <Input
                                         type="date"
                                         name="startDate"
-                                        defaultValue={(() => {
-                                            if (!editingData?.startDate) return "";
-                                            try {
-                                                const d = new Date(editingData.startDate);
-                                                return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
-                                            } catch {
-                                                return "";
-                                            }
-                                        })()}
+                                        defaultValue={formatDateForInput(editingData?.startDate)}
                                         className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] [color-scheme:light] dark:[color-scheme:dark]"
                                     />
                                 </div>
@@ -260,15 +288,7 @@ export function AddProjectModal() {
                                     <Input
                                         type="date"
                                         name="endDate"
-                                        defaultValue={(() => {
-                                            if (!editingData?.endDate) return "";
-                                            try {
-                                                const d = new Date(editingData.endDate);
-                                                return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
-                                            } catch {
-                                                return "";
-                                            }
-                                        })()}
+                                        defaultValue={formatDateForInput(editingData?.endDate)}
                                         className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] [color-scheme:light] dark:[color-scheme:dark]"
                                     />
                                 </div>

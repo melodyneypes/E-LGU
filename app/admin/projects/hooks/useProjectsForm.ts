@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useProjects } from "../providers/ProjectsProvider";
-import { addProject, updateProject } from "@/app/admin/actions";
+import { createProject, updateProject } from "../actions/projects.actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -26,7 +26,7 @@ export function useProjectsForm() {
                 if (!res.success) throw new Error(res.error);
                 toast.success("Project updated successfully!");
             } else {
-                const res = await addProject(formData);
+                const res = await createProject(formData);
                 if (!res.success) throw new Error(res.error);
                 toast.success("Project added successfully!");
             }
