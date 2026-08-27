@@ -43,13 +43,13 @@ export async function upsertAboutData(formData: FormData) {
         const fieldsToTrack: { key: string; label: string }[] = targetBarangay
             ? [
                   { key: "history", label: "Historical Narrative" },
+                  { key: "description", label: "Overview & Profile Description" },
                   { key: "geographyOrDemographics", label: "Geography & Demographics" },
                   { key: "mission", label: "Mission Statement" },
                   { key: "vision", label: "Vision Statement" },
                   { key: "coreValues", label: "Core Values" },
                   { key: "captainName", label: "Barangay Captain Name" },
                   { key: "captainMessage", label: "Captain's Message" },
-                  { key: "description", label: "Brief Overview" },
               ]
             : [
                   { key: "history", label: "Historical Narrative" },
@@ -58,7 +58,7 @@ export async function upsertAboutData(formData: FormData) {
                   { key: "vision", label: "Vision Statement" },
                   { key: "coreValues", label: "Core Values" },
                   { key: "mayorName", label: "Mayor Name" },
-                  { key: "mayorMessage", label: "Mayor's Message" },
+                  { key: "mayorMessage", label: "Mayor's Executive Message" },
               ];
 
         const targetData: Record<string, any> = targetBarangay
@@ -174,17 +174,19 @@ export async function upsertAboutData(formData: FormData) {
             dynamicDesc = `Saved ${targetBarangay ? `Barangay ${targetBarangay} profile` : "Municipal About page"} (no content altered)`;
         }
 
+        // Clean metadata payload (omit null/undefined properties)
+        const metadataPayload: Record<string, any> = {};
+        if (targetBarangay) metadataPayload.barangay = targetBarangay;
+        if (changedFieldNames.length > 0) metadataPayload.changedFields = changedFieldNames;
+        if (Object.keys(changes).length > 0) metadataPayload.changes = changes;
+
         // Log About Update with exact state diffs
         await logActivity({
             action: "UPDATE",
             entityType: "AboutPage",
             entityName: targetBarangay ? `Brgy. ${targetBarangay}` : "Municipal Overview",
             description: dynamicDesc,
-            metadata: {
-                barangay: targetBarangay || null,
-                changedFields: changedFieldNames,
-                changes: Object.keys(changes).length > 0 ? changes : null
-            }
+            metadata: metadataPayload
         });
 
         revalidatePath("/about");
@@ -228,6 +230,42 @@ export async function upsertPastMayor(id: string | null, formData: FormData) {
             barangay: role === "BARANGAY_ADMIN" ? managedBarangay : null,
         };
 
+        // Compute granular diffs for edit operations
+        const changes: Record<string, { old: any; new: any }> = {};
+        const changedFieldNames: string[] = [];
+
+        if (oldMayor) {
+            const fieldsToTrack: { key: keyof typeof data; label: string }[] = [
+                { key: "name", label: "Full Name" },
+                { key: "termStart", label: "Term Start" },
+                { key: "termEnd", label: "Term End" },
+                { key: "description", label: "Biography / Narrative" },
+                { key: "order", label: "Display Order" },
+            ];
+
+            for (const field of fieldsToTrack) {
+                const oldVal = oldMayor[field.key] ?? "";
+                const newVal = data[field.key] ?? "";
+
+                if (String(oldVal) !== String(newVal)) {
+                    changes[field.key] = {
+                        old: oldVal || null,
+                        new: newVal || null,
+                    };
+                    changedFieldNames.push(field.label);
+                }
+            }
+
+            // Track portrait change explicitly
+            if (imageUrl && oldMayor.imageUrl !== imageUrl) {
+                changes["imageUrl"] = {
+                    old: oldMayor.imageUrl || null,
+                    new: imageUrl,
+                };
+                changedFieldNames.push("Official Portrait Image");
+            }
+        }
+
         if (id) {
             await (prisma as any).pastMayor.update({
                 where: { id },
@@ -239,14 +277,32 @@ export async function upsertPastMayor(id: string | null, formData: FormData) {
             });
         }
 
-        // Log Past Mayor Action
+        // Build dynamic human-readable description
+        let dynamicDesc = "";
+        if (id) {
+            if (changedFieldNames.length > 0) {
+                dynamicDesc = `Updated ${changedFieldNames.join(", ")} for historical leader: "${data.name}"`;
+            } else {
+                dynamicDesc = `Saved historical leader entry: "${data.name}" (no fields modified)`;
+            }
+        } else {
+            dynamicDesc = `Added new historical leader entry: "${data.name}" (${data.termStart} - ${data.termEnd})`;
+        }
+
+        // Log Past Mayor Action with precise diff metadata
         await logActivity({
             action: id ? "UPDATE" : "CREATE",
             entityType: "PastMayor",
             entityId: id || undefined,
             entityName: data.name,
-            description: `${id ? "Updated" : "Added"} historical leader: "${data.name}" (${data.termStart} - ${data.termEnd})`,
-            metadata: { name: data.name, term: `${data.termStart} - ${data.termEnd}` }
+            description: dynamicDesc,
+            metadata: {
+                name: data.name,
+                term: `${data.termStart} - ${data.termEnd}`,
+                barangay: data.barangay || null,
+                changedFields: changedFieldNames.length > 0 ? changedFieldNames : undefined,
+                changes: Object.keys(changes).length > 0 ? changes : undefined,
+            }
         });
 
         revalidatePath("/about");
@@ -264,14 +320,19 @@ export async function deletePastMayor(id: string) {
         if (item?.imageUrl) await deleteUploadedFile(item.imageUrl);
         await (prisma as any).pastMayor.delete({ where: { id } });
 
-        // Log Past Mayor Deletion
+        // Log Past Mayor Deletion with full recovery snapshot in metadata
         await logActivity({
             action: "DELETE",
             entityType: "PastMayor",
             entityId: id,
             entityName: item?.name || "Past Mayor",
-            description: `Deleted historical leader entry: "${item?.name || id}"`,
-            metadata: { name: item?.name }
+            description: `Deleted historical leader entry: "${item?.name || id}" (${item?.termStart || ""} - ${item?.termEnd || ""})`,
+            metadata: {
+                name: item?.name,
+                term: item ? `${item.termStart} - ${item.termEnd}` : undefined,
+                barangay: item?.barangay || null,
+                deletedRecordSnapshot: item || null,
+            }
         });
 
         revalidatePath("/about");

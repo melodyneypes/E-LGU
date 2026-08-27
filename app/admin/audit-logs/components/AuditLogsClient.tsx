@@ -116,9 +116,11 @@ export default function AuditLogsClient({
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(15);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [isExporting, setIsExporting] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
 
     const [stats, setStats] = useState({
         totalLogs: 0,
@@ -150,12 +152,16 @@ export default function AuditLogsClient({
         toast.success(`${label} copied to clipboard`);
     };
 
-    // Debounce search input
+    // Debounce search input with visual indicator
     useEffect(() => {
+        if (search !== debouncedSearch) {
+            setIsSearching(true);
+        }
         const timer = setTimeout(() => {
             setDebouncedSearch(search);
+            setIsSearching(false);
             setCurrentPage(1);
-        }, 400);
+        }, 350);
         return () => clearTimeout(timer);
     }, [search]);
 
@@ -165,7 +171,7 @@ export default function AuditLogsClient({
             const [logsRes, statsRes] = await Promise.all([
                 getAuditLogs({
                     page: currentPage,
-                    limit: 15,
+                    limit: pageSize,
                     search: debouncedSearch,
                     department: departmentFilter,
                     userRole: roleFilter,
@@ -192,7 +198,7 @@ export default function AuditLogsClient({
         } finally {
             setLoading(false);
         }
-    }, [currentPage, debouncedSearch, departmentFilter, roleFilter, actionFilter, startDate, endDate]);
+    }, [currentPage, pageSize, debouncedSearch, departmentFilter, roleFilter, actionFilter, startDate, endDate]);
 
     useEffect(() => {
         fetchLogs();
@@ -327,8 +333,23 @@ export default function AuditLogsClient({
                             placeholder="Search by staff name, action description, record ID..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="pl-10 h-11 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] text-xs"
+                            className="pl-10 pr-10 h-11 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] text-xs"
                         />
+                        {isSearching ? (
+                            <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-600" />
+                        ) : search ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearch("");
+                                    setDebouncedSearch("");
+                                    setCurrentPage(1);
+                                }}
+                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                            >
+                                ✕
+                            </button>
+                        ) : null}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
@@ -626,9 +647,33 @@ export default function AuditLogsClient({
 
                 {/* Pagination Controls */}
                 <div className="p-4 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-                    <span className="text-slate-500">
-                        Showing {logs.length > 0 ? (currentPage - 1) * 15 + 1 : 0} to {Math.min(currentPage * 15, totalCount)} of {totalCount} log records
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-slate-500">
+                            Showing {logs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} log records
+                        </span>
+
+                        <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-[#2a3040]">
+                            <span className="text-[11px] text-slate-400 font-medium">Rows per page:</span>
+                            <Select
+                                value={String(pageSize)}
+                                onValueChange={val => {
+                                    setPageSize(Number(val));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="w-[70px] h-8 rounded-xl text-xs bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040]">
+                                    <SelectValue placeholder="15" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[160]">
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="15">15</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                         <Button
@@ -903,22 +948,36 @@ export default function AuditLogsClient({
                                     </div>
                                 ) : null}
 
-                                {/* Only show fallback metadata message if no structured changes exist */}
-                                {!selectedLog.metadata?.changes && selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
-                                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-1">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                                            Additional Context
-                                        </span>
-                                        <p className="text-xs text-slate-700 dark:text-slate-300 font-mono">
-                                            {typeof selectedLog.metadata === "object"
-                                                ? Object.entries(selectedLog.metadata)
-                                                      .filter(([k]) => k !== "changes" && k !== "changedFields")
-                                                      .map(([k, v]) => `${k}: ${v}`)
-                                                      .join(", ") || "No additional parameters."
-                                                : String(selectedLog.metadata)}
-                                        </p>
-                                    </div>
-                                )}
+                                {/* Only show fallback metadata message if meaningful non-null context exists */}
+                                {(() => {
+                                    if (!selectedLog.metadata || typeof selectedLog.metadata !== "object") return null;
+                                    const validEntries = Object.entries(selectedLog.metadata).filter(([k, v]) => {
+                                        if (k === "changes" || k === "changedFields" || k === "deletedRecordSnapshot") return false;
+                                        if (v === null || v === undefined || v === "" || v === "null") return false;
+                                        return true;
+                                    });
+
+                                    if (validEntries.length === 0) return null;
+
+                                    return (
+                                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-1.5">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                                                Additional Parameters & Context
+                                            </span>
+                                            <div className="flex flex-wrap gap-2 pt-0.5">
+                                                {validEntries.map(([k, v]) => (
+                                                    <span
+                                                        key={k}
+                                                        className="px-2.5 py-1 rounded-xl text-xs font-medium bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono shadow-xs"
+                                                    >
+                                                        <span className="text-slate-400 capitalize">{k.replace(/([A-Z])/g, " $1").trim()}:</span>{" "}
+                                                        <span className="font-bold text-slate-900 dark:text-white">{String(v)}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-[#2a3040] shrink-0">
