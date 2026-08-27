@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { createHeroSlide, deleteHeroSlide, updateHeroSlide, updateSystemSetting } from "./actions";
 import { updateGeneralSettingToggle, updateSiteLogo, saveGeneralIdentitySettings } from "./general.actions";
+import { updateSystemCredentials } from "./credentials.actions";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -38,8 +39,8 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
     const [maintenanceMode, setMaintenanceMode] = useState(settings.maintenance_mode === "true");
     const [kioskMaintenanceMode, setKioskMaintenanceMode] = useState(settings.kiosk_maintenance_mode === "true");
     const [logoUrl, setLogoUrl] = useState(settings.site_logo || "");
-    const [portalName, setPortalName] = useState(settings.portal_name || "Municipality of Mapandan");
-    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "911");
+    const [portalName, setPortalName] = useState(settings.portal_name || "");
+    const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "");
     const [brandWord1, setBrandWord1] = useState(settings.brand_word_1 || "E");
     const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || "");
     const [themeColor, setThemeColor] = useState(settings.theme_color || "#2563eb");
@@ -174,6 +175,27 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
         } catch (error) {
             console.error("Error saving settings:", error);
             toast.error("Failed to save settings");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveCredentials = async () => {
+        setIsSaving(true);
+        try {
+            const result = await updateSystemCredentials({
+                portalName,
+                emergencyPhone
+            });
+            if (result.success) {
+                toast.success("System credentials updated successfully!");
+                router.refresh();
+            } else {
+                toast.error(result.error || "Failed to update credentials");
+            }
+        } catch (error) {
+            console.error("Error saving credentials:", error);
+            toast.error("Failed to update credentials");
         } finally {
             setIsSaving(false);
         }
@@ -593,7 +615,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                         </div>
                                     </div>
                                     <Button
-                                        onClick={handleSaveSettings}
+                                        onClick={handleSaveCredentials}
                                         disabled={isSaving}
                                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                                         className="w-full text-white rounded-xl py-6 hover:opacity-90 transition-opacity font-bold"
