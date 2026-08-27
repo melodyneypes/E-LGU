@@ -213,11 +213,6 @@ export async function upsertPastMayor(id: string | null, formData: FormData) {
 
         const oldMayor = id ? await (prisma as any).pastMayor.findUnique({ where: { id } }) : null;
         const imageUrl = await processImageUpload(formData, "past-mayor");
-
-        // Auto-delete old image if replaced
-        if (imageUrl && oldMayor?.imageUrl && oldMayor.imageUrl !== imageUrl) {
-            await deleteUploadedFile(oldMayor.imageUrl);
-        }
         const managedBarangay = (session?.user as any)?.managedBarangay;
 
         const data = {

@@ -14,23 +14,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { deleteBarangay } from "../../actions";
 import { toast } from "sonner";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 // Define the type since Prisma auto-gen might be lagging for the client
  
 export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: { initialData: any[]; themeColor?: string }) {
+    const [dataList, setDataList] = useState(initialData);
     const [searchQuery, setSearchQuery] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
+    const [deletingItem, setDeletingItem] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to completely remove this Barangay?")) return;
+    const handleConfirmDelete = async () => {
+        if (!deletingItem) return;
         setIsDeleting(true);
         try {
-            const result = await deleteBarangay(id);
+            const result = await deleteBarangay(deletingItem.id);
             if (result.success) {
-                toast.success("Barangay deleted successfully!");
-                window.location.reload();
+                toast.success(`Barangay "${deletingItem.name}" deleted successfully!`);
+                setDataList(prev => prev.filter(item => item.id !== deletingItem.id));
+                setDeletingItem(null);
             } else {
                 toast.error(result.error || "Failed to delete");
             }
@@ -41,7 +45,7 @@ export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: 
         }
     };
 
-    const filteredData = initialData.filter((item) =>
+    const filteredData = dataList.filter((item) =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -116,7 +120,7 @@ export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: 
                                                 <DropdownMenuItem 
                                                     className="font-bold text-xs uppercase tracking-wider py-3 rounded-lg cursor-pointer text-red-650 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center"
                                                     disabled={isDeleting}
-                                                    onClick={() => handleDelete(item.id)}
+                                                    onClick={() => setDeletingItem(item)}
                                                 >
                                                     <Trash2 size={14} className="mr-2 text-red-600 dark:text-red-400" />
                                                     Delete
@@ -130,6 +134,26 @@ export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: 
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Custom Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!deletingItem}
+                onClose={() => setDeletingItem(null)}
+                onConfirm={handleConfirmDelete}
+                isLoading={isDeleting}
+                title="Delete Barangay"
+                description={
+                    deletingItem ? (
+                        <span>
+                            Are you sure you want to permanently remove Barangay{" "}
+                            <strong className="text-slate-900 dark:text-white font-black">
+                                &quot;{deletingItem.name}&quot;
+                            </strong>? All associated configuration and profile references for this barangay will be affected.
+                        </span>
+                    ) : undefined
+                }
+                confirmText="Delete Barangay"
+            />
 
             {isAddModalOpen && (
                 <AddBarangayModal
