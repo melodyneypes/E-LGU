@@ -94,7 +94,7 @@ export async function createHeroSlide(formData: FormData) {
     let newlyUploadedUrl: string | null = null;
 
     try {
-        const { role, isBarangayAdmin, managedBarangay } = await verifyHeroSlideAccess();
+        const { isBarangayAdmin, managedBarangay } = await verifyHeroSlideAccess();
 
         const title = (formData.get("title") as string)?.trim() || "";
         const subtitle = (formData.get("subtitle") as string)?.trim() || "";

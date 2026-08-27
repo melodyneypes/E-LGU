@@ -14,6 +14,8 @@ import { deleteAnnouncement, toggleAnnouncementStatus, toggleAnnouncementPin, ge
 import { Check, X, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AnnouncementTable() {
     const {
@@ -34,7 +36,8 @@ export function AnnouncementTable() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -87,20 +90,27 @@ export function AnnouncementTable() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this announcement?")) return;
-        setDeletingId(id);
+    const handleConfirmDelete = async () => {
+        if (!announcementToDelete) return;
+        const targetId = announcementToDelete.id;
+        setIsDeleting(true);
+        setIsPending(true);
+
         try {
-            const res = await deleteAnnouncement(id);
+            const res = await deleteAnnouncement(targetId);
             if (res.success) {
-                toast.success("Announcement deleted!");
+                toast.success("Announcement deleted successfully!");
+                setAnnouncementToDelete(null);
+                router.refresh();
             } else {
                 toast.error(res.error || "Failed to delete.");
+                setIsPending(false);
             }
         } catch {
-            toast.error("Error deleting announcement.");
+            toast.error("An unexpected error occurred while deleting.");
+            setIsPending(false);
         } finally {
-            setDeletingId(null);
+            setIsDeleting(false);
         }
     };
 
@@ -183,20 +193,7 @@ export function AnnouncementTable() {
     return (
         <div className="space-y-4">
             <div className="overflow-x-auto relative">
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
-                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                            <span
-                                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
-                            />
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
-                                Refreshing notices...
-                            </span>
-                        </div>
-                    </div>
-                )}
-                <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
+                <Table>
                     <TableHeader className="bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-[#2a3040]">
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="w-[380px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pl-8 py-4">
@@ -225,7 +222,48 @@ export function AnnouncementTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {announcements.map((item) => {
+                        {isPending ? (
+                            Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
+                                <TableRow key={`skeleton-${idx}`} className="border-b border-slate-100 dark:border-[#2a3040]/50 animate-pulse">
+                                    <TableCell className="pl-8 py-5">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-48 bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-3 w-64 bg-slate-200/60 dark:bg-[#1a2133]/60" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-5 w-24 rounded-lg bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    {!hideCategory && (
+                                        <TableCell>
+                                            <Skeleton className="h-5 w-20 rounded-lg bg-slate-200 dark:bg-[#1a2133]" />
+                                        </TableCell>
+                                    )}
+                                    <TableCell>
+                                        <Skeleton className="h-5 w-16 rounded-lg bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-24 bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Skeleton className="h-5 w-9 mx-auto rounded-full bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-8">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Skeleton className="h-8 w-8 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-8 w-8 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : announcements.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={hideCategory ? 6 : 7} className="p-12 text-center text-slate-400">
+                                    No announcements found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            announcements.map((item) => {
                             const itemAuthorEmail = (item.authorEmail || "").toLowerCase();
                             const isStaff = userRole === "RHU_STAFF";
                             const canEdit =
@@ -427,8 +465,8 @@ export function AnnouncementTable() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => handleDelete(item.id)}
-                                                                    disabled={deletingId === item.id}
+                                                                    onClick={() => setAnnouncementToDelete(item)}
+                                                                    disabled={isDeleting}
                                                                     className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200"
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
@@ -449,7 +487,8 @@ export function AnnouncementTable() {
                                     </TableCell>
                                 </TableRow>
                             );
-                        })}
+                        })
+                    )}
                     </TableBody>
                 </Table>
             </div>
@@ -507,6 +546,18 @@ export function AnnouncementTable() {
                     </Button>
                 </div>
             </div>
+
+            {/* Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!announcementToDelete}
+                onClose={() => {
+                    if (!isDeleting) setAnnouncementToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="Delete Announcement"
+                description={`Are you sure you want to permanently delete "${announcementToDelete?.title || "this announcement"}"? If it has an attached image banner, it will also be deleted from storage.`}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }
