@@ -52,19 +52,6 @@ export function AddBarangayModal({
         }
     }
 
-    async function handleDelete() {
-        if (!confirm("Are you sure you want to completely remove this Barangay?")) return;
-        setIsSubmitting(true);
-        const result = await deleteBarangay(editingItem.id);
-        if (result.success) {
-            toast.success("Barangay deleted.");
-            onClose();
-        } else {
-            toast.error(result.error || "Failed to delete");
-            setIsSubmitting(false);
-        }
-    }
-
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl w-full max-w-2xl border border-slate-200 dark:border-[#2a3040] shadow-2xl relative my-8 flex flex-col max-h-[90vh]">

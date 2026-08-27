@@ -58,6 +58,50 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
+
+/**
+ * Transforms system keys into clean, human-readable labels
+ */
+function formatFieldLabel(key: string): string {
+    if (!key) return "";
+
+    const labelDictionary: Record<string, string> = {
+        maintenance_mode: "Maintenance Mode",
+        kiosk_maintenance_mode: "Kiosk Maintenance Mode",
+        site_logo: "Site Logo",
+        brand_word_1: "Brand First Word",
+        brand_word_2: "Brand Second Word",
+        theme_color: "Theme Color",
+        app_google_play_url: "Google Play Store URL",
+        app_app_store_url: "Apple App Store URL",
+        app_apk_download_url: "Direct APK Download URL",
+        social_facebook: "Facebook Page URL",
+        social_twitter: "Twitter / X URL",
+        social_instagram: "Instagram URL",
+        contact_address: "Office Address",
+        contact_email: "Official Email",
+        contact_phone: "Contact Telephone",
+        isEmailVerified: "Email Verification Status",
+        managedBarangay: "Assigned Barangay",
+        captainName: "Barangay Captain Name",
+        captainMessage: "Captain's Message",
+        mayorName: "Mayor Name",
+        mayorMessage: "Mayor's Message",
+        portraitImage: "Official Portrait",
+        coverImage: "Cover Banner Image",
+    };
+
+    if (labelDictionary[key]) {
+        return labelDictionary[key];
+    }
+
+    // Convert snake_case or camelCase to Title Case
+    return key
+        .replace(/_/g, " ")
+        .replace(/([A-Z])/g, " $1")
+        .replace(/\b\w/g, char => char.toUpperCase())
+        .trim();
+}
 import { format } from "date-fns";
 
 const DEPARTMENTS = [
@@ -787,137 +831,136 @@ export default function AuditLogsClient({
                                                     ))}
                                                 </div>
                                             )}
-                                        </div>
-
-                                        <div className="space-y-3">
+                                        </div>                                        <div className="space-y-3">
                                             {Object.entries(selectedLog.metadata.changes).map(([fieldKey, val]: [string, any]) => {
-                                                const isExpanded = !!expandedFields[fieldKey];
-                                                const oldStr = val?.old !== null && val?.old !== undefined && val?.old !== "" ? String(val.old) : null;
-                                                const newStr = val?.new !== null && val?.new !== undefined && val?.new !== "" ? String(val.new) : null;
-                                                const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
+                                                 const isExpanded = !!expandedFields[fieldKey];
+                                                 const oldStr = val?.old !== null && val?.old !== undefined && val?.old !== "" ? String(val.old) : null;
+                                                 const newStr = val?.new !== null && val?.new !== undefined && val?.new !== "" ? String(val.new) : null;
+                                                 const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
+                                                 const displayFieldLabel = formatFieldLabel(fieldKey);
 
-                                                return (
-                                                    <div
-                                                        key={fieldKey}
-                                                        className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-3"
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                                                {fieldKey.replace(/([A-Z])/g, " $1").trim()}
-                                                            </span>
-                                                            <div className="flex items-center gap-2">
-                                                                {isLongText && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleFieldExpand(fieldKey)}
-                                                                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                                                    >
-                                                                        {isExpanded ? (
-                                                                            <>
-                                                                                <ChevronUp className="w-3 h-3" /> Show Less
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <ChevronDown className="w-3 h-3" /> Expand Full Diff
-                                                                            </>
-                                                                        )}
-                                                                    </button>
-                                                                )}
-                                                                <span className="text-[9px] font-mono text-slate-400 uppercase font-medium bg-slate-200/60 dark:bg-[#202738] px-2 py-0.5 rounded-md">
-                                                                    Field Diff
-                                                                </span>
-                                                            </div>
-                                                        </div>
+                                                 return (
+                                                     <div
+                                                         key={fieldKey}
+                                                         className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-3"
+                                                     >
+                                                         <div className="flex items-center justify-between">
+                                                             <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
+                                                                 <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                 {displayFieldLabel}
+                                                             </span>
+                                                             <div className="flex items-center gap-2">
+                                                                 {isLongText && (
+                                                                     <button
+                                                                         type="button"
+                                                                         onClick={() => toggleFieldExpand(fieldKey)}
+                                                                         className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                                                     >
+                                                                         {isExpanded ? (
+                                                                             <>
+                                                                                 <ChevronUp className="w-3 h-3" /> Show Less
+                                                                             </>
+                                                                         ) : (
+                                                                             <>
+                                                                                 <ChevronDown className="w-3 h-3" /> Expand Full Diff
+                                                                             </>
+                                                                         )}
+                                                                     </button>
+                                                                 )}
+                                                                 <span className="text-[9px] font-mono text-slate-400 uppercase font-medium bg-slate-200/60 dark:bg-[#202738] px-2 py-0.5 rounded-md">
+                                                                     Field Diff
+                                                                 </span>
+                                                             </div>
+                                                         </div>
 
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                                                            {/* Old Value */}
-                                                            <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 relative group">
-                                                                <div className="flex items-center justify-between mb-1.5">
-                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
-                                                                        Previous Value
-                                                                    </span>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        {oldStr && oldStr.length > 120 && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    setActiveReaderModal({
-                                                                                        title: `${fieldKey.replace(/([A-Z])/g, " $1").trim()} (Previous)`,
-                                                                                        type: "old",
-                                                                                        text: oldStr,
-                                                                                    })
-                                                                                }
-                                                                                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer"
-                                                                            >
-                                                                                Open Reader
-                                                                            </button>
-                                                                        )}
+                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                                             {/* Old Value */}
+                                                             <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 relative group">
+                                                                 <div className="flex items-center justify-between mb-1.5">
+                                                                     <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                                                                         Previous Value
+                                                                     </span>
+                                                                     <div className="flex items-center gap-1.5">
+                                                                         {oldStr && oldStr.length > 120 && (
+                                                                             <button
+                                                                                 type="button"
+                                                                                 onClick={() =>
+                                                                                     setActiveReaderModal({
+                                                                                         title: `${displayFieldLabel} (Previous)`,
+                                                                                         type: "old",
+                                                                                         text: oldStr,
+                                                                                     })
+                                                                                 }
+                                                                                 className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer"
+                                                                             >
+                                                                                 Open Reader
+                                                                             </button>
+                                                                         )}
 
-                                                                        {oldStr && (
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => copyText(oldStr, "Previous value")}
-                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                                                                                    >
-                                                                                        <Copy className="w-3 h-3" />
-                                                                                    </button>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    <p>Copy text</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
+                                                                         {oldStr && (
+                                                                             <Tooltip>
+                                                                                 <TooltipTrigger asChild>
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => copyText(oldStr, "Previous value")}
+                                                                                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                     >
+                                                                                         <Copy className="w-3 h-3" />
+                                                                                     </button>
+                                                                                 </TooltipTrigger>
+                                                                                 <TooltipContent>
+                                                                                     <p>Copy text</p>
+                                                                                 </TooltipContent>
+                                                                             </Tooltip>
+                                                                         )}
+                                                                     </div>
+                                                                 </div>
 
-                                                                <div className={`text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
-                                                                    {oldStr ? (
-                                                                        isExpanded ? (
-                                                                            <p>{oldStr}</p>
-                                                                        ) : (
-                                                                            <p className="line-clamp-3">{oldStr}</p>
-                                                                        )
-                                                                    ) : (
-                                                                        <span className="italic text-slate-400">Empty / Null</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
+                                                                 <div className={`text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
+                                                                     {oldStr ? (
+                                                                         isExpanded ? (
+                                                                             <p>{oldStr}</p>
+                                                                         ) : (
+                                                                             <p className="line-clamp-3">{oldStr}</p>
+                                                                         )
+                                                                     ) : (
+                                                                         <span className="italic text-slate-400">Empty / Null</span>
+                                                                     )}
+                                                                 </div>
+                                                             </div>
 
-                                                            {/* New Value */}
-                                                            <div className="p-3 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 relative group">
-                                                                <div className="flex items-center justify-between mb-1.5">
-                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                                                        Updated Value
-                                                                    </span>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        {newStr && newStr.length > 120 && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    setActiveReaderModal({
-                                                                                        title: `${fieldKey.replace(/([A-Z])/g, " $1").trim()} (Updated)`,
-                                                                                        type: "new",
-                                                                                        text: newStr,
-                                                                                    })
-                                                                                }
-                                                                                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 cursor-pointer"
-                                                                            >
-                                                                                Open Reader
-                                                                            </button>
-                                                                        )}
+                                                             {/* New Value */}
+                                                             <div className="p-3 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 relative group">
+                                                                 <div className="flex items-center justify-between mb-1.5">
+                                                                     <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                                                         Updated Value
+                                                                     </span>
+                                                                     <div className="flex items-center gap-1.5">
+                                                                         {newStr && newStr.length > 120 && (
+                                                                             <button
+                                                                                 type="button"
+                                                                                 onClick={() =>
+                                                                                     setActiveReaderModal({
+                                                                                         title: `${displayFieldLabel} (Updated)`,
+                                                                                         type: "new",
+                                                                                         text: newStr,
+                                                                                     })
+                                                                                 }
+                                                                                 className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 cursor-pointer"
+                                                                             >
+                                                                                 Open Reader
+                                                                             </button>
+                                                                         )}
 
-                                                                        {newStr && (
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => copyText(newStr, "Updated value")}
-                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                                                                                    >
-                                                                                        <Copy className="w-3 h-3" />
+                                                                         {newStr && (
+                                                                             <Tooltip>
+                                                                                 <TooltipTrigger asChild>
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => copyText(newStr, "Updated value")}
+                                                                                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                     >
+                                                                                         <Copy className="w-3 h-3" />
                                                                                     </button>
                                                                                 </TooltipTrigger>
                                                                                 <TooltipContent>
@@ -951,8 +994,12 @@ export default function AuditLogsClient({
                                 {/* Only show fallback metadata message if meaningful non-null context exists */}
                                 {(() => {
                                     if (!selectedLog.metadata || typeof selectedLog.metadata !== "object") return null;
+                                    const hasChanges = !!(selectedLog.metadata.changes && Object.keys(selectedLog.metadata.changes).length > 0);
+                                    
                                     const validEntries = Object.entries(selectedLog.metadata).filter(([k, v]) => {
                                         if (k === "changes" || k === "changedFields" || k === "deletedRecordSnapshot") return false;
+                                        // If changes are already displayed side-by-side, hide redundant settingKey / status duplicates
+                                        if (hasChanges && (k === "settingKey" || k === "status")) return false;
                                         if (v === null || v === undefined || v === "" || v === "null") return false;
                                         return true;
                                     });
@@ -965,15 +1012,20 @@ export default function AuditLogsClient({
                                                 Additional Parameters & Context
                                             </span>
                                             <div className="flex flex-wrap gap-2 pt-0.5">
-                                                {validEntries.map(([k, v]) => (
-                                                    <span
-                                                        key={k}
-                                                        className="px-2.5 py-1 rounded-xl text-xs font-medium bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono shadow-xs"
-                                                    >
-                                                        <span className="text-slate-400 capitalize">{k.replace(/([A-Z])/g, " $1").trim()}:</span>{" "}
-                                                        <span className="font-bold text-slate-900 dark:text-white">{String(v)}</span>
-                                                    </span>
-                                                ))}
+                                                {validEntries.map(([k, v]) => {
+                                                    const formattedLabel = formatFieldLabel(k);
+                                                    const formattedVal = typeof v === "string" ? formatFieldLabel(v) : String(v);
+
+                                                    return (
+                                                        <span
+                                                            key={k}
+                                                            className="px-2.5 py-1 rounded-xl text-xs font-medium bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 font-mono shadow-xs"
+                                                        >
+                                                            <span className="text-slate-400 font-sans">{formattedLabel}:</span>{" "}
+                                                            <span className="font-bold text-slate-900 dark:text-white">{formattedVal}</span>
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );

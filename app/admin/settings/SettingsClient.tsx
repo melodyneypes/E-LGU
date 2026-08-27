@@ -16,7 +16,8 @@ import {
     DialogHeader,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting, updateMultipleSystemSettings } from "./actions";
+import { createHeroSlide, deleteHeroSlide, updateHeroSlide, updateSystemSetting } from "./actions";
+import { updateGeneralSettingToggle, updateSiteLogo, saveGeneralIdentitySettings } from "./general.actions";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -140,12 +141,16 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                 const formData = new FormData();
                 formData.append("logo", logoFile);
                 formData.append("imageUrl", logoUrl);
-                const result = await updateLogoSetting(formData);
+                const result = await updateSiteLogo(formData);
                 if (result.success && result.imageUrl) {
                     setLogoUrl(result.imageUrl);
                     setLogoFile(null);
                     setLogoPreview(null);
                     logoUpdated = true;
+                } else if (!result.success) {
+                    toast.error(result.error || "Failed to upload logo.");
+                    setIsSaving(false);
+                    return;
                 }
             } else if (logoUrl !== (settings.site_logo || "")) {
                 settingsToUpdate.push({ key: "site_logo", value: logoUrl });
@@ -153,7 +158,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
 
             // Only run transaction if there is something to update
             if (settingsToUpdate.length > 0) {
-                const result = await updateMultipleSystemSettings(settingsToUpdate);
+                const result = await saveGeneralIdentitySettings(settingsToUpdate);
                 if (result.success) {
                     toast.success("Settings updated successfully!");
                     router.refresh();
@@ -247,59 +252,69 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                 <CardContent className="p-6 space-y-8">
                                     {/* Maintenance Mode */}
                                     <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-200 dark:border-amber-900/50">
-                                        <div className="space-y-1">
-                                            <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
-                                                <ShieldAlert className="w-4 h-4" />
-                                                Maintenance Mode
-                                            </Label>
-                                            <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
-                                                Redirects all public visitors to the maintenance page.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={maintenanceMode}
-                                            onCheckedChange={async (checked) => {
-                                                setMaintenanceMode(checked);
-                                                try {
-                                                    await updateSystemSetting("maintenance_mode", checked.toString());
-                                                    toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                    router.refresh();
-                                                } catch {
-                                                    toast.error("Failed to update maintenance mode");
-                                                    setMaintenanceMode(!checked);
-                                                }
-                                            }}
-                                            className="data-[state=checked]:bg-amber-600"
-                                        />
-                                    </div>
+                                         <div className="space-y-1">
+                                             <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
+                                                 <ShieldAlert className="w-4 h-4" />
+                                                 Maintenance Mode
+                                             </Label>
+                                             <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
+                                                 Redirects all public visitors to the maintenance page.
+                                             </p>
+                                         </div>
+                                         <Switch
+                                             checked={maintenanceMode}
+                                             onCheckedChange={async (checked) => {
+                                                 setMaintenanceMode(checked);
+                                                 try {
+                                                     const res = await updateGeneralSettingToggle("maintenance_mode", checked.toString());
+                                                     if (res.success) {
+                                                         toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                         router.refresh();
+                                                     } else {
+                                                         toast.error(res.error || "Failed to update maintenance mode");
+                                                         setMaintenanceMode(!checked);
+                                                     }
+                                                 } catch {
+                                                     toast.error("Failed to update maintenance mode");
+                                                     setMaintenanceMode(!checked);
+                                                 }
+                                             }}
+                                             className="data-[state=checked]:bg-amber-600"
+                                         />
+                                     </div>
 
-                                    {/* Kiosk Maintenance Mode */}
-                                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
-                                        <div className="space-y-1">
-                                            <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
-                                                <ShieldAlert className="w-4 h-4" />
-                                                Kiosk Maintenance Mode
-                                            </Label>
-                                            <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
-                                                Puts all local physical kiosk terminals into maintenance mode.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={kioskMaintenanceMode}
-                                            onCheckedChange={async (checked) => {
-                                                setKioskMaintenanceMode(checked);
-                                                try {
-                                                    await updateSystemSetting("kiosk_maintenance_mode", checked.toString());
-                                                    toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                    router.refresh();
-                                                } catch {
-                                                    toast.error("Failed to update kiosk maintenance mode");
-                                                    setKioskMaintenanceMode(!checked);
-                                                }
-                                            }}
-                                            className="data-[state=checked]:bg-orange-600"
-                                        />
-                                    </div>
+                                     {/* Kiosk Maintenance Mode */}
+                                     <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
+                                         <div className="space-y-1">
+                                             <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
+                                                 <ShieldAlert className="w-4 h-4" />
+                                                 Kiosk Maintenance Mode
+                                             </Label>
+                                             <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
+                                                 Puts all local physical kiosk terminals into maintenance mode.
+                                             </p>
+                                         </div>
+                                         <Switch
+                                             checked={kioskMaintenanceMode}
+                                             onCheckedChange={async (checked) => {
+                                                 setKioskMaintenanceMode(checked);
+                                                 try {
+                                                     const res = await updateGeneralSettingToggle("kiosk_maintenance_mode", checked.toString());
+                                                     if (res.success) {
+                                                         toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                         router.refresh();
+                                                     } else {
+                                                         toast.error(res.error || "Failed to update kiosk maintenance mode");
+                                                         setKioskMaintenanceMode(!checked);
+                                                     }
+                                                 } catch {
+                                                     toast.error("Failed to update kiosk maintenance mode");
+                                                     setKioskMaintenanceMode(!checked);
+                                                 }
+                                             }}
+                                             className="data-[state=checked]:bg-orange-600"
+                                         />
+                                     </div>
 
                                     {/* Site Logo */}
                                     <div className="space-y-4">
