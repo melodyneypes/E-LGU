@@ -17,14 +17,15 @@ import {
     Calendar,
     ChevronLeft, 
     ChevronRight,
-    Loader2,
     Eye,
     X
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { deleteLegislativeDocument } from "../actions";
+import { deleteLegislativeDocument, getLegislativeDocumentById } from "../actions";
 import { AddOrdinanceModal } from "./AddOrdinanceModal";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Dialog,
     DialogContent,
@@ -75,7 +76,8 @@ export function OrdinancesClient({
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<LegislativeDocument | null>(null);
     const [viewingData, setViewingData] = useState<LegislativeDocument | null>(null);
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [docToDelete, setDocToDelete] = useState<LegislativeDocument | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Filters local states
     const [searchLocal, setSearchLocal] = useState(search);
@@ -106,13 +108,15 @@ export function OrdinancesClient({
         updateUrlParams({ search: searchLocal });
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this document?")) return;
-        setDeletingId(id);
+    // 7. CONFIRM DELETE MODAL HANDLER
+    const handleConfirmDelete = async () => {
+        if (!docToDelete) return;
+        setIsDeleting(true);
         try {
-            const res = await deleteLegislativeDocument(id);
+            const res = await deleteLegislativeDocument(docToDelete.id);
             if (res.success) {
                 toast.success("Document deleted successfully!");
+                setDocToDelete(null);
                 updateUrlParams({ page: page.toString() }); // Refresh page
             } else {
                 toast.error(res.error || "Failed to delete document.");
@@ -120,13 +124,22 @@ export function OrdinancesClient({
         } catch {
             toast.error("An error occurred while deleting the document.");
         } finally {
-            setDeletingId(null);
+            setIsDeleting(false);
         }
     };
 
+    // 8. FAST EDIT MODAL OPENING: Instant modal opening with cached row data + background sync
     const handleEdit = (doc: LegislativeDocument) => {
         setEditingData(doc);
         setIsAddModalOpen(true);
+
+        getLegislativeDocumentById(doc.id).then((res) => {
+            if (res.success && (res.data || res.document)) {
+                setEditingData((res.data || res.document) as LegislativeDocument);
+            }
+        }).catch((err) => {
+            console.warn("[handleEdit background sync error]:", err);
+        });
     };
 
     const handleAddNew = () => {
@@ -262,54 +275,86 @@ export function OrdinancesClient({
 
                 {/* Table */}
                 <div className="overflow-x-auto relative">
-                    {isPending && (
-                        <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all">
-                            <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                                <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
-                                    Updating records...
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {initialData.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-20 text-center">
-                            <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-[#1a1f2e] flex items-center justify-center mb-6 border border-slate-200 dark:border-[#2a3040]">
-                                <Scale className="w-10 h-10 text-slate-400" />
-                            </div>
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">No Documents Found</h3>
-                            <p className="text-slate-500 font-medium italic max-w-sm mt-2">
-                                Try adjusting your keywords or filters, or add a new municipal document.
-                            </p>
-                        </div>
-                    ) : (
-                        <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
-                            <TableHeader>
-                                <TableRow className="bg-slate-50/50 dark:bg-[#111420] border-y border-slate-200 dark:border-[#2a3040]">
-                                    <TableHead className="w-[180px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
-                                        Type & Reference
-                                    </TableHead>
-                                    <TableHead className="w-[380px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                        Title & Brief Description
-                                    </TableHead>
-                                    <TableHead className="w-[160px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                        Approved Date
-                                    </TableHead>
-                                    <TableHead className="w-[180px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                        Status
-                                    </TableHead>
-                                    <TableHead className="w-[100px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
-                                        File
-                                    </TableHead>
-                                    <TableHead className="w-[120px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-right pr-8">
-                                        Actions
-                                    </TableHead>
+                    <Table className="border-collapse">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50/50 dark:bg-[#111420] border-y border-slate-200 dark:border-[#2a3040]">
+                                <TableHead className="w-[180px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
+                                    Type & Reference
+                                </TableHead>
+                                <TableHead className="w-[380px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                    Title & Brief Description
+                                </TableHead>
+                                <TableHead className="w-[160px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                    Approved Date
+                                </TableHead>
+                                <TableHead className="w-[180px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                    Status
+                                </TableHead>
+                                <TableHead className="w-[100px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
+                                    File
+                                </TableHead>
+                                <TableHead className="w-[120px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-right pr-8">
+                                    Actions
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isPending ? (
+                                Array.from({ length: 5 }).map((_, idx) => (
+                                    <TableRow key={`skeleton-${idx}`} className="border-b border-slate-200 dark:border-[#2a3040]">
+                                        <TableCell className="pl-8 py-5">
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-5 w-20 rounded-full" />
+                                                <Skeleton className="h-3 w-16" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-64" />
+                                                <Skeleton className="h-3 w-40" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-4 w-24" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-5 w-24 rounded-lg" />
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Skeleton className="h-8 w-8 mx-auto rounded-xl" />
+                                        </TableCell>
+                                        <TableCell className="text-right pr-8">
+                                            <div className="flex justify-end gap-1">
+                                                <Skeleton className="h-8 w-8 rounded-xl" />
+                                                <Skeleton className="h-8 w-8 rounded-xl" />
+                                                <Skeleton className="h-8 w-8 rounded-xl" />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : sortedData.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-64 text-center">
+                                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                                            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-[#1a1f2e] flex items-center justify-center mb-4 border border-slate-200 dark:border-[#2a3040]">
+                                                <Scale className="w-8 h-8 text-slate-400" />
+                                            </div>
+                                            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">No Documents Found</h3>
+                                            <p className="text-slate-500 font-medium italic max-w-sm mt-1 text-xs">
+                                                Try adjusting your keywords or filters, or add a new municipal document.
+                                            </p>
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortedData.map((item) => (
-                                    <TableRow key={item.id} className="border-b border-slate-200 dark:border-[#2a3040]/50 hover:bg-slate-50/20 dark:hover:bg-[#1a1f2e]/10">
+                            ) : (
+                                sortedData.map((item) => (
+                                    <TableRow
+                                        key={item.id}
+                                        className={cn(
+                                            "border-b border-slate-200 dark:border-[#2a3040]/50 hover:bg-slate-50/20 dark:hover:bg-[#1a1f2e]/10 transition-colors",
+                                            docToDelete?.id === item.id && isDeleting && "opacity-40 pointer-events-none"
+                                        )}
+                                    >
                                         {/* Type & Ref */}
                                         <TableCell className="font-bold py-4 pl-8">
                                             <div className="flex flex-col gap-1.5 items-start">
@@ -343,17 +388,17 @@ export function OrdinancesClient({
                                         </TableCell>
 
                                         {/* Approved Date */}
-                                        <TableCell className="py-4 font-bold text-slate-700 dark:text-slate-300 text-xs">
+                                        <TableCell className="py-4 font-bold text-slate-600 dark:text-slate-400 text-xs">
                                             <div className="flex items-center gap-1.5">
                                                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                                <span>{format(new Date(item.dateApproved), "MMM dd, yyyy")}</span>
+                                                <span>{format(new Date(item.dateApproved), "MMMM d, yyyy")}</span>
                                             </div>
                                         </TableCell>
 
                                         {/* Status */}
                                         <TableCell className="py-4">
                                             <span className={cn(
-                                                "px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border leading-none shadow-sm",
+                                                "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border leading-none shadow-sm",
                                                 item.status.includes("ACTIVE") || item.status.includes("ENFORCED")
                                                     ? "bg-emerald-50/50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
                                                     : item.status.includes("PENDING")
@@ -405,24 +450,19 @@ export function OrdinancesClient({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(item.id)}
-                                                    disabled={deletingId === item.id}
+                                                    onClick={() => setDocToDelete(item)}
                                                     className="w-8 h-8 rounded-xl text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all"
                                                     title="Delete Document"
                                                 >
-                                                    {deletingId === item.id ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    ) : (
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    )}
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
 
                 {/* Pagination */}
@@ -454,28 +494,30 @@ export function OrdinancesClient({
                                 </Select>
                             </div>
 
-                            {/* Nav buttons */}
-                            <div className="flex items-center gap-1">
+                            {/* Prev / Next buttons */}
+                            <div className="flex items-center gap-2">
                                 <Button
-                                    variant="ghost"
-                                    size="icon"
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handlePageChange(page - 1)}
-                                    disabled={page === 1}
-                                    className="w-9 h-9 rounded-xl border border-slate-200 dark:border-[#2a3040] text-slate-500 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all"
+                                    disabled={page <= 1 || isPending}
+                                    className="h-9 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] text-xs font-bold gap-1 active:scale-95 transition-all"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
                                 </Button>
-                                <div className="text-[11px] font-bold text-slate-500 px-3 uppercase tracking-wider">
-                                    Page <span className="text-slate-800 dark:text-slate-200">{page}</span> of {totalPages}
-                                </div>
+                                
+                                <span className="text-xs font-black px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+                                    {page} / {totalPages}
+                                </span>
+
                                 <Button
-                                    variant="ghost"
-                                    size="icon"
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handlePageChange(page + 1)}
-                                    disabled={page === totalPages}
-                                    className="w-9 h-9 rounded-xl border border-slate-200 dark:border-[#2a3040] text-slate-500 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 transition-all"
+                                    disabled={page >= totalPages || isPending}
+                                    className="h-9 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] text-xs font-bold gap-1 active:scale-95 transition-all"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
                                 </Button>
                             </div>
                         </div>
@@ -483,69 +525,77 @@ export function OrdinancesClient({
                 )}
             </div>
 
+            {/* Modals */}
             <AddOrdinanceModal
                 isOpen={isAddModalOpen}
                 setIsOpen={setIsAddModalOpen}
                 editingData={editingData}
                 onSuccess={() => {
                     setIsAddModalOpen(false);
-                    setEditingData(null);
-                    updateUrlParams({ page: page.toString() }); // Refresh page
+                    updateUrlParams({ page: page.toString() });
                 }}
             />
 
-            {/* View Details Modal */}
-            <Dialog open={viewingData !== null} onOpenChange={(open) => {
-                if (!open) setViewingData(null);
-            }}>
-                <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2rem]">
-                    <DialogHeader className="p-6 pb-4 border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2e]/10 flex flex-row items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <span className={cn(
-                                "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest leading-none shadow-sm",
-                                viewingData?.type === "ORDINANCE"
-                                    ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30"
-                                    : "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400 border border-teal-100 dark:border-teal-900/30"
-                            )}>
-                                {viewingData?.type}
-                            </span>
-                            <DialogTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                {viewingData?.referenceNumber}
-                            </DialogTitle>
-                            <DialogDescription className="sr-only">
-                                View details for {viewingData?.referenceNumber}
-                            </DialogDescription>
+            {/* 7. CONFIRM DELETE MODAL */}
+            <ConfirmDeleteModal
+                isOpen={!!docToDelete}
+                onClose={() => setDocToDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title={`Delete ${docToDelete?.type === "RESOLUTION" ? "Resolution" : "Ordinance"}`}
+                description={`Are you sure you want to permanently delete "${docToDelete?.referenceNumber} - ${docToDelete?.title}"? This will also remove any attached PDF files from storage.`}
+                isLoading={isDeleting}
+            />
+
+            {/* View Document Details Modal */}
+            <Dialog open={!!viewingData} onOpenChange={(open) => !open && setViewingData(null)}>
+                <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#0f111a] border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl">
+                    <DialogHeader className="p-6 pb-4 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between bg-slate-50/50 dark:bg-[#1a1f2e]/20">
+                        <div className="flex items-center gap-3">
+                            <div 
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
+                                style={{ backgroundColor: "var(--primary-theme, #2563eb)", color: "white" }}
+                            >
+                                <Scale className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+                                    {viewingData?.type} Details
+                                </DialogTitle>
+                                <DialogDescription className="text-xs font-bold text-slate-400">
+                                    {viewingData?.referenceNumber}
+                                </DialogDescription>
+                            </div>
                         </div>
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => setViewingData(null)}
-                            className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white shrink-0"
+                            className="h-8 w-8 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         >
                             <X className="w-4 h-4" />
                         </Button>
                     </DialogHeader>
 
-                    <div className="p-6 space-y-5">
-                        <div className="space-y-2">
+                    <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <div className="space-y-1">
                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Document Title</span>
-                            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase leading-snug tracking-tight">
                                 {viewingData?.title}
-                            </h2>
+                            </h4>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-100 dark:border-[#2a3040]">
+                        <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50/50 dark:bg-[#151926] border border-slate-100 dark:border-[#2a3040]/50">
                             <div className="space-y-1">
                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Date Approved</span>
                                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
                                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>{viewingData ? format(new Date(viewingData.dateApproved), "MMMM dd, yyyy") : ""}</span>
+                                    <span>{viewingData?.dateApproved && format(new Date(viewingData.dateApproved), "MMMM d, yyyy")}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Current Status</span>
-                                <div className="mt-0.5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</span>
+                                <div>
                                     <span className={cn(
                                         "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border leading-none shadow-sm",
                                         viewingData?.status.includes("ACTIVE") || viewingData?.status.includes("ENFORCED")
@@ -598,20 +648,8 @@ export function OrdinancesClient({
                             </div>
                         )}
                     </div>
-
-                    <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#1a1f2e]/10 flex justify-end">
-                        <Button
-                            type="button"
-                            onClick={() => setViewingData(null)}
-                            className="h-10 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-[#1a1f2e] dark:hover:bg-[#23293a] text-white font-black uppercase tracking-wider text-[10px] rounded-xl transition-all"
-                        >
-                            Close Details
-                        </Button>
-                    </div>
                 </DialogContent>
             </Dialog>
         </div>
     );
-
-    
 }

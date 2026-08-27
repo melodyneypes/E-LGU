@@ -576,6 +576,7 @@ export function Sidebar({
         "News & Updates",
         "Events",
         "LGU Projects",
+        "Ordinances & Resolutions",
         "Kainan (Dining)",
         "Tuluyan (Stay)",
         "Gallery",

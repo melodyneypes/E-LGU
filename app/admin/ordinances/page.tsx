@@ -24,9 +24,13 @@ export default async function Page({
 
     const role = (session.user as any)?.role;
     const department = (session.user as any)?.department;
-    const isLguAdmin = role === "ADMIN" && (department?.toUpperCase() === "LGU" || !department);
+    const accessiblePages = (session.user as any)?.accessiblePages || [];
 
-    if (!isLguAdmin) {
+    const isLguAdmin = role === "ADMIN" && (department?.toUpperCase() === "LGU" || !department);
+    const isContentAdmin = role === "CONTENT_ADMIN";
+    const hasPageAccess = accessiblePages.includes("/admin/ordinances");
+
+    if (!isLguAdmin && !isContentAdmin && !hasPageAccess) {
         redirect("/admin/dashboard");
     }
 
