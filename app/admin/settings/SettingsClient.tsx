@@ -16,10 +16,10 @@ import {
     DialogHeader,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { updateSystemSetting } from "./actions";
 import { createHeroSlide, deleteHeroSlide, updateHeroSlide } from "./hero.actions";
 import { updateGeneralSettingToggle, updateSiteLogo, saveGeneralIdentitySettings } from "./general.actions";
 import { updateSystemCredentials } from "./credentials.actions";
+import { toggleLandingSectionVisibility } from "./sections.actions";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -811,16 +811,16 @@ function SectionVisibilityManager({ settings, themeColor }: { settings: Record<s
         setUpdatingKey(key);
 
         try {
-            const res = await updateSystemSetting(key, nextVal.toString());
+            const res = await toggleLandingSectionVisibility(key, nextVal);
             if (res.success) {
                 toast.success(`${label} ${nextVal ? "enabled" : "disabled"} on public landing page!`);
             } else {
-                throw new Error("Failed to save");
+                throw new Error(res.error || "Failed to save");
             }
-        } catch {
+        } catch (err: any) {
             // Revert state on failure
             setSectionStates(prev => ({ ...prev, [key]: currentVal }));
-            toast.error(`Failed to update ${label}. Please try again.`);
+            toast.error(err?.message || `Failed to update ${label}. Please try again.`);
         } finally {
             setUpdatingKey(null);
         }
