@@ -49,7 +49,7 @@ export function AnnouncementTable() {
     const userId = currentUser?.id;
     const userRole = currentUser?.role;
     const userCenterId = currentUser?.matchedCenterId;
-    const isSuperAdmin = (userRole === "ADMIN" || userRole === "RHU_ADMIN") && !userCenterId && !userEmail.includes("lalas") && !userEmail.includes("main");
+    const isGlobalManager = (userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "CONTENT_ADMIN") && !userCenterId && !userEmail.includes("lalas") && !userEmail.includes("main");
 
     const updateUrlParam = (paramName: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -268,8 +268,9 @@ export function AnnouncementTable() {
                             const isStaff = userRole === "RHU_STAFF";
                             const canEdit =
                                 !isStaff && (
-                                    isSuperAdmin ||
+                                    isGlobalManager ||
                                     userRole === "RHU_ADMIN" ||
+                                    userRole === "CONTENT_ADMIN" ||
                                     (item.authorId && userId && String(item.authorId) === String(userId)) ||
                                     (itemAuthorEmail && userEmail && itemAuthorEmail === userEmail) ||
                                     (userCenterId && item.healthCenterId && String(item.healthCenterId) === String(userCenterId))

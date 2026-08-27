@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useNews } from "../providers/NewsProvider";
-import { addNews, updateNews } from "@/app/admin/actions";
+import { createNews, updateNews } from "../actions/news.actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -22,19 +22,27 @@ export function useNewsForm() {
                 const res = await updateNews(editingData.id, formData);
                 if (res.success && res.news) {
                     setNewsData((prev) => prev.map((item) => item.id === editingData.id ? { ...item, ...(res.news as any) } : item));
+                    toast.success("News updated successfully!");
+                } else {
+                    toast.error(res.error || "Failed to update news article.");
+                    return;
                 }
-                toast.success("News updated successfully!");
             } else {
-                await addNews(formData);
-                toast.success("News published successfully!");
+                const res = await createNews(formData);
+                if (res.success) {
+                    toast.success("News published successfully!");
+                } else {
+                    toast.error(res.error || "Failed to create news article.");
+                    return;
+                }
             }
             setEditingData(null);
             setIsAddModalOpen(false);
             setIsPending(true);
             router.refresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving news:", error);
-            toast.error("Failed to save news. Please try again.");
+            toast.error(error?.message || "Failed to save news. Please try again.");
         } finally {
             setLoading(false);
         }

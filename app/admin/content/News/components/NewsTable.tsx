@@ -1,7 +1,7 @@
 "use client";
 
 import { useNews, News } from "../providers/NewsProvider";
-import { deleteNews, toggleNewsStatus, getNewsById } from "@/app/admin/actions";
+import { deleteNews, toggleNewsStatus, getNewsById } from "../actions/news.actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,8 +11,8 @@ import { Edit2, Trash2, Calendar, Newspaper, User, ChevronLeft, ChevronRight } f
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 export function NewsTable() {
     const {
@@ -20,7 +20,6 @@ export function NewsTable() {
         setNewsData,
         setEditingData,
         setIsAddModalOpen,
-        themeColor,
         page,
         pageSize,
         totalCount,
@@ -32,7 +31,8 @@ export function NewsTable() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [articleToDelete, setArticleToDelete] = useState<News | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [fetchingId, setFetchingId] = useState<string | null>(null);
 
@@ -57,7 +57,6 @@ export function NewsTable() {
         const params = new URLSearchParams(searchParams.toString());
         params.set("pageSize", newSize);
         params.set("page", "1");
-        setIsPending(true);
         router.push(`${pathname}?${params.toString()}`);
     };
 
@@ -78,16 +77,28 @@ export function NewsTable() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this article?")) return;
-        setDeletingId(id);
+    const handleConfirmDelete = async () => {
+        if (!articleToDelete) return;
+        const targetId = articleToDelete.id;
+        setIsDeleting(true);
+        setIsPending(true);
+
         try {
-            await deleteNews(id);
-            setNewsData(newsData.filter((item) => item.id !== id));
-            toast.success("News deleted successfully!");
+            const res = await deleteNews(targetId);
+            if (res.success) {
+                setNewsData(newsData.filter((item) => item.id !== targetId));
+                toast.success("News article deleted successfully!");
+                setArticleToDelete(null);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to delete news article.");
+                setIsPending(false);
+            }
         } catch {
-            toast.error("Failed to delete news.");
-            setDeletingId(null);
+            toast.error("An unexpected error occurred while deleting.");
+            setIsPending(false);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -128,20 +139,7 @@ export function NewsTable() {
     return (
         <>
             <div className="overflow-x-auto relative">
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
-                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                            <span
-                                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
-                            />
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
-                                Refreshing articles...
-                            </span>
-                        </div>
-                    </div>
-                )}
-                <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
+                <Table>
                     <TableHeader>
                         <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
                             <TableHead className="w-[80px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
@@ -168,8 +166,41 @@ export function NewsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {newsData.map((item) => {
-                            const isRowLoading = deletingId === item.id || togglingId === item.id || fetchingId === item.id;
+                        {isPending ? (
+                            Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
+                                <TableRow key={`news-skeleton-${idx}`} className="border-b border-slate-100 dark:border-[#2a3040]/50 animate-pulse">
+                                    <TableCell className="pl-8">
+                                        <Skeleton className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="py-5">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-48 bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-3 w-64 bg-slate-200/60 dark:bg-[#1a2133]/60" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-5 w-20 rounded-lg bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-24 bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-28 bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Skeleton className="h-5 w-9 mx-auto rounded-full bg-slate-200 dark:bg-[#1a2133]" />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-8">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Skeleton className="h-8 w-8 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                            <Skeleton className="h-8 w-8 rounded-xl bg-slate-200 dark:bg-[#1a2133]" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            newsData.map((item) => {
+                            const isRowLoading = (articleToDelete?.id === item.id && isDeleting) || togglingId === item.id || fetchingId === item.id;
                             if (isRowLoading) {
                                 return (
                                     <TableRow
@@ -285,8 +316,8 @@ export function NewsTable() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => handleDelete(item.id)}
-                                                            disabled={deletingId === item.id}
+                                                            onClick={() => setArticleToDelete(item)}
+                                                            disabled={isDeleting}
                                                             className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200 transition-all"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
@@ -299,7 +330,8 @@ export function NewsTable() {
                                     </TableCell>
                                 </TableRow>
                             );
-                        })}
+                        })
+                    )}
                     </TableBody>
                 </Table>
             </div>
@@ -357,6 +389,18 @@ export function NewsTable() {
                     </Button>
                 </div>
             </div>
+
+            {/* Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!articleToDelete}
+                onClose={() => {
+                    if (!isDeleting) setArticleToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="Delete News Article"
+                description={`Are you sure you want to permanently delete "${articleToDelete?.title || "this article"}"? If it has an attached cover image, it will also be deleted from storage.`}
+                isLoading={isDeleting}
+            />
         </>
     );
 }

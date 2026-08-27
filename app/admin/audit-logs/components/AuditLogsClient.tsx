@@ -83,10 +83,13 @@ function formatFieldLabel(key: string): string {
         coverImage: "Cover Banner Image",
         isPinned: "Pinned to Feed",
         isActive: "Publication Status",
+        isPublished: "Publication Status",
+        publishDate: "Publish Date",
+        author: "Author / Byline",
         expiryDate: "Expiry Date",
         eventDate: "Event Date",
         eventSchedule: "Event Schedule / Time",
-        content: "Announcement Content / Narrative",
+        content: "Article Content / Narrative",
     };
 
     if (labelDictionary[key]) {

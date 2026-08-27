@@ -21,6 +21,7 @@ interface SessionUser {
     email?: string;
     role?: string;
     managedBarangay?: string;
+    accessiblePages?: string[];
 }
 
 /**
@@ -34,8 +35,10 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
         }
         
         const user = session.user as SessionUser;
+        const accessiblePages = user.accessiblePages || [];
+        const hasAssignedAccess = accessiblePages.includes("/admin/announcements") || accessiblePages.includes("/admin/content/announcements");
         const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF", "RHU_ADMIN"];
-        if (user.role && !allowedRoles.includes(user.role)) {
+        if (user.role && !allowedRoles.includes(user.role) && !hasAssignedAccess) {
             return { user: null, error: "Forbidden: You do not have administrative privileges." };
         }
 
@@ -52,7 +55,7 @@ async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error
 async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ allowed: boolean; error?: string }> {
     const userEmail = (user.email || "").toLowerCase();
     const matchedCenter = await getMatchedCenterForUser(user);
-    const isSuperAdmin = (user.role === "ADMIN" || user.role === "RHU_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
+    const isGlobalManager = (user.role === "ADMIN" || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") && !matchedCenter && !userEmail.includes("lalas") && !userEmail.includes("main");
 
     if (user.role === "RHU_STAFF") {
         return {
@@ -61,7 +64,7 @@ async function checkOwnershipGuard(user: SessionUser, existing: any): Promise<{ 
         };
     }
 
-    if (isSuperAdmin || user.role === "RHU_ADMIN") {
+    if (isGlobalManager || user.role === "RHU_ADMIN" || user.role === "CONTENT_ADMIN") {
         return { allowed: true };
     }
 

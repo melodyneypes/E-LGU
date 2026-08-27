@@ -27,11 +27,15 @@ export async function getLeaders(barangayName?: string | null) {
 
 export async function upsertAboutData(formData: FormData) {
     const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role;
-    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+    const user = session?.user as any;
+    const role = user?.role;
+    const accessiblePages: string[] = user?.accessiblePages || [];
+    const hasAssignedAccess = accessiblePages.includes("/admin/about") || accessiblePages.includes("/admin/content/about");
+
+    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN" && role !== "CONTENT_ADMIN" && !hasAssignedAccess)) {
         throw new Error("Unauthorized: Access denied.");
     }
-    const managedBarangay = (session?.user as any)?.managedBarangay;
+    const managedBarangay = user?.managedBarangay;
     const isBarangayAdmin = role === "BARANGAY_ADMIN";
     const targetBarangay = isBarangayAdmin ? managedBarangay : formData.get("barangayName") as string;
 
@@ -206,14 +210,18 @@ export async function getPastMayors(barangayName?: string | null) {
 export async function upsertPastMayor(id: string | null, formData: FormData) {
     try {
         const session = await getServerSession(authOptions);
-        const role = (session?.user as any)?.role;
-        if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+        const user = session?.user as any;
+        const role = user?.role;
+        const accessiblePages: string[] = user?.accessiblePages || [];
+        const hasAssignedAccess = accessiblePages.includes("/admin/about") || accessiblePages.includes("/admin/about/past-mayors") || accessiblePages.includes("/admin/content/about");
+
+        if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN" && role !== "CONTENT_ADMIN" && !hasAssignedAccess)) {
             throw new Error("Unauthorized: Access denied.");
         }
 
         const oldMayor = id ? await (prisma as any).pastMayor.findUnique({ where: { id } }) : null;
         const imageUrl = await processImageUpload(formData, "past-mayor");
-        const managedBarangay = (session?.user as any)?.managedBarangay;
+        const managedBarangay = user?.managedBarangay;
 
         const data = {
             name: formData.get("name") as string,
@@ -311,6 +319,16 @@ export async function upsertPastMayor(id: string | null, formData: FormData) {
 
 export async function deletePastMayor(id: string) {
     try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const role = user?.role;
+        const accessiblePages: string[] = user?.accessiblePages || [];
+        const hasAssignedAccess = accessiblePages.includes("/admin/about") || accessiblePages.includes("/admin/about/past-mayors") || accessiblePages.includes("/admin/content/about");
+
+        if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN" && role !== "CONTENT_ADMIN" && !hasAssignedAccess)) {
+            throw new Error("Unauthorized: Access denied.");
+        }
+
         const item = await (prisma as any).pastMayor.findUnique({ where: { id } });
         if (item?.imageUrl) await deleteUploadedFile(item.imageUrl);
         await (prisma as any).pastMayor.delete({ where: { id } });
