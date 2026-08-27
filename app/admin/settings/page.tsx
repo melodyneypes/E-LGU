@@ -16,12 +16,15 @@ export default async function SettingsPage() {
     // Sequential fetch to avoid "MaxClientsInSessionMode" error on some DB providers
     const settingsList = await prisma.systemSetting.findMany();
     
-    // Filter slides based on role
+    // Filter slides based on role, sorted newest first
     const slides = await prisma.heroSlide.findMany({
         where: {
             barangay: isBarangayAdmin ? managedBarangay : null
         } as any,
-        orderBy: { order: 'asc' }
+        orderBy: [
+            { createdAt: 'desc' },
+            { id: 'desc' }
+        ]
     });
 
     // Convert settings list to a key-value object

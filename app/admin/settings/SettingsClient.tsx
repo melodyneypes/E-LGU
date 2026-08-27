@@ -16,9 +16,11 @@ import {
     DialogHeader,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { createHeroSlide, deleteHeroSlide, updateHeroSlide, updateSystemSetting } from "./actions";
+import { updateSystemSetting } from "./actions";
+import { createHeroSlide, deleteHeroSlide, updateHeroSlide } from "./hero.actions";
 import { updateGeneralSettingToggle, updateSiteLogo, saveGeneralIdentitySettings } from "./general.actions";
 import { updateSystemCredentials } from "./credentials.actions";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -658,22 +660,40 @@ function HeroSlidesManager({
 }) {
     const [slides, setSlides] = useState(initialSlides);
     const [showModal, setShowModal] = useState(false);
-
     const [editingSlide, setEditingSlide] = useState<any>(null);
+    const [slideToDelete, setSlideToDelete] = useState<any>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         setSlides(initialSlides);
     }, [initialSlides]);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this slide?")) return;
+    const handleConfirmDelete = async () => {
+        if (!slideToDelete) return;
+        
+        const targetId = slideToDelete.id;
+        const previousSlides = [...slides];
+        
+        // Optimistic UI Removal
+        setSlides(prev => prev.filter(s => s.id !== targetId));
+        setIsDeleting(true);
 
-        const result = await deleteHeroSlide(id);
-        if (result.success) {
-            toast.success("Slide deleted");
-            setSlides(slides.filter(s => s.id !== id));
-        } else {
-            toast.error("Failed to delete slide");
+        try {
+            const result = await deleteHeroSlide(targetId);
+            if (result.success) {
+                toast.success("Hero slide deleted successfully.");
+                setSlideToDelete(null);
+            } else {
+                // Rollback state on error
+                setSlides(previousSlides);
+                toast.error(result.error || "Failed to delete slide.");
+            }
+        } catch {
+            // Rollback state on unexpected failure
+            setSlides(previousSlides);
+            toast.error("An unexpected error occurred while deleting the slide.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -703,7 +723,13 @@ function HeroSlidesManager({
 
             <div className="grid grid-cols-1 gap-6">
                 {slides.map((slide) => (
-                    <SlideEditor key={slide.id} slide={slide} onEdit={() => handleEdit(slide)} onDelete={handleDelete} themeColor={themeColor} />
+                    <SlideEditor 
+                        key={slide.id} 
+                        slide={slide} 
+                        onEdit={() => handleEdit(slide)} 
+                        onDelete={() => setSlideToDelete(slide)} 
+                        themeColor={themeColor} 
+                    />
                 ))}
             </div>
 
@@ -717,6 +743,18 @@ function HeroSlidesManager({
                 order={slides.length}
                 themeColor={themeColor}
                 managedBarangay={managedBarangay}
+            />
+
+            {/* Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!slideToDelete}
+                onClose={() => {
+                    if (!isDeleting) setSlideToDelete(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="Delete Hero Slide"
+                description={`Are you sure you want to completely delete "${slideToDelete?.title || "this hero slide"}"? Its banner image will also be removed from storage.`}
+                isLoading={isDeleting}
             />
         </div>
     );
