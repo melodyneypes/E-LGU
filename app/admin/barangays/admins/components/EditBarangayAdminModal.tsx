@@ -5,11 +5,12 @@ import { X, Save, Eye, EyeOff, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { updateUser } from "../../../actions";
+import { updateBarangayAdmin } from "../actions";
 
 interface EditBarangayAdminModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onAdminUpdated?: () => void | Promise<void>;
     admin: {
         id: string;
         name: string | null;
@@ -25,6 +26,7 @@ interface EditBarangayAdminModalProps {
 export function EditBarangayAdminModal({
     isOpen,
     onClose,
+    onAdminUpdated,
     admin,
     barangays,
     themeColor = "#2563eb"
@@ -71,11 +73,14 @@ export function EditBarangayAdminModal({
         }
 
         try {
-            const result = await updateUser(currentAdmin.id, formData);
+            const result = await updateBarangayAdmin(currentAdmin.id, formData);
             if (result.success) {
                 const roleLabel = role === "BARANGAY_CAPTAIN" ? "Barangay Captain" : "Barangay Admin";
                 toast.success(`${roleLabel} account updated successfully!`);
                 onClose();
+                if (onAdminUpdated) {
+                    await onAdminUpdated();
+                }
             } else {
                 toast.error(result.error || "Failed to update account.");
             }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MapPin, Mail, Shield, Edit } from "lucide-react";
+import { Plus, MapPin, Mail, Shield, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -10,7 +10,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { AddBarangayAdminModal } from "./components/AddBarangayAdminModal";
 import { EditBarangayAdminModal } from "./components/EditBarangayAdminModal";
-import { toggleUserEmailVerification } from "@/app/admin/actions";
+import { toggleBarangayAdminVerification, deleteBarangayAdmin, getBarangayAdmins } from "./actions";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 interface BarangayAdminsWorkspaceProps {
     initialAdmins: any[];
@@ -19,8 +20,12 @@ interface BarangayAdminsWorkspaceProps {
 }
 
 export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor = "#2563eb" }: BarangayAdminsWorkspaceProps) {
+    const [adminsList, setAdminsList] = useState<any[]>(initialAdmins);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<any | null>(null);
+    const [deletingAdmin, setDeletingAdmin] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [verifiedState, setVerifiedState] = useState<Record<string, boolean>>(() => {
         const init: Record<string, boolean> = {};
         initialAdmins.forEach((admin) => {
@@ -30,12 +35,52 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
     });
     const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
 
+    const refreshAdmins = async () => {
+        setIsRefreshing(true);
+        try {
+            // Small artificial pause for aesthetic smooth skeleton transition
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            const res = await getBarangayAdmins();
+            if (res.success && res.data) {
+                setAdminsList(res.data);
+                const nextVerified: Record<string, boolean> = {};
+                res.data.forEach((admin: any) => {
+                    nextVerified[admin.id] = !!admin.isEmailVerified;
+                });
+                setVerifiedState(nextVerified);
+            }
+        } catch {
+            console.error("Failed to refresh barangay admins.");
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deletingAdmin) return;
+        setIsDeleting(true);
+        try {
+            const res = await deleteBarangayAdmin(deletingAdmin.id);
+            if (res.success) {
+                toast.success(`Account for "${deletingAdmin.name || deletingAdmin.email}" deleted successfully!`);
+                setAdminsList(prev => prev.filter(a => a.id !== deletingAdmin.id));
+                setDeletingAdmin(null);
+            } else {
+                toast.error(res.error || "Failed to delete account.");
+            }
+        } catch {
+            toast.error("An unexpected error occurred during deletion.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleToggleVerification = async (userId: string, nextStatus: boolean, adminName: string) => {
         setVerifiedState(prev => ({ ...prev, [userId]: nextStatus }));
         setPendingIds(prev => ({ ...prev, [userId]: true }));
 
         try {
-            const res = await toggleUserEmailVerification(userId, nextStatus);
+            const res = await toggleBarangayAdminVerification(userId, nextStatus);
             if (res.success) {
                 toast.success(`${adminName || "Account"} marked as ${nextStatus ? "Verified" : "Unverified"}`);
             } else {
@@ -61,7 +106,7 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                 <Button
                     onClick={() => setIsModalOpen(true)}
                     style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}33` }}
-                    className="hover:opacity-90 text-white font-bold uppercase tracking-wider text-xs px-6 py-6 rounded-2xl transition-all duration-200"
+                    className="hover:opacity-90 text-white font-bold uppercase tracking-wider text-xs px-6 py-6 rounded-2xl transition-all duration-200 cursor-pointer"
                 >
                     <Plus className="w-4 h-4 mr-2" />
                     Register Barangay Admin
@@ -76,7 +121,7 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                     </div>
                     <div>
                         <h3 className="text-sm font-medium text-slate-500">Total Barangay Admins</h3>
-                        <p className="text-3xl font-black">{initialAdmins.length}</p>
+                        <p className="text-3xl font-black">{adminsList.length}</p>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-[#151b2b] p-6 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center gap-4">
@@ -104,14 +149,47 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {initialAdmins.length === 0 ? (
+                        {isRefreshing ? (
+                            // Sleek Skeleton Loader Rows
+                            Array.from({ length: 5 }).map((_, index) => (
+                                <TableRow key={`skeleton-${index}`} className="border-b border-slate-100 dark:border-[#2a3040]/50 animate-pulse">
+                                    <TableCell className="py-4">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="h-4 w-36 bg-slate-200 dark:bg-slate-700/60 rounded-md" />
+                                            <div className="h-3 w-48 bg-slate-100 dark:bg-slate-800 rounded-md" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700/60 rounded-full" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-5 w-28 bg-slate-200 dark:bg-slate-700/60 rounded-full" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-5 w-10 bg-slate-200 dark:bg-slate-700/60 rounded-full" />
+                                            <div className="h-3 w-12 bg-slate-100 dark:bg-slate-800 rounded-md" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-700/60 rounded-md" />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700/60 rounded-xl" />
+                                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700/60 rounded-xl" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : adminsList.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-40 text-center text-slate-500">
                                     No Barangay admins or captains registered yet. Click &quot;Register Barangay Official&quot; to create one.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            initialAdmins.map((admin) => {
+                            adminsList.map((admin) => {
                                 const isVerified = verifiedState[admin.id] !== undefined ? verifiedState[admin.id] : !!admin.isEmailVerified;
                                 const isPending = !!pendingIds[admin.id];
 
@@ -161,16 +239,27 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                                             {format(new Date(admin.createdAt), "MMM d, yyyy")}
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setSelectedAdminToEdit({ ...admin, isEmailVerified: isVerified })}
-                                                className="h-8 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-xs flex items-center gap-1.5 ml-auto"
-                                                title="Edit Credentials & Assignment"
-                                            >
-                                                <Edit className="w-3.5 h-3.5" />
-                                                <span>Edit</span>
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSelectedAdminToEdit({ ...admin, isEmailVerified: isVerified })}
+                                                    className="h-8 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                                                    title="Edit Credentials & Assignment"
+                                                >
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                    <span>Edit</span>
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setDeletingAdmin(admin)}
+                                                    className="h-8 w-8 p-0 rounded-xl border-slate-200 dark:border-[#2a3040] hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-all font-bold text-xs flex items-center justify-center cursor-pointer"
+                                                    title="Delete Account"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -180,10 +269,32 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                 </Table>
             </div>
 
+            {/* Custom Modern Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={!!deletingAdmin}
+                onClose={() => setDeletingAdmin(null)}
+                onConfirm={handleConfirmDelete}
+                isLoading={isDeleting}
+                title="Delete Barangay Official Account"
+                description={
+                    deletingAdmin ? (
+                        <span>
+                            Are you sure you want to permanently delete the official account for{" "}
+                            <strong className="text-slate-900 dark:text-white font-black">
+                                &quot;{deletingAdmin.name || deletingAdmin.email}&quot;
+                            </strong>{" "}
+                            ({deletingAdmin.role === "BARANGAY_CAPTAIN" ? "Barangay Captain" : "Barangay Admin"} of Brgy. {deletingAdmin.managedBarangay || "General"})? This will revoke all dashboard privileges and delete their authentication credentials.
+                        </span>
+                    ) : undefined
+                }
+                confirmText="Delete Account"
+            />
+
             {isModalOpen && (
                 <AddBarangayAdminModal
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
+                    onAdminAdded={refreshAdmins}
                     barangays={barangays}
                     themeColor={themeColor}
                 />
@@ -193,6 +304,7 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                 <EditBarangayAdminModal
                     isOpen={!!selectedAdminToEdit}
                     onClose={() => setSelectedAdminToEdit(null)}
+                    onAdminUpdated={refreshAdmins}
                     admin={selectedAdminToEdit}
                     barangays={barangays}
                     themeColor={themeColor}

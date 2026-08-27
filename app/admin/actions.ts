@@ -3592,11 +3592,55 @@ export async function toggleUserEmailVerification(userId: string, isVerified: bo
             return { success: false, error: "Unauthorized. Admin privileges required." };
         }
 
+        // Query existing user details for audit traceability
+        const targetUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                managedBarangay: true,
+                isEmailVerified: true,
+            }
+        });
+
+        if (!targetUser) {
+            return { success: false, error: "User account not found." };
+        }
+
+        const prevStatusLabel = targetUser.isEmailVerified ? "Verified" : "Unverified";
+        const nextStatusLabel = isVerified ? "Verified" : "Unverified";
+
         await prisma.user.update({
             where: { id: userId },
             data: {
                 isEmailVerified: isVerified,
                 emailVerified: isVerified ? new Date() : null,
+            }
+        });
+
+        // Log Email Verification Toggle in Audit Trail
+        const roleLabel = targetUser.role === "BARANGAY_ADMIN" ? "Barangay Admin" : (targetUser.role || "User");
+        const accountDisplayName = `${targetUser.name || "Administrator"} (${targetUser.email})`;
+
+        await logActivity({
+            action: "STATUS_CHANGE",
+            entityType: "User",
+            entityId: targetUser.id,
+            entityName: accountDisplayName,
+            description: `Changed email verification status to ${nextStatusLabel.toUpperCase()} for ${roleLabel}: "${targetUser.name || targetUser.email}"`,
+            metadata: {
+                targetEmail: targetUser.email,
+                role: targetUser.role,
+                barangay: targetUser.managedBarangay || null,
+                changedFields: ["Email Verification Status"],
+                changes: {
+                    isEmailVerified: {
+                        old: prevStatusLabel,
+                        new: nextStatusLabel,
+                    }
+                }
             }
         });
 
@@ -3723,12 +3767,29 @@ export async function updateUser(userId: string, formData: FormData) {
             return { success: false, error: "Email is already taken by another account" };
         }
 
+        // Query existing user details for audit traceability & state diffing
+        const oldUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                managedBarangay: true,
+                department: true,
+                isEmailVerified: true,
+            }
+        });
+
+        if (!oldUser) {
+            return { success: false, error: "User account not found." };
+        }
+
         // Sync updates to Supabase Auth if email changed and user ID is a valid UUID
-        const oldUser = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
         const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
         const isUserUuid = isUuid(userId);
 
-        if (oldUser && oldUser.email !== email && isUserUuid) {
+        if (oldUser.email !== email && isUserUuid) {
             const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
                 email,
                 email_confirm: true
@@ -3761,7 +3822,8 @@ export async function updateUser(userId: string, formData: FormData) {
             }
         }
 
-        if (password && password.trim() !== "") {
+        const isPasswordUpdated = password && password.trim() !== "";
+        if (isPasswordUpdated) {
             if (isUserUuid) {
                 // Sync password to Supabase Auth
                 const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -3776,9 +3838,74 @@ export async function updateUser(userId: string, formData: FormData) {
             dataToUpdate.isPasswordChanged = true;
         }
 
+        // Compute granular diffs for audit trail
+        const changes: Record<string, { old: any; new: any }> = {};
+        const changedFieldNames: string[] = [];
+
+        if (oldUser.name !== name) {
+            changes["name"] = { old: oldUser.name || "None", new: name };
+            changedFieldNames.push("Full Name");
+        }
+        if (oldUser.email !== email) {
+            changes["email"] = { old: oldUser.email, new: email };
+            changedFieldNames.push("Email Address");
+        }
+        if (oldUser.role !== role) {
+            changes["role"] = { old: oldUser.role, new: role };
+            changedFieldNames.push("System Role");
+        }
+        const oldBarangay = oldUser.managedBarangay || "";
+        const newBarangay = dataToUpdate.managedBarangay || "";
+        if (oldBarangay !== newBarangay) {
+            changes["managedBarangay"] = { old: oldBarangay || "None", new: newBarangay || "None" };
+            changedFieldNames.push("Assigned Barangay");
+        }
+        const oldDept = oldUser.department || "";
+        const newDept = dataToUpdate.department || "";
+        if (oldDept !== newDept) {
+            changes["department"] = { old: oldDept || "None", new: newDept || "None" };
+            changedFieldNames.push("Department");
+        }
+        if (dataToUpdate.isEmailVerified !== undefined && oldUser.isEmailVerified !== dataToUpdate.isEmailVerified) {
+            changes["isEmailVerified"] = {
+                old: oldUser.isEmailVerified ? "Verified" : "Unverified",
+                new: dataToUpdate.isEmailVerified ? "Verified" : "Unverified"
+            };
+            changedFieldNames.push("Email Verification");
+        }
+        if (isPasswordUpdated) {
+            changes["password"] = { old: "••••••••", new: "•••••••• (Password Reset)" };
+            changedFieldNames.push("Account Password");
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: dataToUpdate
+        });
+
+        // Build dynamic description for audit log
+        let dynamicDesc = "";
+        const roleLabel = role === "BARANGAY_ADMIN" ? "Barangay Admin" : (role || "User");
+        if (changedFieldNames.length > 0) {
+            dynamicDesc = `Updated ${changedFieldNames.join(", ")} for ${roleLabel}: "${name}" (${email})`;
+        } else {
+            dynamicDesc = `Saved user profile for ${roleLabel}: "${name}" (no fields modified)`;
+        }
+
+        // Log Update Activity in Audit Trail
+        await logActivity({
+            action: "UPDATE",
+            entityType: "User",
+            entityId: userId,
+            entityName: `${name} (${email})`,
+            description: dynamicDesc,
+            metadata: {
+                targetEmail: email,
+                role,
+                barangay: dataToUpdate.managedBarangay || null,
+                changedFields: changedFieldNames.length > 0 ? changedFieldNames : undefined,
+                changes: Object.keys(changes).length > 0 ? changes : undefined,
+            }
         });
 
         revalidatePath("/admin/users");
