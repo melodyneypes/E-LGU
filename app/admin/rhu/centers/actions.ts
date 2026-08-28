@@ -22,6 +22,19 @@ async function checkCenterManageAuth() {
     return { authorized: true, user: session.user };
 }
 
+async function checkCenterDeleteAuth() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+        return { authorized: false, error: "Unauthorized: Please log in." };
+    }
+    const role = ((session.user as any).role || "").toUpperCase();
+    const canDelete = role === "ADMIN" || role === "RHU_ADMIN";
+    if (!canDelete) {
+        return { authorized: false, error: "Access Denied: Only RHU Administrators and Global Admins can delete health centers or medical personnel." };
+    }
+    return { authorized: true, user: session.user };
+}
+
 export interface RHUHealthCenterInput {
     name: string;
     code?: string;
@@ -322,7 +335,24 @@ export async function getRHUHealthCenters(params?: RHUHealthCenterFilterParams) 
             centers = centers.filter(c => c.status === params.status);
         }
 
-        return { success: true, data: centers };
+        const sanitizedCenters = centers.map(c => {
+            const copy = { ...c };
+            delete copy.password;
+            delete copy.accountPassword;
+            delete copy.hashedPassword;
+            if (copy.personnel) {
+                copy.personnel = copy.personnel.map((p: any) => {
+                    const pCopy = { ...p };
+                    delete pCopy.password;
+                    delete pCopy.accountPassword;
+                    delete pCopy.hashedPassword;
+                    return pCopy;
+                });
+            }
+            return copy;
+        });
+
+        return { success: true, data: sanitizedCenters };
     } catch (error: any) {
         console.error("Error fetching RHU health centers:", error);
         return { success: false, error: error?.message || "Failed to fetch health centers" };
@@ -597,7 +627,7 @@ export async function updateRHUHealthCenter(id: string, input: Partial<RHUHealth
 
 export async function deleteRHUHealthCenter(id: string) {
     try {
-        const auth = await checkCenterManageAuth();
+        const auth = await checkCenterDeleteAuth();
         if (!auth.authorized) return { success: false, error: auth.error };
 
         if (!id) {
@@ -733,7 +763,19 @@ export async function getRHUMedicalPersonnel(params?: RHUMedicalPersonnelFilterP
             personnel = personnel.filter(p => p.status === params.status);
         }
 
-        return { success: true, data: personnel };
+        const sanitizedPersonnel = personnel.map(p => {
+            const copy = { ...p };
+            delete copy.password;
+            delete copy.accountPassword;
+            delete copy.hashedPassword;
+            if (copy.user) {
+                delete copy.user.password;
+                delete copy.user.hashedPassword;
+            }
+            return copy;
+        });
+
+        return { success: true, data: sanitizedPersonnel };
     } catch (error: any) {
         console.error("Error fetching RHU medical personnel:", error);
         return { success: false, error: error?.message || "Failed to fetch medical personnel" };
@@ -1061,7 +1103,7 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
 
 export async function deleteRHUMedicalPersonnel(id: string) {
     try {
-        const auth = await checkCenterManageAuth();
+        const auth = await checkCenterDeleteAuth();
         if (!auth.authorized) return { success: false, error: auth.error };
 
         if (!id) {
