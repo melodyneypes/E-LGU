@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { createBarangayLogistics } from "@/app/admin/transactions/actions";
+import { createBarangayLogistics } from "../actions/logistics.actions";
 import { toast } from "sonner";
 
 interface AddLogisticsModalProps {
@@ -17,8 +17,8 @@ interface AddLogisticsModalProps {
 
 export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsModalProps) {
     const [name, setName] = useState("");
-    const [deliveryFee, setDeliveryFee] = useState("50");
-    const [estimatedDeliveryDays, setEstimatedDeliveryDays] = useState("3");
+    const [deliveryFee, setDeliveryFee] = useState("");
+    const [estimatedDeliveryDays, setEstimatedDeliveryDays] = useState("");
     const [isLogisticsActive, setIsLogisticsActive] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,9 +32,9 @@ export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsMo
         setIsSubmitting(true);
         try {
             const res = await createBarangayLogistics(name.trim(), {
-                deliveryFee: Number(deliveryFee),
+                deliveryFee: deliveryFee === "" ? 50 : Number(deliveryFee),
                 isLogisticsActive,
-                estimatedDeliveryDays: Number(estimatedDeliveryDays)
+                estimatedDeliveryDays: estimatedDeliveryDays === "" ? 3 : Number(estimatedDeliveryDays)
             });
 
             if (res.success) {
@@ -54,8 +54,8 @@ export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsMo
 
     const handleReset = () => {
         setName("");
-        setDeliveryFee("50");
-        setEstimatedDeliveryDays("3");
+        setDeliveryFee("");
+        setEstimatedDeliveryDays("");
         setIsLogisticsActive(true);
     };
 
@@ -99,8 +99,8 @@ export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsMo
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Delivery Fee (₱)</Label>
                             <Input
-                                required
                                 type="number"
+                                placeholder="50"
                                 className="h-12 bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
                                 value={deliveryFee}
                                 onChange={(e) => setDeliveryFee(e.target.value)}
@@ -109,8 +109,8 @@ export function AddLogisticsModal({ isOpen, onClose, onSuccess }: AddLogisticsMo
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">SLA (Days)</Label>
                             <Input
-                                required
                                 type="number"
+                                placeholder="3"
                                 className="h-12 bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
                                 value={estimatedDeliveryDays}
                                 onChange={(e) => setEstimatedDeliveryDays(e.target.value)}
