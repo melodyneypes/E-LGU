@@ -1,4 +1,4 @@
-import { getAdminReports } from "@/app/admin/actions";
+import { getAdminReports } from "./actions/reports.actions";
 import { ReportsTable } from "./components/ReportsTable";
 import { getSystemSetting } from "@/lib/settings";
 import Link from "next/link";

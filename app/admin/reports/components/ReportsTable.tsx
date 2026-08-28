@@ -20,7 +20,10 @@ import {
     Filter,
     Mail,
     FileText,
-    MessageSquare
+    MessageSquare,
+    Trash2,
+    Copy,
+    Check
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useSession } from "next-auth/react";
@@ -36,6 +39,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -54,7 +58,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateReportStatus, getAdminReports, getReportById } from "@/app/admin/actions";
+import { updateReportStatus, getAdminReports, getReportById, deleteReport } from "../actions/reports.actions";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 interface Report {
@@ -119,6 +125,34 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [currentStatus, setCurrentStatus] = useState("");
+
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Copy Email State
+    const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+
+    const handleCopyEmail = (email: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (!email) return;
+        navigator.clipboard.writeText(email);
+        setCopiedEmail(email);
+        toast.success(`Copied email to clipboard: ${email}`);
+        setTimeout(() => {
+            setCopiedEmail(null);
+        }, 2000);
+    };
 
     const uniqueBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
 
@@ -213,15 +247,15 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "PENDING":
-                return <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-black uppercase tracking-widest text-[9px] italic"><Clock className="w-3 h-3 mr-1" /> PENDING</Badge>;
+                return <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-black uppercase tracking-widest text-[9px] italic">PENDING</Badge>;
             case "SEEN":
-                return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic"><Eye className="w-3 h-3 mr-1" /> SEEN</Badge>;
+                return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic">SEEN</Badge>;
             case "IN_PROGRESS":
-                return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> IN PROGRESS</Badge>;
+                return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic">IN PROGRESS</Badge>;
             case "COMPLETED":
-                return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black uppercase tracking-widest text-[9px] italic"><CheckCircle2 className="w-3 h-3 mr-1" /> COMPLETED</Badge>;
+                return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black uppercase tracking-widest text-[9px] italic">COMPLETED</Badge>;
             case "REJECTED":
-                return <Badge variant="outline" className="bg-rose-500/10 text-rose-500 border-rose-500/20 font-black uppercase tracking-widest text-[9px] italic"><XCircle className="w-3 h-3 mr-1" /> REJECTED</Badge>;
+                return <Badge variant="outline" className="bg-rose-500/10 text-rose-500 border-rose-500/20 font-black uppercase tracking-widest text-[9px] italic">REJECTED</Badge>;
             default:
                 return <Badge variant="outline" className="font-black uppercase tracking-widest text-[9px] italic">{status}</Badge>;
         }
@@ -237,7 +271,8 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
             const res = await updateReportStatus(reportId, statusToApply, adminComment);
             if (res.success) {
                 toast.success(`Report status updated to ${statusToApply}!`);
-                if (!idToUpdate) setSelectedReport(null);
+                setSelectedReport(null);
+                setAdminComment("");
                 fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter);
             } else {
                 toast.error(res.error || "Failed to update report status.");
@@ -248,6 +283,31 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    const handleDeleteReport = (id: string, category: string) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Incident Report",
+            description: `Are you sure you want to permanently delete this ${category} report? All attached evidence photos in the storage bucket will also be removed.`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteReport(id);
+                    if (!res.success) throw new Error(res.error);
+                    toast.success("Incident report deleted successfully!");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                    if (selectedReport?.id === id) {
+                        setSelectedReport(null);
+                    }
+                    fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter);
+                } catch (error: any) {
+                    toast.error(error.message || "Failed to delete report.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
     };
 
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -395,12 +455,24 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="py-20 text-center">
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-slate-400" />
-                                    <p className="text-slate-500 font-black uppercase tracking-widest text-xs italic">Loading reports...</p>
-                                </TableCell>
-                            </TableRow>
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <TableRow key={`skeleton-${i}`} className="border-slate-100 dark:border-[#2a3040]/50">
+                                    <TableCell className="py-5">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-8 h-8 rounded-full" />
+                                            <div className="space-y-1.5">
+                                                <Skeleton className="h-4 w-28 rounded-md" />
+                                                <Skeleton className="h-3 w-36 rounded-md" />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-5"><Skeleton className="h-6 w-20 rounded-lg" /></TableCell>
+                                    <TableCell className="py-5"><Skeleton className="h-6 w-24 rounded-lg" /></TableCell>
+                                    <TableCell className="py-5"><Skeleton className="h-4 w-32 rounded-md" /></TableCell>
+                                    <TableCell className="py-5"><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                                    <TableCell className="text-right py-5 px-6"><Skeleton className="h-8 w-16 ml-auto rounded-xl" /></TableCell>
+                                </TableRow>
+                            ))
                         ) : reports.length > 0 ? reports.map((report) => (
                             <TableRow 
                                 key={report.id} 
@@ -414,7 +486,23 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                         </div>
                                         <div>
                                             <p className="text-sm font-black italic">{report.user.name}</p>
-                                            <p className="text-[10px] text-slate-500 uppercase tracking-widest">{report.user.email}</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{report.user.email}</p>
+                                                {report.user.email && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleCopyEmail(report.user.email!, e)}
+                                                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                                        title="Copy reporter email"
+                                                    >
+                                                        {copiedEmail === report.user.email ? (
+                                                            <Check className="w-3 h-3 text-emerald-500" />
+                                                        ) : (
+                                                            <Copy className="w-3 h-3" />
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </TableCell>
@@ -433,26 +521,18 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                     {getStatusBadge(report.status)}
                                 </TableCell>
                                 <TableCell className="text-right py-5 px-6" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex items-center justify-end gap-2">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            onClick={() => handleOpenDetails(report)}
-                                            className="hover:bg-primary/10 hover:text-primary transition-colors rounded-xl"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </Button>
+                                    <div className="flex items-center justify-end">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button 
                                                     variant="ghost" 
                                                     size="icon"
-                                                    className="hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl"
+                                                    className="hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl cursor-pointer"
                                                 >
                                                     <MoreVertical className="w-4 h-4 text-slate-500" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl p-2 min-w-[160px]">
+                                            <DropdownMenuContent align="end" className="bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl p-2 min-w-[170px]">
                                                 <div className="px-2 py-1.5 mb-1 bg-slate-100 dark:bg-white/5 rounded-lg">
                                                     <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Quick Status Update</p>
                                                 </div>
@@ -581,9 +661,25 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-semibold text-slate-950 dark:text-white truncate">{selectedReport.user.name}</p>
-                                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                                                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {selectedReport.user.email}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                                                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {selectedReport.user.email}
+                                                        </p>
+                                                        {selectedReport.user.email && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleCopyEmail(selectedReport.user.email!, e)}
+                                                                className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                                                title="Copy reporter email"
+                                                            >
+                                                                {copiedEmail === selectedReport.user.email ? (
+                                                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                                ) : (
+                                                                    <Copy className="w-3.5 h-3.5" />
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -740,12 +836,12 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01] flex justify-end shrink-0">
                                 <Button 
                                     disabled={isUpdating}
-                                    onClick={() => handleUpdateStatus(selectedReport.id, currentStatus)}
+                                    onClick={() => handleUpdateStatus(undefined, currentStatus)}
                                     style={{ 
                                         backgroundColor: themeColor, 
                                         boxShadow: `0 8px 24px -6px ${themeColor}40` 
                                     }}
-                                    className="w-full sm:w-auto px-8 h-12 rounded-xl hover:opacity-95 text-white font-bold text-sm tracking-wide transition-all active:scale-98 flex items-center justify-center gap-2 border-none"
+                                    className="w-full sm:w-auto px-8 h-12 rounded-xl hover:opacity-95 text-white font-bold text-sm tracking-wide transition-all active:scale-98 flex items-center justify-center gap-2 border-none cursor-pointer"
                                 >
                                     {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                                     {isUpdating ? "Saving changes..." : "Save Updates & Notify"}
@@ -765,6 +861,16 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 themeColor="var(--primary-theme)"
                 documents={(selectedReport?.images || []).map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
                 initialIndex={viewerIndex}
+            />
+
+            {/* 7. CONFIRM DELETE MODAL */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
             />
             </div>
         </div>
