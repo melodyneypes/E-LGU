@@ -1,7 +1,7 @@
 "use client";
 
 import { useDining, Dining } from "../providers/DiningProvider";
-import { deleteDining, toggleDiningStatus, getDiningById } from "@/app/admin/actions";
+import { deleteDining, toggleDiningStatus, getDiningById } from "../actions/dining.actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function DiningTable() {
     const {
@@ -32,9 +34,8 @@ export function DiningTable() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [togglingId, setTogglingId] = useState<string | null>(null);
-    const [fetchingId, setFetchingId] = useState<string | null>(null);
+    const [diningToDelete, setDiningToDelete] = useState<Dining | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -61,54 +62,49 @@ export function DiningTable() {
         router.push(`${pathname}?${params.toString()}`);
     };
 
-    const handleEdit = async (item: Dining) => {
-        setFetchingId(item.id);
-        try {
-            const res = (await getDiningById(item.id)) as { success: boolean; data?: Dining; dining?: Dining; error?: string };
+    // 8. FAST EDIT MODAL OPENING: Instant modal opening with cached row data + background sync
+    const handleEdit = (item: Dining) => {
+        setEditingData(item);
+        setIsAddModalOpen(true);
+
+        getDiningById(item.id).then((res) => {
             if (res.success && (res.data || res.dining)) {
-                const fullDining = (res.data || res.dining) as Dining;
-                setEditingData(fullDining);
-                setIsAddModalOpen(true);
-            } else {
-                toast.error(res.error || "Failed to load dining details.");
+                setEditingData((res.data || res.dining) as Dining);
             }
-        } catch {
-            toast.error("Error fetching dining details.");
-        } finally {
-            setFetchingId(null);
-        }
+        }).catch((err) => {
+            console.warn("[handleEdit background sync error]:", err);
+        });
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-        setDeletingId(id);
+    // 7. CONFIRM DELETE MODAL HANDLER
+    const handleConfirmDelete = async () => {
+        if (!diningToDelete) return;
+        setIsDeleting(true);
         setIsPending(true);
         try {
-            const res = await deleteDining(id);
+            const res = await deleteDining(diningToDelete.id);
             if (!res.success) throw new Error(res.error);
             toast.success("Dining entry deleted successfully!");
+            setDiningToDelete(null);
             router.refresh();
         } catch (error: any) {
             toast.error(error.message || "Failed to delete dining entry.");
             setIsPending(false);
         } finally {
-            setDeletingId(null);
+            setIsDeleting(false);
         }
     };
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-        setTogglingId(id);
         setIsPending(true);
         try {
-            const res = await toggleDiningStatus(id, !currentStatus);
+            const res = await toggleDiningStatus(id, currentStatus);
             if (!res.success) throw new Error(res.error);
             toast.success(`Dining entry ${!currentStatus ? "published" : "hidden"} successfully!`);
             router.refresh();
         } catch (error: any) {
             toast.error(error.message || "Failed to update status.");
             setIsPending(false);
-        } finally {
-            setTogglingId(null);
         }
     };
 
@@ -129,21 +125,7 @@ export function DiningTable() {
     return (
         <>
             <div className="overflow-x-auto relative">
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
-                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                            <span
-                                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
-                            />
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
-                                Refreshing dining listings...
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
+                <Table>
                     <TableHeader>
                         <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
                             <TableHead className="w-[320px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
@@ -164,104 +146,144 @@ export function DiningTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {diningData.map((item) => (
-                            <TableRow
-                                key={item.id}
-                                onClick={() => router.push(`/admin/dining/${item.id}`)}
-                                className="group hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
-                            >
-                                <TableCell className="pl-8 py-5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700">
-                                            {item.imageUrl ? (
-                                                <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                    <Utensils className="w-5 h-5" />
-                                                </div>
-                                            )}
+                        {isPending ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={`skeleton-${i}`} className="border-b border-slate-200 dark:border-[#2a3040]">
+                                    <TableCell className="pl-8 py-5">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-40 rounded" />
+                                                <Skeleton className="h-3 w-20 rounded" />
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col space-y-1">
-                                            <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight line-clamp-1 max-w-[260px] group-hover:text-primary transition-colors">
-                                                {item.name}
-                                            </span>
-                                            {item.barangay && (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                                                    {item.barangay}
-                                                </span>
-                                            )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-6 w-24 rounded-lg" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-36 rounded" />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Skeleton className="h-6 w-10 rounded-full mx-auto" />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-8">
+                                        <div className="flex justify-end gap-2">
+                                            <Skeleton className="h-9 w-9 rounded-xl" />
+                                            <Skeleton className="h-9 w-9 rounded-xl" />
                                         </div>
-                                    </div>
-                                </TableCell>
-
-                                <TableCell>
-                                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                        {item.cuisineType || "General"}
-                                    </span>
-                                </TableCell>
-
-                                <TableCell>
-                                    <div className="flex items-center text-slate-600 dark:text-slate-300 text-xs font-bold gap-1">
-                                        <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                        <span className="line-clamp-1 max-w-[240px]">{item.address}</span>
-                                    </div>
-                                </TableCell>
-
-                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                    <Switch
-                                        checked={item.isPublished}
-                                        disabled={togglingId === item.id}
-                                        onCheckedChange={() => handleToggleStatus(item.id, item.isPublished)}
-                                    />
-                                </TableCell>
-
-                                <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex justify-end gap-2">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleEdit(item)}
-                                                        disabled={fetchingId === item.id}
-                                                        className="h-9 w-9 rounded-xl transition-all border border-transparent"
-                                                        style={{ color: themeColor }}
-                                                    >
-                                                        {fetchingId === item.id ? (
-                                                            <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                                                        ) : (
-                                                            <Edit2 className="w-4 h-4" />
-                                                        )}
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Edit Restaurant</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(item.id, item.name)}
-                                                        disabled={deletingId === item.id}
-                                                        className="h-9 w-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Delete Restaurant</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : diningData.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="py-12 text-center text-slate-400 italic">
+                                    No dining places found.
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : (
+                            diningData.map((item) => (
+                                <TableRow
+                                    key={item.id}
+                                    onClick={() => router.push(`/admin/dining/${item.id}`)}
+                                    className="group hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
+                                >
+                                    <TableCell className="pl-8 py-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700">
+                                                {item.imageUrl ? (
+                                                    <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                        <Utensils className="w-5 h-5" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col space-y-1">
+                                                <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight line-clamp-1 max-w-[260px] group-hover:text-primary transition-colors">
+                                                    {item.name}
+                                                </span>
+                                                {item.barangay && (
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                                        {item.barangay}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </TableCell>
+
+                                    <TableCell>
+                                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                            {item.cuisineType || "General"}
+                                        </span>
+                                    </TableCell>
+
+                                    <TableCell>
+                                        <div className="flex items-center text-slate-600 dark:text-slate-300 text-xs font-bold gap-1">
+                                            <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                            <span className="line-clamp-1 max-w-[240px]">{item.address}</span>
+                                        </div>
+                                    </TableCell>
+
+                                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                        <Switch
+                                            checked={item.isPublished}
+                                            onCheckedChange={() => handleToggleStatus(item.id, item.isPublished)}
+                                        />
+                                    </TableCell>
+
+                                    <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex justify-end gap-2">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleEdit(item)}
+                                                            className="h-9 w-9 rounded-xl transition-all border border-transparent cursor-pointer"
+                                                            style={{ color: themeColor }}
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Edit Restaurant</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setDiningToDelete(item)}
+                                                            className="h-9 w-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all cursor-pointer"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Delete Restaurant</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>
+
+            {/* 7. CONFIRM DELETE MODAL */}
+            <ConfirmDeleteModal
+                isOpen={!!diningToDelete}
+                onClose={() => setDiningToDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Dining Place"
+                description={`Are you sure you want to delete "${diningToDelete?.name}"? Any uploaded photo in storage will also be deleted.`}
+                isLoading={isDeleting}
+            />
 
             {/* Pagination Control Bar */}
             <div className="px-8 py-5 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-slate-900/20 flex flex-col sm:flex-row items-center justify-between gap-4">
