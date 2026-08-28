@@ -6,7 +6,7 @@ import {
     Download, Plus, Trash2, Calendar,
     TrendingUp, DollarSign, Clock, Users, FileText,
     MapPin, Globe, LayoutDashboard, History, CloudLightning, Pencil,
-    Layers, Info
+    Layers, Info, X, Loader2
 } from "lucide-react";
 import {
     XAxis, YAxis, CartesianGrid,
@@ -21,6 +21,8 @@ import {
 } from "./actions";
 import { toast } from "sonner";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChurchClientProps {
     initialInfo: any;
@@ -45,33 +47,121 @@ export default function ChurchClient({
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
     const [flyerFile, setFlyerFile] = useState<File | null>(null);
+    const [isFlyerRemoved, setIsFlyerRemoved] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
 
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Collection Form State
-    const [colForm, setColForm] = useState({
+    const [colForm, setColForm] = useState<{
+        date: string;
+        sundayMassJson: { time: string; amount: string }[];
+        secondBasket: string | number;
+        weekdays: string | number;
+        envelopes: string | number;
+        donationsJson: { name: string; amount: string }[];
+    }>({
         date: format(new Date(), "yyyy-MM-dd"),
         sundayMassJson: [{ time: "6:00 AM", amount: "" }],
-        secondBasket: 0,
-        weekdays: 0,
-        envelopes: 0,
+        secondBasket: "",
+        weekdays: "",
+        envelopes: "",
         donationsJson: [{ name: "", amount: "" }]
     });
 
     // Schedule Form State
-    const [schForm, setSchForm] = useState({
+    const [schForm, setSchForm] = useState<{
+        id: string;
+        day: string;
+        time: string;
+        language: string;
+        type: string;
+        date: string;
+        prio: string | number;
+        description: string;
+    }>({
         id: "",
         day: "Sunday",
         time: "",
-        language: "Ilocano",
-        type: "Mass",
+        language: "",
+        type: "",
         date: "",
-        prio: 0,
+        prio: "",
         description: ""
     });
 
     const [editingCollection, setEditingCollection] = useState<any | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
+
+    // Clean Modal Open/Close Helpers
+    const handleOpenAddSchedule = () => {
+        setEditingSchedule(null);
+        setSchForm({
+            id: "",
+            day: "Sunday",
+            time: "",
+            language: "",
+            type: "",
+            date: "",
+            prio: "",
+            description: ""
+        });
+        setIsScheduleModalOpen(true);
+    };
+
+    const handleCloseScheduleModal = () => {
+        setIsScheduleModalOpen(false);
+        setEditingSchedule(null);
+        setSchForm({
+            id: "",
+            day: "Sunday",
+            time: "",
+            language: "",
+            type: "",
+            date: "",
+            prio: "",
+            description: ""
+        });
+    };
+
+    const handleOpenAddCollection = () => {
+        setEditingCollection(null);
+        setColForm({
+            date: format(new Date(), "yyyy-MM-dd"),
+            sundayMassJson: [{ time: "6:00 AM", amount: "" }],
+            secondBasket: "",
+            weekdays: "",
+            envelopes: "",
+            donationsJson: [{ name: "", amount: "" }]
+        });
+        setIsCollectionModalOpen(true);
+    };
+
+    const handleCloseCollectionModal = () => {
+        setIsCollectionModalOpen(false);
+        setEditingCollection(null);
+        setColForm({
+            date: format(new Date(), "yyyy-MM-dd"),
+            sundayMassJson: [{ time: "6:00 AM", amount: "" }],
+            secondBasket: "",
+            weekdays: "",
+            envelopes: "",
+            donationsJson: [{ name: "", amount: "" }]
+        });
+    };
 
     // Early return after all hooks
     if (!info) return null;
@@ -148,29 +238,33 @@ export default function ChurchClient({
                 envelopes: Number(colForm.envelopes)
             };
 
-            const saved = await saveChurchCollection(payload);
+            const res = await saveChurchCollection(payload);
 
-            if (editingCollection) {
-                setCollections(prev => prev.map(c => c.id === saved.id ? saved : c));
-                toast.success("Record updated!");
-            } else {
-                setCollections([saved, ...collections]);
-                toast.success("Financial collection logged!");
+            if (!res.success) {
+                toast.error(res.error || "Failed to save collection.");
+                return;
             }
 
+            const savedItem = res.data || res.collection;
+            if (editingCollection) {
+                setCollections(prev => prev.map(c => c.id === savedItem.id ? savedItem : c));
+                toast.success("Collection record updated!");
+            } else {
+                setCollections(prev => [savedItem, ...prev]);
+                toast.success("Collection record saved!");
+            }
             setIsCollectionModalOpen(false);
             setEditingCollection(null);
-            // Reset
             setColForm({
                 date: format(new Date(), "yyyy-MM-dd"),
                 sundayMassJson: [{ time: "6:00 AM", amount: "" }],
-                secondBasket: 0,
-                weekdays: 0,
-                envelopes: 0,
+                secondBasket: "",
+                weekdays: "",
+                envelopes: "",
                 donationsJson: [{ name: "", amount: "" }]
             });
         } catch {
-            toast.error("Failed to save records.");
+            toast.error("Failed to save collection.");
         } finally {
             setIsLoading(false);
         }
@@ -181,17 +275,27 @@ export default function ChurchClient({
         setIsLoading(true);
         try {
             if (editingSchedule) {
-                const updated = await updateMassSchedule(editingSchedule.id, schForm);
+                const res = await updateMassSchedule(editingSchedule.id, schForm);
+                if (!res.success) {
+                    toast.error(res.error || "Failed to update schedule.");
+                    return;
+                }
+                const updated = res.data || res.schedule;
                 setSchedules(prev => prev.map(s => s.id === updated.id ? updated : s));
                 toast.success("Schedule updated!");
             } else {
-                const created = await addMassSchedule({ ...schForm, churchInfoId: info.id });
+                const res = await addMassSchedule({ ...schForm, churchInfoId: info.id });
+                if (!res.success) {
+                    toast.error(res.error || "Failed to add schedule.");
+                    return;
+                }
+                const created = res.data || res.schedule;
                 setSchedules(prev => [...prev, created]);
                 toast.success("Schedule added!");
             }
             setIsScheduleModalOpen(false);
             setEditingSchedule(null);
-            setSchForm({ id: "", day: "Sunday", time: "", language: "Ilocano", type: "Mass", date: "", prio: 0, description: "" });
+            setSchForm({ id: "", day: "Sunday", time: "", language: "Ilocano", type: "Mass", date: "", prio: "", description: "" });
         } catch {
             toast.error("Failed to save schedule.");
         } finally {
@@ -199,26 +303,48 @@ export default function ChurchClient({
         }
     };
 
-    const handleDeleteSchedule = async (id: string) => {
-        if (!confirm("Remove this schedule?")) return;
-        try {
-            await deleteMassSchedule(id);
-            setSchedules(prev => prev.filter(s => s.id !== id));
-            toast.success("Schedule removed.");
-        } catch {
-            toast.error("Delete failed.");
-        }
+    const handleDeleteSchedule = (id: string, label: string) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Mass Schedule",
+            description: `Are you sure you want to remove the mass schedule "${label}"?`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteMassSchedule(id);
+                    if (!res.success) throw new Error(res.error);
+                    setSchedules(prev => prev.filter(s => s.id !== id));
+                    toast.success("Schedule removed.");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (error: any) {
+                    toast.error(error.message || "Delete failed.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
     };
 
-    const handleDeleteCollection = async (id: string) => {
-        if (!confirm("Delete this financial record?")) return;
-        try {
-            await deleteCollectionEntry(id);
-            setCollections(prev => prev.filter(c => c.id !== id));
-            toast.success("Record deleted.");
-        } catch {
-            toast.error("Delete failed.");
-        }
+    const handleDeleteCollection = (id: string, dateStr: string) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Financial Record",
+            description: `Are you sure you want to delete the financial collection record for "${dateStr}"?`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteCollectionEntry(id);
+                    if (!res.success) throw new Error(res.error);
+                    setCollections(prev => prev.filter(c => c.id !== id));
+                    toast.success("Record deleted.");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (error: any) {
+                    toast.error(error.message || "Delete failed.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
     };
 
     const handleUpdateInfo = async (e: React.FormEvent) => {
@@ -231,15 +357,25 @@ export default function ChurchClient({
             formData.append("locationUrl", info.locationUrl || "");
             if (info.latitude) formData.append("latitude", info.latitude.toString());
             if (info.longitude) formData.append("longitude", info.longitude.toString());
-            formData.append("flyerUrl", info.flyerUrl || "");
+            formData.append("flyerRemoved", isFlyerRemoved ? "true" : "false");
+            
+            if (info.flyerUrl && !isFlyerRemoved) {
+                formData.append("flyerUrl", info.flyerUrl);
+            }
 
             if (flyerFile) {
                 formData.append("flyerFile", flyerFile);
             }
 
-            const updated = await updateChurchInfo(info.id, formData);
+            const res = await updateChurchInfo(info.id, formData);
+            if (!res.success) {
+                toast.error(res.error || "Failed to update church info.");
+                return;
+            }
+            const updated = res.data || res.churchInfo;
             setInfo(updated);
             setFlyerFile(null);
+            setIsFlyerRemoved(false);
             setIsEditInfoOpen(false);
             toast.success("Church details updated.");
         } catch {
@@ -281,14 +417,14 @@ export default function ChurchClient({
                         />
                     )}
                     <button
-                        onClick={() => setIsCollectionModalOpen(true)}
+                        onClick={handleOpenAddCollection}
                         className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl font-black shadow-lg shadow-emerald-500/30 transition-all select-none cursor-pointer uppercase text-xs"
                     >
                         <Plus size={18} />
                         <span>Log Collection</span>
                     </button>
                     <button
-                        onClick={() => setIsScheduleModalOpen(true)}
+                        onClick={handleOpenAddSchedule}
                         className="flex items-center space-x-2 bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-2xl font-black shadow-lg shadow-primary/30 transition-all select-none cursor-pointer uppercase text-xs"
                     >
                         <Calendar size={18} />
@@ -454,7 +590,10 @@ export default function ChurchClient({
                                                 >
                                                     <Pencil size={18} />
                                                 </button>
-                                                <button onClick={() => handleDeleteCollection(c.id)} className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl transition-colors">
+                                                <button 
+                                                    onClick={() => handleDeleteCollection(c.id, format(new Date(c.date), "MMM dd, yyyy"))} 
+                                                    className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl transition-colors cursor-pointer"
+                                                >
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
@@ -546,8 +685,8 @@ export default function ChurchClient({
                                                                 <Pencil size={18} className="group-hover/btn:scale-110 transition-transform" />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDeleteSchedule(s.id)}
-                                                                className="w-12 h-12 flex items-center justify-center text-red-500 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-red-600 hover:text-white rounded-[1.2rem] transition-all shadow-sm group/btn"
+                                                                onClick={() => handleDeleteSchedule(s.id, `${s.day} ${s.time}`)}
+                                                                className="w-12 h-12 flex items-center justify-center text-red-500 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-red-600 hover:text-white rounded-[1.2rem] transition-all shadow-sm group/btn cursor-pointer"
                                                                 title="Delete Slot"
                                                             >
                                                                 <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
@@ -619,7 +758,7 @@ export default function ChurchClient({
 
             {/* Collection Logger Modal */}
             {isCollectionModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => { setIsCollectionModalOpen(false); setEditingCollection(null); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={handleCloseCollectionModal}>
                     <div className="bg-white dark:bg-[#151b2b] rounded-[3rem] border border-slate-200 dark:border-[#2a3040] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-10 border-b border-slate-200 dark:border-[#2a3040] flex justify-between items-start">
                             <div>
@@ -630,7 +769,7 @@ export default function ChurchClient({
                                     {editingCollection ? `Updating record for ${format(new Date(editingCollection.date), "MMMM dd")}` : "Add Sunday masses, donations, and other parish income."}
                                 </p>
                             </div>
-                            <button onClick={() => { setIsCollectionModalOpen(false); setEditingCollection(null); }} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400">
+                            <button onClick={handleCloseCollectionModal} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400 cursor-pointer">
                                 <Plus className="rotate-45" size={24} />
                             </button>
                         </div>
@@ -677,25 +816,43 @@ export default function ChurchClient({
                                         {idx > 0 && (
                                             <button type="button" onClick={() => {
                                                 setColForm({ ...colForm, sundayMassJson: colForm.sundayMassJson.filter((_, i) => i !== idx) });
-                                            }} className="p-2 text-red-500"><Trash2 size={16} /></button>
+                                            }} className="p-2 text-red-500 cursor-pointer"><Trash2 size={16} /></button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => setColForm({ ...colForm, sundayMassJson: [...colForm.sundayMassJson, { time: "", amount: "" }] })} className="text-[10px] font-black text-blue-500 uppercase italic hover:underline">+ Add Time Slot</button>
+                                <button type="button" onClick={() => setColForm({ ...colForm, sundayMassJson: [...colForm.sundayMassJson, { time: "", amount: "" }] })} className="text-[10px] font-black text-blue-500 uppercase italic hover:underline cursor-pointer">+ Add Time Slot</button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Basket 2</label>
-                                    <input type="number" value={colForm.secondBasket} onChange={e => setColForm({ ...colForm, secondBasket: Number(e.target.value) })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" />
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={colForm.secondBasket} 
+                                        onChange={e => setColForm({ ...colForm, secondBasket: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" 
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Weekdays</label>
-                                    <input type="number" value={colForm.weekdays} onChange={e => setColForm({ ...colForm, weekdays: Number(e.target.value) })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" />
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={colForm.weekdays} 
+                                        onChange={e => setColForm({ ...colForm, weekdays: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" 
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Envelopes</label>
-                                    <input type="number" value={colForm.envelopes} onChange={e => setColForm({ ...colForm, envelopes: Number(e.target.value) })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" />
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={colForm.envelopes} 
+                                        onChange={e => setColForm({ ...colForm, envelopes: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 text-sm font-bold" 
+                                    />
                                 </div>
                             </div>
 
@@ -728,17 +885,24 @@ export default function ChurchClient({
                                         {idx > 0 && (
                                             <button type="button" onClick={() => {
                                                 setColForm({ ...colForm, donationsJson: colForm.donationsJson.filter((_, i) => i !== idx) });
-                                            }} className="p-2 text-red-500"><Trash2 size={16} /></button>
+                                            }} className="p-2 text-red-500 cursor-pointer"><Trash2 size={16} /></button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => setColForm({ ...colForm, donationsJson: [...colForm.donationsJson, { name: "", amount: "" }] })} className="text-[10px] font-black text-emerald-500 uppercase italic hover:underline">+ Add Donation</button>
+                                <button type="button" onClick={() => setColForm({ ...colForm, donationsJson: [...colForm.donationsJson, { name: "", amount: "" }] })} className="text-[10px] font-black text-emerald-500 uppercase italic hover:underline cursor-pointer">+ Add Donation</button>
                             </div>
 
                             <div className="flex items-center justify-end space-x-4 pt-10">
-                                <button type="button" onClick={() => { setIsCollectionModalOpen(false); setEditingCollection(null); }} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase italic">Cancel</button>
-                                <button type="submit" disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/30 transition-all disabled:opacity-50 uppercase italic">
-                                    {isLoading ? "Saving Ledger..." : editingCollection ? "Update Historical Entry" : "Post to Transparency Ledger"}
+                                <button type="button" onClick={handleCloseCollectionModal} disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase italic cursor-pointer disabled:opacity-50">Cancel</button>
+                                <button type="submit" disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/30 transition-all disabled:opacity-75 uppercase italic cursor-pointer flex items-center justify-center gap-2">
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Saving Ledger...</span>
+                                        </>
+                                    ) : (
+                                        <span>{editingCollection ? "Update Historical Entry" : "Post to Transparency Ledger"}</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -748,13 +912,13 @@ export default function ChurchClient({
 
             {/* Schedule Modal */}
             {isScheduleModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => { setIsScheduleModalOpen(false); setEditingSchedule(null); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={handleCloseScheduleModal}>
                     <div className="bg-white dark:bg-[#151b2b] rounded-[3rem] border border-slate-200 dark:border-[#2a3040] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-10 border-b border-slate-200 dark:border-[#2a3040] flex justify-between items-start">
                             <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">
                                 {editingSchedule ? "Edit Schedule Slot" : "Add Mass Schedule"}
                             </h2>
-                            <button onClick={() => { setIsScheduleModalOpen(false); setEditingSchedule(null); }} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400">
+                            <button onClick={handleCloseScheduleModal} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400 cursor-pointer">
                                 <Plus className="rotate-45" size={24} />
                             </button>
                         </div>
@@ -764,34 +928,88 @@ export default function ChurchClient({
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic flex items-center gap-1">
                                         <Calendar size={10} /> Specific Date (Optional)
                                     </label>
-                                    <input type="date" value={schForm.date} onChange={e => setSchForm({ ...schForm, date: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-xs" />
+                                    <div className="relative flex items-center">
+                                        <input 
+                                            type="date" 
+                                            value={schForm.date} 
+                                            onChange={e => setSchForm({ ...schForm, date: e.target.value })} 
+                                            className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-xs pr-8" 
+                                        />
+                                        {schForm.date && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSchForm({ ...schForm, date: "" })}
+                                                className="absolute right-2 p-1.5 rounded-full hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                                                title="Clear specific date"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic flex items-center gap-1">
                                         <Layers size={10} /> Priority (Higher = Top)
                                     </label>
-                                    <input type="number" value={schForm.prio} onChange={e => setSchForm({ ...schForm, prio: Number(e.target.value) })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-xs" />
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={schForm.prio} 
+                                        onChange={e => setSchForm({ ...schForm, prio: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-xs" 
+                                    />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Standard Day of Week</label>
-                                <select value={schForm.day} onChange={e => setSchForm({ ...schForm, day: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold">
-                                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
+                                <div className="relative">
+                                    <select 
+                                        value={schForm.day} 
+                                        onChange={e => setSchForm({ ...schForm, day: e.target.value })} 
+                                        className="w-full appearance-none bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-sm text-slate-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none transition-all pr-10"
+                                    >
+                                        {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(d => (
+                                            <option key={d} value={d} className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-white font-bold py-2">
+                                                {d}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Time Slot</label>
-                                    <input required placeholder="6:00 AM" value={schForm.time} onChange={e => setSchForm({ ...schForm, time: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" />
+                                    <input 
+                                        required 
+                                        placeholder="e.g. 6:00 AM" 
+                                        value={schForm.time} 
+                                        onChange={e => setSchForm({ ...schForm, time: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Language</label>
-                                    <input value={schForm.language} onChange={e => setSchForm({ ...schForm, language: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" />
+                                    <input 
+                                        placeholder="e.g. Ilocano / English / Tagalog" 
+                                        value={schForm.language} 
+                                        onChange={e => setSchForm({ ...schForm, language: e.target.value })} 
+                                        className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                    />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Service Type</label>
-                                <input value={schForm.type} onChange={e => setSchForm({ ...schForm, type: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold" placeholder="Mass" />
+                                <input 
+                                    placeholder="e.g. Mass / Novena / Baptism / Confession" 
+                                    value={schForm.type} 
+                                    onChange={e => setSchForm({ ...schForm, type: e.target.value })} 
+                                    className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic flex items-center gap-1">
@@ -800,14 +1018,21 @@ export default function ChurchClient({
                                 <textarea
                                     value={schForm.description}
                                     onChange={e => setSchForm({ ...schForm, description: e.target.value })}
-                                    className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-medium text-sm italic h-24"
+                                    className="w-full bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-medium text-sm text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-medium italic h-24 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                     placeholder="e.g. Feast of the Holy Rosary / Healing Mass"
                                 />
                             </div>
                             <div className="flex items-center justify-end space-x-4 pt-6">
-                                <button type="button" onClick={() => { setIsScheduleModalOpen(false); setEditingSchedule(null); }} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 uppercase italic">Cancel</button>
-                                <button type="submit" className="px-8 py-4 rounded-2xl text-sm font-black bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition-all uppercase italic">
-                                    {editingSchedule ? "Update Slot" : "Save Slot"}
+                                <button type="button" onClick={handleCloseScheduleModal} disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 uppercase italic cursor-pointer disabled:opacity-50">Cancel</button>
+                                <button type="submit" disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/30 transition-all disabled:opacity-75 uppercase italic cursor-pointer flex items-center justify-center gap-2">
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Saving Slot...</span>
+                                        </>
+                                    ) : (
+                                        <span>{editingSchedule ? "Update Slot" : "Save Slot"}</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -870,16 +1095,30 @@ export default function ChurchClient({
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">PDF Flyer URL (Optional)</label>
-                                <input value={info.flyerUrl || ""} onChange={e => setInfo({ ...info, flyerUrl: e.target.value })} className="w-full bg-slate-50 dark:bg-[#1e2330] border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-3 font-bold mb-4" placeholder="Or leave blank to use file upload" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">Upload New PDF Flyer</label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Current / Uploaded Flyer</label>
+                                    {(info.flyerUrl || flyerFile) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFlyerFile(null);
+                                                setIsFlyerRemoved(true);
+                                                setInfo({ ...info, flyerUrl: "" });
+                                            }}
+                                            className="text-[10px] font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X size={12} /> Remove Flyer
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="relative group">
                                     <input
                                         type="file"
-                                        accept="application/pdf"
-                                        onChange={e => setFlyerFile(e.target.files?.[0] || null)}
+                                        accept="application/pdf,image/*"
+                                        onChange={e => {
+                                            setIsFlyerRemoved(false);
+                                            setFlyerFile(e.target.files?.[0] || null);
+                                        }}
                                         className="w-full bg-slate-50 dark:bg-[#1e2330] border border-dashed border-slate-300 dark:border-[#2a3040] rounded-xl px-4 py-8 text-sm font-bold text-slate-500 cursor-pointer file:hidden text-center hover:border-blue-500 transition-all"
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -888,18 +1127,23 @@ export default function ChurchClient({
                                                 <FileText size={18} />
                                                 <span className="truncate max-w-[200px]">{flyerFile.name}</span>
                                             </div>
+                                        ) : info.flyerUrl && !isFlyerRemoved ? (
+                                            <div className="flex items-center gap-2 text-emerald-600 font-bold">
+                                                <FileText size={18} />
+                                                <span className="truncate max-w-[200px]">Flyer Attached (Click to replace)</span>
+                                            </div>
                                         ) : (
                                             <div className="flex flex-col items-center gap-1 opacity-50">
                                                 <CloudLightning size={24} className="mb-1" />
-                                                <span>Click to select PDF flyer</span>
+                                                <span>Click to select PDF or image flyer</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
                             <div className="flex items-center justify-end space-x-4 pt-6">
-                                <button type="button" onClick={() => setIsEditInfoOpen(false)} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 uppercase italic">Cancel</button>
-                                <button type="submit" disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition-all uppercase italic">
+                                <button type="button" onClick={() => setIsEditInfoOpen(false)} className="px-8 py-4 rounded-2xl text-sm font-black text-slate-500 uppercase italic cursor-pointer">Cancel</button>
+                                <button type="submit" disabled={isLoading} className="px-8 py-4 rounded-2xl text-sm font-black bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition-all uppercase italic cursor-pointer">
                                     {isLoading ? "Updating..." : "Update Parish Info"}
                                 </button>
                             </div>
@@ -907,6 +1151,16 @@ export default function ChurchClient({
                     </div>
                 </div>
             )}
+
+            {/* 7. CONFIRM DELETE MODAL */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }
