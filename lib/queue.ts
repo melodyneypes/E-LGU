@@ -45,7 +45,7 @@ export async function generateQueueNumber({
   if (category === "CEDULA" || category === "RPT_TREASURY") {
     prefix = isPriority ? "TP" : "T";
   } else if (category === "CIVIL_REGISTRY") {
-    prefix = isPriority ? "RP" : "R";
+    prefix = isPriority ? "CRP" : "CR";
   } else if (category === "BUSINESS_PERMIT") {
     prefix = isPriority ? "BP" : "B";
   } else if (category === "RHU") {

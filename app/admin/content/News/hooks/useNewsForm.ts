@@ -11,11 +11,11 @@ export function useNewsForm() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, customFormData?: FormData) => {
         e.preventDefault();
         setLoading(true);
 
-        const formData = new FormData(e.currentTarget);
+        const formData = customFormData || new FormData(e.currentTarget);
 
         try {
             if (editingData) {

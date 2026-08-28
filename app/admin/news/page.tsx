@@ -71,6 +71,7 @@ export default async function Page({
                 category: true,
                 author: true,
                 imageUrl: true,
+                images: true,
                 publishDate: true,
                 barangay: true,
                 isPublished: true,

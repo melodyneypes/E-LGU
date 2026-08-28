@@ -202,16 +202,35 @@ export default function PurchaseOrderDetail() {
     const patientName = resident.firstName ? `${resident.firstName} ${resident.lastName}` : tx.user?.name || "N/A";
     const dispenseInfo = addData.dispenseInfo || {};
     const rawOrdersText = addData.deos?.orders || addData.deos?.diagnosis || "No items prescribed.";
-    const hasDispenseItems = dispenseInfo.items && Array.isArray(dispenseInfo.items) && dispenseInfo.items.length > 0;
-    const itemsList = hasDispenseItems
-        ? dispenseInfo.items.map((i: any) => ({
-            text: `${i.name}`,
-            dispensedQty: `${i.quantity} ${i.unit || "pcs"}`,
-            isOutOfStock: false
-        }))
-        : parseOrderItems(addData.deos?.orders || addData.deos?.diagnosis || "No items prescribed.");
-    const healthCenterName = addData.healthCenterName || "RHU Main Dispensary";
     const rhuStatus = (addData.rhuStatus || tx.status || "").toUpperCase();
+    const parsedOriginalItems = parseOrderItems(addData.deos?.orders || addData.deos?.diagnosis || "No items prescribed.");
+    const isPharmacyActionFinalized = !!addData.poDispensedByPharmacy || rhuStatus === "COMPLETED" || rhuStatus === "DISPENSED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
+    
+    const itemsList = isPharmacyActionFinalized
+        ? parsedOriginalItems.map((originalItem: any) => {
+            const matchingDispensed = dispenseInfo.items?.find((i: any) => {
+                const nameLower = (i.name || "").toLowerCase();
+                const textLower = originalItem.text.toLowerCase();
+                return textLower.includes(nameLower) || nameLower.includes(textLower) || 
+                       (nameLower.split(" ")[0].length > 2 && textLower.includes(nameLower.split(" ")[0]));
+            });
+            
+            if (matchingDispensed) {
+                return {
+                    text: originalItem.text,
+                    dispensedQty: `${matchingDispensed.quantity} ${matchingDispensed.unit || "pcs"}`,
+                    isOutOfStock: false
+                };
+            } else {
+                return {
+                    text: originalItem.text,
+                    dispensedQty: null,
+                    isOutOfStock: true
+                };
+            }
+        })
+        : parsedOriginalItems;
+    const healthCenterName = addData.healthCenterName || "RHU Main Dispensary";
 
     const isCompleted = rhuStatus === "COMPLETED" || tx.status === "RELEASED" || tx.status === "DELIVERED";
     const isApproved = rhuStatus === "PO_APPROVED" || tx.status === "FOR_CLAIM" || rhuStatus === "DISPENSED";
@@ -409,11 +428,7 @@ export default function PurchaseOrderDetail() {
                         ) : (
                             <div className="divide-y divide-slate-800/80 print:divide-slate-200">
                                 {itemsList.map((item: any, idx: number) => {
-                                    const qtyText = item.dispensedQty || (
-                                        (dispenseInfo.items && Array.isArray(dispenseInfo.items))
-                                            ? dispenseInfo.items.find((i: any) => item.text.toLowerCase().includes((i.name || "").toLowerCase()) || (i.name && item.text.toLowerCase().includes(i.name.split(" ")[0].toLowerCase())))?.quantity
-                                            : null
-                                    );
+                                    const qtyText = item.dispensedQty;
                                     return (
                                         <div key={idx} className="p-4 flex items-start justify-between gap-4 hover:bg-slate-900/40 transition-colors print:hover:bg-transparent">
                                             <div className="flex items-start gap-3">
