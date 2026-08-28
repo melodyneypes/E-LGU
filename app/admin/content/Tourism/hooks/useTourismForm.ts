@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { addTourismSpot, updateTourismSpot } from "@/app/admin/actions";
+import { createTourismSpot, updateTourismSpot } from "../actions/tourism.actions";
 import { useTourism } from "../providers/TourismProvider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ export function useTourismForm() {
             if (editingData) {
                 res = await updateTourismSpot(editingData.id, formData);
             } else {
-                res = await addTourismSpot(formData);
+                res = await createTourismSpot(formData);
             }
 
             if (res?.success) {

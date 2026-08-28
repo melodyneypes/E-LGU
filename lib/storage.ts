@@ -157,17 +157,22 @@ export async function deleteFileByUrl(url: string, bucket: string = DEFAULT_BUCK
             return;
         }
 
+        if (!supabaseAdmin) {
+            console.error("[deleteFileByUrl] supabaseAdmin is not initialized. Check SUPABASE_SERVICE_ROLE_KEY environment variable.");
+            return;
+        }
+
         const decodedPath = decodeURIComponent(filePath);
         console.log(`[Storage Cleanup] Deleting "${decodedPath}" from Supabase bucket "${targetBucket}"...`);
         
-        const { error } = await supabaseAdmin.storage
+        const { data, error } = await supabaseAdmin.storage
             .from(targetBucket)
             .remove([decodedPath]);
 
         if (error) {
-            console.error("Supabase Storage Delete Error:", error);
+            console.error("[deleteFileByUrl] Supabase Storage Delete Error:", error);
         } else {
-            console.log(`[Storage Cleanup] Successfully deleted "${decodedPath}" from bucket "${targetBucket}".`);
+            console.log(`[Storage Cleanup] Successfully deleted "${decodedPath}" from bucket "${targetBucket}". Data:`, data);
         }
     } catch (error) {
         console.error("Storage Service Delete Error:", error);

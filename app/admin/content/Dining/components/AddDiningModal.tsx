@@ -17,7 +17,7 @@ export function AddDiningModal() {
     const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Sync only when opening or when editing item ID changes
+    // Sync only when opening or when editing item ID/imageUrl changes
     React.useEffect(() => {
         if (isAddModalOpen) {
             setImagePreview(editingData?.imageUrl || null);
@@ -28,7 +28,7 @@ export function AddDiningModal() {
             setIsImageRemoved(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
         }
-    }, [editingData?.id, isAddModalOpen]);
+    }, [editingData?.id, editingData?.imageUrl, isAddModalOpen]);
 
     const handleClose = () => {
         setIsAddModalOpen(false);

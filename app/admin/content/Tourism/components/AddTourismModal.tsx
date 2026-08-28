@@ -20,21 +20,37 @@ export function AddTourismModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useTourism();
     const { handleSubmit, loading } = useTourismForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Sync only when opening modal or when editing record ID/imageUrl changes
     useEffect(() => {
-        if (editingData?.imageUrl) {
-            setImagePreview(editingData.imageUrl);
+        if (isAddModalOpen) {
+            setImagePreview(editingData?.imageUrl || null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         } else {
             setImagePreview(null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
-    }, [editingData, isAddModalOpen]);
+    }, [editingData?.id, editingData?.imageUrl, isAddModalOpen]);
 
     const handleClose = () => {
         setIsAddModalOpen(false);
         setTimeout(() => {
             setEditingData(null);
             setImagePreview(null);
+            setIsImageRemoved(false);
         }, 200);
+    };
+
+    const handleClearImage = () => {
+        setImagePreview(null);
+        setIsImageRemoved(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     return (
@@ -83,11 +99,16 @@ export function AddTourismModal() {
 
                     {/* Scrollable Form Body */}
                     <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">
-                        <form key={editingData?.id || "new-tourism-form"} id="tourismForm" onSubmit={handleSubmit} className="space-y-6">
+                        <form 
+                            key={editingData ? `${editingData.id}-${editingData.description || ""}-${editingData.entranceFee || ""}-${editingData.bestTimeToVisit || ""}` : "new-tourism-form"} 
+                            id="tourismForm" 
+                            onSubmit={handleSubmit} 
+                            className="space-y-6"
+                        >
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Tourism Spot / Landmark Name <span className="text-red-500">*</span>
+                                        Tourism Spot Name <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="name"
@@ -95,19 +116,20 @@ export function AddTourismModal() {
                                         defaultValue={editingData?.name || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="e.g. Mapandan Town Plaza & Park"
+                                        placeholder="e.g. Mapandan River Park"
                                     />
                                 </div>
                                 <div>
                                     <Label htmlFor="category" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Category
+                                        Category <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="category"
                                         name="category"
-                                        defaultValue={editingData?.category || "Park"}
+                                        defaultValue={editingData?.category || "Attraction"}
+                                        required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Park, Landmark, Historical, Nature..."
+                                        placeholder="Park, Historical, Eco-Tourism, Landmark..."
                                     />
                                 </div>
                             </div>
@@ -121,7 +143,7 @@ export function AddTourismModal() {
                                     name="description"
                                     defaultValue={editingData?.description || ""}
                                     className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white min-h-[100px] resize-none"
-                                    placeholder="Describe key highlights, history, and activities..."
+                                    placeholder="Describe attractions, activities, historical background..."
                                 />
                             </div>
 
@@ -141,14 +163,14 @@ export function AddTourismModal() {
                                 </div>
                                 <div>
                                     <Label htmlFor="entranceFee" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Entrance Fee Info
+                                        Entrance Fee / Rates
                                     </Label>
                                     <Input
                                         id="entranceFee"
                                         name="entranceFee"
                                         defaultValue={editingData?.entranceFee || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Free Admission / ₱ 50 per head"
+                                        placeholder="Free / ₱ 50 per head"
                                     />
                                 </div>
                             </div>
@@ -156,19 +178,19 @@ export function AddTourismModal() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <Label htmlFor="bestTimeToVisit" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Best Time to Visit / Hours
+                                        Best Time to Visit
                                     </Label>
                                     <Input
                                         id="bestTimeToVisit"
                                         name="bestTimeToVisit"
                                         defaultValue={editingData?.bestTimeToVisit || ""}
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                        placeholder="Late Afternoon / 6:00 AM - 10:00 PM"
+                                        placeholder="Sunrise / Sunset / Summer Months"
                                     />
                                 </div>
                                 <div>
                                     <Label htmlFor="contactNumber" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Contact Info / Tourism Desk
+                                        Contact / Information Desk
                                     </Label>
                                     <Input
                                         id="contactNumber"
@@ -202,11 +224,23 @@ export function AddTourismModal() {
                             )}
 
                             <div>
-                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                    Cover / Feature Image
-                                </Label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        Cover / Feature Image
+                                    </Label>
+                                    {imagePreview && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearImage}
+                                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X className="w-3.5 h-3.5" /> Remove Image
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4">
                                     <Input
+                                        ref={fileInputRef}
                                         type="file"
                                         name="imageFile"
                                         accept="image/*"
@@ -214,6 +248,7 @@ export function AddTourismModal() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
+                                                setIsImageRemoved(false);
                                                 const reader = new FileReader();
                                                 reader.onloadend = () => setImagePreview(reader.result as string);
                                                 reader.readAsDataURL(file);
@@ -221,7 +256,12 @@ export function AddTourismModal() {
                                         }}
                                     />
                                 </div>
-                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                <input
+                                    type="hidden"
+                                    name="imageRemoved"
+                                    value={isImageRemoved ? "true" : "false"}
+                                />
+                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                     <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                 )}
                                 {imagePreview && (

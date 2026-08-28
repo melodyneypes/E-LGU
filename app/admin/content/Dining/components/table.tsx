@@ -10,7 +10,6 @@ import { Edit2, Trash2, Utensils, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";

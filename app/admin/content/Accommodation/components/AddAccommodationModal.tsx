@@ -23,7 +23,7 @@ export function AddAccommodationModal() {
     const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Sync only when opening modal or when switching editing record ID
+    // Sync only when opening modal or when switching editing record ID / imageUrl
     useEffect(() => {
         if (isAddModalOpen) {
             setImagePreview(editingData?.imageUrl || null);
@@ -34,7 +34,7 @@ export function AddAccommodationModal() {
             setIsImageRemoved(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
         }
-    }, [editingData?.id, isAddModalOpen]);
+    }, [editingData?.id, editingData?.imageUrl, isAddModalOpen]);
 
     const handleClose = () => {
         setIsAddModalOpen(false);
