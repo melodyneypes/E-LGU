@@ -168,6 +168,7 @@ model News {
   author      String?
   category    String   @default("Announcement")
   imageUrl    String?
+  images      String[] @default([])
   publishDate DateTime @default(now())
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())

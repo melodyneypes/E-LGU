@@ -51,7 +51,9 @@ export async function callTicketToCounter(id: string, counterName: string) {
         const updatedAdditionalData = {
             ...currentAdditionalData,
             counterName: sanitizedCounterName,
-            servingDepartment: servingDept
+            servingDepartment: servingDept,
+            checkedIn: true,
+            checkedInAt: new Date().toISOString()
         };
 
         const updated = await prisma.transaction.update({
@@ -199,7 +201,7 @@ function isTicketForToday(tx: any): boolean {
     // Rule 3: For standard single-day appointments, appointmentDate must match today.
     // However, multi-day/evaluated workflows (e.g. Business Permits, POSO fines, UNPAID payment check-ins) are allowed to be served on the day they checked in.
     const isBusinessPermit = (tx.type?.category || "").toUpperCase().includes("BUSINESS") || (tx.type?.code || "").toUpperCase().startsWith("BUSINESS_PERMIT");
-    const isMultiDayService = isBusinessPermit || ["UNPAID", "PAID", "FOR_CLAIM", "EVALUATED", "FOR_PAYMENT"].includes(tx.status);
+    const isMultiDayService = isBusinessPermit || ["UNPAID", "PAID", "FOR_CLAIM", "EVALUATED", "FOR_PAYMENT", "FOR_PROCESSING"].includes(tx.status);
 
     if (tx?.appointmentDate && !isMultiDayService) {
         const apptDate = new Date(tx.appointmentDate);
@@ -554,6 +556,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
                 isCancelled: false
             },
             include: {
+                type: true,
                 user: {
                     include: {
                         residentProfile: true

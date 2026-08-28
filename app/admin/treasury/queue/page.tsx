@@ -72,7 +72,7 @@ function isTicketForToday(tx: any): boolean {
     // Rule 3: For standard single-day appointments, appointmentDate must match today.
     // Multi-day workflows (Business Permits, POSO fines, UNPAID payment check-ins) are allowed based on their check-in today.
     const isBusinessPermit = (tx.type?.category || "").toUpperCase().includes("BUSINESS") || (tx.type?.code || "").toUpperCase().startsWith("BUSINESS_PERMIT");
-    const isMultiDayService = isBusinessPermit || ["UNPAID", "PAID", "FOR_CLAIM", "EVALUATED", "FOR_PAYMENT"].includes(tx.status);
+    const isMultiDayService = isBusinessPermit || ["UNPAID", "PAID", "FOR_CLAIM", "EVALUATED", "FOR_PAYMENT", "FOR_PROCESSING"].includes(tx.status);
 
     if (tx?.appointmentDate && !isMultiDayService) {
         const apptDate = new Date(tx.appointmentDate);
@@ -361,71 +361,66 @@ export default function TreasuryQueuePage() {
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Now Processing at {counterName}</p>
                                     </div>
-
-                                    {currentlyServingList.length > 0 ? (
-                                        <div className="flex flex-col gap-3 w-full">
-                                            {currentlyServingList.map((ticket) => (
-                                                <div
-                                                    key={ticket.id}
-                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-slate-50/50 dark:bg-white/[0.02] rounded-2xl border border-slate-200 dark:border-white/10 gap-4 shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-white/[0.04] w-full"
-                                                >
-                                                    {/* Left: Ticket Number Indicator */}
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex flex-col items-center justify-center bg-primary/10 border border-primary/20 text-primary px-3 h-12 rounded-xl font-mono flex-shrink-0 min-w-[70px]">
-                                                            <span className="text-[7px] font-black uppercase tracking-wider text-primary/70 leading-none">Ticket</span>
-                                                            <span className="text-xs sm:text-sm font-black italic tracking-tight mt-0.5 leading-none">
-                                                                {ticket.queueNumber || "TR-XXX"}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Mid: Resident Details & Service type */}
-                                                        <div className="space-y-1 text-left">
-                                                            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase leading-tight truncate max-w-[160px] sm:max-w-[200px]">
-                                                                {getCitizenName(ticket)}
-                                                            </h3>
-                                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                                <span className="text-[9px] font-bold text-primary uppercase bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 truncate max-w-[140px] inline-block">
-                                                                    {ticket.type?.name}
-                                                                </span>
-                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-[8px] font-black uppercase tracking-wider border border-amber-500/20 italic animate-pulse">
-                                                                    Serving
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Right: Actions */}
-                                                    <div className="flex items-center gap-2 w-full sm:w-auto border-t sm:border-t-0 pt-2.5 sm:pt-0 border-slate-150 dark:border-white/5">
-                                                        <Button
-                                                            variant="outline"
-                                                            className="h-8.5 px-3 rounded-xl font-black uppercase tracking-widest text-[9px] flex items-center gap-1 border-slate-200 dark:border-white/10 hover:border-amber-500/40 hover:text-amber-500 w-full sm:w-auto"
-                                                            onClick={() => handleRecall(ticket)}
-                                                            disabled={actionLoading}
-                                                        >
-                                                            <Volume2 className="w-3 h-3" />
-                                                            Recall
-                                                        </Button>
-                                                        <Button
-                                                            className="h-8.5 px-3 rounded-xl font-black uppercase tracking-widest text-[9px] w-full sm:w-auto"
-                                                            onClick={() => router.push(`/admin/treasury/${ticket.id}`)}
-                                                        >
-                                                            Process
-                                                        </Button>
-                                                    </div>
+                                    {(() => {
+                                        const currentlyServing = currentlyServingList[0] || null;
+                                        return currentlyServing ? (
+                                            <div className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <span className="inline-flex items-center gap-2 px-6 py-2 bg-amber-500/10 text-amber-500 rounded-full text-xs font-black uppercase tracking-widest border border-amber-500/20 italic animate-pulse mx-auto">
+                                                        <Activity className="w-4 h-4" />
+                                                        Serving
+                                                    </span>
+                                                    <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-slate-950 dark:text-white uppercase italic leading-none font-mono py-4">
+                                                        {currentlyServing.queueNumber
+                                                            ? currentlyServing.queueNumber.split("-").pop()
+                                                            : "TR-XXX"}
+                                                    </h2>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="py-12 space-y-4">
-                                            <Smile className="w-16 h-16 text-slate-200 dark:text-slate-700 mx-auto" />
-                                            <div className="space-y-1 max-w-sm mx-auto">
-                                                <p className="text-base font-bold text-slate-400 uppercase italic">No Active Ticket</p>
-                                                <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed font-medium">
-                                                    Click **&quot;Call Next in Queue&quot;** to pull the next waiting citizen to your counter.
-                                                </p>
+
+                                                <div className="space-y-1 max-w-md mx-auto">
+                                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Citizen Name</p>
+                                                    <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white uppercase leading-tight">
+                                                        {getCitizenName(currentlyServing)}
+                                                    </h3>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Service Type</p>
+                                                    <span className="text-xs font-bold text-primary uppercase bg-primary/5 px-3 py-1 rounded-full border border-primary/10 inline-block">
+                                                        {currentlyServing.type?.name}
+                                                    </span>
+                                                </div>
+
+                                                <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-center gap-4">
+                                                    <Button
+                                                        variant="outline"
+                                                        className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 border-slate-200 dark:border-white/10 hover:border-amber-500/40 hover:text-amber-500"
+                                                        onClick={() => handleRecall(currentlyServing)}
+                                                        disabled={actionLoading}
+                                                    >
+                                                        <Volume2 className="w-4 h-4" />
+                                                        Recall Voice
+                                                    </Button>
+                                                    <Button
+                                                        className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]"
+                                                        onClick={() => router.push(`/admin/treasury/${currentlyServing.id}`)}
+                                                    >
+                                                        Process Request
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <div className="py-12 space-y-4">
+                                                <Smile className="w-16 h-16 text-slate-200 dark:text-slate-700 mx-auto" />
+                                                <div className="space-y-1 max-w-sm mx-auto">
+                                                    <p className="text-base font-bold text-slate-400 uppercase italic">No Active Ticket</p>
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed font-medium">
+                                                        Click **&quot;Call Next in Queue&quot;** to pull the next waiting citizen to your counter.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </CardContent>
                             </Card>
                         </div>

@@ -12,6 +12,7 @@ export function NewsFilters() {
     const {
         searchTerm,
         setIsAddModalOpen,
+        setEditingData,
         selectedCategory,
         currentBarangay,
         activeBarangays = [],
@@ -142,7 +143,10 @@ export function NewsFilters() {
                     )}
                 </div>
                 <Button
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={() => {
+                        setEditingData(null);
+                        setIsAddModalOpen(true);
+                    }}
                     className="w-full sm:w-auto h-12 text-white font-black uppercase tracking-widest text-[10px] px-8 rounded-xl shadow-xl flex items-center gap-2"
                     style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}40` }}
                 >

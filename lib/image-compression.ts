@@ -48,15 +48,23 @@ export function compressImage(file: File, maxWidth = 1600, quality = 0.75): Prom
                             return resolve(file); // Fallback: blob generation failed
                         }
 
-                        // Recreate File object with original name
-                        const compressedFile = new File([blob], file.name, {
-                            type: file.type || "image/jpeg",
+                        // Recreate File object with original name but with .webp extension
+                        let newName = file.name;
+                        const extIdx = newName.lastIndexOf(".");
+                        if (extIdx !== -1) {
+                            newName = newName.substring(0, extIdx) + ".webp";
+                        } else {
+                            newName = newName + ".webp";
+                        }
+
+                        const compressedFile = new File([blob], newName, {
+                            type: "image/webp",
                             lastModified: Date.now(),
                         });
 
                         resolve(compressedFile);
                     },
-                    file.type || "image/jpeg",
+                    "image/webp",
                     quality
                 );
             };

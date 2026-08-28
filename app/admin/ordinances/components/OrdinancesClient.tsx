@@ -548,7 +548,7 @@ export function OrdinancesClient({
 
             {/* View Document Details Modal */}
             <Dialog open={!!viewingData} onOpenChange={(open) => !open && setViewingData(null)}>
-                <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#0f111a] border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl">
+                <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#0f111a] border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-2xl">
                     <DialogHeader className="p-6 pb-4 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between bg-slate-50/50 dark:bg-[#1a1f2e]/20">
                         <div className="flex items-center gap-3">
                             <div 

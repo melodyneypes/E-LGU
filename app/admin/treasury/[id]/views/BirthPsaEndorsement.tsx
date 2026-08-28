@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { callTicketToCounter } from "@/app/admin/transactions/calling-actions";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/ResidentIdentityProfile";
@@ -93,6 +94,27 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
+
+    const handleCallInQueue = async () => {
+        const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
+        if (!activeCounter) {
+            toast.error("Please configure your active counter/window first using the Set Counter selector.");
+            return;
+        }
+
+        try {
+            const res = await callTicketToCounter(transaction.id, activeCounter);
+            if (res.success) {
+                toast.success(`Successfully called ticket: ${transaction.queueNumber || transaction.id}`);
+                window.location.href = "/admin/treasury/queue";
+            } else {
+                toast.error(res.error || "Failed to call ticket.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to call ticket.");
+        }
+    };
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const additional = transaction.additionalData || {};
 
@@ -928,12 +950,10 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                 {isAppointmentPsa ? (
                                     transaction.status === "UNPAID" ? (
                                         <Button
-                                            asChild
+                                            onClick={handleCallInQueue}
                                             className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10"
                                         >
-                                            <Link href="/admin/treasury/queue">
-                                                Go to Treasury Queue to Call Resident
-                                            </Link>
+                                            Go to Treasury Queue to Call Resident
                                         </Button>
                                     ) : (
                                         <Button

@@ -12,6 +12,7 @@ export function ProjectsFilters() {
     const {
         searchTerm,
         setIsAddModalOpen,
+        setEditingData,
         selectedCategory,
         selectedStatus,
         currentBarangay,
@@ -159,7 +160,10 @@ export function ProjectsFilters() {
             </div>
 
             <Button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                    setEditingData(null);
+                    setIsAddModalOpen(true);
+                }}
                 className="h-11 px-6 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{ backgroundColor: themeColor }}
             >

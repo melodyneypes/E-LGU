@@ -421,14 +421,7 @@ export default function CivilRegistryPage() {
             {/* Step Content */}
             <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
                 <div className="flex-1 space-y-8 md:space-y-12">
-                    <div className="space-y-3 md:space-y-4 text-center">
-                        <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight select-none">
-                            Choose Application <span className="theme-icon-text">Pathway</span>
-                        </h2>
-                        <p className="text-slate-500 font-medium italic text-xs md:text-sm uppercase tracking-widest max-w-2xl mx-auto select-none">
-                            Select a civil registry service to proceed.
-                        </p>
-                    </div>
+
 
                     {/* Civil Registry Sections */}
                     <div className="space-y-16 max-w-6xl mx-auto w-full">

@@ -87,12 +87,7 @@ export function MedicalConsultationForm({
     const [transitionDirection, setTransitionDirection] = useState<"next" | "prev" | null>(null);
 
     // Selected Health Center state
-    const [selectedCenterId, setSelectedCenterId] = useState<string>(() => {
-        if (healthCenters && healthCenters.length > 0) {
-            return healthCenters[0].id;
-        }
-        return "";
-    });
+    const [selectedCenterId, setSelectedCenterId] = useState<string>("");
     const [isCenterPopoverOpen, setIsCenterPopoverOpen] = useState(false);
     const [centerSearchQuery, setCenterSearchQuery] = useState("");
     const [currentConfig, setCurrentConfig] = useState<any>(appointmentConfig);
@@ -162,9 +157,6 @@ export function MedicalConsultationForm({
     // When user selects a different health center, dynamically load its schedule config
     useEffect(() => {
         if (!selectedCenterId) {
-            if (healthCenters && healthCenters.length > 0) {
-                setSelectedCenterId(healthCenters[0].id);
-            }
             setCurrentConfig(appointmentConfig);
             return;
         }
@@ -175,7 +167,7 @@ export function MedicalConsultationForm({
                 setCurrentConfig(appointmentConfig);
             }
         });
-    }, [selectedCenterId, appointmentConfig, healthCenters]);
+    }, [selectedCenterId, appointmentConfig]);
 
     // Validation errors state
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -300,25 +292,27 @@ export function MedicalConsultationForm({
     });
 
     const [additionalFields, setAdditionalFields] = useState({
-        checkupType: availableCheckupServices[0] || "General Consultation",
+        checkupType: "",
         customCheckupType: "",
         symptomsPurpose: "",
         findings: "Recommending clearance based on routine medical inspection.",
         isPriorityLane: false,
     });
 
-    // Auto-update checkupType if current selection is not offered by selected center
+    // Reset checkupType if current selection is not offered by selected center
     useEffect(() => {
         if (availableCheckupServices.length > 0) {
             setAdditionalFields(prev => {
-                if (!prev.checkupType || !availableCheckupServices.includes(prev.checkupType)) {
+                if (prev.checkupType && !availableCheckupServices.includes(prev.checkupType)) {
                     return {
                         ...prev,
-                        checkupType: availableCheckupServices[0]
+                        checkupType: ""
                     };
                 }
                 return prev;
             });
+        } else {
+            setAdditionalFields(prev => ({ ...prev, checkupType: "" }));
         }
     }, [availableCheckupServices]);
 
