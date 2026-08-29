@@ -43,6 +43,7 @@ export interface VendorOption {
 
 interface StallsContextType {
     stalls: StallItem[];
+    setStalls: React.Dispatch<React.SetStateAction<StallItem[]>>;
     stallTypes: StallTypeOption[];
     vendors: VendorOption[];
     themeColor: string;
@@ -142,6 +143,7 @@ export function StallsProvider({
         <StallsContext.Provider
             value={{
                 stalls,
+                setStalls,
                 stallTypes,
                 vendors,
                 themeColor,

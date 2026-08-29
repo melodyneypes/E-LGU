@@ -12,6 +12,7 @@ export function DeleteStallTypeModal() {
         setIsDeleteOpen,
         deletingStallType,
         setDeletingStallType,
+        setStallTypes,
         triggerRefresh,
     } = useStallTypes();
 
@@ -22,8 +23,11 @@ export function DeleteStallTypeModal() {
 
         setLoading(true);
         try {
-            const res = await deleteStallType(deletingStallType.id);
+            const deletedId = deletingStallType.id;
+            const res = await deleteStallType(deletedId);
             if (res.success) {
+                // Instant Optimistic Deletion (0ms lag sa table)
+                setStallTypes(prev => prev.filter(t => t.id !== deletedId));
                 toast.success("Market section deleted successfully!");
                 setIsDeleteOpen(false);
                 setDeletingStallType(null);

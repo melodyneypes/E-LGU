@@ -15,12 +15,14 @@ export interface RegistryPersonnelItem {
 
 interface RegistryContextType {
     personnel: RegistryPersonnelItem[];
+    setPersonnel: React.Dispatch<React.SetStateAction<RegistryPersonnelItem[]>>;
     themeColor: string;
     search: string;
     debouncedSearch: string;
     isSearching: boolean;
     isRefreshing: boolean;
     triggerRefresh: () => void;
+    refreshPersonnel: () => Promise<void>;
     setSearch: (val: string) => void;
     selectedRoleFilter: "ALL" | "VENDOR" | "COLLECTOR";
     setSelectedRoleFilter: (val: "ALL" | "VENDOR" | "COLLECTOR") => void;
@@ -68,12 +70,25 @@ export function RegistryProvider({
         setPersonnel(initialPersonnel);
     }, [initialPersonnel]);
 
-    const triggerRefresh = () => {
+    const refreshPersonnel = async () => {
         setIsRefreshing(true);
-        router.refresh();
-        setTimeout(() => {
+        try {
+            const { getMarketPersonnel } = await import("../actions/registry.actions");
+            const res = await getMarketPersonnel();
+            if (res.success && res.personnel) {
+                setPersonnel(res.personnel as any);
+            } else {
+                router.refresh();
+            }
+        } catch {
+            router.refresh();
+        } finally {
             setIsRefreshing(false);
-        }, 600);
+        }
+    };
+
+    const triggerRefresh = () => {
+        refreshPersonnel();
     };
 
     // 400ms Debounce effect on search input
@@ -105,12 +120,14 @@ export function RegistryProvider({
         <RegistryContext.Provider
             value={{
                 personnel,
+                setPersonnel,
                 themeColor,
                 search,
                 debouncedSearch,
                 isSearching,
                 isRefreshing,
                 triggerRefresh,
+                refreshPersonnel,
                 setSearch: setSearchRaw,
                 selectedRoleFilter,
                 setSelectedRoleFilter,

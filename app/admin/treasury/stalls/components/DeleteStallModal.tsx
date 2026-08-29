@@ -5,12 +5,15 @@ import { useStalls } from "./StallsProvider";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 import { deleteStall } from "../actions/stalls.actions";
 
+import { toast } from "sonner";
+
 export function DeleteStallModal() {
     const {
         isDeleteOpen,
         setIsDeleteOpen,
         deletingStall,
         setDeletingStall,
+        setStalls,
         triggerRefresh,
     } = useStalls();
 
@@ -20,15 +23,23 @@ export function DeleteStallModal() {
         if (!deletingStall) return;
 
         setLoading(true);
-        const res = await deleteStall(deletingStall.id);
-        setLoading(false);
-
-        if (res.success) {
-            setIsDeleteOpen(false);
-            setDeletingStall(null);
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to delete stall");
+        try {
+            const deletedId = deletingStall.id;
+            const res = await deleteStall(deletedId);
+            if (res.success) {
+                // Instant Optimistic Deletion (0ms delay sa table)
+                setStalls(prev => prev.filter(s => s.id !== deletedId));
+                toast.success("Market stall deleted successfully!");
+                setIsDeleteOpen(false);
+                setDeletingStall(null);
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to delete stall");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to delete stall");
+        } finally {
+            setLoading(false);
         }
     };
 

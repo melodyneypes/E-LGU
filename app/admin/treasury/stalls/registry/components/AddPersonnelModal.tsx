@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Eye, EyeOff, Loader2 } from "lucide-react";
-import { createMarketPersonnel } from "../actions";
+import { UserPlus, Eye, EyeOff, Loader2, X, Save } from "lucide-react";
+import { toast } from "sonner";
+import { createMarketPersonnel } from "../actions/registry.actions";
 
 export function AddPersonnelModal() {
     const { isAddOpen, setIsAddOpen, themeColor, triggerRefresh } = useRegistry();
@@ -23,49 +24,64 @@ export function AddPersonnelModal() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim() || !email.trim() || !password.trim()) {
-            alert("Please fill in all required fields.");
+            toast.error("Please fill in all required fields.");
             return;
         }
 
         setLoading(true);
-        const res = await createMarketPersonnel({
-            name,
-            email,
-            password,
-            role,
-        });
+        try {
+            const res = await createMarketPersonnel({
+                name,
+                email,
+                password,
+                role,
+            });
 
-        setLoading(false);
-        if (res.success) {
-            setIsAddOpen(false);
-            setName("");
-            setEmail("");
-            setPassword("");
-            setRole("VENDOR");
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to register personnel");
+            if (res.success) {
+                toast.success("Market personnel registered successfully!");
+                setIsAddOpen(false);
+                setName("");
+                setEmail("");
+                setPassword("");
+                setRole("VENDOR");
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to register personnel");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to register personnel");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
-                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center gap-3">
-                    <div
-                        className="p-3 rounded-2xl text-white shadow-md shrink-0"
-                        style={{ backgroundColor: themeColor }}
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="p-3 rounded-2xl text-white shadow-md shrink-0"
+                            style={{ backgroundColor: themeColor }}
+                        >
+                            <UserPlus className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
+                                Register Personnel
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-slate-500 font-medium italic">
+                                Add a new Vendor or Collector account with system access.
+                            </DialogDescription>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsAddOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
-                        <UserPlus className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
-                            Add Market Personnel
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500 font-medium italic">
-                            Provision a new Market Stall Vendor or Ticket Collector account.
-                        </DialogDescription>
-                    </div>
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} autoComplete="off" className="p-6 space-y-4">
