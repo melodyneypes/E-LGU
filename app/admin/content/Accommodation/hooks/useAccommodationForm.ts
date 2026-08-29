@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { addAccommodation, updateAccommodation } from "@/app/admin/actions";
+import { createAccommodation, updateAccommodation } from "../actions/accommodation.actions";
 import { useAccommodation } from "../providers/AccommodationProvider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ export function useAccommodationForm() {
             if (editingData) {
                 res = await updateAccommodation(editingData.id, formData);
             } else {
-                res = await addAccommodation(formData);
+                res = await createAccommodation(formData);
             }
 
             if (res?.success) {

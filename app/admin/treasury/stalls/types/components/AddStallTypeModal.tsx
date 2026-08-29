@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tag } from "lucide-react";
-import { createStallType } from "../actions";
+import { Tag, X, Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
+import { createStallType } from "../actions/stall-types.actions";
 
 export function AddStallTypeModal() {
     const { isAddOpen, setIsAddOpen, themeColor, triggerRefresh } = useStallTypes();
@@ -20,32 +21,38 @@ export function AddStallTypeModal() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!code.trim() || !name.trim()) {
-            alert("Please fill in both section code and section name");
+            toast.error("Please fill in both section code and section name");
             return;
         }
 
         setLoading(true);
-        const res = await createStallType({
-            code,
-            name,
-            description,
-        });
+        try {
+            const res = await createStallType({
+                code,
+                name,
+                description,
+            });
 
-        setLoading(false);
-        if (res.success) {
-            setIsAddOpen(false);
-            setCode("");
-            setName("");
-            setDescription("");
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to create section");
+            if (res.success) {
+                toast.success("Market section created successfully!");
+                setIsAddOpen(false);
+                setCode("");
+                setName("");
+                setDescription("");
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to create section");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to create section");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl text-white shadow-md" style={{ backgroundColor: themeColor }}>
@@ -60,6 +67,13 @@ export function AddStallTypeModal() {
                             </DialogDescription>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsAddOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -112,9 +126,10 @@ export function AddStallTypeModal() {
                             type="submit"
                             disabled={loading}
                             style={{ backgroundColor: themeColor }}
-                            className="rounded-xl text-xs font-black uppercase italic tracking-wider text-white px-5"
+                            className="rounded-xl text-xs font-black uppercase italic tracking-wider text-white px-5 flex items-center gap-2 cursor-pointer"
                         >
-                            {loading ? "Saving..." : "Create Section"}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>{loading ? "Saving..." : "Create Section"}</span>
                         </Button>
                     </div>
                 </form>

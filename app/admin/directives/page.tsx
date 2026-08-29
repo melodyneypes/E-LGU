@@ -24,7 +24,14 @@ export default async function ExecutiveDirectivesPage(props: {
     }
 
     const role = (session.user as any)?.role;
-    if (role !== "ADMIN" && role !== "MAYOR") {
+    const department = (session.user as any)?.department;
+    const accessiblePages = (session.user as any)?.accessiblePages || [];
+
+    const isLguAdmin = role === "ADMIN" && (department?.toUpperCase() === "LGU" || !department);
+    const isMayor = role === "MAYOR";
+    const hasPageAccess = accessiblePages.includes("/admin/directives");
+
+    if (!isLguAdmin && !isMayor && !hasPageAccess) {
         redirect("/admin/dashboard");
     }
 

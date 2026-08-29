@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useRegistry } from "./RegistryProvider";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
-import { deleteMarketPersonnel } from "../actions";
+import { deleteMarketPersonnel } from "../actions/registry.actions";
+import { toast } from "sonner";
 
 export function DeletePersonnelModal() {
     const {
@@ -11,6 +12,7 @@ export function DeletePersonnelModal() {
         setIsDeleteOpen,
         deletingPersonnel,
         setDeletingPersonnel,
+        setPersonnel,
         triggerRefresh,
     } = useRegistry();
 
@@ -20,15 +22,23 @@ export function DeletePersonnelModal() {
         if (!deletingPersonnel) return;
 
         setLoading(true);
-        const res = await deleteMarketPersonnel(deletingPersonnel.id);
-        setLoading(false);
-
-        if (res.success) {
-            setIsDeleteOpen(false);
-            setDeletingPersonnel(null);
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to delete personnel account");
+        try {
+            const deletedId = deletingPersonnel.id;
+            const res = await deleteMarketPersonnel(deletedId);
+            if (res.success) {
+                // Instant Optimistic Deletion (alis agad sa table)
+                setPersonnel(prev => prev.filter(p => p.id !== deletedId));
+                toast.success("Personnel account deleted successfully!");
+                setIsDeleteOpen(false);
+                setDeletingPersonnel(null);
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to delete personnel account");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to delete personnel account");
+        } finally {
+            setLoading(false);
         }
     };
 

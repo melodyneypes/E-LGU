@@ -15,9 +15,14 @@ export interface Hotline {
     updatedAt: Date;
 }
 
+import { getAdminHotlines } from "../actions/hotlines.actions";
+
 interface HotlinesContextType {
     hotlinesData: Hotline[];
     setHotlinesData: (data: Hotline[]) => void;
+    isLoading: boolean;
+    setIsLoading: (loading: boolean) => void;
+    refreshHotlines: () => Promise<void>;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     isAddModalOpen: boolean;
@@ -58,6 +63,7 @@ export function HotlinesProvider({
     status?: string;
 }) {
     const [hotlinesData, setHotlinesData] = useState<Hotline[]>(initialData);
+    const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<Hotline | null>(null);
@@ -65,6 +71,26 @@ export function HotlinesProvider({
     const [selectedStatus, setSelectedStatus] = useState(status);
     const [themeColor, setThemeColor] = useState("#2563eb");
     const [isPending, setIsPending] = useState(false);
+
+    const refreshHotlines = async () => {
+        setIsLoading(true);
+        try {
+            const res = await getAdminHotlines({
+                page,
+                pageSize,
+                search: searchTerm,
+                category: selectedCategory,
+                status: selectedStatus,
+            });
+            if (res.success && res.hotlines) {
+                setHotlinesData(res.hotlines as any);
+            }
+        } catch (err) {
+            console.error("Failed to refresh hotlines:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         setHotlinesData(initialData);
@@ -103,6 +129,9 @@ export function HotlinesProvider({
             value={{
                 hotlinesData,
                 setHotlinesData,
+                isLoading,
+                setIsLoading,
+                refreshHotlines,
                 searchTerm,
                 setSearchTerm,
                 isAddModalOpen,

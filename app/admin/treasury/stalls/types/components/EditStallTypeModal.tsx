@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit } from "lucide-react";
-import { updateStallType } from "../actions";
+import { Edit, X, Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
+import { updateStallType } from "../actions/stall-types.actions";
 
 export function EditStallTypeModal() {
     const { isEditOpen, setIsEditOpen, editingStallType, themeColor, triggerRefresh } = useStallTypes();
@@ -29,18 +30,24 @@ export function EditStallTypeModal() {
         if (!editingStallType || !code.trim() || !name.trim()) return;
 
         setLoading(true);
-        const res = await updateStallType(editingStallType.id, {
-            code,
-            name,
-            description,
-        });
+        try {
+            const res = await updateStallType(editingStallType.id, {
+                code,
+                name,
+                description,
+            });
 
-        setLoading(false);
-        if (res.success) {
-            setIsEditOpen(false);
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to update section");
+            if (res.success) {
+                toast.success("Market section updated successfully!");
+                setIsEditOpen(false);
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to update section");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update section");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -48,7 +55,7 @@ export function EditStallTypeModal() {
 
     return (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl text-white shadow-md" style={{ backgroundColor: themeColor }}>
@@ -63,6 +70,13 @@ export function EditStallTypeModal() {
                             </DialogDescription>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsEditOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -109,9 +123,10 @@ export function EditStallTypeModal() {
                             type="submit"
                             disabled={loading}
                             style={{ backgroundColor: themeColor }}
-                            className="rounded-xl text-xs font-black uppercase italic tracking-wider text-white px-5"
+                            className="rounded-xl text-xs font-black uppercase italic tracking-wider text-white px-5 flex items-center gap-2 cursor-pointer"
                         >
-                            {loading ? "Updating..." : "Save Changes"}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>{loading ? "Updating..." : "Save Changes"}</span>
                         </Button>
                     </div>
                 </form>

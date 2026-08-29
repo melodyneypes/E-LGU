@@ -22,6 +22,7 @@ export interface StallTypeItem {
 
 interface StallTypesContextType {
     stallTypes: StallTypeItem[];
+    setStallTypes: React.Dispatch<React.SetStateAction<StallTypeItem[]>>;
     themeColor: string;
     search: string;
     debouncedSearch: string;
@@ -108,6 +109,7 @@ export function StallTypesProvider({
         <StallTypesContext.Provider
             value={{
                 stallTypes,
+                setStallTypes,
                 themeColor,
                 search,
                 debouncedSearch,

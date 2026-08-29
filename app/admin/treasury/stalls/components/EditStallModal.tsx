@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus, Trash2 } from "lucide-react";
-import { updateStall } from "../actions";
+import { Edit, Plus, Trash2, X } from "lucide-react";
+import { updateStall } from "../actions/stalls.actions";
 
 interface OtherFeeItem {
     id?: string;
@@ -55,7 +55,7 @@ export function EditStallModal() {
     const handleAddFee = () => {
         setOtherFees((prev) => [
             ...prev,
-            { name: "", amount: "0", feeType: "DAILY", remarks: "" },
+            { name: "", amount: "", feeType: "DAILY", remarks: "" },
         ]);
     };
 
@@ -107,7 +107,7 @@ export function EditStallModal() {
 
     return (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
+            <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl text-white shadow-md" style={{ backgroundColor: themeColor }}>
@@ -122,6 +122,13 @@ export function EditStallModal() {
                             </DialogDescription>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsEditOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">

@@ -14,21 +14,37 @@ export function AddDiningModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useDining();
     const { handleSubmit, loading } = useDiningForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Sync only when opening or when editing item ID/imageUrl changes
     React.useEffect(() => {
-        if (editingData?.imageUrl) {
-            setImagePreview(editingData.imageUrl);
+        if (isAddModalOpen) {
+            setImagePreview(editingData?.imageUrl || null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         } else {
             setImagePreview(null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
-    }, [editingData, isAddModalOpen]);
+    }, [editingData?.id, editingData?.imageUrl, isAddModalOpen]);
 
     const handleClose = () => {
         setIsAddModalOpen(false);
         setTimeout(() => {
             setEditingData(null);
             setImagePreview(null);
+            setIsImageRemoved(false);
         }, 200);
+    };
+
+    const handleClearImage = () => {
+        setImagePreview(null);
+        setIsImageRemoved(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     return (
@@ -152,11 +168,23 @@ export function AddDiningModal() {
 
                             {/* Image Upload Input */}
                             <div>
-                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                    Cover / Banner Image
-                                </Label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        Cover / Banner Image
+                                    </Label>
+                                    {imagePreview && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearImage}
+                                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X className="w-3.5 h-3.5" /> Remove Image
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4">
                                     <Input
+                                        ref={fileInputRef}
                                         type="file"
                                         name="imageFile"
                                         accept="image/*"
@@ -164,6 +192,7 @@ export function AddDiningModal() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
+                                                setIsImageRemoved(false);
                                                 const reader = new FileReader();
                                                 reader.onloadend = () => setImagePreview(reader.result as string);
                                                 reader.readAsDataURL(file);
@@ -171,7 +200,12 @@ export function AddDiningModal() {
                                         }}
                                     />
                                 </div>
-                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                <input
+                                    type="hidden"
+                                    name="imageRemoved"
+                                    value={isImageRemoved ? "true" : "false"}
+                                />
+                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                     <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                 )}
                                 {imagePreview && (

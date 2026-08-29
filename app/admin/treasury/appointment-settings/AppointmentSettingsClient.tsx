@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, Plus, Trash2 } from "lucide-react";
-import { updateAppointmentConfig } from "@/app/admin/settings/actions";
+import { saveTreasuryAppointmentConfig } from "./actions/appointment-settings.actions";
 import { cn } from "@/lib/utils";
 
 interface AppointmentSettingsClientProps {
@@ -70,9 +70,7 @@ export default function AppointmentSettingsClient({
     const handleSaveAppointmentConfig = async () => {
         setIsSavingConfig(true);
         try {
-            const targetDept = config.department || "TREASURY";
-            const res = await updateAppointmentConfig(targetDept, {
-                maxSlots: maxSlotsAM + maxSlotsPM,
+            const res = await saveTreasuryAppointmentConfig({
                 maxSlotsAM,
                 maxSlotsPM,
                 activeDays,
@@ -260,10 +258,11 @@ export default function AppointmentSettingsClient({
                     <Button
                         onClick={handleSaveAppointmentConfig}
                         disabled={isSavingConfig}
-                        className="w-full h-12 text-white rounded-xl font-black uppercase tracking-widest transition-all active:scale-[0.99] border-none hover:opacity-90"
-                        style={{ backgroundColor: themeColor }}
+                        className="w-full h-12 text-white rounded-xl font-black uppercase tracking-widest transition-all active:scale-[0.99] border-none hover:opacity-90 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                        style={{ backgroundColor: themeColor, boxShadow: `0 10px 25px -10px ${themeColor}` }}
                     >
-                        {isSavingConfig ? "Saving Schedule..." : "Save Appointment Settings"}
+                        {isSavingConfig && <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+                        <span>{isSavingConfig ? "Saving Schedule..." : "Save Appointment Settings"}</span>
                     </Button>
                 </CardContent>
             </Card>

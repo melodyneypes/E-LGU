@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import { addDining, updateDining } from "@/app/admin/actions";
+import { createDining, updateDining } from "../actions/dining.actions";
 import { useDining } from "../providers/DiningProvider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -20,7 +20,7 @@ export function useDiningForm() {
             if (editingData) {
                 res = await updateDining(editingData.id, formData);
             } else {
-                res = await addDining(formData);
+                res = await createDining(formData);
             }
 
             if (res?.success) {
