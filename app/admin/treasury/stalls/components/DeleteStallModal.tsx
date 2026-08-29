@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useStalls } from "./StallsProvider";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
-import { deleteStall } from "../actions";
+import { deleteStall } from "../actions/stalls.actions";
 
 export function DeleteStallModal() {
     const {

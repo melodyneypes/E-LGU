@@ -5,7 +5,7 @@ import { useStalls } from "./StallsProvider";
 import { User, X, CheckCircle2, ShieldAlert, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getStallDetails } from "../actions";
+import { getStallDetails } from "../actions/stalls.actions";
 
 export function StallDetailsModal() {
     const { selectedStall, setSelectedStall } = useStalls();

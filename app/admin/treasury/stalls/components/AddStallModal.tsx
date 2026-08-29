@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Store, Plus, Trash2, Search } from "lucide-react";
-import { createStall } from "../actions";
+import { Store, Plus, Trash2, Search, X } from "lucide-react";
+import { createStall } from "../actions/stalls.actions";
 
 interface OtherFeeInput {
     id: string;
@@ -25,10 +25,10 @@ export function AddStallModal() {
     const [vendorId, setVendorId] = useState<string>("NONE");
     const [vendorSearch, setVendorSearch] = useState("");
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
-    const [dailyRate, setDailyRate] = useState("50");
-    const [monthlyRate, setMonthlyRate] = useState("1500");
-    const [dailyRateOverdueFee, setDailyRateOverdueFee] = useState("10");
-    const [monthlyRateOverdueFee, setMonthlyRateOverdueFee] = useState("100");
+    const [dailyRate, setDailyRate] = useState("");
+    const [monthlyRate, setMonthlyRate] = useState("");
+    const [dailyRateOverdueFee, setDailyRateOverdueFee] = useState("");
+    const [monthlyRateOverdueFee, setMonthlyRateOverdueFee] = useState("");
     const [otherFees, setOtherFees] = useState<OtherFeeInput[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -109,7 +109,7 @@ export function AddStallModal() {
 
     return (
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-xl p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl text-white shadow-md" style={{ backgroundColor: themeColor }}>
@@ -124,6 +124,13 @@ export function AddStallModal() {
                             </DialogDescription>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsAddOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
@@ -219,6 +226,7 @@ export function AddStallModal() {
                                 step="any"
                                 value={dailyRate}
                                 onChange={(e) => setDailyRate(e.target.value)}
+                                placeholder="e.g. 50"
                                 className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                             />
                         </div>
@@ -229,6 +237,7 @@ export function AddStallModal() {
                                 step="any"
                                 value={monthlyRate}
                                 onChange={(e) => setMonthlyRate(e.target.value)}
+                                placeholder="e.g. 1500"
                                 className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                             />
                         </div>
@@ -242,6 +251,7 @@ export function AddStallModal() {
                                 step="any"
                                 value={dailyRateOverdueFee}
                                 onChange={(e) => setDailyRateOverdueFee(e.target.value)}
+                                placeholder="e.g. 10"
                                 className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                             />
                         </div>
@@ -252,6 +262,7 @@ export function AddStallModal() {
                                 step="any"
                                 value={monthlyRateOverdueFee}
                                 onChange={(e) => setMonthlyRateOverdueFee(e.target.value)}
+                                placeholder="e.g. 100"
                                 className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                             />
                         </div>
