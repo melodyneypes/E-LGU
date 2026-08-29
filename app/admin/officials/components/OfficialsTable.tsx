@@ -1,27 +1,39 @@
 "use client";
 
 import { useOfficials } from "../providers/OfficialsProvider";
-import { deleteOfficial, toggleOfficialStatus } from "@/app/admin/actions";
+import { deleteOfficial, toggleOfficialStatus } from "../actions/officials.actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, ShieldCheck, User } from "lucide-react";
+import { Edit2, Trash2, ShieldCheck, User, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
-
-import { useRouter } from "next/navigation";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function OfficialsTable() {
     const { 
-        officialsData, setOfficialsData, searchTerm, setEditingData, 
+        officialsData, setOfficialsData, isLoading, refreshOfficials, searchTerm, setEditingData, 
         setIsAddModalOpen, selectedPosition, selectedCategory,
         selectedStatus, selectedBarangay, themeColor
     } = useOfficials();
-    const router = useRouter();
-    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const filteredData = (officialsData as any[]).filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,38 +55,42 @@ export function OfficialsTable() {
         return matchesSearch && matchesPosition && matchesCategory && matchesStatus && matchesBarangay;
     }).sort((a, b) => a.order - b.order);
 
-     
     const handleEdit = (item: any) => {
         setEditingData(item);
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this official's profile?")) return;
-        setDeletingId(id);
-        try {
-            await deleteOfficial(id);
-            setOfficialsData(officialsData.filter(item => item.id !== id));
-            router.refresh();
-            toast.success("Official profile deleted successfully!");
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-            toast.error("Failed to delete profile.");
-        } finally {
-            setDeletingId(null);
-        }
+    const handleDelete = (item: any) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Official Profile",
+            description: `Are you sure you want to permanently delete the profile of "${item.name}" (${item.position})? Attached profile photo will also be removed.`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteOfficial(item.id);
+                    if (!res.success) throw new Error(res.error);
+                    toast.success("Official profile deleted successfully!");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                    await refreshOfficials();
+                } catch (error: any) {
+                    toast.error(error.message || "Failed to delete profile.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
     };
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
         setTogglingId(id);
         try {
-            await toggleOfficialStatus(id, !currentStatus);
+            const res = await toggleOfficialStatus(id, !currentStatus);
+            if (!res.success) throw new Error(res.error);
             setOfficialsData(officialsData.map(item => item.id === id ? { ...item, isActive: !currentStatus } : item));
-            router.refresh();
             toast.success(`Official profile ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-            toast.error("Failed to update status.");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update status.");
         } finally {
             setTogglingId(null);
         }
@@ -108,7 +124,28 @@ export function OfficialsTable() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredData.map((item) => (
+                    {isLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={`skeleton-${i}`} className="border-b border-slate-200 dark:border-[#2a3040]">
+                                <TableCell className="py-4"><Skeleton className="w-12 h-12 rounded-full" /></TableCell>
+                                <TableCell className="py-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-40 rounded-md" />
+                                        <Skeleton className="h-3 w-28 rounded-md" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="py-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-32 rounded-md" />
+                                        <Skeleton className="h-3 w-20 rounded-md" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-center py-4"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></TableCell>
+                                <TableCell className="text-center py-4"><Skeleton className="h-6 w-10 mx-auto rounded-full" /></TableCell>
+                                <TableCell className="text-right py-4"><Skeleton className="h-8 w-16 ml-auto rounded-xl" /></TableCell>
+                            </TableRow>
+                        ))
+                    ) : filteredData.map((item) => (
                         <TableRow key={item.id} className="group hover:bg-slate-50/50 dark:hover:bg-[#202635] transition-colors border-b border-slate-200 dark:border-[#2a3040]">
                             <TableCell>
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
@@ -152,7 +189,7 @@ export function OfficialsTable() {
                                     checked={item.isActive}
                                     onCheckedChange={() => handleToggleStatus(item.id, item.isActive)}
                                     disabled={togglingId === item.id}
-                                    className="data-[state=checked]:bg-primary"
+                                    className="data-[state=checked]:bg-primary cursor-pointer"
                                     style={{ "--tw-bg-opacity": "1", backgroundColor: item.isActive ? themeColor : undefined } as CSSProperties}
                                 />
                             </TableCell>
@@ -165,7 +202,7 @@ export function OfficialsTable() {
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => handleEdit(item)}
-                                                    className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 dark:hover:bg-blue-900/50"
+                                                    className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 dark:hover:bg-blue-900/50 cursor-pointer"
                                                     style={{ color: themeColor }}
                                                 >
                                                     <Edit2 className="w-4 h-4" />
@@ -181,9 +218,8 @@ export function OfficialsTable() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(item.id)}
-                                                    disabled={deletingId === item.id}
-                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50"
+                                                    onClick={() => handleDelete(item)}
+                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50 cursor-pointer"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
@@ -197,6 +233,16 @@ export function OfficialsTable() {
                     ))}
                 </TableBody>
             </Table>
+
+            {/* Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }
