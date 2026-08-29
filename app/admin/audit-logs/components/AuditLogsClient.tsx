@@ -838,8 +838,31 @@ export default function AuditLogsClient({
                                         </div>                                        <div className="space-y-3">
                                             {Object.entries(selectedLog.metadata.changes).map(([fieldKey, val]: [string, any]) => {
                                                  const isExpanded = !!expandedFields[fieldKey];
-                                                 const oldStr = val?.old !== null && val?.old !== undefined && val?.old !== "" ? String(val.old) : null;
-                                                 const newStr = val?.new !== null && val?.new !== undefined && val?.new !== "" ? String(val.new) : null;
+                                                 
+                                                 const formatDiffValue = (raw: any): string | null => {
+                                                     if (raw === null || raw === undefined || raw === "") return null;
+                                                     if (typeof raw === "object") {
+                                                         try {
+                                                             if (Array.isArray(raw)) {
+                                                                 return raw.map((item, idx) => {
+                                                                     if (typeof item === "object" && item !== null) {
+                                                                         const label = item.label || item.name || item.title || `Item ${idx + 1}`;
+                                                                         const url = item.url || item.value || "";
+                                                                         return url ? `• ${label}: ${url}` : `• ${JSON.stringify(item)}`;
+                                                                     }
+                                                                     return `• ${item}`;
+                                                                 }).join("\n");
+                                                             }
+                                                             return JSON.stringify(raw, null, 2);
+                                                         } catch {
+                                                             return String(raw);
+                                                         }
+                                                     }
+                                                     return String(raw);
+                                                 };
+
+                                                 const oldStr = formatDiffValue(val?.old);
+                                                 const newStr = formatDiffValue(val?.new);
                                                  const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
                                                  const displayFieldLabel = formatFieldLabel(fieldKey);
 

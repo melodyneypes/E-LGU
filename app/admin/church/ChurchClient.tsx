@@ -22,7 +22,6 @@ import {
 import { toast } from "sonner";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChurchClientProps {
     initialInfo: any;

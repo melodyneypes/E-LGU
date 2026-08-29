@@ -21,7 +21,6 @@ import {
     Mail,
     FileText,
     MessageSquare,
-    Trash2,
     Copy,
     Check
 } from "lucide-react";
@@ -39,7 +38,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -58,8 +56,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateReportStatus, getAdminReports, getReportById, deleteReport } from "../actions/reports.actions";
-import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { updateReportStatus, getAdminReports, getReportById } from "../actions/reports.actions";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
@@ -125,20 +122,6 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [currentStatus, setCurrentStatus] = useState("");
-
-    // Delete Modal State
-    const [deleteModalConfig, setDeleteModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        description: string;
-        onConfirm: () => Promise<void>;
-    }>({
-        isOpen: false,
-        title: "",
-        description: "",
-        onConfirm: async () => {},
-    });
-    const [isDeleting, setIsDeleting] = useState(false);
 
     // Copy Email State
     const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
@@ -283,31 +266,6 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
         } finally {
             setIsUpdating(false);
         }
-    };
-
-    const handleDeleteReport = (id: string, category: string) => {
-        setDeleteModalConfig({
-            isOpen: true,
-            title: "Delete Incident Report",
-            description: `Are you sure you want to permanently delete this ${category} report? All attached evidence photos in the storage bucket will also be removed.`,
-            onConfirm: async () => {
-                setIsDeleting(true);
-                try {
-                    const res = await deleteReport(id);
-                    if (!res.success) throw new Error(res.error);
-                    toast.success("Incident report deleted successfully!");
-                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
-                    if (selectedReport?.id === id) {
-                        setSelectedReport(null);
-                    }
-                    fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter);
-                } catch (error: any) {
-                    toast.error(error.message || "Failed to delete report.");
-                } finally {
-                    setIsDeleting(false);
-                }
-            }
-        });
     };
 
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -861,16 +819,6 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 themeColor="var(--primary-theme)"
                 documents={(selectedReport?.images || []).map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
                 initialIndex={viewerIndex}
-            />
-
-            {/* 7. CONFIRM DELETE MODAL */}
-            <ConfirmDeleteModal
-                isOpen={deleteModalConfig.isOpen}
-                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={deleteModalConfig.onConfirm}
-                title={deleteModalConfig.title}
-                description={deleteModalConfig.description}
-                isLoading={isDeleting}
             />
             </div>
         </div>
