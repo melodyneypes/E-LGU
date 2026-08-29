@@ -153,17 +153,17 @@ const convertTo12Hour = (timeStr: string): string => {
 const formatDaysRange = (days: string[]): string => {
     const orderedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const selectedOrdered = orderedDays.filter(d => days.includes(d));
-    
-    if (selectedOrdered.length === 5 && 
-        selectedOrdered.includes("Monday") && 
-        selectedOrdered.includes("Friday") && 
-        !selectedOrdered.includes("Saturday") && 
+
+    if (selectedOrdered.length === 5 &&
+        selectedOrdered.includes("Monday") &&
+        selectedOrdered.includes("Friday") &&
+        !selectedOrdered.includes("Saturday") &&
         !selectedOrdered.includes("Sunday")) {
         return "Mon-Fri";
     }
-    if (selectedOrdered.length === 6 && 
-        selectedOrdered.includes("Monday") && 
-        selectedOrdered.includes("Saturday") && 
+    if (selectedOrdered.length === 6 &&
+        selectedOrdered.includes("Monday") &&
+        selectedOrdered.includes("Saturday") &&
         !selectedOrdered.includes("Sunday")) {
         return "Mon-Sat";
     }
@@ -216,12 +216,12 @@ function SearchableSelect({
 
             {isOpen && (
                 <>
-                    <div 
-                        className="fixed inset-0 z-40" 
+                    <div
+                        className="fixed inset-0 z-40"
                         onClick={() => {
                             setIsOpen(false);
                             setSearch("");
-                        }} 
+                        }}
                     />
                     <div className="absolute left-0 right-0 mt-1.5 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                         <input
@@ -979,7 +979,7 @@ export default function RHUCentersClient({
 
     const headStaffOptions = React.useMemo(() => {
         const list = [{ value: "", label: "-- None / Select Head Officer --" }];
-        
+
         // Filter active doctors who are unassigned OR assigned to this editing center
         const eligibleDoctors = personnelList.filter(p => {
             const roleUpper = (p.role || "").toUpperCase();
@@ -1193,7 +1193,7 @@ export default function RHUCentersClient({
                     <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1 min-w-0 flex-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Center Status</p>
-                            <h3 
+                            <h3
                                 className={cn(
                                     "font-black text-slate-900 dark:text-white truncate",
                                     (isCenterAdmin ? (myCenter?.status || "ACTIVE") : "ACTIVE").length > 10 ? "text-xs" : "text-sm sm:text-base md:text-lg lg:text-xl"
@@ -1433,7 +1433,7 @@ export default function RHUCentersClient({
                                                         className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg h-8 px-3 flex items-center gap-1 shrink-0 whitespace-nowrap"
                                                     >
                                                         <Plus className="w-3 h-3" /> Assign Personnel
-                                                     </Button>
+                                                    </Button>
                                                 )}
                                             </div>
                                         </div>
@@ -2209,8 +2209,8 @@ export default function RHUCentersClient({
                                                 if (centerErrors.contactNumber) setCenterErrors(prev => ({ ...prev, contactNumber: "" }));
                                             }}
                                             className={`h-10 text-xs rounded-xl border ${centerErrors.contactNumber
-                                                    ? "border-red-500 focus-visible:ring-red-500"
-                                                    : "border-slate-200 dark:border-slate-700"
+                                                ? "border-red-500 focus-visible:ring-red-500"
+                                                : "border-slate-200 dark:border-slate-700"
                                                 }`}
                                         />
                                         {centerErrors.contactNumber && (
@@ -2392,8 +2392,8 @@ export default function RHUCentersClient({
                                                     if (centerErrors.accountPassword) setCenterErrors(prev => ({ ...prev, accountPassword: "" }));
                                                 }}
                                                 className={`h-9 text-xs rounded-xl bg-white dark:bg-slate-900 border ${centerErrors.accountPassword
-                                                        ? "border-red-500 focus-visible:ring-red-500"
-                                                        : "border-slate-200 dark:border-slate-700"
+                                                    ? "border-red-500 focus-visible:ring-red-500"
+                                                    : "border-slate-200 dark:border-slate-700"
                                                     }`}
                                                 autoComplete="new-password"
                                             />
@@ -2682,8 +2682,8 @@ export default function RHUCentersClient({
                                                         if (personnelErrors.contactNumber) setPersonnelErrors(prev => ({ ...prev, contactNumber: "" }));
                                                     }}
                                                     className={`h-10 text-xs rounded-xl border ${personnelErrors.contactNumber
-                                                            ? "border-red-500 focus-visible:ring-red-500"
-                                                            : "border-slate-200 dark:border-slate-700"
+                                                        ? "border-red-500 focus-visible:ring-red-500"
+                                                        : "border-slate-200 dark:border-slate-700"
                                                         }`}
                                                 />
                                                 {personnelErrors.contactNumber && (

@@ -11,7 +11,7 @@ export default function ShareButton() {
         const url = window.location.href;
         const title = document.title;
 
-        // Try native share API first (better for mobile)
+        // Default native share dialog (supported on mobile / HTTPS secure contexts)
         if (navigator.share) {
             try {
                 await navigator.share({
@@ -20,20 +20,18 @@ export default function ShareButton() {
                 });
                 return;
             } catch (err) {
-                // If user cancelled, don't do anything
+                // If user aborted, do nothing
                 if ((err as Error).name === 'AbortError') return;
-                // Otherwise fall back to clipboard
             }
         }
 
-        // Fallback to clipboard
+        // Fallback for non-HTTPS / Local IPs (Copy link to clipboard)
         try {
             await navigator.clipboard.writeText(url);
             setCopied(true);
             toast.success("Link copied to clipboard!");
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            // Ultimate fallback for non-secure contexts or legacy browsers
             const textArea = document.createElement("textarea");
             textArea.value = url;
             document.body.appendChild(textArea);
@@ -53,7 +51,7 @@ export default function ShareButton() {
     return (
         <button 
             onClick={handleShare}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all transform hover:-translate-y-1 shadow-lg hover:shadow-primary/20 group"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all transform hover:-translate-y-1 shadow-lg hover:shadow-primary/20 group cursor-pointer"
         >
             {copied ? (
                 <Check className="w-4 h-4 text-green-500 group-hover:text-white" />

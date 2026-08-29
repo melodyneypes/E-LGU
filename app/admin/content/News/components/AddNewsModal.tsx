@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useNews } from "../providers/NewsProvider";
 import { useNewsForm } from "../hooks/useNewsForm";
+import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compression";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Dialog,
@@ -17,24 +19,46 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Image as ImageIcon, X, Loader2, Newspaper, Info, Calendar } from "lucide-react";
+import { Image as ImageIcon, X, Loader2, Newspaper, Info, Calendar, Plus, Images } from "lucide-react";
 
 const categories = ["Announcement", "Local News", "Advisory", "Project Update", "Other"];
+
+type AdditionalImageItem = 
+    | { id: string; type: "existing"; url: string }
+    | { id: string; type: "new"; file: File; url: string };
 
 export function AddNewsModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useNews();
     const { handleSubmit, loading } = useNewsForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
-    const [selectedCategory, setSelectedCategory] = useState<string>("Local News");
+    const [selectedCategory, setSelectedCategory] = useState<string>("");
     const [otherCategory, setOtherCategory] = useState<string>("");
+    const [additionalImages, setAdditionalImages] = useState<AdditionalImageItem[]>([]);
+    const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isAddModalOpen) {
             setIsImageRemoved(false);
             // Reset and sync image preview to active article data
             setImagePreview(editingData?.imageUrl || null);
+
+            // Populate additional images if editing
+            if (editingData?.images && Array.isArray(editingData.images)) {
+                setAdditionalImages(
+                    editingData.images.map((url, idx) => ({
+                        id: `existing-${idx}-${Date.now()}`,
+                        type: "existing",
+                        url
+                    }))
+                );
+            } else {
+                setAdditionalImages([]);
+            }
 
             if (editingData?.category) {
                 if (categories.includes(editingData.category)) {
@@ -45,7 +69,7 @@ export function AddNewsModal() {
                     setOtherCategory(editingData.category);
                 }
             } else if (!editingData) {
-                setSelectedCategory("Local News");
+                setSelectedCategory("");
                 setOtherCategory("");
             }
 
@@ -55,15 +79,61 @@ export function AddNewsModal() {
         } else {
             setImagePreview(null);
             setIsImageRemoved(false);
+            setAdditionalImages([]);
+            setErrors({});
         }
     }, [editingData, isAddModalOpen]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error("Featured image size should be less than 10MB");
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                return;
+            }
             setIsImageRemoved(false);
             setImagePreview(URL.createObjectURL(file));
         }
+    };
+
+    const handleAdditionalImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const filesList = e.target.files;
+        if (filesList && filesList.length > 0) {
+            const currentCount = additionalImages.length;
+            if (currentCount >= 15) {
+                toast.error("You can only upload a maximum of 15 gallery images.");
+                return;
+            }
+
+            const remainingSlots = 15 - currentCount;
+            const newItems: AdditionalImageItem[] = [];
+            const filesToProcess = Array.from(filesList).slice(0, remainingSlots);
+
+            if (filesList.length > remainingSlots) {
+                toast.warning(`Only the first ${remainingSlots} images were added. Maximum limit is 15 images.`);
+            }
+
+            for (let i = 0; i < filesToProcess.length; i++) {
+                const file = filesToProcess[i];
+                if (file.size > 10 * 1024 * 1024) {
+                    toast.error(`Image "${file.name}" exceeds 10MB size limit.`);
+                    continue;
+                }
+                newItems.push({
+                    id: `new-${i}-${Date.now()}-${Math.random()}`,
+                    type: "new",
+                    file,
+                    url: URL.createObjectURL(file)
+                });
+            }
+            setAdditionalImages(prev => [...prev, ...newItems]);
+        }
+        if (additionalFileInputRef.current) additionalFileInputRef.current.value = "";
+    };
+
+    const removeAdditionalImage = (id: string) => {
+        setAdditionalImages(prev => prev.filter(item => item.id !== id));
     };
 
     const formatDateForInput = (dateInput: Date | string | undefined) => {
@@ -81,8 +151,9 @@ export function AddNewsModal() {
             if (!open) {
                 setEditingData(null);
                 setImagePreview(null);
-                setSelectedCategory("Local News");
+                setSelectedCategory("");
                 setOtherCategory("");
+                setErrors({});
                 if (fileInputRef.current) {
                     fileInputRef.current.value = "";
                 }
@@ -119,7 +190,60 @@ export function AddNewsModal() {
                     </DialogHeader>
 
                     <div className="p-10 overflow-y-auto custom-scrollbar">
-                        <form id="newsForm" onSubmit={handleSubmit} className="space-y-10">
+                        {/* Custom onSubmit to handle multiple files */}
+                        {(() => {
+                            const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const title = (formData.get("title") as string)?.trim();
+                                const content = (formData.get("content") as string)?.trim();
+                                const publishDate = formData.get("publishDate") as string;
+
+                                const newErrors: Record<string, string> = {};
+                                if (!title) newErrors.title = "Headline title is required.";
+                                if (!selectedCategory) {
+                                    newErrors.category = "Please select a category.";
+                                } else if (selectedCategory === "Other" && !otherCategory.trim()) {
+                                    newErrors.otherCategory = "Please specify the custom category.";
+                                }
+                                if (!publishDate) newErrors.publishDate = "Publish date is required.";
+                                if (!content) newErrors.content = "Article content is required.";
+
+                                if (Object.keys(newErrors).length > 0) {
+                                    setErrors(newErrors);
+                                    toast.error("Please fill in all required fields.");
+                                    return;
+                                }
+
+                                setErrors({});
+
+                                if (processing || loading) return;
+                                setProcessing(true);
+
+                                try {
+                                    // Client-side WebP compression for Featured Image if uploaded
+                                    const rawFile = fileInputRef.current?.files?.[0];
+                                    if (rawFile && rawFile.size > 0) {
+                                        const compressed = await compressImage(rawFile);
+                                        formData.set("image", compressed);
+                                    }
+
+                                    // Client-side WebP compression for all new additional Gallery Images
+                                    for (const item of additionalImages) {
+                                        if (item.type === "new") {
+                                            const compressedFile = await compressImage(item.file);
+                                            formData.append("newAdditionalImages", compressedFile);
+                                        } else if (item.type === "existing") {
+                                            formData.append("existingAdditionalImages", item.url);
+                                        }
+                                    }
+                                    await handleSubmit(e, formData);
+                                } finally {
+                                    setProcessing(false);
+                                }
+                            };
+                            return (
+                                <form id="newsForm" noValidate onSubmit={onSubmit} className="space-y-10">
                             {/* Hidden input to retain existing imageUrl when updating without a new file */}
                             <input
                                 type="hidden"
@@ -140,90 +264,109 @@ export function AddNewsModal() {
                                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Article Information</h3>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headline Title</Label>
-                                        <Input
-                                            name="title"
-                                            required
-                                            defaultValue={editingData?.title || ""}
-                                            placeholder="e.g. Mapandan Suspends Classes During Typhoon"
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-xl font-bold italic"
-                                            style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
-                                        />
-                                    </div>
+                                     <div className="space-y-2">
+                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
+                                             Headline Title <span className="text-red-500 ml-1 font-bold">*</span>
+                                         </Label>
+                                         <Input
+                                             name="title"
+                                             required
+                                             defaultValue={editingData?.title || ""}
+                                             placeholder="e.g. Mapandan Suspends Classes During Typhoon"
+                                             className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-xl font-bold italic"
+                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
+                                         />
+                                         {errors.title && (
+                                             <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-wider animate-in fade-in-50 slide-in-from-top-1 duration-200">
+                                                 {errors.title}
+                                             </p>
+                                         )}
+                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2 min-w-0">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Category</Label>
-                                            <AnimatePresence mode="wait">
-                                                {selectedCategory !== "Other" ? (
-                                                    <motion.div
-                                                        key="select-cat"
-                                                        initial={{ opacity: 0, x: -10 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: 10 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="w-full"
-                                                    >
-                                                        <Select
-                                                            name="category_trigger"
-                                                            value={selectedCategory}
-                                                            onValueChange={(val) => {
-                                                                setSelectedCategory(val);
-                                                                if (val === "Other") setOtherCategory("");
-                                                            }}
-                                                        >
-                                                            <SelectTrigger
-                                                                className="!w-full !h-14 min-h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px] focus:ring-2"
-                                                                style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
-                                                            >
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent position="popper" className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                                                                {categories.map(cat => (
-                                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </motion.div>
-                                                ) : (
-                                                    <motion.div
-                                                        key="input-cat"
-                                                        initial={{ opacity: 0, x: 10 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: -10 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="relative"
-                                                    >
-                                                        <Input
-                                                            required
-                                                            autoFocus
-                                                            value={otherCategory}
-                                                            onChange={(e) => setOtherCategory(e.target.value)}
-                                                            placeholder="Specify Category..."
-                                                            className="h-14 rounded-xl font-bold italic pr-12"
-                                                            style={{
-                                                                backgroundColor: `${themeColor}1a`,
-                                                                borderColor: themeColor
-                                                            }}
-                                                        />
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => {
-                                                                setSelectedCategory("Local News");
-                                                                setOtherCategory("");
-                                                            }}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
-                                                            style={{ color: themeColor }}
-                                                            title="Back to Dropdown"
-                                                        >
-                                                            <X className="w-4 h-4" />
-                                                        </Button>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
+                                         <div className="space-y-2 min-w-0">
+                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
+                                                 Category <span className="text-red-500 ml-1 font-bold">*</span>
+                                             </Label>
+                                             <AnimatePresence mode="wait">
+                                                 {selectedCategory !== "Other" ? (
+                                                     <motion.div
+                                                         key="select-cat"
+                                                         initial={{ opacity: 0, x: -10 }}
+                                                         animate={{ opacity: 1, x: 0 }}
+                                                         exit={{ opacity: 0, x: 10 }}
+                                                         transition={{ duration: 0.2 }}
+                                                         className="w-full"
+                                                     >
+                                                         <Select
+                                                             name="category_trigger"
+                                                             value={selectedCategory}
+                                                             onValueChange={(val) => {
+                                                                 setSelectedCategory(val);
+                                                                 if (val === "Other") setOtherCategory("");
+                                                             }}
+                                                         >
+                                                             <SelectTrigger
+                                                                 className="!w-full !h-14 min-h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px] focus:ring-2"
+                                                                 style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
+                                                             >
+                                                                 <SelectValue placeholder="Select Category..." />
+                                                             </SelectTrigger>
+                                                             <SelectContent position="popper" className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                                                                 {categories.map(cat => (
+                                                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                                 ))}
+                                                             </SelectContent>
+                                                         </Select>
+                                                     </motion.div>
+                                                 ) : (
+                                                     <motion.div
+                                                         key="input-cat"
+                                                         initial={{ opacity: 0, x: 10 }}
+                                                         animate={{ opacity: 1, x: 0 }}
+                                                         exit={{ opacity: 0, x: -10 }}
+                                                         transition={{ duration: 0.2 }}
+                                                         className="relative"
+                                                     >
+                                                         <Input
+                                                             required
+                                                             autoFocus
+                                                             value={otherCategory}
+                                                             onChange={(e) => setOtherCategory(e.target.value)}
+                                                             placeholder="Specify Category..."
+                                                             className="h-14 rounded-xl font-bold italic pr-12"
+                                                             style={{
+                                                                 backgroundColor: `${themeColor}1a`,
+                                                                 borderColor: themeColor
+                                                             }}
+                                                         />
+                                                         <Button
+                                                             type="button"
+                                                             variant="ghost"
+                                                             size="icon"
+                                                             onClick={() => {
+                                                                 setSelectedCategory("Local News");
+                                                                 setOtherCategory("");
+                                                             }}
+                                                             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
+                                                             style={{ color: themeColor }}
+                                                             title="Back to Dropdown"
+                                                         >
+                                                             <X className="w-4 h-4" />
+                                                         </Button>
+                                                     </motion.div>
+                                                 )}
+                                             </AnimatePresence>
+                                             {errors.category && (
+                                                 <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-wider animate-in fade-in-50 slide-in-from-top-1 duration-200">
+                                                     {errors.category}
+                                                 </p>
+                                             )}
+                                             {errors.otherCategory && (
+                                                 <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-wider animate-in fade-in-50 slide-in-from-top-1 duration-200">
+                                                     {errors.otherCategory}
+                                                 </p>
+                                             )}
                                             <input
                                                 type="hidden"
                                                 name="category"
@@ -249,29 +392,41 @@ export function AddNewsModal() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                            <Calendar className="w-3 h-3" /> Publish Date
-                                        </Label>
-                                        <Input
-                                            type="datetime-local"
-                                            name="publishDate"
-                                            required
-                                            defaultValue={formatDateForInput(editingData?.publishDate || new Date().toISOString())}
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold"
-                                        />
+                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
+                                             <Calendar className="w-3 h-3 mr-1" /> Publish Date <span className="text-red-500 ml-1 font-bold">*</span>
+                                         </Label>
+                                         <Input
+                                             type="datetime-local"
+                                             name="publishDate"
+                                             required
+                                             defaultValue={formatDateForInput(editingData?.publishDate || new Date().toISOString())}
+                                             className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold"
+                                         />
+                                         {errors.publishDate && (
+                                             <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-wider animate-in fade-in-50 slide-in-from-top-1 duration-200">
+                                                 {errors.publishDate}
+                                             </p>
+                                         )}
                                     </div>
 
-                                    <div className="space-y-2 flex-grow">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Article Content</Label>
-                                        <Textarea
-                                            name="content"
-                                            required
-                                            defaultValue={editingData?.content || ""}
-                                            placeholder="Write the full news story here..."
-                                            className="min-h-[200px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none"
-                                            style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
-                                        />
-                                    </div>
+                                     <div className="space-y-2 flex-grow">
+                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
+                                             Article Content <span className="text-red-500 ml-1 font-bold">*</span>
+                                         </Label>
+                                         <Textarea
+                                             name="content"
+                                             required
+                                             defaultValue={editingData?.content || ""}
+                                             placeholder="Write the full news story here..."
+                                             className="min-h-[200px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none"
+                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
+                                         />
+                                         {errors.content && (
+                                             <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-wider animate-in fade-in-50 slide-in-from-top-1 duration-200">
+                                                 {errors.content}
+                                             </p>
+                                         )}
+                                     </div>
                                 </div>
 
                                 {/* Right Column: Media */}
@@ -316,7 +471,7 @@ export function AddNewsModal() {
                                                     </div>
                                                     <div>
                                                         <p className="font-black text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wide">Upload Featured Image</p>
-                                                        <p className="text-xs text-slate-400 font-medium italic mt-1">PNG, JPG or WEBP up to 5MB</p>
+                                                        <p className="text-xs text-slate-400 font-medium italic mt-1">PNG, JPG or WEBP up to 10MB</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -338,10 +493,59 @@ export function AddNewsModal() {
                                         {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                             <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                         )}
+                                        {/* Gallery Images */}
+                                        <div className="space-y-3 pt-6 border-t border-slate-100 dark:border-white/5">
+                                            <div className="flex items-center space-x-2" style={{ color: themeColor }}>
+                                                <Images className="w-4 h-4" />
+                                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Gallery Images</h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {additionalImages.map((item) => (
+                                                    <div key={item.id} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] group">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={item.url} alt="Gallery Preview" className="w-full h-full object-cover" />
+                                                        <Button
+                                                            type="button"
+                                                            variant="destructive"
+                                                            size="icon"
+                                                            className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={() => removeAdditionalImage(item.id)}
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+
+                                                {/* Add Button */}
+                                                {additionalImages.length < 15 && (
+                                                    <div
+                                                        onClick={() => additionalFileInputRef.current?.click()}
+                                                        className="aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-white/5 animate-in zoom-in-50 duration-200"
+                                                        style={{ borderColor: `${themeColor}20`, color: themeColor }}
+                                                        title="Add Gallery Image"
+                                                    >
+                                                        <Plus className="w-6 h-6" />
+                                                        <span className="text-[8px] font-black uppercase tracking-wider mt-1">Add Image</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <input
+                                                ref={additionalFileInputRef}
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                onChange={handleAdditionalImagesChange}
+                                                className="hidden"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </form>
+                        );
+                        })()}
                     </div>
 
                     <DialogFooter className="p-6 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]/50">
@@ -357,14 +561,14 @@ export function AddNewsModal() {
                             <Button
                                 type="submit"
                                 form="newsForm"
-                                disabled={loading}
+                                disabled={loading || processing}
                                 style={{ backgroundColor: themeColor }}
                                 className="h-12 px-8 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center space-x-2"
                             >
-                                {loading ? (
+                                {loading || processing ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        <span>Saving...</span>
+                                        <span>{processing ? "Optimizing Images..." : "Saving..."}</span>
                                     </>
                                 ) : (
                                     <span>{editingData ? "Update News Article" : "Publish News"}</span>

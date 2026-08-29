@@ -9,6 +9,7 @@ export interface News {
     category: string;
     author: string | null;
     imageUrl: string | null;
+    images?: string[];
     publishDate: Date;
     barangay: string | null;
     isPublished: boolean;

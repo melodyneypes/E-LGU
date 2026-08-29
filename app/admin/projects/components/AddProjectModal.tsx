@@ -19,6 +19,10 @@ import Image from "next/image";
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { toast } from "sonner";
 
+const standardCategories = ["Infrastructure", "Health", "Education", "Social Services", "Economic", "Environment"];
+const categories = [...standardCategories, "Other"];
+const statuses = ["Planned", "Ongoing", "Completed", "Suspended"];
+
 export function AddProjectModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, themeColor } = useProjects();
     const { handleSubmit, loading } = useProjectsForm();
@@ -27,11 +31,9 @@ export function AddProjectModal() {
     const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>("Infrastructure");
+    const [customCategory, setCustomCategory] = useState<string>("");
     const [selectedStatus, setSelectedStatus] = useState<string>("Planned");
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const categories = ["Infrastructure", "Health", "Education", "Social Services", "Economic", "Environment", "Other"];
-    const statuses = ["Planned", "Ongoing", "Completed", "Suspended"];
 
     useEffect(() => {
         if (isAddModalOpen) {
@@ -40,9 +42,16 @@ export function AddProjectModal() {
                 setImagePreview(editingData?.imageUrl || null);
             }
             if (editingData?.category) {
-                setSelectedCategory(editingData.category);
+                if (standardCategories.includes(editingData.category)) {
+                    setSelectedCategory(editingData.category);
+                    setCustomCategory("");
+                } else {
+                    setSelectedCategory("Other");
+                    setCustomCategory(editingData.category);
+                }
             } else if (!editingData) {
                 setSelectedCategory("Infrastructure");
+                setCustomCategory("");
             }
             if (editingData?.status) {
                 setSelectedStatus(editingData.status);
@@ -54,6 +63,7 @@ export function AddProjectModal() {
             setIsImageRemoved(false);
             setSelectedFile(null);
             setSelectedCategory("Infrastructure");
+            setCustomCategory("");
             setSelectedStatus("Planned");
         }
     }, [editingData, isAddModalOpen, isImageRemoved, selectedFile]);
@@ -223,7 +233,7 @@ export function AddProjectModal() {
                                             {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
-                                    <input type="hidden" name="category" value={selectedCategory} />
+                                    <input type="hidden" name="category" value={selectedCategory === "Other" ? customCategory : selectedCategory} />
                                 </div>
 
                                 <div className="space-y-2 min-w-0">
@@ -241,6 +251,20 @@ export function AddProjectModal() {
                                     </Select>
                                     <input type="hidden" name="status" value={selectedStatus} />
                                 </div>
+
+                                {selectedCategory === "Other" && (
+                                    <div className="space-y-2 md:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <Label className="text-slate-700 dark:text-slate-300 font-bold">Specify Category</Label>
+                                        <Input
+                                            required
+                                            value={customCategory}
+                                            onChange={(e) => setCustomCategory(e.target.value)}
+                                            placeholder="Specify the custom category"
+                                            className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2"
+                                            style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
+                                        />
+                                    </div>
+                                )}
 
                                 <div className="space-y-2 md:col-span-2">
                                     <Label className="text-slate-700 dark:text-slate-300 font-bold">Location / Barangay</Label>

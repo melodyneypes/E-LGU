@@ -75,6 +75,7 @@ export async function getNewsById(id: string): Promise<NewsActionResponse> {
                 category: true,
                 publishDate: true,
                 imageUrl: true,
+                images: true,
                 isPublished: true,
                 barangay: true,
                 createdAt: true,
@@ -102,6 +103,7 @@ export async function getNewsById(id: string): Promise<NewsActionResponse> {
  */
 export async function createNews(formData: FormData): Promise<NewsActionResponse> {
     let newlyUploadedUrl: string | null = null;
+    let galleryUrls: string[] = [];
 
     try {
         const { isBarangayAdmin, managedBarangay } = await verifyNewsAccess();
@@ -145,6 +147,24 @@ export async function createNews(formData: FormData): Promise<NewsActionResponse
         const rawImageUrl = (formData.get("imageUrl") as string)?.trim() || null;
         const finalImageUrl = newlyUploadedUrl || rawImageUrl;
 
+        // Upload additional gallery images if provided
+        const newAdditionalImages = formData.getAll("newAdditionalImages") as File[];
+        galleryUrls = [];
+        for (let i = 0; i < newAdditionalImages.length; i++) {
+            const galleryFile = newAdditionalImages[i];
+            if (galleryFile && galleryFile.size > 0 && galleryFile.name !== "undefined") {
+                const buffer = Buffer.from(await galleryFile.arrayBuffer());
+                const ext = galleryFile.name.split('.').pop() || 'jpg';
+                const filename = `news-gallery-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+                const storagePath = `news/${filename}`;
+
+                const publicUrl = await uploadFile(buffer, storagePath, undefined, galleryFile.type);
+                if (publicUrl) {
+                    galleryUrls.push(publicUrl);
+                }
+            }
+        }
+
         // Database insert with automatic active publish status
         const newNews = await (prisma as any).news.create({
             data: {
@@ -154,6 +174,7 @@ export async function createNews(formData: FormData): Promise<NewsActionResponse
                 category,
                 publishDate,
                 imageUrl: finalImageUrl,
+                images: galleryUrls,
                 isPublished: true,
                 barangay: barangay || null,
             } as any,
@@ -197,6 +218,13 @@ export async function createNews(formData: FormData): Promise<NewsActionResponse
                 console.warn("[createNews] Storage rollback failed for:", newlyUploadedUrl, cleanupErr);
             }
         }
+        for (const url of galleryUrls) {
+            try {
+                await deleteFileByUrl(url);
+            } catch (cleanupErr) {
+                console.warn("[createNews] Storage rollback failed for gallery url:", url, cleanupErr);
+            }
+        }
 
         return { success: false, error: error?.message || "Failed to create news article." };
     }
@@ -207,6 +235,7 @@ export async function createNews(formData: FormData): Promise<NewsActionResponse
  */
 export async function updateNews(id: string, formData: FormData): Promise<NewsActionResponse> {
     let newlyUploadedUrl: string | null = null;
+    let newGalleryUrls: string[] = [];
 
     try {
         if (!id) {
@@ -266,6 +295,40 @@ export async function updateNews(id: string, formData: FormData): Promise<NewsAc
             barangay = managedBarangay;
         }
 
+        const existingAdditionalImages = formData.getAll("existingAdditionalImages") as string[];
+        const newAdditionalImages = formData.getAll("newAdditionalImages") as File[];
+        newGalleryUrls = [];
+
+        // Upload new additional images
+        for (let i = 0; i < newAdditionalImages.length; i++) {
+            const galleryFile = newAdditionalImages[i];
+            if (galleryFile && galleryFile.size > 0 && galleryFile.name !== "undefined") {
+                const buffer = Buffer.from(await galleryFile.arrayBuffer());
+                const ext = galleryFile.name.split('.').pop() || 'jpg';
+                const filename = `news-gallery-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+                const storagePath = `news/${filename}`;
+
+                const publicUrl = await uploadFile(buffer, storagePath, undefined, galleryFile.type);
+                if (publicUrl) {
+                    newGalleryUrls.push(publicUrl);
+                }
+            }
+        }
+
+        const finalGalleryUrls = [...existingAdditionalImages, ...newGalleryUrls];
+
+        // Cleanup removed additional files from storage
+        const oldGalleryUrls = (existing.images as string[]) || [];
+        for (const oldUrl of oldGalleryUrls) {
+            if (!existingAdditionalImages.includes(oldUrl) && oldUrl.includes("supabase.co")) {
+                try {
+                    await deleteFileByUrl(oldUrl);
+                } catch (cleanupErr) {
+                    console.warn("[updateNews] Failed to delete orphaned gallery file:", oldUrl, cleanupErr);
+                }
+            }
+        }
+
         const updatePayload: Record<string, any> = {
             title,
             content,
@@ -273,6 +336,7 @@ export async function updateNews(id: string, formData: FormData): Promise<NewsAc
             category,
             publishDate,
             imageUrl: finalImageUrl,
+            images: finalGalleryUrls,
             barangay,
         };
 
@@ -348,6 +412,13 @@ export async function updateNews(id: string, formData: FormData): Promise<NewsAc
                 console.warn("[updateNews] Storage rollback failed for:", newlyUploadedUrl, cleanupErr);
             }
         }
+        for (const url of newGalleryUrls) {
+            try {
+                await deleteFileByUrl(url);
+            } catch (cleanupErr) {
+                console.warn("[updateNews] Storage rollback failed for new gallery url:", url, cleanupErr);
+            }
+        }
 
         return { success: false, error: error?.message || "Failed to update news article." };
     }
@@ -379,6 +450,16 @@ export async function deleteNews(id: string): Promise<NewsActionResponse> {
                 await deleteFileByUrl(existing.imageUrl);
             } catch (storageErr) {
                 console.warn("[deleteNews] Failed to delete image from bucket:", storageErr);
+            }
+        }
+        const galleryUrls = (existing.images as string[]) || [];
+        for (const url of galleryUrls) {
+            if (url && url.includes("supabase.co")) {
+                try {
+                    await deleteFileByUrl(url);
+                } catch (err) {
+                    console.warn("[deleteNews] Failed to delete gallery image:", url, err);
+                }
             }
         }
 

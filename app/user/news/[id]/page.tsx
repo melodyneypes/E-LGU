@@ -1,11 +1,13 @@
 import prisma from "@/lib/db/prisma";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { Calendar, User, Home, Share2 } from "lucide-react";
+import { Calendar, User, Home, Tag } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import ShareButton from "./ShareButton";
+import ActionButtons from "./ActionButtons";
+import Gallery from "./Gallery";
+import { getSystemSetting } from "@/lib/settings";
 
 export default async function NewsDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -17,6 +19,8 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
     if (!news) {
         notFound();
     }
+
+    const themeColor = await getSystemSetting("theme_color", "#2563eb");
 
     return (
         <div className="min-h-screen pb-20 space-y-6 md:space-y-10">
@@ -42,7 +46,7 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
                         </BreadcrumbItem>
                         <BreadcrumbSeparator className="hidden sm:block" />
                         <BreadcrumbItem className="hidden sm:block">
-                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest text-primary italic max-w-[150px] truncate">{news.title}</BreadcrumbPage>
+                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic max-w-[150px] truncate" style={{ color: themeColor }}>{news.title}</BreadcrumbPage>
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
@@ -50,78 +54,90 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
 
             {/* Main Content Area */}
             <div className="max-w-5xl mx-auto px-4 md:px-0 space-y-8 md:space-y-12">
-                {/* Image Section */}
+                
+                {/* Meta details header card */}
+                <div className="space-y-6 bg-white dark:bg-[#0f111a] p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm">
+                    {/* Tags row */}
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border" 
+                             style={{ backgroundColor: `${themeColor}12`, color: themeColor, borderColor: `${themeColor}30` }}>
+                            Official Press Release
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                            <Tag className="w-3.5 h-3.5" />
+                            {news.category}
+                        </div>
+                    </div>
+
+                    {/* Headline */}
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+                        {news.title}
+                    </h1>
+
+                    {/* Divider */}
+                    <div className="border-t border-slate-100 dark:border-[#2a3040] pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                        {/* Author & Date Row */}
+                        <div className="flex items-center gap-6">
+                            {/* Author */}
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-slate-100 dark:bg-white/10 rounded-full flex items-center justify-center shrink-0">
+                                    <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Author</span>
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white" style={{ color: themeColor }}>
+                                        {news.author || "Municipal Office"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Vertical Separator */}
+                            <div className="h-8 border-l border-slate-200 dark:border-[#2a3040] hidden sm:block" />
+
+                            {/* Date */}
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-slate-100 dark:bg-white/10 rounded-full flex items-center justify-center shrink-0">
+                                    <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Published Date</span>
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                        {format(new Date(news.publishDate), "MMMM d, yyyy")}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Share Actions Row */}
+                        <div className="flex items-center gap-4 border-t border-slate-100 dark:border-[#2a3040] pt-4 md:pt-0 md:border-none">
+                            <ActionButtons />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Featured Image */}
                 {news.imageUrl && (
-                    <div className="relative aspect-video w-full rounded-2xl md:rounded-[3rem] overflow-hidden shadow-2xl border border-slate-200 dark:border-white/5 group">
+                    <div className="relative aspect-video w-full rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#1a1f2e]">
                         <Image
                             src={news.imageUrl}
                             alt={news.title}
                             fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-1000"
+                            className="object-cover"
                             priority
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-                        <div className="absolute top-4 left-4 md:top-8 md:left-8">
-                            <div className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary shadow-2xl">
-                                {news.category}
-                            </div>
-                        </div>
                     </div>
                 )}
 
-                {/* Header Information */}
-                <div className="space-y-4 md:space-y-6">
-                    <h1 className="text-3xl md:text-6xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight pt-2 pb-1">
-                        {news.title}
-                    </h1>
-
-                    <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2 md:gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                        <div className="flex items-center gap-2 md:gap-3 p-2 md:p-4 bg-white dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 shadow-md">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/10 dark:bg-primary/20 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                                <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 truncate">Published On</span>
-                                <span className="text-[8px] md:text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest italic truncate">
-                                    {format(new Date(news.publishDate), "MMM d, yyyy")}
-                                </span>
-                            </div>
-                        </div>
-
-                        {news.author && (
-                            <div className="flex items-center gap-2 md:gap-3 p-2 md:p-4 bg-white dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 shadow-md">
-                                <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-50 dark:bg-white/5 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                                    <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                    <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 truncate">Written By</span>
-                                    <span className="text-[8px] md:text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest italic truncate">
-                                        {news.author}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Content Body */}
-                <div className="max-w-4xl space-y-10">
-                    <div className="prose prose-xl md:prose-2xl prose-slate dark:prose-invert max-w-none">
-                        <p className="text-sm md:text-2xl text-slate-600 dark:text-slate-300 font-medium italic leading-relaxed md:leading-[1.8] whitespace-pre-wrap">
+                {/* Grid Layout: Content + Gallery */}
+                <div className="space-y-8 md:space-y-12">
+                    <div className="prose prose-xl dark:prose-invert max-w-none">
+                        <p className="text-sm md:text-xl text-slate-600 dark:text-slate-300 font-medium italic leading-relaxed md:leading-[1.8] whitespace-pre-wrap">
                             {news.content}
                         </p>
                     </div>
 
-                    {/* Share Section */}
-                    <div className="pt-8 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 dark:bg-white/5 rounded-xl flex items-center justify-center">
-                                <Share2 className="w-5 h-5 text-primary" />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Share this story</span>
-                        </div>
-                        <ShareButton />
-                    </div>
+                    {/* Interactive Lightbox Gallery */}
+                    <Gallery images={news.images} themeColor={themeColor} />
                 </div>
             </div>
         </div>
