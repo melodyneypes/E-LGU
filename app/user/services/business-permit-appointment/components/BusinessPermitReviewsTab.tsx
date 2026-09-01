@@ -53,7 +53,7 @@ export default function BusinessPermitReviewsTab({
     feedbacks: initialFeedbacks,
     stats,
     themeColor = "#2563eb",
-    initialPagination = { page: 1, limit: 6, totalCount: 0, hasMore: false, remainingCount: 0 }
+    initialPagination = { page: 1, limit: 12, totalCount: 0, hasMore: false, remainingCount: 0 }
 }: BusinessPermitReviewsTabProps) {
     const [search, setSearch] = useState("");
     const [ratingFilter, setRatingFilter] = useState("ALL");
@@ -71,7 +71,7 @@ export default function BusinessPermitReviewsTab({
         startTransition(async () => {
             const res = await getBusinessPermitFeedbacksAction({
                 page: 1,
-                limit: 6,
+                limit: 12,
                 rating,
                 search: query
             });
@@ -102,7 +102,7 @@ export default function BusinessPermitReviewsTab({
             const nextPage = page + 1;
             const res = await getBusinessPermitFeedbacksAction({
                 page: nextPage,
-                limit: 6,
+                limit: 12,
                 rating: ratingFilter,
                 search
             });

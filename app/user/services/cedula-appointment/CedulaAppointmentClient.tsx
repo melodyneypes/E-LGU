@@ -556,7 +556,7 @@ export function CedulaAppointmentClient({
                             style={activeMainTab === "REVIEWS" ? { borderColor: `${themeColor}40` } : undefined}
                         >
                             <Star className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 fill-amber-400 shrink-0" />
-                            <span>Reviews ({feedbacks.length})</span>
+                            <span>Reviews</span>
                         </button>
                     </div>
                 </div>

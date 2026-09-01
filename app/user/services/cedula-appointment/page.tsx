@@ -139,7 +139,7 @@ export default async function CedulaAppointmentPage() {
         prisma.transactionFeedback.findMany({
             where: baseCedulaScope,
             orderBy: { createdAt: "desc" },
-            take: 6,
+            take: 12,
             select: {
                 id: true,
                 rating: true,
@@ -225,10 +225,10 @@ export default async function CedulaAppointmentPage() {
 
     const initialPagination = {
         page: 1,
-        limit: 6,
+        limit: 12,
         totalCount: totalCedulaCount,
-        hasMore: 6 < totalCedulaCount,
-        remainingCount: Math.max(0, totalCedulaCount - 6)
+        hasMore: 12 < totalCedulaCount,
+        remainingCount: Math.max(0, totalCedulaCount - 12)
     };
 
     return (

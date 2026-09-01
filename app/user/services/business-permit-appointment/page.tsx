@@ -170,7 +170,7 @@ export default async function BusinessPermitAppointmentPage() {
         prisma.transactionFeedback.findMany({
             where: baseBploScope,
             orderBy: { createdAt: "desc" },
-            take: 6,
+            take: 12,
             select: {
                 id: true,
                 rating: true,
@@ -256,10 +256,10 @@ export default async function BusinessPermitAppointmentPage() {
 
     const initialPagination = {
         page: 1,
-        limit: 6,
+        limit: 12,
         totalCount: totalBploCount,
-        hasMore: 6 < totalBploCount,
-        remainingCount: Math.max(0, totalBploCount - 6)
+        hasMore: 12 < totalBploCount,
+        remainingCount: Math.max(0, totalBploCount - 12)
     };
 
     return (

@@ -361,7 +361,7 @@ export async function getBusinessPermitFeedbacksAction(input: GetBusinessPermitF
     try {
         const {
             page = 1,
-            limit = 6,
+            limit = 12,
             rating = "ALL",
             search = ""
         } = input;

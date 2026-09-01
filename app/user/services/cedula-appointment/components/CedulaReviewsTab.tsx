@@ -53,7 +53,7 @@ export default function CedulaReviewsTab({
     feedbacks: initialFeedbacks,
     stats,
     themeColor = "#2563eb",
-    initialPagination = { page: 1, limit: 6, totalCount: 0, hasMore: false, remainingCount: 0 }
+    initialPagination = { page: 1, limit: 12, totalCount: 0, hasMore: false, remainingCount: 0 }
 }: CedulaReviewsTabProps) {
     const [search, setSearch] = useState("");
     const [ratingFilter, setRatingFilter] = useState("ALL");
@@ -71,7 +71,7 @@ export default function CedulaReviewsTab({
         startTransition(async () => {
             const res = await getCedulaFeedbacksAction({
                 page: 1,
-                limit: 6,
+                limit: 12,
                 rating,
                 search: query
             });
@@ -102,7 +102,7 @@ export default function CedulaReviewsTab({
             const nextPage = page + 1;
             const res = await getCedulaFeedbacksAction({
                 page: nextPage,
-                limit: 6,
+                limit: 12,
                 rating: ratingFilter,
                 search
             });

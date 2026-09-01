@@ -193,7 +193,7 @@ export default function CivilRegistryPage() {
     const [feedbacks, setFeedbacks] = React.useState<any[]>([]);
     const [initialPagination, setInitialPagination] = React.useState({
         page: 1,
-        limit: 6,
+        limit: 12,
         totalCount: 0,
         hasMore: false,
         remainingCount: 0
@@ -221,7 +221,7 @@ export default function CivilRegistryPage() {
                 setResident(res.data);
             }
         });
-        getCivilRegistryFeedbacksAction({ page: 1, limit: 6 }).then((res) => {
+        getCivilRegistryFeedbacksAction({ page: 1, limit: 12 }).then((res) => {
             if (res.success) {
                 setFeedbacks(res.data || []);
                 if (res.stats) {
@@ -443,7 +443,7 @@ export default function CivilRegistryPage() {
                             style={activeMainTab === "REVIEWS" ? { borderColor: `${themeColor}40` } : undefined}
                         >
                             <Star className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 fill-amber-400 shrink-0" />
-                            <span>Reviews ({feedbacks.length})</span>
+                            <span>Reviews</span>
                         </button>
                     </div>
                 </div>

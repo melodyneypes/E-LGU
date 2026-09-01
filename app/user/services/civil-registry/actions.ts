@@ -13,7 +13,7 @@ export async function getCivilRegistryFeedbacksAction(input: GetCivilRegistryFee
     try {
         const {
             page = 1,
-            limit = 6,
+            limit = 12,
             rating = "ALL",
             search = ""
         } = input;
