@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale,
-    FolderArchive
+    FolderArchive, Boxes
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -41,6 +41,7 @@ interface SidebarProps {
     pendingTransactionsCount?: number;
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
+    rhuCenterName?: string | null;
 }
 
 export function Sidebar({
@@ -54,8 +55,24 @@ export function Sidebar({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     pendingTransactionsCount = 0,
     pendingAnnouncementsCount = 0,
-    unviewedLcrCounts = {}
+    unviewedLcrCounts = {},
+    rhuCenterName = null
 }: SidebarProps) {
+    const rhuLabel = React.useMemo(() => {
+        if (!rhuCenterName) return "Rural Health Unit";
+        if (rhuCenterName.toUpperCase().startsWith("RHU") || rhuCenterName.toLowerCase().includes("rural health unit")) {
+            return rhuCenterName;
+        }
+        return `RHU ${rhuCenterName}`;
+    }, [rhuCenterName]);
+
+    const rhuCategory = React.useMemo(() => {
+        if (!rhuCenterName) return "Rural Health Unit";
+        if (rhuCenterName.toUpperCase().startsWith("RHU") || rhuCenterName.toLowerCase().includes("rural health unit")) {
+            return rhuCenterName.toUpperCase();
+        }
+        return `RHU ${rhuCenterName.toUpperCase()}`;
+    }, [rhuCenterName]);
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -77,6 +94,7 @@ export function Sidebar({
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/treasury/stalls"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
+    const [isMDRRMOOpen, setIsMDRRMOOpen] = React.useState(pathname.startsWith("/admin/mdrrmo"));
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -434,9 +452,9 @@ export function Sidebar({
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
-            label: "Rural Health Unit",
+            label: rhuLabel,
             icon: Activity,
-            category: "Rural Health Unit",
+            category: rhuCategory,
             isDropdown: true,
             isOpen: isRHUOpen,
             onToggle: () => {
@@ -456,43 +474,66 @@ export function Sidebar({
             href: "/admin/rhu/inventory",
             label: "Medicine & Supplies",
             icon: Package,
-            category: "Rural Health Unit"
+            category: rhuCategory
+        },
+        {
+            href: "/admin/rhu/equipment",
+            label: "Medical Equipment & Assets",
+            icon: Boxes,
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/purchase-orders",
             label: "Purchase Orders",
             icon: ShoppingCart,
-            category: "Rural Health Unit"
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/announcements",
             label: "Announcements",
             icon: Megaphone,
-            category: "Rural Health Unit"
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/appointment-settings",
             label: "Schedule Settings",
             icon: Calendar,
-            category: "Rural Health Unit"
-        },
-        {
-            href: "/admin/rhu/ambulance",
-            label: "Ambulance Dispatch",
-            icon: Truck,
-            category: "Rural Health Unit"
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/ledger",
             label: "Consultation Ledger",
             icon: FileText,
-            category: "Rural Health Unit"
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/centers",
             label: "Health Center & Staff",
             icon: Users,
-            category: "Rural Health Unit"
+            category: rhuCategory
+        },
+        {
+            label: "MDRRMO Department",
+            icon: ShieldAlert,
+            category: "MDRRMO",
+            isDropdown: true,
+            isOpen: isMDRRMOOpen,
+            onToggle: () => {
+                if (isMDRRMOOpen) {
+                    setIsMDRRMOOpen(false);
+                } else {
+                    setIsMDRRMOOpen(true);
+                    router.push("/admin/mdrrmo");
+                }
+            },
+            subItems: [
+                { href: "/admin/mdrrmo", label: "MDRRMO Hub" },
+                { href: "/admin/mdrrmo/ambulance", label: "Ambulance Fleet" },
+                { href: "/admin/mdrrmo/drivers", label: "Drivers Roster & Duty" },
+                { href: "/admin/mdrrmo/documents", label: "OR/CR Digital Filing" },
+                { href: "/admin/mdrrmo/schedule", label: "Dispatch Scheduling" },
+                { href: "/admin/mdrrmo/announcements", label: "Emergency Advisories" },
+            ]
         },
         {
             label: "Treasury Hub",
@@ -672,7 +713,9 @@ export function Sidebar({
                 } else if (deptUpper === "POSO") {
                     menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist", "Vehicle Classifications", "Enforcer Leaderboard", "POSO Officers", "POSO Payment Ledger", "POSO Settings"].includes(item.label));
                 } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
-                    menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
+                    menuItems = allMenuItems.filter(item => item.category === rhuCategory || item.category === "Rural Health Unit");
+                } else if (deptUpper === "MDRRMO" || deptUpper === "DISASTER") {
+                    menuItems = allMenuItems.filter(item => item.category === "MDRRMO");
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
                         !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue", "POSO Officers"].includes(item.label) &&
@@ -690,8 +733,10 @@ export function Sidebar({
         } else if (role === "CONTENT_ADMIN") {
             menuItems = allMenuItems.filter(item => 
                 contentAdminAllowed.includes(item.label) && 
+                item.category !== rhuCategory &&
                 item.category !== "Rural Health Unit" &&
-                item.category !== "RHU"
+                item.category !== "RHU" &&
+                item.category !== "MDRRMO"
             );
         } else if (role === "BARANGAY_ADMIN") {
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
@@ -703,7 +748,9 @@ export function Sidebar({
         } else if (role === "ADMIN_AIDE") {
             const deptUpper = department?.toUpperCase();
             if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
-                menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
+                menuItems = allMenuItems.filter(item => item.category === rhuCategory || item.category === "Rural Health Unit");
+            } else if (deptUpper === "MDRRMO" || deptUpper === "DISASTER") {
+                menuItems = allMenuItems.filter(item => item.category === "MDRRMO");
             } else {
                 menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label));
             }
@@ -740,12 +787,15 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist"].includes(item.label));
         } else if (role === "RHU_PHARMACY" || (department && department.toUpperCase().includes("PHARMACY"))) {
             menuItems = allMenuItems.filter(item =>
+                item.label === rhuLabel ||
                 item.label === "Rural Health Unit" ||
                 item.label === "Medicine & Supplies" ||
                 item.href === "/admin/rhu/inventory"
             );
         } else if (role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || (department && (department.toUpperCase().includes("RHU") || department.toUpperCase().includes("HEALTH")))) {
-            menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
+            menuItems = allMenuItems.filter(item => item.category === rhuCategory || item.category === "Rural Health Unit");
+        } else if (role === "MDRRMO_ADMIN" || (department && (department.toUpperCase().includes("MDRRMO") || department.toUpperCase().includes("DISASTER")))) {
+            menuItems = allMenuItems.filter(item => item.category === "MDRRMO");
         }
     }
 

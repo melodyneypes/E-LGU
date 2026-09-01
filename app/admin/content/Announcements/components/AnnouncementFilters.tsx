@@ -103,6 +103,8 @@ export function AnnouncementFilters() {
                                 <SelectItem value="Weather">Weather</SelectItem>
                                 <SelectItem value="Public Service">Public Service</SelectItem>
                                 <SelectItem value="Emergency">Emergency</SelectItem>
+                                <SelectItem value="MDRRMO">MDRRMO / Disaster</SelectItem>
+                                <SelectItem value="Health / Ambulance">Health / Ambulance</SelectItem>
                                 <SelectItem value="Health">Health</SelectItem>
                             </SelectContent>
                         </Select>

@@ -2,18 +2,13 @@
 
 import React from "react";
 import {
-    Baby,
-    Skull,
-    Heart,
     FileText,
     Sparkles,
     Home,
     User,
     Upload,
     CheckCircle2,
-    Scroll,
-    FileSignature,
-    HeartHandshake
+    FileSignature
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -24,36 +19,6 @@ import { supabase } from "@/lib/supabase";
 
 const REGISTRY_TYPES = [
     {
-        id: "BIRTH_REQ",
-        label: "Birth Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing birth certificate.",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_BIRTH"
-    },
-    {
-        id: "BIRTH_REG",
-        label: "Birth Registration",
-        icon: Baby,
-        description: "Register a new birth record (timely or late registration).",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_BIRTH_REG"
-    },
-    {
-        id: "PSA_ENDORSEMENT",
-        label: "Birth PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local birth certificate record to the PSA.",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_PSA_ENDORSEMENT"
-    },
-    {
         id: "PSA_APPOINTMENT_ENDORSEMENT",
         label: "Birth Certified True Copy Appointment",
         icon: FileSignature,
@@ -62,16 +27,6 @@ const REGISTRY_TYPES = [
         href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
         code: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT"
-    },
-    {
-        id: "DEATH_PSA_ENDORSEMENT",
-        label: "Death PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local death certificate record to the PSA.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH_PSA_ENDORSEMENT"
     },
     {
         id: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
@@ -84,46 +39,6 @@ const REGISTRY_TYPES = [
         code: "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
     {
-        id: "DEATH_REQ",
-        label: "Death Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing death certificate.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH"
-    },
-    {
-        id: "DEATH",
-        label: "Death Registration",
-        icon: Skull,
-        description: "Register a Death or Request a Certified Death Certificate.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH_REG"
-    },
-    {
-        id: "MARRIAGE_REQ",
-        label: "Marriage Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing marriage certificate.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE"
-    },
-    {
-        id: "MARRIAGE_PSA_ENDORSEMENT",
-        label: "Marriage PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local marriage certificate record to the PSA.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_PSA_ENDORSEMENT"
-    },
-    {
         id: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
         label: "Marriage Certified True Copy Appointment",
         icon: FileSignature,
@@ -133,26 +48,6 @@ const REGISTRY_TYPES = [
         available: true,
         code: "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
-    {
-        id: "MARRIAGE",
-        label: "Marriage Registration",
-        icon: Heart,
-        description: "Request a certified copy of a Marriage Certificate.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_REG"
-    },
-    {
-        id: "MARRIAGE_LICENSE",
-        label: "Marriage License Application",
-        icon: HeartHandshake,
-        description: "Apply for a legal license to be married in the Philippines.",
-        color: "amber",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_LICENSE"
-    },
 ];
 
 const STEPS = [
@@ -161,24 +56,6 @@ const STEPS = [
     { id: "DETAILS", label: "Details", icon: FileText },
     { id: "DOCUMENTS", label: "Documents", icon: Upload },
     { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
-];
-
-const REGISTRY_SECTIONS = [
-    {
-        title: "Birth Registry Services",
-        subtitle: "Registration & Certified Copies & Endorsements",
-        items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT", "PSA_APPOINTMENT_ENDORSEMENT"]
-    },
-    {
-        title: "Death Registry Services",
-        subtitle: "Registration & Certified True Copy Requests",
-        items: ["DEATH", "DEATH_REQ", "DEATH_PSA_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT"]
-    },
-    {
-        title: "Marriage Registry & Licenses",
-        subtitle: "License Applications, Registrations & Certified Copies",
-        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ", "MARRIAGE_PSA_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"]
-    }
 ];
 
 export default function CivilRegistryPage() {
@@ -277,47 +154,16 @@ export default function CivilRegistryPage() {
     const sectionsToRender = React.useMemo(() => {
         if (!activeCodes) return [];
 
+        // Only these 3 services are allowed; all other civil registry services are hardcoded disabled
         const activeItems = REGISTRY_TYPES.filter(type => activeCodes.has(type.code));
 
-        if (activeItems.length <= 3) {
-            return [
-                {
-                    title: "Available Services",
-                    subtitle: "Select a civil registry service to proceed",
-                    items: activeItems
-                }
-            ];
-        }
-
-        const appointmentIds = ["PSA_APPOINTMENT_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
-        const activeAppointments = activeItems.filter(type => appointmentIds.includes(type.id));
-        const activeNonAppointments = activeItems.filter(type => !appointmentIds.includes(type.id));
-
-        if (activeNonAppointments.length === 0 && activeAppointments.length > 0) {
-            // Only appointments are active, render them in a single row
-            return [
-                {
-                    title: "PSA Appointment Endorsements",
-                    subtitle: "Schedule appointments for PSA Endorsement of your civil registry records",
-                    items: activeAppointments
-                }
-            ];
-        }
-
-        // Default layout: Grouped by Birth, Death, Marriage
-        return REGISTRY_SECTIONS.map((section) => {
-            const sectionItems = section.items
-                .map(id => REGISTRY_TYPES.find(t => t.id === id))
-                .filter(Boolean) as typeof REGISTRY_TYPES;
-
-            const activeSectionItems = sectionItems.filter(type => activeCodes.has(type.code));
-
-            return {
-                title: section.title,
-                subtitle: section.subtitle,
-                items: activeSectionItems
-            };
-        }).filter(section => section.items.length > 0);
+        return [
+            {
+                title: "Available Services",
+                subtitle: "Select a civil registry service to proceed",
+                items: activeItems
+            }
+        ];
     }, [activeCodes]);
 
     return (

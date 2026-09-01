@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,9 @@ import {
     Activity, 
     Siren,
     Phone,
-    Car
+    Car,
+    ShieldAlert,
+    ArrowUpRight
 } from "lucide-react";
 import { getAmbulanceSettings, updateAmbulanceSettings } from "@/app/user/services/rural-health-unit/actions";
 import { getRHUHealthCenters } from "@/app/admin/rhu/centers/actions";
@@ -377,6 +380,29 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                         Monitor fleet readiness, manage vehicle station assignments, and update real-time public emergency direct dispatch hotlines.
                     </p>
                 </div>
+            </div>
+
+            {/* MDRRMO Transition Notice */}
+            <div className="p-4 md:p-5 rounded-2xl border border-orange-500/30 bg-orange-500/10 text-orange-800 dark:text-orange-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider">
+                            Ambulance Fleet & Disaster Logistics Managed by MDRRMO
+                        </h4>
+                        <p className="text-[11px] font-semibold opacity-90">
+                            Ambulance driver duty monitoring, OR/CR digital filing, dispatch scheduling, and emergency advisories are now managed under the dedicated MDRRMO Department Hub.
+                        </p>
+                    </div>
+                </div>
+                <Link
+                    href="/admin/mdrrmo"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-orange-600 hover:bg-orange-700 text-white shadow-md transition-all shrink-0"
+                >
+                    Open MDRRMO Hub <ArrowUpRight className="w-4 h-4" />
+                </Link>
             </div>
 
             {/* ======================================================== */}

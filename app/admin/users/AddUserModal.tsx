@@ -173,6 +173,7 @@ export function AddUserModal({
                       <SelectItem value="BFP">BFP / Bureau of Fire Protection</SelectItem>
                       <SelectItem value="MAYOR">Municipal Mayor</SelectItem>
                       <SelectItem value="ASSESSOR">Municipal Assessor</SelectItem>
+                      <SelectItem value="MDRRMO_ADMIN">MDRRMO Administrator</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

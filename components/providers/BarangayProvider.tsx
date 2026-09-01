@@ -35,6 +35,12 @@ export function BarangayProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        // Skip on auth routes to avoid interfering with auth redirections
+        if (pathname.startsWith("/auth")) {
+            setIsLoading(false);
+            return;
+        }
+
         const urlBarangay = searchParams.get("barangay");
         const saved = localStorage.getItem("selectedBarangay");
 

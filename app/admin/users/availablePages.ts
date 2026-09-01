@@ -29,6 +29,7 @@ export const AVAILABLE_PAGES: AvailablePage[] = [
   { label: "Resident Registry", path: "/admin/residents", category: "Residents" },
   { label: "Household Map", path: "/admin/households", category: "Residents" },
   { label: "RHU Announcements", path: "/admin/rhu/announcements", category: "Rural Health Unit" },
+  { label: "Medical Equipment & Assets", path: "/admin/rhu/equipment", category: "Rural Health Unit" },
   { label: "BPLO Announcements", path: "/admin/bplo/announcements", category: "BPLO Department" },
   { label: "Ordinances & Resolutions", path: "/admin/ordinances", category: "Content" },
   { label: "User Accounts", path: "/admin/users", category: "Security" },
