@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useJobs } from "../providers/JobsProvider";
-import { addJob, updateJob } from "@/app/admin/actions";
+import { addJob, updateJob } from "../actions/jobs.actions";
 import { toast } from "sonner";
 
 export function useJobsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useJobs();
+    const { setIsAddModalOpen, editingData, setEditingData, refreshJobs } = useJobs();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -17,17 +17,20 @@ export function useJobsForm() {
 
         try {
             if (editingData) {
-                await updateJob(editingData.id, formData);
+                const res = await updateJob(editingData.id, formData);
+                if (!res.success) throw new Error(res.error);
                 toast.success("Job updated successfully!");
             } else {
-                await addJob(formData);
+                const res = await addJob(formData);
+                if (!res.success) throw new Error(res.error);
                 toast.success("Job posted successfully!");
             }
             setIsAddModalOpen(false);
             setEditingData(null);
-        } catch (error) {
+            await refreshJobs();
+        } catch (error: any) {
             console.error("Error saving job:", error);
-            toast.error("Failed to save job posting. Please try again.");
+            toast.error(error.message || "Failed to save job posting. Please try again.");
         } finally {
             setLoading(false);
         }

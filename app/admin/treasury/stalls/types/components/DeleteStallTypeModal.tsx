@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useStallTypes } from "./StallTypesProvider";
 import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
-import { deleteStallType } from "../actions";
+import { deleteStallType } from "../actions/stall-types.actions";
+import { toast } from "sonner";
 
 export function DeleteStallTypeModal() {
     const {
@@ -11,6 +12,7 @@ export function DeleteStallTypeModal() {
         setIsDeleteOpen,
         deletingStallType,
         setDeletingStallType,
+        setStallTypes,
         triggerRefresh,
     } = useStallTypes();
 
@@ -20,15 +22,23 @@ export function DeleteStallTypeModal() {
         if (!deletingStallType) return;
 
         setLoading(true);
-        const res = await deleteStallType(deletingStallType.id);
-        setLoading(false);
-
-        if (res.success) {
-            setIsDeleteOpen(false);
-            setDeletingStallType(null);
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to delete section");
+        try {
+            const deletedId = deletingStallType.id;
+            const res = await deleteStallType(deletedId);
+            if (res.success) {
+                // Instant Optimistic Deletion (0ms lag sa table)
+                setStallTypes(prev => prev.filter(t => t.id !== deletedId));
+                toast.success("Market section deleted successfully!");
+                setIsDeleteOpen(false);
+                setDeletingStallType(null);
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to delete section");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to delete section");
+        } finally {
+            setLoading(false);
         }
     };
 

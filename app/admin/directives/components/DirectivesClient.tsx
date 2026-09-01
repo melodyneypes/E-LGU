@@ -15,10 +15,12 @@ import {
     Paperclip,
     Send,
     ChevronDown,
+    Edit2,
 } from "lucide-react";
-import { createExecutiveDirective, deleteExecutiveDirective } from "../actions";
-import { supabase } from "@/lib/supabase";
+import { createExecutiveDirective, updateExecutiveDirective, deleteExecutiveDirective, getExecutiveDirectiveById } from "../actions";
 import { toast } from "sonner";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DirectiveItem {
     id: string;
@@ -73,58 +75,9 @@ export function DirectivesClient({
     const [isPending, startTransition] = useTransition();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [deleteId, setDeleteId] = useState<string | null>(null);
-
-    // Sync directives whenever initialData updates from server
-    useEffect(() => {
-        setDirectives(initialData);
-    }, [initialData]);
-
-    // Realtime Supabase Listener for instant Read Counts & Directive updates
-    useEffect(() => {
-        if (!supabase) return;
-
-        let channel: any;
-        try {
-            channel = supabase
-                .channel("admin-directives-live-reads")
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "DirectiveRecipientRead",
-                    },
-                    () => {
-                        startTransition(() => {
-                            router.refresh();
-                        });
-                    }
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "ExecutiveDirective",
-                    },
-                    () => {
-                        startTransition(() => {
-                            router.refresh();
-                        });
-                    }
-                )
-                .subscribe();
-        } catch (err) {
-            console.warn("[Admin Directives Realtime] Sub error:", err);
-        }
-
-        return () => {
-            if (channel && supabase) {
-                supabase.removeChannel(channel);
-            }
-        };
-    }, [router]);
+    const [directiveToDelete, setDirectiveToDelete] = useState<DirectiveItem | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [editingData, setEditingData] = useState<DirectiveItem | null>(null);
 
     // Form state
     const [title, setTitle] = useState("");
@@ -135,6 +88,12 @@ export function DirectivesClient({
     const [selectedBarangays, setSelectedBarangays] = useState<string[]>([]);
     const [senderName, setSenderName] = useState("Office of the Municipal Mayor");
     const [file, setFile] = useState<File | null>(null);
+    const [isFileRemoved, setIsFileRemoved] = useState<boolean>(false);
+
+    // Sync directives whenever initialData updates from server
+    useEffect(() => {
+        setDirectives(initialData);
+    }, [initialData]);
 
     // Local filters
     const [search, setSearch] = useState(initSearch);
@@ -172,7 +131,43 @@ export function DirectivesClient({
         updateFilters({ search, page: 1 });
     };
 
-    const handleCreate = async (e: React.FormEvent) => {
+    // 8. FAST EDIT MODAL OPENING: Instant modal opening with cached row data + background sync
+    const handleOpenEdit = (item: DirectiveItem) => {
+        setEditingData(item);
+        setTitle(item.title);
+        setContent(item.content);
+        setCategory(item.category);
+        setPriority(item.priority);
+        setTargetScope(item.targetScope);
+        setSelectedBarangays(item.targetBarangay ? item.targetBarangay.split(", ").map(s => s.trim()) : []);
+        setSenderName(item.senderName || "Office of the Municipal Mayor");
+        setFile(null);
+        setIsFileRemoved(false);
+        setIsModalOpen(true);
+
+        getExecutiveDirectiveById(item.id).then((res) => {
+            if (res.success && res.data) {
+                const d = res.data;
+                setTitle(d.title);
+                setContent(d.content);
+                setCategory(d.category);
+                setPriority(d.priority);
+                setTargetScope(d.targetScope);
+                setSelectedBarangays(d.targetBarangays || (d.targetBarangay ? d.targetBarangay.split(", ").map((s: string) => s.trim()) : []));
+                setSenderName(d.senderName || "Office of the Municipal Mayor");
+            }
+        }).catch((err) => {
+            console.warn("[handleOpenEdit background sync error]:", err);
+        });
+    };
+
+    const handleOpenAdd = () => {
+        setEditingData(null);
+        resetForm();
+        setIsModalOpen(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim() || !content.trim()) {
             toast.error("Please fill in title and message content.");
@@ -195,43 +190,43 @@ export function DirectivesClient({
             formData.append("targetBarangays", JSON.stringify(selectedBarangays));
         }
         formData.append("senderName", senderName);
+        formData.append("fileRemoved", isFileRemoved ? "true" : "false");
         if (file) {
             formData.append("attachment", file);
         }
 
-        const res = await createExecutiveDirective(formData);
+        let res;
+        if (editingData) {
+            res = await updateExecutiveDirective(editingData.id, formData);
+        } else {
+            res = await createExecutiveDirective(formData);
+        }
+
         setIsSubmitting(false);
 
         if (res.success) {
-            toast.success("Executive Directive & Memorandum dispatched to Barangay Captains!");
+            toast.success(editingData ? "Executive Directive updated!" : "Executive Directive dispatched to Barangay Captains!");
             setIsModalOpen(false);
             resetForm();
-            if (res.data) {
-                setDirectives((prev) => [
-                    {
-                        ...res.data,
-                        createdAt: res.data.createdAt ? new Date(res.data.createdAt).toISOString() : new Date().toISOString(),
-                        reads: []
-                    },
-                    ...prev
-                ]);
-            }
             startTransition(() => {
                 router.refresh();
             });
         } else {
-            toast.error(res.error || "Failed to dispatch directive.");
+            toast.error(res.error || "Failed to save directive.");
         }
     };
 
-    const handleDelete = async (id: string) => {
-        setDeleteId(id);
-        const res = await deleteExecutiveDirective(id);
-        setDeleteId(null);
+    // 7. CONFIRM DELETE MODAL HANDLER
+    const handleConfirmDelete = async () => {
+        if (!directiveToDelete) return;
+        setIsDeleting(true);
+        const res = await deleteExecutiveDirective(directiveToDelete.id);
+        setIsDeleting(false);
 
         if (res.success) {
             toast.success("Executive directive deleted.");
-            setDirectives((prev) => prev.filter((d) => d.id !== id));
+            setDirectives((prev) => prev.filter((d) => d.id !== directiveToDelete.id));
+            setDirectiveToDelete(null);
             startTransition(() => {
                 router.refresh();
             });
@@ -249,6 +244,8 @@ export function DirectivesClient({
         setSelectedBarangays([]);
         setSenderName("Office of the Municipal Mayor");
         setFile(null);
+        setIsFileRemoved(false);
+        setEditingData(null);
     };
 
     const getPriorityBadge = (p: string) => {
@@ -294,10 +291,7 @@ export function DirectivesClient({
                 </div>
 
                 <button
-                    onClick={() => {
-                        resetForm();
-                        setIsModalOpen(true);
-                    }}
+                    onClick={handleOpenAdd}
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
                 >
                     <Plus className="w-4 h-4" />
@@ -381,26 +375,31 @@ export function DirectivesClient({
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium">
                             {isPending ? (
-                                Array.from({ length: 4 }).map((_, i) => (
-                                    <tr key={i} className="animate-pulse">
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={`skeleton-${i}`} className="border-b border-slate-100 dark:border-slate-800/50">
                                         <td className="py-4 px-6">
-                                            <div className="h-4 w-48 bg-slate-200 dark:bg-slate-800 rounded mb-1" />
-                                            <div className="h-3 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-48 rounded" />
+                                                <Skeleton className="h-3 w-28 rounded" />
+                                            </div>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <div className="h-6 w-24 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                                            <Skeleton className="h-6 w-24 rounded-xl" />
                                         </td>
                                         <td className="py-4 px-6">
-                                            <div className="h-6 w-28 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+                                            <Skeleton className="h-6 w-32 rounded-2xl" />
                                         </td>
                                         <td className="py-4 px-6">
-                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                                            <Skeleton className="h-4 w-28 rounded" />
                                         </td>
                                         <td className="py-4 px-6 text-center">
-                                            <div className="h-6 w-16 bg-slate-200 dark:bg-slate-800 rounded-xl mx-auto" />
+                                            <Skeleton className="h-6 w-16 rounded-xl mx-auto" />
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                            <div className="h-8 w-16 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto" />
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Skeleton className="h-8 w-8 rounded-xl" />
+                                                <Skeleton className="h-8 w-8 rounded-xl" />
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -483,16 +482,18 @@ export function DirectivesClient({
                                             <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button
-                                                        onClick={() => handleDelete(d.id)}
-                                                        disabled={deleteId === d.id}
-                                                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors disabled:opacity-40 cursor-pointer"
+                                                        onClick={() => handleOpenEdit(d)}
+                                                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                                        title="Edit Directive"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDirectiveToDelete(d)}
+                                                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                                                         title="Delete Directive"
                                                     >
-                                                        {deleteId === d.id ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-4 h-4" />
-                                                        )}
+                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -505,7 +506,17 @@ export function DirectivesClient({
                 </div>
             </div>
 
-            {/* Create Modal */}
+            {/* 7. CONFIRM DELETE MODAL */}
+            <ConfirmDeleteModal
+                isOpen={!!directiveToDelete}
+                onClose={() => setDirectiveToDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Executive Directive"
+                description={`Are you sure you want to delete "${directiveToDelete?.title}"? Any attached document files will also be removed from storage.`}
+                isLoading={isDeleting}
+            />
+
+            {/* Create & Edit Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 my-8">
@@ -516,7 +527,7 @@ export function DirectivesClient({
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white">
-                                        Issue Directive / Memorandum
+                                        {editingData ? "Edit Directive / Memorandum" : "Issue Directive / Memorandum"}
                                     </h3>
                                     <p className="text-xs text-slate-400">
                                         Dispatch official text memo & PDF attachment to Barangay Captains
@@ -531,7 +542,7 @@ export function DirectivesClient({
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreate} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
                                     Title / Subject *
@@ -699,16 +710,43 @@ export function DirectivesClient({
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
-                                    Attach Official Document or Image (PDF, PNG, JPG, WEBP)
-                                </label>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-bold uppercase text-slate-500">
+                                        Attach Official Document or Image (PDF, PNG, JPG, WEBP)
+                                    </label>
+                                    {(file || (editingData?.attachmentUrl && !isFileRemoved)) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFile(null);
+                                                setIsFileRemoved(true);
+                                            }}
+                                            className="text-[10px] font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X className="w-3 h-3" /> Remove File
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
                                     <input
                                         type="file"
                                         accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
-                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        onChange={(e) => {
+                                            setFile(e.target.files?.[0] || null);
+                                            setIsFileRemoved(false);
+                                        }}
                                         className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-500/10 dark:file:text-indigo-300 hover:file:bg-indigo-100 cursor-pointer"
                                     />
+                                    {editingData?.attachmentName && !file && !isFileRemoved && (
+                                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                            Current Attachment: {editingData.attachmentName} ({editingData.attachmentSize})
+                                        </p>
+                                    )}
+                                    {isFileRemoved && !file && (
+                                        <p className="text-xs font-bold text-red-500">
+                                            Attachment will be removed upon saving.
+                                        </p>
+                                    )}
                                     <p className="text-[10px] text-slate-400 italic">
                                         Supported: Official PDF memorandums, circular scans, infographics, and JPG/PNG/WEBP advisory images (Max 15MB)
                                     </p>
@@ -731,12 +769,12 @@ export function DirectivesClient({
                                     {isSubmitting ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                            Dispatching...
+                                            {editingData ? "Updating..." : "Dispatching..."}
                                         </>
                                     ) : (
                                         <>
                                             <Send className="w-4 h-4" />
-                                            Issue Directive
+                                            {editingData ? "Save Changes" : "Issue Directive"}
                                         </>
                                     )}
                                 </button>

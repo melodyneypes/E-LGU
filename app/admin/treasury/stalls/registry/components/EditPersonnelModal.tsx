@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Eye, EyeOff, Loader2 } from "lucide-react";
-import { updateMarketPersonnel } from "../actions";
+import { Edit, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+import { updateMarketPersonnel } from "../actions/registry.actions";
 
 export function EditPersonnelModal() {
     const { isEditOpen, setIsEditOpen, editingPersonnel, themeColor, triggerRefresh } = useRegistry();
@@ -29,17 +30,23 @@ export function EditPersonnelModal() {
         if (!editingPersonnel) return;
 
         setLoading(true);
-        const res = await updateMarketPersonnel(editingPersonnel.id, {
-            role,
-            ...(password.trim() ? { password: password.trim() } : {}),
-        });
+        try {
+            const res = await updateMarketPersonnel(editingPersonnel.id, {
+                role,
+                ...(password.trim() ? { password: password.trim() } : {}),
+            });
 
-        setLoading(false);
-        if (res.success) {
-            setIsEditOpen(false);
-            triggerRefresh();
-        } else {
-            alert(res.error || "Failed to update personnel account");
+            if (res.success) {
+                toast.success("Market personnel updated successfully!");
+                setIsEditOpen(false);
+                triggerRefresh();
+            } else {
+                toast.error(res.error || "Failed to update personnel account");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update personnel account");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -47,22 +54,31 @@ export function EditPersonnelModal() {
 
     return (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
-                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center gap-3">
-                    <div
-                        className="p-3 rounded-2xl text-white shadow-md shrink-0"
-                        style={{ backgroundColor: themeColor }}
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+                <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="p-3 rounded-2xl text-white shadow-md shrink-0"
+                            style={{ backgroundColor: themeColor }}
+                        >
+                            <Edit className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
+                                Edit Personnel ({editingPersonnel.name})
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-slate-500 font-medium italic">
+                                Update system role or reset password credentials.
+                            </DialogDescription>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsEditOpen(false)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
-                        <Edit className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <DialogTitle className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
-                            Edit Personnel ({editingPersonnel.name})
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500 font-medium italic">
-                            Update account role or set a new password.
-                        </DialogDescription>
-                    </div>
+                        <X className="w-5 h-5" />
+                    </button>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} autoComplete="off" className="p-6 space-y-4">

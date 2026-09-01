@@ -1,7 +1,7 @@
 "use client";
 
 import { useJobs, Job } from "../providers/JobsProvider";
-import { deleteJob, toggleJobStatus } from "@/app/admin/actions";
+import { deleteJob, toggleJobStatus } from "../actions/jobs.actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,11 +10,26 @@ import { Edit2, Trash2, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState, type CSSProperties } from "react";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function JobsTable() {
-    const { jobsData, searchTerm, setEditingData, setIsAddModalOpen, selectedDepartment, selectedStatus, themeColor } = useJobs();
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const { jobsData, isLoading, searchTerm, setEditingData, setIsAddModalOpen, selectedDepartment, selectedStatus, themeColor } = useJobs();
     const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const filteredData = jobsData.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,28 +46,35 @@ export function JobsTable() {
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this job posting?")) return;
-        setDeletingId(id);
-        try {
-            await deleteJob(id);
-            toast.success("Job posting deleted successfully!");
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-            toast.error("Failed to delete job posting.");
-        } finally {
-            setDeletingId(null);
-        }
+    const handleDelete = (item: Job) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Job Vacancy",
+            description: `Are you sure you want to permanently delete the job vacancy for "${item.title}" in the ${item.department} department?`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteJob(item.id);
+                    if (!res.success) throw new Error(res.error);
+                    toast.success("Job posting deleted successfully!");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (error: any) {
+                    toast.error(error.message || "Failed to delete job posting.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
     };
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
         setTogglingId(id);
         try {
-            await toggleJobStatus(id, !currentStatus);
+            const res = await toggleJobStatus(id, !currentStatus);
+            if (!res.success) throw new Error(res.error);
             toast.success(`Job marked as ${!currentStatus ? 'Active' : 'Closed'} successfully!`);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-            toast.error("Failed to update status.");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update status.");
         } finally {
             setTogglingId(null);
         }
@@ -86,7 +108,28 @@ export function JobsTable() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredData.map((item) => (
+                    {isLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={`skeleton-${i}`} className="border-b border-slate-200 dark:border-[#2a3040]">
+                                <TableCell className="py-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-40 rounded-md" />
+                                        <Skeleton className="h-3 w-24 rounded-md" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="py-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-32 rounded-md" />
+                                        <Skeleton className="h-3 w-20 rounded-md" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="py-4"><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
+                                <TableCell className="py-4"><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                                <TableCell className="text-center py-4"><Skeleton className="h-6 w-10 mx-auto rounded-full" /></TableCell>
+                                <TableCell className="text-right py-4"><Skeleton className="h-8 w-16 ml-auto rounded-xl" /></TableCell>
+                            </TableRow>
+                        ))
+                    ) : filteredData.map((item) => (
                         <TableRow key={item.id} className="group hover:bg-slate-50/50 dark:hover:bg-[#202635] transition-colors border-b border-slate-200 dark:border-[#2a3040]">
                             <TableCell className="font-medium">
                                 <div className="flex flex-col space-y-1">
@@ -147,9 +190,8 @@ export function JobsTable() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(item.id)}
-                                                    disabled={deletingId === item.id}
-                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50"
+                                                    onClick={() => handleDelete(item)}
+                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50 cursor-pointer"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
@@ -163,6 +205,16 @@ export function JobsTable() {
                     ))}
                 </TableBody>
             </Table>
+
+            {/* Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }

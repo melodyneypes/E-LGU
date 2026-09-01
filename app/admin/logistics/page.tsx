@@ -7,14 +7,16 @@ import {
     Save, 
     RefreshCcw, 
     Info,
-    Plus
+    Plus,
+    Trash2
 } from "lucide-react";
 import { AddLogisticsModal } from "./components/AddLogisticsModal";
 import { 
     getAllBarangayLogistics, 
     updateBarangayLogistics,
+    deleteBarangayLogistics,
     getSystemSettingAction
-} from "@/app/admin/transactions/actions";
+} from "./actions/logistics.actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 
 export default function LogisticsManagementPage() {
     const [loading, setLoading] = useState(true);
@@ -32,6 +35,42 @@ export default function LogisticsManagementPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [themeColor, setThemeColor] = useState("#2563eb");
     const [isAddOpen, setIsAddOpen] = useState(false);
+
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteNode = (brgy: any) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Logistics Node",
+            description: `Are you sure you want to permanently delete the delivery logistics node for Brgy. ${brgy.name}? Delivery fee and SLA settings will be removed.`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteBarangayLogistics(brgy.id);
+                    if (!res.success) throw new Error(res.error);
+                    toast.success(`Deleted logistics node: Brgy. ${brgy.name}`);
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                    fetchLogistics();
+                } catch (error: any) {
+                    toast.error(error.message || "Failed to delete logistics node");
+                } finally {
+                    setIsDeleting(false);
+                }
+            }
+        });
+    };
 
     const fetchLogistics = useCallback(async () => {
         setLoading(true);
@@ -73,6 +112,28 @@ export default function LogisticsManagementPage() {
             toast.error("An error occurred during update");
         } finally {
             setSaving(null);
+        }
+    };
+
+    const handleToggleActive = async (brgy: any, newStatus: boolean) => {
+        // Optimistic UI Update
+        updateLocalState(brgy.id, "isLogisticsActive", newStatus);
+        try {
+            const res = await updateBarangayLogistics(brgy.id, {
+                deliveryFee: Number(brgy.deliveryFee),
+                isLogisticsActive: newStatus,
+                estimatedDeliveryDays: Number(brgy.estimatedDeliveryDays)
+            });
+            if (res.success) {
+                toast.success(`Brgy. ${brgy.name} logistics ${newStatus ? "Activated" : "Deactivated"}`);
+            } else {
+                // Rollback on failure
+                updateLocalState(brgy.id, "isLogisticsActive", !newStatus);
+                toast.error(res.error || "Failed to update status");
+            }
+        } catch {
+            updateLocalState(brgy.id, "isLogisticsActive", !newStatus);
+            toast.error("An error occurred updating logistics status");
         }
     };
 
@@ -157,8 +218,8 @@ export default function LogisticsManagementPage() {
                                     <div className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-2 px-3 rounded-xl">
                                         <Switch 
                                             checked={brgy.isLogisticsActive} 
-                                            onCheckedChange={(val) => updateLocalState(brgy.id, "isLogisticsActive", val)}
-                                            className="scale-75 data-[state=checked]:bg-primary"
+                                            onCheckedChange={(val) => handleToggleActive(brgy, val)}
+                                            className="scale-75 data-[state=checked]:bg-primary cursor-pointer"
                                         />
                                         <span className="text-[8px] font-black uppercase italic text-slate-500 tracking-widest">
                                             {brgy.isLogisticsActive ? "Active" : "Off"}
@@ -188,20 +249,32 @@ export default function LogisticsManagementPage() {
                                     </div>
                                 </div>
 
-                                <Button 
-                                    onClick={() => handleUpdate(brgy)}
-                                    disabled={saving === brgy.id}
-                                    className="w-full text-white rounded-xl font-black italic uppercase text-[9px] tracking-widest shadow-lg transition-none h-9 gap-2"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    {saving === brgy.id ? (
-                                        <RefreshCcw className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                        <>
-                                            <Save className="w-3 h-3" /> Update Node
-                                        </>
-                                    )}
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button 
+                                        onClick={() => handleUpdate(brgy)}
+                                        disabled={saving === brgy.id}
+                                        className="flex-1 text-white rounded-xl font-black italic uppercase text-[9px] tracking-widest shadow-lg transition-none h-9 gap-2 cursor-pointer"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        {saving === brgy.id ? (
+                                            <RefreshCcw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                            <>
+                                                <Save className="w-3 h-3" /> Update Node
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => handleDeleteNode(brgy)}
+                                        className="h-9 w-9 p-0 rounded-xl border-red-200 dark:border-red-900/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors cursor-pointer shrink-0"
+                                        title="Delete Logistics Node"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
                             </div>
 
                             {/* Minimal Background Decor */}
@@ -240,6 +313,16 @@ export default function LogisticsManagementPage() {
                     setIsAddOpen(false);
                     fetchLogistics();
                 }}
+            />
+
+            {/* Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
             />
         </div>
     );

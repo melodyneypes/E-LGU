@@ -65,10 +65,11 @@ export default function ServicesClient({ initialServices, themeColor }: Services
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedCode, setExpandedCode] = useState<string | null>("TREASURER");
 
-    // 1. Group dynamically strictly based on the database 'category' field!
+    // 1. Group dynamically strictly based on the database 'category' field (excluding internal/enforcement POSO)!
     const categoriesMap = new Map<string, TransactionType[]>();
     initialServices.forEach(s => {
         const cat = s.category ? s.category.toUpperCase() : "GENERAL";
+        if (cat === "POSO" || s.code.toUpperCase().startsWith("POSO")) return;
         if (!categoriesMap.has(cat)) {
             categoriesMap.set(cat, []);
         }

@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import { useOfficials } from "../providers/OfficialsProvider";
-import { addOfficial, updateOfficial } from "@/app/admin/actions";
+import { addOfficial, updateOfficial } from "../actions/officials.actions";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 export function useOfficialsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useOfficials();
-    const router = useRouter();
+    const { setIsAddModalOpen, editingData, setEditingData, refreshOfficials } = useOfficials();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -18,18 +16,20 @@ export function useOfficialsForm() {
 
         try {
             if (editingData) {
-                await updateOfficial(editingData.id, formData);
+                const res = await updateOfficial(editingData.id, formData);
+                if (!res.success) throw new Error(res.error);
                 toast.success("Official updated successfully!");
             } else {
-                await addOfficial(formData);
+                const res = await addOfficial(formData);
+                if (!res.success) throw new Error(res.error);
                 toast.success("Official added successfully!");
             }
-            router.refresh();
             setIsAddModalOpen(false);
             setEditingData(null);
-        } catch (error) {
+            await refreshOfficials();
+        } catch (error: any) {
             console.error("Error saving official:", error);
-            toast.error("Failed to save official. Please try again.");
+            toast.error(error.message || "Failed to save official. Please try again.");
         } finally {
             setLoading(false);
         }

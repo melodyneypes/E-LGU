@@ -20,21 +20,39 @@ export function AddAccommodationModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useAccommodation();
     const { handleSubmit, loading } = useAccommodationForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isImageRemoved, setIsImageRemoved] = useState<boolean>(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Sync only when opening modal or when switching editing record ID / imageUrl
     useEffect(() => {
-        if (editingData?.imageUrl) {
-            setImagePreview(editingData.imageUrl);
+        if (isAddModalOpen) {
+            setImagePreview(editingData?.imageUrl || null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         } else {
             setImagePreview(null);
+            setIsImageRemoved(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
-    }, [editingData, isAddModalOpen]);
+    }, [editingData?.id, editingData?.imageUrl, isAddModalOpen]);
 
     const handleClose = () => {
         setIsAddModalOpen(false);
         setTimeout(() => {
             setEditingData(null);
             setImagePreview(null);
+            setIsImageRemoved(false);
         }, 200);
+    };
+
+    const handleClearImage = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setImagePreview(null);
+        setIsImageRemoved(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     return (
@@ -83,7 +101,12 @@ export function AddAccommodationModal() {
 
                     {/* Scrollable Form Body */}
                     <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">
-                        <form key={editingData?.id || "new-accommodation-form"} id="accommodationForm" onSubmit={handleSubmit} className="space-y-6">
+                        <form 
+                            key={editingData ? `${editingData.id}-${editingData.description || ""}-${editingData.priceRange || ""}-${editingData.websiteUrl || ""}` : "new-accommodation-form"} 
+                            id="accommodationForm" 
+                            onSubmit={handleSubmit} 
+                            className="space-y-6"
+                        >
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
@@ -217,9 +240,20 @@ export function AddAccommodationModal() {
                             )}
 
                             <div>
-                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                    Cover / Property Photo
-                                </Label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        Cover / Property Photo
+                                    </Label>
+                                    {imagePreview && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearImage}
+                                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                        >
+                                            <X className="w-3.5 h-3.5" /> Remove Image
+                                        </button>
+                                    )}
+                                </div>
                                 <label
                                     htmlFor="imageFile"
                                     className="border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-100 dark:hover:bg-[#2a3040]/30 transition-all cursor-pointer group relative overflow-hidden min-h-[180px]"
@@ -243,6 +277,7 @@ export function AddAccommodationModal() {
                                         </>
                                     )}
                                     <input
+                                        ref={fileInputRef}
                                         type="file"
                                         id="imageFile"
                                         name="imageFile"
@@ -251,13 +286,19 @@ export function AddAccommodationModal() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
+                                                setIsImageRemoved(false);
                                                 const url = URL.createObjectURL(file);
                                                 setImagePreview(url);
                                             }
                                         }}
                                     />
                                 </label>
-                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                <input
+                                    type="hidden"
+                                    name="imageRemoved"
+                                    value={isImageRemoved ? "true" : "false"}
+                                />
+                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && !isImageRemoved && (
                                     <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
                                 )}
                             </div>

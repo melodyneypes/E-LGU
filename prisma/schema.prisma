@@ -9,41 +9,40 @@ datasource db {
 }
 
 model User {
-
-  id                    String        @id @default(cuid())
+  id                    String                   @id @default(cuid())
   name                  String?
-  email                 String?       @unique
+  email                 String?                  @unique
   emailVerified         DateTime?
   password              String?
-  role                  UserRole      @default(USER)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  isEmailVerified       Boolean       @default(false)
-  isPasswordChanged     Boolean       @default(false)
-  rejectionCount        Int           @default(0)
+  role                  UserRole                 @default(USER)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  isEmailVerified       Boolean                  @default(false)
+  isPasswordChanged     Boolean                  @default(false)
+  rejectionCount        Int                      @default(0)
   rejectionResetAt      DateTime?
   managedBarangay       String?
   department            String?
-  accessiblePages       String[]      @default([])
-  accessibleCategories  String[]      @default([])
-  accessibleStatuses    String[]      @default([])
-  isSynced              Boolean       @default(false)
-  rfid                  String?       @unique
-  consecutiveRejections Json?         @default("{}")
+  accessiblePages       String[]                 @default([])
+  accessibleCategories  String[]                 @default([])
+  accessibleStatuses    String[]                 @default([])
+  isSynced              Boolean                  @default(false)
+  rfid                  String?                  @unique
+  consecutiveRejections Json?                    @default("{}")
   fcmToken              String?
   accounts              Account[]
+  auditLogs             AuditLog[]               @relation("UserAuditLogs")
+  directiveReads        DirectiveRecipientRead[]
   reports               Report[]
   residentProfile       Resident?
   reviews               Review[]
   sessions              Session[]
-  driverTransactions    Transaction[]     @relation("DriverTransactions")
-  transactions          Transaction[]     @relation("ResidentTransactions")
-  vendorStalls          Stall[]           @relation("VendorStalls")
-  vendorCollections     StallCollection[] @relation("VendorCollections")
-  collectorCollections  StallCollection[] @relation("CollectorCollections")
-  directiveReads        DirectiveRecipientRead[]
-  auditLogs             AuditLog[]                @relation("UserAuditLogs")
-
+  vendorStalls          Stall[]                  @relation("VendorStalls")
+  collectorCollections  StallCollection[]        @relation("CollectorCollections")
+  vendorCollections     StallCollection[]        @relation("VendorCollections")
+  driverTransactions    Transaction[]            @relation("DriverTransactions")
+  transactions          Transaction[]            @relation("ResidentTransactions")
+  transactionFeedbacks  TransactionFeedback[]    @relation("UserFeedbacks")
 }
 
 model Account {
@@ -168,36 +167,36 @@ model News {
   author      String?
   category    String   @default("Announcement")
   imageUrl    String?
-  images      String[] @default([])
   publishDate DateTime @default(now())
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   barangay    String?
+  images      String[] @default([])
 }
 
 model Announcement {
-  id             String    @id @default(cuid())
-  title          String
-  content        String
-  priority       String    @default("Normal")
-  category       String    @default("General")
-  isPinned       Boolean   @default(false)
-  isActive       Boolean   @default(true)
-  expiryDate     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  barangay       String?
-  imageUrl       String?
-  authorEmail    String?
-  authorId       String?
-  healthCenterId String?
-  eventDate      DateTime?
-  eventSchedule  String?
-  department      String?   @default("GENERAL")
+  id              String    @id @default(cuid())
+  title           String
+  content         String
+  priority        String    @default("Normal")
+  category        String    @default("General")
+  isPinned        Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  expiryDate      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  barangay        String?
+  imageUrl        String?
+  authorEmail     String?
+  authorId        String?
+  healthCenterId  String?
+  eventDate       DateTime?
+  eventSchedule   String?
   approvalStatus  String    @default("APPROVED")
-  submittedBy     String?
   approvedBy      String?
+  department      String?   @default("GENERAL")
+  submittedBy     String?
   rejectionReason String?
 }
 
@@ -590,6 +589,7 @@ model TransactionType {
   pickupAddress        String?
   processingTime       String?
   transactions         Transaction[]
+  feedbacks            TransactionFeedback[]
 }
 
 model Transaction {
@@ -646,6 +646,7 @@ model Transaction {
   marriageRegistration          MarriageRegistration?
   occupancyPermit               OccupancyPermit?
   payment                       Payment?
+  feedback                      TransactionFeedback?
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
   type                          TransactionType                @relation(fields: [typeId], references: [id])
@@ -1218,6 +1219,255 @@ model VehicleClassification {
   updatedAt   DateTime @updatedAt
 }
 
+model StallType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  createdBy   String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+  stalls      Stall[]
+}
+
+model StallOtherFee {
+  id        String            @id @default(cuid())
+  stallId   String
+  amount    Float             @default(0)
+  createdAt DateTime          @default(now())
+  createdBy String?
+  feeType   StallFeeFrequency @default(DAILY)
+  name      String
+  remarks   String?
+  updatedAt DateTime          @updatedAt
+  updatedBy String?
+  stall     Stall             @relation(fields: [stallId], references: [id], onDelete: Cascade)
+}
+
+model Stall {
+  id                    String            @id @default(cuid())
+  stallTypeId           String
+  stallNumber           String            @unique
+  vendorId              String?
+  status                StallStatus       @default(VACANT)
+  dailyRate             Float             @default(0)
+  monthlyRate           Float             @default(0)
+  dailyRateOverdueFee   Float             @default(0)
+  monthlyRateOverdueFee Float             @default(0)
+  createdAt             DateTime          @default(now())
+  createdBy             String?
+  updatedAt             DateTime          @updatedAt
+  updatedBy             String?
+  stallType             StallType         @relation(fields: [stallTypeId], references: [id])
+  vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
+  collections           StallCollection[]
+  otherFees             StallOtherFee[]
+}
+
+model StallCollection {
+  id              String             @id @default(cuid())
+  stallId         String
+  vendorId        String?
+  collectorId     String
+  collectedDate   DateTime           @default(now())
+  ticketNumber    String             @unique
+  baseAmount      Float              @default(0)
+  otherFeesPaid   Float              @default(0)
+  overdueFeePaid  Float              @default(0)
+  totalAmountPaid Float              @default(0)
+  paymentMethod   StallPaymentMethod @default(CASH)
+  status          CollectionStatus   @default(PAID)
+  remarks         String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  collector       User               @relation("CollectorCollections", fields: [collectorId], references: [id])
+  stall           Stall              @relation(fields: [stallId], references: [id])
+  vendor          User?              @relation("VendorCollections", fields: [vendorId], references: [id])
+}
+
+model RHUAmbulance {
+  id                        String                      @id @default(cuid())
+  unit                      String
+  plateNumber               String
+  station                   String
+  status                    String                      @default("STANDBY")
+  statusColor               String                      @default("text-emerald-500 bg-emerald-500/10 border-emerald-500/20")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  assigned_center_id        String?
+  assignedDriverId          String?
+  chassisNumber             String?
+  engineNumber              String?
+  orNumber                  String?
+  crNumber                  String?
+  registrationExpiry        DateTime?
+  insuranceExpiry           DateTime?
+  AmbulanceDispatchSchedule AmbulanceDispatchSchedule[]
+  documents                 AmbulanceDocument[]
+  AmbulanceDriver           AmbulanceDriver[]
+}
+
+model AmbulanceDocument {
+  id             String       @id @default(cuid())
+  ambulanceId    String
+  documentType   String
+  title          String
+  documentNumber String?
+  fileUrl        String
+  fileName       String?
+  fileSize       String?
+  fileType       String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  issuingAgency  String?
+  status         String       @default("VALID")
+  remarks        String?
+  uploadedBy     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  rhuAmbulance   RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+}
+
+model RHUAmbulanceHotline {
+  id        String   @id @default(cuid())
+  name      String
+  number    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String?  @default("ACTIVE")
+}
+
+model CitizenCharter {
+  id         String   @id @default(cuid())
+  officeName String
+  fileUrl    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model LegislativeDocument {
+  id              String   @id @default(cuid())
+  type            String
+  referenceNumber String
+  title           String
+  description     String
+  tags            String[] @default([])
+  dateApproved    DateTime
+  status          String
+  pdfUrl          String?
+  barangay        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ExecutiveDirective {
+  id              String                   @id @default(cuid())
+  title           String
+  content         String
+  category        String                   @default("MEMORANDUM")
+  priority        String                   @default("NORMAL")
+  attachmentUrl   String?
+  attachmentName  String?
+  attachmentSize  String?
+  targetScope     String                   @default("ALL_CAPTAINS")
+  targetBarangay  String?
+  senderName      String?                  @default("Office of the Municipal Mayor")
+  senderId        String?
+  isPublished     Boolean                  @default(true)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  targetBarangays String[]                 @default([])
+  reads           DirectiveRecipientRead[]
+
+  @@index([targetScope])
+  @@index([createdAt])
+}
+
+model DirectiveRecipientRead {
+  id          String             @id @default(cuid())
+  directiveId String
+  userId      String
+  readAt      DateTime           @default(now())
+  directive   ExecutiveDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([directiveId, userId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  userName    String
+  userEmail   String?
+  userRole    String
+  department  String?
+  action      String
+  entityType  String
+  entityId    String?
+  entityName  String?
+  description String
+  metadata    Json?    @default("{}")
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation("UserAuditLogs", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userRole])
+  @@index([department])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AmbulanceDispatchSchedule {
+  id                  String           @id
+  title               String
+  dispatchType        String           @default("EMERGENCY_TRANSFER")
+  priority            String           @default("HIGH")
+  status              String           @default("SCHEDULED")
+  patientName         String?
+  patientContact      String?
+  pickupLocation      String
+  destination         String
+  scheduledDate       DateTime
+  departureTime       String?
+  returnTime          String?
+  ambulanceId         String?
+  driverId            String?
+  medicStaff          String?
+  notes               String?
+  destinationHospital String?
+  requestedBy         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @default(now())
+  RHUAmbulance        RHUAmbulance?    @relation(fields: [ambulanceId], references: [id])
+  AmbulanceDriver     AmbulanceDriver? @relation(fields: [driverId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AmbulanceDriver {
+  id                        String                      @id
+  name                      String
+  contactNumber             String
+  licenseNumber             String
+  licenseExpiry             DateTime?
+  status                    String                      @default("STANDBY")
+  dutyShift                 String?                     @default("Day Shift (6:00 AM - 2:00 PM)")
+  emergencyContact          String?
+  notes                     String?
+  photoUrl                  String?
+  assignedAmbulanceId       String?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @default(now())
+  AmbulanceDispatchSchedule AmbulanceDispatchSchedule[]
+  RHUAmbulance              RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id])
+}
+
 enum InventoryCategory {
   MEDICINE
   MEDICAL_SUPPLY
@@ -1247,7 +1497,6 @@ enum UserRole {
   USER
   CONTENT_ADMIN
   BARANGAY_ADMIN
-  BARANGAY_CAPTAIN
   TREASURY_STAFF
   ADMIN_AIDE
   RIDER
@@ -1264,6 +1513,9 @@ enum UserRole {
   ASSESSOR
   VENDOR
   COLLECTOR
+  BARANGAY_CAPTAIN
+  MDRRMO_ADMIN
+  MDRRMO_STAFF
   MDRRMO_ADMIN
   MDRRMO_STAFF
 }
@@ -1339,81 +1591,6 @@ enum PaymentStatus {
   REFUNDED
 }
 
-
-// ==============================================
-// MARKET STALL COLLECTION MODULE MODELS
-// ==============================================
-
-model StallType {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  createdBy   String?
-  updatedAt   DateTime @updatedAt
-  updatedBy   String?
-  stalls      Stall[]
-}
-
-model StallOtherFee {
-  id        String            @id @default(cuid())
-  stallId   String
-  name      String            // e.g. "Garbage Collection Fee", "Electricity Fee"
-  amount    Float             @default(0)
-  feeType   StallFeeFrequency @default(DAILY)
-  remarks   String?
-  createdAt DateTime          @default(now())
-  createdBy String?
-  updatedAt DateTime          @updatedAt
-  updatedBy String?
-
-  stall Stall @relation(fields: [stallId], references: [id], onDelete: Cascade)
-}
-
-model Stall {
-  id                    String            @id @default(cuid())
-  stallTypeId           String
-  stallNumber           String            @unique
-  vendorId              String?
-  status                StallStatus       @default(VACANT)
-  dailyRate             Float             @default(0)
-  monthlyRate           Float             @default(0)
-  dailyRateOverdueFee   Float             @default(0)
-  monthlyRateOverdueFee Float             @default(0)
-  createdAt             DateTime          @default(now())
-  createdBy             String?
-  updatedAt             DateTime          @updatedAt
-  updatedBy             String?
-
-  stallType   StallType         @relation(fields: [stallTypeId], references: [id])
-  vendor      User?             @relation("VendorStalls", fields: [vendorId], references: [id])
-  otherFees   StallOtherFee[]
-  collections StallCollection[]
-}
-
-model StallCollection {
-  id              String             @id @default(cuid())
-  stallId         String
-  vendorId        String?
-  collectorId     String
-  collectedDate   DateTime           @default(now())
-  ticketNumber    String             @unique
-  baseAmount      Float              @default(0)
-  otherFeesPaid   Float              @default(0)
-  overdueFeePaid  Float              @default(0)
-  totalAmountPaid Float              @default(0)
-  paymentMethod   StallPaymentMethod @default(CASH)
-  status          CollectionStatus   @default(PAID)
-  remarks         String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  stall     Stall @relation(fields: [stallId], references: [id])
-  collector User  @relation("CollectorCollections", fields: [collectorId], references: [id])
-  vendor    User? @relation("VendorCollections", fields: [vendorId], references: [id])
-}
-
 enum StallStatus {
   VACANT
   OCCUPIED
@@ -1421,14 +1598,12 @@ enum StallStatus {
   RESERVED
 }
 
-
 enum CollectionStatus {
   PAID
   PARTIAL
   PENDING
   CANCELLED
 }
-
 
 enum StallPaymentMethod {
   CASH
@@ -1440,6 +1615,12 @@ enum StallFeeFrequency {
   MONTHLY
 }
 
+enum FeedbackRating {
+  ONE
+  TWO
+  THREE
+  FOUR
+  FIVE
 model RHUAmbulance {
   id                 String                      @id @default(cuid())
   unit               String
@@ -1538,98 +1719,24 @@ model AmbulanceDispatchSchedule {
   @@index([status])
 }
 
-model RHUAmbulanceHotline {
-  id        String   @id @default(cuid())
-  name      String
-  number    String
-  status    String?  @default("ACTIVE")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+model TransactionFeedback {
+  id                String           @id @default(cuid())
+  transactionId     String           @unique
+  transactionTypeId String?
+  userId            String?
+  rating            FeedbackRating
+  comment           String?
+  department        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-model CitizenCharter {
-  id         String   @id @default(cuid())
-  officeName String
-  fileUrl    String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
+  transaction       Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionType   TransactionType? @relation(fields: [transactionTypeId], references: [id], onDelete: SetNull)
+  user              User?            @relation("UserFeedbacks", fields: [userId], references: [id], onDelete: SetNull)
 
-model LegislativeDocument {
-  id              String   @id @default(cuid())
-  type            String   // "ORDINANCE" or "RESOLUTION"
-  referenceNumber String
-  title           String
-  description     String
-  tags            String[] @default([])
-  dateApproved    DateTime
-  status          String   // e.g. "ACTIVE / ENFORCED", "ADOPTED / CEREMONIAL"
-  pdfUrl          String?
-  barangay        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model ExecutiveDirective {
-  id              String                   @id @default(cuid())
-  title           String
-  content         String
-  category        String                   @default("MEMORANDUM") // MEMORANDUM, ADVISORY, DIRECTIVE, EXECUTIVE_ORDER
-  priority        String                   @default("NORMAL")     // NORMAL, URGENT, CRITICAL
-  attachmentUrl   String?
-  attachmentName  String?
-  attachmentSize  String?
-  targetScope     String                   @default("ALL_CAPTAINS") // ALL_CAPTAINS, SPECIFIC_BARANGAY
-  targetBarangays String[]                 @default([])
-  targetBarangay  String?
-  senderName      String?                  @default("Office of the Municipal Mayor")
-  senderId        String?
-  isPublished     Boolean                  @default(true)
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  reads           DirectiveRecipientRead[]
-
-  @@index([targetScope])
-  @@index([createdAt])
-}
-
-model DirectiveRecipientRead {
-  id          String             @id @default(cuid())
-  directiveId String
-  userId      String
-  readAt      DateTime           @default(now())
-  directive   ExecutiveDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([directiveId, userId])
-  @@index([userId])
-}
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  userName    String
-  userEmail   String?
-  userRole    String
-  department  String?
-  action      String   // CREATE, UPDATE, DELETE, APPROVE, REJECT, DIGITIZE, PRINT, LOGIN, STATUS_CHANGE
-  entityType  String   // Transaction, BuildingPermit, TaxDeclaration, Resident, User, Official, etc.
-  entityId    String?
-  entityName  String?  // Reference identifier (e.g. TDN #, Permit #, Citizen Name)
-  description String
-  metadata    Json?    @default("{}") // Changed fields, snapshots, diffs
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-
-  user        User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([userRole])
+  @@index([transactionTypeId])
   @@index([department])
-  @@index([action])
-  @@index([entityType])
+  @@index([rating])
   @@index([createdAt])
 }
 

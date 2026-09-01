@@ -25,6 +25,9 @@ export interface Job {
 interface JobsContextType {
     jobsData: Job[];
     setJobsData: (data: Job[]) => void;
+    isLoading: boolean;
+    setIsLoading: (loading: boolean) => void;
+    refreshJobs: () => Promise<void>;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     isAddModalOpen: boolean;
@@ -42,6 +45,8 @@ interface JobsContextType {
 
 const JobsContext = createContext<JobsContextType | undefined>(undefined);
 
+import { getAdminJobs } from "../actions/jobs.actions";
+
 export function JobsProvider({ 
     children, 
     initialData,
@@ -54,12 +59,27 @@ export function JobsProvider({
     activeBarangays?: string[];
 }) {
     const [jobsData, setJobsData] = useState<Job[]>(initialData);
+    const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<Job | null>(null);
     const [selectedDepartment, setSelectedDepartment] = useState("All");
     const [selectedStatus, setSelectedStatus] = useState("All");
     const [themeColor, setThemeColor] = useState("#2563eb");
+
+    const refreshJobs = async () => {
+        setIsLoading(true);
+        try {
+            const res = await getAdminJobs(currentBarangay || undefined);
+            if (res.success && res.jobs) {
+                setJobsData(res.jobs as any);
+            }
+        } catch (err) {
+            console.error("Failed to refresh jobs:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         setJobsData(initialData);
@@ -85,6 +105,9 @@ export function JobsProvider({
             value={{
                 jobsData,
                 setJobsData,
+                isLoading,
+                setIsLoading,
+                refreshJobs,
                 searchTerm,
                 setSearchTerm,
                 isAddModalOpen,

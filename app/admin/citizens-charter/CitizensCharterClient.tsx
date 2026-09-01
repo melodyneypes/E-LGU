@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 import { 
-    FileText, Plus, Search, Trash2, Edit, Save, Loader2, FileUp, ExternalLink,
-    AlertCircle
+    FileText, Plus, Search, Trash2, Edit, Save, Loader2, FileUp, ExternalLink, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +15,14 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
+    getCitizenCharters,
     createCitizenCharter, 
     updateCitizenCharter, 
     deleteCitizenCharter, 
     toggleCitizenCharterStatus 
-} from "./actions";
+} from "./actions/citizens-charter.actions";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CitizenCharter {
     id: string;
@@ -34,17 +36,45 @@ interface CitizenCharter {
 export function CitizensCharterClient({ initialData = [] }: { initialData: CitizenCharter[] }) {
     const [charters, setCharters] = useState<CitizenCharter[]>(initialData);
     const [search, setSearch] = useState("");
-    const [isPending, startTransition] = useTransition();
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Modals state
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedCharter, setSelectedCharter] = useState<CitizenCharter | null>(null);
+
+    // Delete Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Form inputs state
     const [officeName, setOfficeName] = useState("");
     const [file, setFile] = useState<File | null>(null);
+
+    const refreshCharters = async () => {
+        setIsLoading(true);
+        try {
+            const res = await getCitizenCharters();
+            if (res.success && res.charters) {
+                setCharters(res.charters as any);
+            }
+        } catch (err) {
+            console.error("Failed to refresh charters:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Add submit handler
     const handleAddSubmit = async (e: React.FormEvent) => {
@@ -62,17 +92,22 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
         formData.append("officeName", officeName);
         formData.append("file", file);
 
-        startTransition(async () => {
+        setIsSaving(true);
+        try {
             const res = await createCitizenCharter(formData);
             if (res.success && res.data) {
-                setCharters(prev => [...prev, res.data as CitizenCharter].sort((a, b) => a.officeName.localeCompare(b.officeName)));
                 toast.success("Citizen's charter added successfully!");
                 setIsAddOpen(false);
                 resetForm();
+                await refreshCharters();
             } else {
                 toast.error(res.error || "Failed to add charter");
             }
-        });
+        } catch (error: any) {
+            toast.error(error.message || "Failed to add charter");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // Edit submit handler
@@ -90,32 +125,43 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
             formData.append("file", file);
         }
 
-        startTransition(async () => {
+        setIsSaving(true);
+        try {
             const res = await updateCitizenCharter(selectedCharter.id, formData);
             if (res.success && res.data) {
-                setCharters(prev => prev.map(c => c.id === selectedCharter.id ? (res.data as CitizenCharter) : c).sort((a, b) => a.officeName.localeCompare(b.officeName)));
                 toast.success("Citizen's charter updated successfully!");
                 setIsEditOpen(false);
                 resetForm();
+                await refreshCharters();
             } else {
                 toast.error(res.error || "Failed to update charter");
             }
-        });
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update charter");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // Delete handler
-    const handleDeleteSubmit = async () => {
-        if (!selectedCharter) return;
-
-        startTransition(async () => {
-            const res = await deleteCitizenCharter(selectedCharter.id);
-            if (res.success) {
-                setCharters(prev => prev.filter(c => c.id !== selectedCharter.id));
-                toast.success("Citizen's charter deleted successfully!");
-                setIsDeleteOpen(false);
-                setSelectedCharter(null);
-            } else {
-                toast.error(res.error || "Failed to delete charter");
+    const openDelete = (charter: CitizenCharter) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Citizen's Charter",
+            description: `Are you sure you want to delete the charter for "${charter.officeName}"? The attached PDF/Image document will also be permanently removed from storage.`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteCitizenCharter(charter.id);
+                    if (!res.success) throw new Error(res.error);
+                    toast.success("Citizen's charter deleted successfully!");
+                    setDeleteModalConfig(prev => ({ ...prev, isOpen: false }));
+                    await refreshCharters();
+                } catch (error: any) {
+                    toast.error(error.message || "Failed to delete charter");
+                } finally {
+                    setIsDeleting(false);
+                }
             }
         });
     };
@@ -147,11 +193,6 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
         setOfficeName(charter.officeName);
         setFile(null);
         setIsEditOpen(true);
-    };
-
-    const openDelete = (charter: CitizenCharter) => {
-        setSelectedCharter(charter);
-        setIsDeleteOpen(true);
     };
 
     const filtered = charters.filter(c => 
@@ -226,7 +267,30 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filtered.length > 0 ? (
+                            {isLoading ? (
+                                Array.from({ length: 4 }).map((_, i) => (
+                                    <TableRow key={`skeleton-${i}`} className="border-b border-slate-200 dark:border-[#2a3040]">
+                                        <TableCell className="py-4">
+                                            <Skeleton className="h-5 w-48 rounded-md" />
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <Skeleton className="h-4 w-32 rounded-md" />
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <div className="flex items-center gap-3">
+                                                <Skeleton className="h-6 w-10 rounded-full" />
+                                                <Skeleton className="h-3 w-12 rounded-md" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Skeleton className="w-9 h-9 rounded-xl" />
+                                                <Skeleton className="w-9 h-9 rounded-xl" />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : filtered.length > 0 ? (
                                 filtered.map((charter) => (
                                     <TableRow key={charter.id} className="border-b border-slate-200 dark:border-[#2a3040] hover:bg-slate-50/40 dark:hover:bg-slate-900/10">
                                         <TableCell className="font-black uppercase tracking-tight text-slate-900 dark:text-white">
@@ -248,6 +312,7 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                                                 <Switch 
                                                     checked={charter.isActive}
                                                     onCheckedChange={() => handleToggleStatus(charter.id, charter.isActive)}
+                                                    className="cursor-pointer"
                                                 />
                                                 <span className={`text-[10px] font-black uppercase tracking-widest ${charter.isActive ? "text-emerald-500" : "text-slate-400"}`}>
                                                     {charter.isActive ? "Active" : "Hidden"}
@@ -260,7 +325,7 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                                                     variant="outline" 
                                                     size="icon"
                                                     onClick={() => openEdit(charter)}
-                                                    className="w-9 h-9 border-slate-200 dark:border-[#2a3040] rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                    className="w-9 h-9 border-slate-200 dark:border-[#2a3040] rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                                 >
                                                     <Edit className="w-4 h-4 text-slate-500" />
                                                 </Button>
@@ -268,7 +333,7 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                                                     variant="outline" 
                                                     size="icon"
                                                     onClick={() => openDelete(charter)}
-                                                    className="w-9 h-9 border-slate-200 dark:border-[#2a3040] rounded-xl hover:bg-red-500/10 hover:border-red-500/30"
+                                                    className="w-9 h-9 border-slate-200 dark:border-[#2a3040] rounded-xl hover:bg-red-500/10 hover:border-red-500/30 cursor-pointer"
                                                 >
                                                     <Trash2 className="w-4 h-4 text-red-500" />
                                                 </Button>
@@ -290,15 +355,24 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
 
             {/* Modal: Add Charter */}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogContent className="max-w-md bg-white dark:bg-[#151b2b] rounded-[2rem] border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-primary" style={{ color: 'var(--primary-theme)' }} />
-                            Add Department Charter
-                        </DialogTitle>
-                        <DialogDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                            Upload the Citizens Charter document (PDF or image) for a municipal office.
-                        </DialogDescription>
+                <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-[#151b2b] rounded-[2rem] border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <DialogHeader className="flex flex-row items-center justify-between">
+                        <div className="space-y-1">
+                            <DialogTitle className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-primary" style={{ color: 'var(--primary-theme)' }} />
+                                Add Department Charter
+                            </DialogTitle>
+                            <DialogDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Upload the Citizens Charter document (PDF or image) for a municipal office.
+                            </DialogDescription>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsAddOpen(false)}
+                            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </DialogHeader>
 
                     <form onSubmit={handleAddSubmit} className="space-y-6 pt-2">
@@ -343,17 +417,17 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                                 type="button" 
                                 variant="outline" 
                                 onClick={() => setIsAddOpen(false)}
-                                className="h-12 px-6 rounded-2xl font-bold uppercase tracking-widest text-[10px] italic border-slate-200 dark:border-[#2a3040]"
+                                className="h-12 px-6 rounded-2xl font-bold uppercase tracking-widest text-[10px] italic border-slate-200 dark:border-[#2a3040] cursor-pointer"
                             >
                                 Cancel
                             </Button>
                             <Button 
                                 type="submit" 
-                                disabled={isPending}
-                                className="h-12 px-6 rounded-2xl text-white font-bold uppercase tracking-widest text-[10px] italic flex items-center gap-2"
+                                disabled={isSaving}
+                                className="h-12 px-6 rounded-2xl text-white font-bold uppercase tracking-widest text-[10px] italic flex items-center gap-2 cursor-pointer"
                                 style={{ backgroundColor: 'var(--primary-theme)' }}
                             >
-                                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Save Charter
                             </Button>
                         </DialogFooter>
@@ -363,15 +437,24 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
 
             {/* Modal: Edit Charter */}
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                <DialogContent className="max-w-md bg-white dark:bg-[#151b2b] rounded-[2rem] border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
-                            <Edit className="w-5 h-5 text-primary" style={{ color: 'var(--primary-theme)' }} />
-                            Edit Department Charter
-                        </DialogTitle>
-                        <DialogDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                            Update the office name or replace the uploaded document.
-                        </DialogDescription>
+                <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-[#151b2b] rounded-[2rem] border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <DialogHeader className="flex flex-row items-center justify-between">
+                        <div className="space-y-1">
+                            <DialogTitle className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                                <Edit className="w-5 h-5 text-primary" style={{ color: 'var(--primary-theme)' }} />
+                                Edit Department Charter
+                            </DialogTitle>
+                            <DialogDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Update the office name or replace the uploaded document.
+                            </DialogDescription>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsEditOpen(false)}
+                            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </DialogHeader>
 
                     <form onSubmit={handleEditSubmit} className="space-y-6 pt-2">
@@ -416,17 +499,17 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                                 type="button" 
                                 variant="outline" 
                                 onClick={() => setIsEditOpen(false)}
-                                className="h-12 px-6 rounded-2xl font-bold uppercase tracking-widest text-[10px] italic border-slate-200 dark:border-[#2a3040]"
+                                className="h-12 px-6 rounded-2xl font-bold uppercase tracking-widest text-[10px] italic border-slate-200 dark:border-[#2a3040] cursor-pointer"
                             >
                                 Cancel
                             </Button>
                             <Button 
                                 type="submit" 
-                                disabled={isPending}
-                                className="h-12 px-6 rounded-2xl text-white font-bold uppercase tracking-widest text-[10px] italic flex items-center gap-2"
+                                disabled={isSaving}
+                                className="h-12 px-6 rounded-2xl text-white font-bold uppercase tracking-widest text-[10px] italic flex items-center gap-2 cursor-pointer"
                                 style={{ backgroundColor: 'var(--primary-theme)' }}
                             >
-                                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Update Charter
                             </Button>
                         </DialogFooter>
@@ -434,39 +517,15 @@ export function CitizensCharterClient({ initialData = [] }: { initialData: Citiz
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Confirm Delete */}
-            <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <DialogContent className="max-w-sm bg-white dark:bg-[#151b2b] rounded-[2rem] border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black uppercase italic tracking-tight text-red-500 flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
-                            Delete Charter?
-                        </DialogTitle>
-                        <DialogDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                            This will permanently delete the charter for <strong>{selectedCharter?.officeName}</strong> and remove its file from storage. This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <DialogFooter className="gap-2 sm:justify-end mt-4">
-                        <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={() => setIsDeleteOpen(false)}
-                            className="h-12 px-6 rounded-2xl font-bold uppercase tracking-widest text-[10px] italic border-slate-200 dark:border-[#2a3040]"
-                        >
-                            Cancel
-                        </Button>
-                        <Button 
-                            onClick={handleDeleteSubmit}
-                            disabled={isPending}
-                            className="h-12 px-6 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest text-[10px] italic flex items-center gap-2"
-                        >
-                            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Reusable Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }

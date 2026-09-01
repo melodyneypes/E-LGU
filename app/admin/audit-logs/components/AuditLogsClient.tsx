@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { getAuditLogs, getAuditStats, exportAuditLogsCSV } from "../actions";
+import { getAuditLogs, getAuditStats } from "../actions";
 import {
     Search,
     RefreshCw,
     ShieldAlert,
     Filter,
     Building2,
-    FileSpreadsheet,
     Loader2,
     CheckCircle2,
     Clock,
@@ -169,7 +168,6 @@ export default function AuditLogsClient({
     const [pageSize, setPageSize] = useState(15);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [isExporting, setIsExporting] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
 
     const [stats, setStats] = useState({
@@ -251,38 +249,6 @@ export default function AuditLogsClient({
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
-
-    const handleExportCSV = async () => {
-        setIsExporting(true);
-        try {
-            const res = await exportAuditLogsCSV({
-                search: debouncedSearch,
-                department: departmentFilter,
-                userRole: roleFilter,
-                action: actionFilter,
-                startDate,
-                endDate,
-            });
-
-            if (res.success && res.csv) {
-                const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.setAttribute("download", res.fileName || "Mapandan_Audit_Trail.csv");
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                toast.success("Audit trail report exported successfully!");
-            } else {
-                toast.error(res.error || "Failed to export CSV report.");
-            }
-        } catch {
-            toast.error("Export process encountered an error.");
-        } finally {
-            setIsExporting(false);
-        }
-    };
 
     const getActionBadge = (action: string) => {
         switch (action) {
@@ -409,23 +375,6 @@ export default function AuditLogsClient({
                             title="Refresh Audit Trail"
                         >
                             <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-300 ${loading ? "animate-spin" : ""}`} />
-                        </Button>
-
-                        <Button
-                            onClick={handleExportCSV}
-                            disabled={isExporting || logs.length === 0}
-                            variant="outline"
-                            className="rounded-2xl h-11 px-4 font-bold text-xs flex items-center gap-2 border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-[#151b2b] cursor-pointer"
-                        >
-                            {isExporting ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" /> Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    <FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Export CSV Report
-                                </>
-                            )}
                         </Button>
                     </div>
                 </div>
@@ -837,134 +786,157 @@ export default function AuditLogsClient({
                                             )}
                                         </div>                                        <div className="space-y-3">
                                             {Object.entries(selectedLog.metadata.changes).map(([fieldKey, val]: [string, any]) => {
-                                                 const isExpanded = !!expandedFields[fieldKey];
-                                                 const oldStr = val?.old !== null && val?.old !== undefined && val?.old !== "" ? String(val.old) : null;
-                                                 const newStr = val?.new !== null && val?.new !== undefined && val?.new !== "" ? String(val.new) : null;
-                                                 const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
-                                                 const displayFieldLabel = formatFieldLabel(fieldKey);
+                                                const isExpanded = !!expandedFields[fieldKey];
 
-                                                 return (
-                                                     <div
-                                                         key={fieldKey}
-                                                         className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-3"
-                                                     >
-                                                         <div className="flex items-center justify-between">
-                                                             <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
-                                                                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                                                 {displayFieldLabel}
-                                                             </span>
-                                                             <div className="flex items-center gap-2">
-                                                                 {isLongText && (
-                                                                     <button
-                                                                         type="button"
-                                                                         onClick={() => toggleFieldExpand(fieldKey)}
-                                                                         className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                                                     >
-                                                                         {isExpanded ? (
-                                                                             <>
-                                                                                 <ChevronUp className="w-3 h-3" /> Show Less
-                                                                             </>
-                                                                         ) : (
-                                                                             <>
-                                                                                 <ChevronDown className="w-3 h-3" /> Expand Full Diff
-                                                                             </>
-                                                                         )}
-                                                                     </button>
-                                                                 )}
-                                                                 <span className="text-[9px] font-mono text-slate-400 uppercase font-medium bg-slate-200/60 dark:bg-[#202738] px-2 py-0.5 rounded-md">
-                                                                     Field Diff
-                                                                 </span>
-                                                             </div>
-                                                         </div>
+                                                const formatDiffValue = (raw: any): string | null => {
+                                                    if (raw === null || raw === undefined || raw === "") return null;
+                                                    if (typeof raw === "object") {
+                                                        try {
+                                                            if (Array.isArray(raw)) {
+                                                                return raw.map((item, idx) => {
+                                                                    if (typeof item === "object" && item !== null) {
+                                                                        const label = item.label || item.name || item.title || `Item ${idx + 1}`;
+                                                                        const url = item.url || item.value || "";
+                                                                        return url ? `• ${label}: ${url}` : `• ${JSON.stringify(item)}`;
+                                                                    }
+                                                                    return `• ${item}`;
+                                                                }).join("\n");
+                                                            }
+                                                            return JSON.stringify(raw, null, 2);
+                                                        } catch {
+                                                            return String(raw);
+                                                        }
+                                                    }
+                                                    return String(raw);
+                                                };
 
-                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                                                             {/* Old Value */}
-                                                             <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 relative group">
-                                                                 <div className="flex items-center justify-between mb-1.5">
-                                                                     <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
-                                                                         Previous Value
-                                                                     </span>
-                                                                     <div className="flex items-center gap-1.5">
-                                                                         {oldStr && oldStr.length > 120 && (
-                                                                             <button
-                                                                                 type="button"
-                                                                                 onClick={() =>
-                                                                                     setActiveReaderModal({
-                                                                                         title: `${displayFieldLabel} (Previous)`,
-                                                                                         type: "old",
-                                                                                         text: oldStr,
-                                                                                     })
-                                                                                 }
-                                                                                 className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer"
-                                                                             >
-                                                                                 Open Reader
-                                                                             </button>
-                                                                         )}
+                                                const oldStr = formatDiffValue(val?.old);
+                                                const newStr = formatDiffValue(val?.new);
+                                                const isLongText = (oldStr?.length || 0) > 120 || (newStr?.length || 0) > 120;
+                                                const displayFieldLabel = formatFieldLabel(fieldKey);
 
-                                                                         {oldStr && (
-                                                                             <Tooltip>
-                                                                                 <TooltipTrigger asChild>
-                                                                                     <button
-                                                                                         type="button"
-                                                                                         onClick={() => copyText(oldStr, "Previous value")}
-                                                                                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                                                                                     >
-                                                                                         <Copy className="w-3 h-3" />
-                                                                                     </button>
-                                                                                 </TooltipTrigger>
-                                                                                 <TooltipContent>
-                                                                                     <p>Copy text</p>
-                                                                                 </TooltipContent>
-                                                                             </Tooltip>
-                                                                         )}
-                                                                     </div>
-                                                                 </div>
+                                                return (
+                                                    <div
+                                                        key={fieldKey}
+                                                        className="p-4 rounded-2xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/80 dark:border-[#2a3040] space-y-3"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-bold text-xs capitalize text-slate-900 dark:text-white flex items-center gap-2">
+                                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                {displayFieldLabel}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {isLongText && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleFieldExpand(fieldKey)}
+                                                                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <>
+                                                                                <ChevronUp className="w-3 h-3" /> Show Less
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <ChevronDown className="w-3 h-3" /> Expand Full Diff
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                                <span className="text-[9px] font-mono text-slate-400 uppercase font-medium bg-slate-200/60 dark:bg-[#202738] px-2 py-0.5 rounded-md">
+                                                                    Field Diff
+                                                                </span>
+                                                            </div>
+                                                        </div>
 
-                                                                 <div className={`text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
-                                                                     {oldStr ? (
-                                                                         isExpanded ? (
-                                                                             <p>{oldStr}</p>
-                                                                         ) : (
-                                                                             <p className="line-clamp-3">{oldStr}</p>
-                                                                         )
-                                                                     ) : (
-                                                                         <span className="italic text-slate-400">Empty / Null</span>
-                                                                     )}
-                                                                 </div>
-                                                             </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                                            {/* Old Value */}
+                                                            <div className="p-3 rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 relative group">
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                                                                        Previous Value
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {oldStr && oldStr.length > 120 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setActiveReaderModal({
+                                                                                        title: `${displayFieldLabel} (Previous)`,
+                                                                                        type: "old",
+                                                                                        text: oldStr,
+                                                                                    })
+                                                                                }
+                                                                                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer"
+                                                                            >
+                                                                                Open Reader
+                                                                            </button>
+                                                                        )}
 
-                                                             {/* New Value */}
-                                                             <div className="p-3 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 relative group">
-                                                                 <div className="flex items-center justify-between mb-1.5">
-                                                                     <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                                                         Updated Value
-                                                                     </span>
-                                                                     <div className="flex items-center gap-1.5">
-                                                                         {newStr && newStr.length > 120 && (
-                                                                             <button
-                                                                                 type="button"
-                                                                                 onClick={() =>
-                                                                                     setActiveReaderModal({
-                                                                                         title: `${displayFieldLabel} (Updated)`,
-                                                                                         type: "new",
-                                                                                         text: newStr,
-                                                                                     })
-                                                                                 }
-                                                                                 className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 cursor-pointer"
-                                                                             >
-                                                                                 Open Reader
-                                                                             </button>
-                                                                         )}
+                                                                        {oldStr && (
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => copyText(oldStr, "Previous value")}
+                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                    >
+                                                                                        <Copy className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p>Copy text</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
 
-                                                                         {newStr && (
-                                                                             <Tooltip>
-                                                                                 <TooltipTrigger asChild>
-                                                                                     <button
-                                                                                         type="button"
-                                                                                         onClick={() => copyText(newStr, "Updated value")}
-                                                                                         className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                                                                                     >
-                                                                                         <Copy className="w-3 h-3" />
+                                                                <div className={`text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "max-h-80 overflow-y-auto pr-1.5 custom-scrollbar" : ""}`}>
+                                                                    {oldStr ? (
+                                                                        isExpanded ? (
+                                                                            <p>{oldStr}</p>
+                                                                        ) : (
+                                                                            <p className="line-clamp-3">{oldStr}</p>
+                                                                        )
+                                                                    ) : (
+                                                                        <span className="italic text-slate-400">Empty / Null</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* New Value */}
+                                                            <div className="p-3 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 relative group">
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                                                        Updated Value
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {newStr && newStr.length > 120 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setActiveReaderModal({
+                                                                                        title: `${displayFieldLabel} (Updated)`,
+                                                                                        type: "new",
+                                                                                        text: newStr,
+                                                                                    })
+                                                                                }
+                                                                                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 cursor-pointer"
+                                                                            >
+                                                                                Open Reader
+                                                                            </button>
+                                                                        )}
+
+                                                                        {newStr && (
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => copyText(newStr, "Updated value")}
+                                                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                                                                                    >
+                                                                                        <Copy className="w-3 h-3" />
                                                                                     </button>
                                                                                 </TooltipTrigger>
                                                                                 <TooltipContent>
@@ -997,15 +969,15 @@ export default function AuditLogsClient({
                                 {(() => {
                                     if (!selectedLog.metadata || typeof selectedLog.metadata !== "object") return null;
                                     const hasChanges = !!(selectedLog.metadata.changes && Object.keys(selectedLog.metadata.changes).length > 0);
-                                    
+
                                     // For CREATE actions, show only limited core informative fields (Title, Category, Barangay/Venue, Author)
                                     const createAllowedKeys = ["title", "name", "category", "barangay", "venueName", "author", "priority"];
-                                    
+
                                     const validEntries = Object.entries(selectedLog.metadata).filter(([k, v]) => {
                                         if (k === "changes" || k === "changedFields" || k === "deletedRecordSnapshot" || k === "content") return false;
                                         if (hasChanges && (k === "settingKey" || k === "status")) return false;
                                         if (v === null || v === undefined || v === "" || v === "null") return false;
-                                        
+
                                         // Strictly limit fields for CREATE action
                                         if (selectedLog.action === "CREATE") {
                                             return createAllowedKeys.includes(k);
@@ -1063,20 +1035,18 @@ export default function AuditLogsClient({
                     <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2a3040] shrink-0">
                         <div className="flex items-center gap-2">
                             <span
-                                className={`w-2.5 h-2.5 rounded-full ${
-                                    activeReaderModal?.type === "old" ? "bg-rose-500" : "bg-emerald-500"
-                                }`}
+                                className={`w-2.5 h-2.5 rounded-full ${activeReaderModal?.type === "old" ? "bg-rose-500" : "bg-emerald-500"
+                                    }`}
                             />
                             <span>{activeReaderModal?.title}</span>
                         </div>
                         {activeReaderModal && (
                             <Badge
                                 variant="outline"
-                                className={`text-[9px] font-black uppercase tracking-wider border px-2.5 py-0.5 rounded-full ${
-                                    activeReaderModal.type === "old"
+                                className={`text-[9px] font-black uppercase tracking-wider border px-2.5 py-0.5 rounded-full ${activeReaderModal.type === "old"
                                         ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                                         : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                }`}
+                                    }`}
                             >
                                 {activeReaderModal.type === "old" ? "Previous Value Snapshot" : "Updated Value Snapshot"}
                             </Badge>
@@ -1101,11 +1071,10 @@ export default function AuditLogsClient({
 
                             {/* Guaranteed Scroll Container */}
                             <div
-                                className={`p-4 rounded-2xl flex-1 overflow-y-auto max-h-[50vh] custom-scrollbar border ${
-                                    activeReaderModal.type === "old"
+                                className={`p-4 rounded-2xl flex-1 overflow-y-auto max-h-[50vh] custom-scrollbar border ${activeReaderModal.type === "old"
                                         ? "bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 text-slate-800 dark:text-slate-200"
                                         : "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20 text-slate-900 dark:text-white"
-                                }`}
+                                    }`}
                             >
                                 <p className="font-mono text-xs whitespace-pre-wrap leading-relaxed">
                                     {activeReaderModal.text}

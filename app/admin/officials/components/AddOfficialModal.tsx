@@ -93,7 +93,8 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
     const formatDateForInput = (dateString: string | undefined) => {
         if (!dateString) return "";
         const date = new Date(dateString);
-        return date.toISOString().slice(0, 16);
+        if (isNaN(date.getTime())) return "";
+        return date.toISOString().slice(0, 10);
     };
 
     return (
@@ -144,7 +145,7 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                         )}
                         <input
                             type="file"
-                            name="imageFile"
+                            name="image"
                             accept="image/*"
                             className="hidden"
                             ref={fileInputRef}
@@ -152,6 +153,9 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                         />
                         {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
                             <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
+                        )}
+                        {editingData?.imageUrl && !imagePreview && (
+                            <input type="hidden" name="imageRemoved" value="true" />
                         )}
                     </div>
 
@@ -307,7 +311,7 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                                 <Calendar className="w-3.5 h-3.5 mr-1" /> Term Start Date
                             </Label>
                             <Input
-                                type="datetime-local"
+                                type="date"
                                 name="termStart"
                                 defaultValue={formatDateForInput(editingData?.termStart)}
                                 className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold"
@@ -318,7 +322,7 @@ function OfficialForm({ editingData, handleSubmit, themeColor }: { editingData: 
                                 <Calendar className="w-3.5 h-3.5 mr-1" /> Term End Date
                             </Label>
                             <Input
-                                type="datetime-local"
+                                type="date"
                                 name="termEnd"
                                 defaultValue={formatDateForInput(editingData?.termEnd)}
                                 className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold"
@@ -421,15 +425,15 @@ export function AddOfficialModal() {
                 setEditingData(null);
             }
         }}>
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
+            <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
                 <div className="flex flex-col h-[90vh] sm:max-h-[85vh]">
                     <DialogHeader
-                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative overflow-hidden shrink-0"
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative flex-row items-center justify-between overflow-hidden shrink-0"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
                         <div className="flex items-center space-x-3">
                             <div 
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0" 
                                 style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
                             >
                                 <Users className="w-6 h-6 text-white" />
@@ -443,6 +447,18 @@ export function AddOfficialModal() {
                                 </DialogDescription>
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsAddModalOpen(false);
+                                setEditingData(null);
+                            }}
+                            className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer shrink-0 z-10"
+                            title="Close modal"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
                     </DialogHeader>
 
                     <div className="flex-1 p-4 pb-24 overflow-y-auto custom-scrollbar">

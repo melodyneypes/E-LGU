@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Briefcase, GraduationCap, Building2, Calendar, Globe, Plus, Trash2 } from "lucide-react";
+import { Loader2, Briefcase, GraduationCap, Building2, Calendar, Globe, Plus, Trash2, X } from "lucide-react";
 
 export function AddJobModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useJobs();
@@ -77,15 +77,15 @@ export function AddJobModal() {
                 setLinks([]);
             }
         }}>
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
+            <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
                 <div className="flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
                     <DialogHeader
-                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative overflow-hidden"
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative flex-row items-center justify-between overflow-hidden"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
                         <div className="flex items-center space-x-3">
                             <div 
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0" 
                                 style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
                             >
                                 <Briefcase className="w-6 h-6 text-white" />
@@ -99,6 +99,19 @@ export function AddJobModal() {
                                 </DialogDescription>
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsAddModalOpen(false);
+                                setEditingData(null);
+                                setLinks([]);
+                            }}
+                            className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer shrink-0 z-10"
+                            title="Close modal"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
                     </DialogHeader>
 
                     <div className="p-10 overflow-y-auto custom-scrollbar">
@@ -213,8 +226,19 @@ export function AddJobModal() {
                                             name="description"
                                             required
                                             defaultValue={editingData?.description}
-                                            placeholder="..."
-                                            className="min-h-[80px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none"
+                                            placeholder="e.g. Responsible for inspecting infrastructure and managing municipal construction projects..."
+                                            onInput={(e) => {
+                                                const target = e.target as HTMLTextAreaElement;
+                                                target.style.height = "auto";
+                                                target.style.height = `${target.scrollHeight}px`;
+                                            }}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    el.style.height = "auto";
+                                                    el.style.height = `${Math.max(el.scrollHeight, 100)}px`;
+                                                }
+                                            }}
+                                            className="min-h-[100px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none overflow-hidden transition-all"
                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
                                         />
                                     </div>
@@ -225,8 +249,19 @@ export function AddJobModal() {
                                             name="qualifications"
                                             required
                                             defaultValue={editingData?.qualifications}
-                                            placeholder="..."
-                                            className="min-h-[80px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none"
+                                            placeholder="e.g. Bachelor's Degree in Civil Engineering, Licensed Engineer (RA 1080)..."
+                                            onInput={(e) => {
+                                                const target = e.target as HTMLTextAreaElement;
+                                                target.style.height = "auto";
+                                                target.style.height = `${target.scrollHeight}px`;
+                                            }}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    el.style.height = "auto";
+                                                    el.style.height = `${Math.max(el.scrollHeight, 100)}px`;
+                                                }
+                                            }}
+                                            className="min-h-[100px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none overflow-hidden transition-all"
                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
                                         />
                                     </div>
@@ -237,8 +272,19 @@ export function AddJobModal() {
                                             name="requirements"
                                             required
                                             defaultValue={editingData?.requirements}
-                                            placeholder="..."
-                                            className="min-h-[60px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none"
+                                            placeholder="e.g. Resume, PDS with Work Experience Sheet, Transcript of Records (TOR)..."
+                                            onInput={(e) => {
+                                                const target = e.target as HTMLTextAreaElement;
+                                                target.style.height = "auto";
+                                                target.style.height = `${target.scrollHeight}px`;
+                                            }}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    el.style.height = "auto";
+                                                    el.style.height = `${Math.max(el.scrollHeight, 80)}px`;
+                                                }
+                                            }}
+                                            className="min-h-[80px] bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] focus:ring-2 rounded-2xl p-5 font-medium italic resize-none overflow-hidden transition-all"
                                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
                                         />
                                     </div>
