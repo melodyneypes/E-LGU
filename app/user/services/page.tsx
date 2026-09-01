@@ -14,6 +14,10 @@ export default async function ServicesPage() {
     const transactionTypes = await prisma.transactionType.findMany({
         where: {
             isActive: true,
+            AND: [
+                { category: { not: "POSO" } },
+                { code: { not: { startsWith: "POSO" } } }
+            ]
         },
         orderBy: { name: "asc" }
     });
