@@ -9,6 +9,7 @@ import {
     Check,
     Home,
     Sparkles,
+    Star,
     Calendar,
     TrendingUp,
     ShieldAlert,
@@ -39,6 +40,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { submitBusinessAppointment } from "./actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
+import BusinessPermitReviewsTab from "./components/BusinessPermitReviewsTab";
 
 
 function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
@@ -61,12 +63,12 @@ function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
         return (
             <div
                 onClick={onClick}
-                className="relative w-full h-36 rounded-xl overflow-hidden mt-3 border border-slate-100 dark:border-white/10 shadow-inner bg-slate-50 dark:bg-black/20 flex items-center justify-center group/preview animate-in fade-in zoom-in-95 duration-200 cursor-pointer"
+                className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 mt-3 group/preview cursor-pointer shadow-sm animate-in fade-in duration-200"
             >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={previewUrl}
-                    alt="Document Preview"
+                    alt={file.name}
                     className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -118,13 +120,12 @@ const MAPANDAN_BARANGAYS = [
 
 const LINE_OF_BUSINESS_OPTIONS = [
     "Retail Store",
-    "Wholesaler / Distributor",
-    "Eatery / Restaurant / Food Service",
-    "Services / Contractors",
-    "Banking / Financial Institution",
-    "Manufacturers / Producers",
-    "Agriculture / Farming / Fishery",
-    "Amusement / Recreation",
+    "Wholesale Distribution",
+    "Food & Beverage / Restaurant",
+    "General Services",
+    "Manufacturing",
+    "Information Technology",
+    "Agriculture & Livestock",
     "Real Estate / Rental",
     "Others / General Services"
 ];
@@ -205,6 +206,20 @@ interface BusinessPermitAppointmentClientProps {
     hasActiveRenew: boolean;
     previousPermits: any[];
     bploSettings: Record<string, string>;
+    feedbacks?: any[];
+    feedbackStats?: {
+        totalFeedbacks: number;
+        averageRating: number;
+        csatPercentage: number;
+        ratingCounts: Record<string, number>;
+    };
+    initialPagination?: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        hasMore: boolean;
+        remainingCount: number;
+    };
 }
 
 export function BusinessPermitAppointmentClient({
@@ -216,9 +231,24 @@ export function BusinessPermitAppointmentClient({
     hasActiveNew,
     hasActiveRenew,
     previousPermits,
-    bploSettings
+    bploSettings,
+    feedbacks = [],
+    feedbackStats = {
+        totalFeedbacks: 0,
+        averageRating: 0,
+        csatPercentage: 0,
+        ratingCounts: { FIVE: 0, FOUR: 0, THREE: 0, TWO: 0, ONE: 0 }
+    },
+    initialPagination = {
+        page: 1,
+        limit: 6,
+        totalCount: 0,
+        hasMore: false,
+        remainingCount: 0
+    }
 }: BusinessPermitAppointmentClientProps) {
     const router = useRouter();
+    const [activeMainTab, setActiveMainTab] = useState<"APPOINTMENT" | "REVIEWS">("APPOINTMENT");
     const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
     const [submitting, setSubmitting] = useState(false);
     const [businessType, setBusinessType] = useState<"NEW" | "RENEWAL">("NEW");
@@ -622,11 +652,53 @@ export function BusinessPermitAppointmentClient({
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">Streamlined Permitting & Compliance Portal</p>
                     </div>
+
+                    {/* Top Tab Switcher: Permit Wizard vs Citizen Reviews */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl md:rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 w-full sm:w-auto overflow-x-auto no-scrollbar shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("APPOINTMENT")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "APPOINTMENT"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "APPOINTMENT" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary shrink-0" />
+                            <span>Book Appointment</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("REVIEWS")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "REVIEWS"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "REVIEWS" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Star className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 fill-amber-400 shrink-0" />
+                            <span>Reviews</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Progress Stepper */}
-            {currentStep !== "SUCCESS" && (
+            {/* Conditional Display: Reviews Tab or Appointment Wizard */}
+            {activeMainTab === "REVIEWS" ? (
+                <BusinessPermitReviewsTab
+                    feedbacks={feedbacks}
+                    stats={feedbackStats}
+                    themeColor={themeColor}
+                    initialPagination={initialPagination}
+                />
+            ) : (
+                <>
+                    {/* Progress Stepper */}
+                    {currentStep !== "SUCCESS" && (
                 <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
                     {STEP_TABS.map((step, idx) => {
                         const isActive = getCurrentTabIdx() === idx;
@@ -1597,6 +1669,8 @@ export function BusinessPermitAppointmentClient({
                     </AnimatePresence>
                 </div>
             </div>
+            </>
+            )}
 
             {/* RENEWAL AUTOFILL CONFIRMATION MODAL */}
             <AnimatePresence>

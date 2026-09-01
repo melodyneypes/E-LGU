@@ -13,7 +13,9 @@ import {
     CheckCircle2,
     Scroll,
     FileSignature,
-    HeartHandshake
+    HeartHandshake,
+    Calendar,
+    Star
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,8 @@ import { toast } from "sonner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { getSystemSettingAction, getCurrentUserResident, getTransactionTypes, ensureCivilRegistryTransactionTypes } from "@/app/admin/transactions/actions";
 import { supabase } from "@/lib/supabase";
+import { getCivilRegistryFeedbacksAction } from "./actions";
+import CivilRegistryReviewsTab from "./_components/CivilRegistryReviewsTab";
 
 const REGISTRY_TYPES = [
     {
@@ -185,6 +189,26 @@ export default function CivilRegistryPage() {
     const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
     const [resident, setResident] = React.useState<any>(null);
     const [activeCodes, setActiveCodes] = React.useState<Set<string> | null>(null);
+    const [activeMainTab, setActiveMainTab] = React.useState<"SERVICES" | "REVIEWS">("SERVICES");
+    const [feedbacks, setFeedbacks] = React.useState<any[]>([]);
+    const [initialPagination, setInitialPagination] = React.useState({
+        page: 1,
+        limit: 12,
+        totalCount: 0,
+        hasMore: false,
+        remainingCount: 0
+    });
+    const [feedbackStats, setFeedbackStats] = React.useState<{
+        totalFeedbacks: number;
+        averageRating: number;
+        csatPercentage: number;
+        ratingCounts: Record<string, number>;
+    }>({
+        totalFeedbacks: 0,
+        averageRating: 0,
+        csatPercentage: 0,
+        ratingCounts: { FIVE: 0, FOUR: 0, THREE: 0, TWO: 0, ONE: 0 }
+    });
 
     React.useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -195,6 +219,17 @@ export default function CivilRegistryPage() {
         getCurrentUserResident().then((res) => {
             if (res.success && res.data) {
                 setResident(res.data);
+            }
+        });
+        getCivilRegistryFeedbacksAction({ page: 1, limit: 12 }).then((res) => {
+            if (res.success) {
+                setFeedbacks(res.data || []);
+                if (res.stats) {
+                    setFeedbackStats(res.stats);
+                }
+                if (res.pagination) {
+                    setInitialPagination(res.pagination);
+                }
             }
         });
 
@@ -379,11 +414,53 @@ export default function CivilRegistryPage() {
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">Local Civil Registry (LCR) Services</p>
                     </div>
+
+                    {/* Top Tab Switcher: Registry Services vs Citizen Reviews */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl md:rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 w-full sm:w-auto overflow-x-auto no-scrollbar shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("SERVICES")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "SERVICES"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "SERVICES" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary shrink-0" />
+                            <span>Registry Services</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("REVIEWS")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "REVIEWS"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "REVIEWS" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Star className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 fill-amber-400 shrink-0" />
+                            <span>Reviews</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Progress Stepper (Mocked consistent with CEDULA and Business Permit) */}
-            <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
+            {/* Conditional Tab Rendering */}
+            {activeMainTab === "REVIEWS" ? (
+                <CivilRegistryReviewsTab
+                    feedbacks={feedbacks}
+                    stats={feedbackStats}
+                    themeColor={themeColor}
+                    initialPagination={initialPagination}
+                />
+            ) : (
+                <>
+                    {/* Progress Stepper (Mocked consistent with CEDULA and Business Permit) */}
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
                 {STEPS.map((step, idx) => {
                     const isActive = step.id === "STATUS";
                     const Icon = step.icon;
@@ -535,6 +612,8 @@ export default function CivilRegistryPage() {
                     </div>
                 </div>
             </div>
+            </>
+            )}
         </div>
     );
 }

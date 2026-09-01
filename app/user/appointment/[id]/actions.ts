@@ -25,6 +25,7 @@ export async function getAppointmentDetailsAction(id: string) {
                     marriageRegistration: true,
                     marriageLicenseApplication: true,
                     marriageCertificateRequest: true,
+                    feedback: true,
                     user: {
                         select: {
                             id: true,
