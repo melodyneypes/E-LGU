@@ -135,6 +135,117 @@ export default async function BusinessPermitAppointmentPage() {
     });
     const previousPermits = Object.values(uniqueBusinessesMap);
 
+    // Fetch Business Permit feedbacks and compute CSAT metrics
+    const baseBploScope = {
+        OR: [
+            { department: "BPLO" },
+            {
+                transaction: {
+                    type: {
+                        OR: [
+                            { category: "BUSINESS_PERMIT" },
+                            { category: "Business Permit" },
+                            { category: "BUSINESS PERMIT" },
+                            { code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] } },
+                            { code: { startsWith: "BUSINESS_PERMIT" } }
+                        ]
+                    }
+                }
+            },
+            {
+                transactionType: {
+                    OR: [
+                        { category: "BUSINESS_PERMIT" },
+                        { category: "Business Permit" },
+                        { category: "BUSINESS PERMIT" },
+                        { code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] } },
+                        { code: { startsWith: "BUSINESS_PERMIT" } }
+                    ]
+                }
+            }
+        ]
+    };
+
+    const bploFeedbacks = await prisma.transactionFeedback.findMany({
+        where: baseBploScope,
+        orderBy: { createdAt: "desc" },
+        select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    residentProfile: {
+                        select: {
+                            firstName: true,
+                            lastName: true
+                        }
+                    }
+                }
+            },
+            transaction: {
+                select: {
+                    id: true,
+                    queueNumber: true,
+                    type: {
+                        select: {
+                            id: true,
+                            name: true,
+                            category: true
+                        }
+                    }
+                }
+            },
+            transactionType: {
+                select: {
+                    id: true,
+                    name: true,
+                    category: true
+                }
+            }
+        }
+    });
+
+    const RATING_NUM_MAP: Record<string, number> = {
+        ONE: 1,
+        TWO: 2,
+        THREE: 3,
+        FOUR: 4,
+        FIVE: 5
+    };
+
+    const totalFeedbacksCount = bploFeedbacks.length;
+    let sumRating = 0;
+    const ratingCounts: Record<string, number> = {
+        FIVE: 0,
+        FOUR: 0,
+        THREE: 0,
+        TWO: 0,
+        ONE: 0
+    };
+
+    for (const item of bploFeedbacks) {
+        const num = RATING_NUM_MAP[item.rating] || 0;
+        sumRating += num;
+        if (ratingCounts[item.rating] !== undefined) {
+            ratingCounts[item.rating]++;
+        }
+    }
+
+    const averageRating = totalFeedbacksCount > 0 ? Number((sumRating / totalFeedbacksCount).toFixed(1)) : 0;
+    const positiveCount = ratingCounts.FIVE + ratingCounts.FOUR;
+    const csatPercentage = totalFeedbacksCount > 0 ? Math.round((positiveCount / totalFeedbacksCount) * 100) : 0;
+
+    const feedbackStats = {
+        totalFeedbacks: totalFeedbacksCount,
+        averageRating,
+        csatPercentage,
+        ratingCounts
+    };
+
     return (
         <BusinessPermitAppointmentClient
             resident={userWithResident?.residentProfile || null}
@@ -147,6 +258,8 @@ export default async function BusinessPermitAppointmentPage() {
             hasActiveRenew={hasActiveRenew}
             previousPermits={previousPermits}
             bploSettings={bploSettings}
+            feedbacks={JSON.parse(JSON.stringify(bploFeedbacks))}
+            feedbackStats={feedbackStats}
         />
     );
 }

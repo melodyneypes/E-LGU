@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
-interface CedulaReviewsTabProps {
+interface BusinessPermitReviewsTabProps {
     feedbacks: any[];
     stats: {
         totalFeedbacks: number;
@@ -40,11 +40,11 @@ const STAR_LEVELS = [
     { key: "ONE", label: "1 Star", stars: 1, color: "bg-rose-500" }
 ];
 
-export default function CedulaReviewsTab({
+export default function BusinessPermitReviewsTab({
     feedbacks,
     stats,
     themeColor = "#2563eb"
-}: CedulaReviewsTabProps) {
+}: BusinessPermitReviewsTabProps) {
     const [search, setSearch] = useState("");
     const [ratingFilter, setRatingFilter] = useState("ALL");
 
@@ -64,7 +64,7 @@ export default function CedulaReviewsTab({
                     ? `${profile.firstName} ${profile.lastName}`.toLowerCase()
                     : (item.user?.name || "").toLowerCase();
                 const comment = (item.comment || "").toLowerCase();
-                const service = (item.transactionType?.name || "").toLowerCase();
+                const service = (item.transactionType?.name || item.transaction?.type?.name || "").toLowerCase();
 
                 if (!name.includes(q) && !comment.includes(q) && !service.includes(q)) {
                     return false;
@@ -143,7 +143,7 @@ export default function CedulaReviewsTab({
                     </div>
 
                     <p className="text-[8px] sm:text-[10px] text-slate-400 italic mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-slate-100 dark:border-white/5 truncate">
-                        Treasury benchmark
+                        BPLO benchmark
                     </p>
                 </Card>
 
@@ -163,7 +163,7 @@ export default function CedulaReviewsTab({
                             {total}
                         </span>
                         <p className="text-[9px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 mt-0.5 sm:mt-1 truncate">
-                            Cedulas Rated
+                            Permits Rated
                         </p>
                     </div>
 
@@ -243,7 +243,7 @@ export default function CedulaReviewsTab({
                     </h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto">
                         {feedbacks.length === 0
-                            ? "Be the first to rate your experience after claiming your Community Tax Certificate!"
+                            ? "Be the first to rate your experience after processing your Business Permit!"
                             : "No reviews match your selected filter criteria."}
                     </p>
                 </Card>
@@ -254,11 +254,11 @@ export default function CedulaReviewsTab({
                         const profile = item.user?.residentProfile;
                         const citizenName = profile
                             ? `${profile.firstName} ${profile.lastName.charAt(0)}.`
-                            : item.user?.name || "Verified Citizen";
+                            : item.user?.name || "Verified Business Owner";
                         const serviceName =
                             item.transactionType?.name ||
                             item.transaction?.type?.name ||
-                            "Cedula (CTC)";
+                            "Business Permit";
 
                         return (
                             <Card
