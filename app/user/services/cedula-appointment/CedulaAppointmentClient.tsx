@@ -11,6 +11,7 @@ import {
     Check,
     Home,
     Sparkles,
+    Star,
     Coins,
     Calendar,
     Clock,
@@ -45,6 +46,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { submitCedulaAppointment } from "./actions";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
+import CedulaReviewsTab from "./components/CedulaReviewsTab";
 
 type Step = "STATUS" | "RESIDENT" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM" | "SUCCESS";
 
@@ -75,6 +77,13 @@ interface CedulaAppointmentClientProps {
     hasActiveIndividual: boolean;
     hasActiveJuridical: boolean;
     cedulaSettings?: Record<string, string>;
+    feedbacks?: any[];
+    feedbackStats?: {
+        totalFeedbacks: number;
+        averageRating: number;
+        csatPercentage: number;
+        ratingCounts: Record<string, number>;
+    };
 }
 
 export function CedulaAppointmentClient({
@@ -86,9 +95,17 @@ export function CedulaAppointmentClient({
     bookedSlots,
     hasActiveIndividual,
     hasActiveJuridical,
-    cedulaSettings = {}
+    cedulaSettings = {},
+    feedbacks = [],
+    feedbackStats = {
+        totalFeedbacks: 0,
+        averageRating: 0,
+        csatPercentage: 0,
+        ratingCounts: { FIVE: 0, FOUR: 0, THREE: 0, TWO: 0, ONE: 0 }
+    }
 }: CedulaAppointmentClientProps) {
     const router = useRouter();
+    const [activeMainTab, setActiveMainTab] = useState<"APPOINTMENT" | "REVIEWS">("APPOINTMENT");
     const [currentStep, setCurrentStep] = useState<Step>("STATUS");
     const [submitting, setSubmitting] = useState(false);
     const [applicantType, setApplicantType] = useState<"INDIVIDUAL" | "JURIDICAL">("INDIVIDUAL");
@@ -496,66 +513,112 @@ export function CedulaAppointmentClient({
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">LGU Digital Governance Portal</p>
                     </div>
+
+                    {/* Top Tab Switcher: Appointment Wizard vs Citizen Reviews */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl md:rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 w-full sm:w-auto overflow-x-auto no-scrollbar shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("APPOINTMENT")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "APPOINTMENT"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "APPOINTMENT" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary shrink-0" />
+                            <span>Book Appointment</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveMainTab("REVIEWS")}
+                            className={cn(
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                activeMainTab === "REVIEWS"
+                                    ? "bg-white dark:bg-[#121622] text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10"
+                                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            )}
+                            style={activeMainTab === "REVIEWS" ? { borderColor: `${themeColor}40` } : undefined}
+                        >
+                            <Star className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 fill-amber-400 shrink-0" />
+                            <span>Reviews ({feedbacks.length})</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Progress Stepper */}
-            {currentStep !== "SUCCESS" && (
-                <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
-                    {STEPS.map((step, idx) => {
-                        const isActive = currentStep === step.id;
-                        const isCompleted = STEPS.findIndex(s => s.id === currentStep) > idx;
-                        const Icon = step.icon;
-                        return (
-                            <div
-                                key={idx}
-                                onClick={() => {
-                                    if (canNavigate(step.id)) {
-                                        setCurrentStep(step.id);
-                                    } else {
-                                        if (currentStep === "DECLARATION") {
-                                            toast.error("Please complete the declaration and schedule first.");
-                                        } else {
-                                            toast.error("Please complete the current phase first.");
-                                        }
-                                    }
-                                }}
-                                className={cn(
-                                    "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group",
-                                    (!canNavigate(step.id) && !isActive) && "cursor-not-allowed opacity-50"
-                                )}
-                            >
-                                <div className={cn(
-                                    "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
-                                    isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                                        isCompleted ? "bg-primary/10 text-primary border-primary/30" :
-                                            "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
-                                )}>
-                                    <Icon className="w-4 h-4 md:w-7 md:h-7" />
-                                </div>
-                                <span className={cn(
-                                    "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                    isActive ? "text-primary opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
-                                )}>
-                                    {step.label}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+            {/* If Reviews Tab is Active */}
+            {activeMainTab === "REVIEWS" ? (
+                <CedulaReviewsTab
+                    feedbacks={feedbacks}
+                    stats={feedbackStats}
+                    themeColor={themeColor}
+                />
+            ) : (
+                <>
+                    {/* Progress Stepper */}
+                    {currentStep !== "SUCCESS" && (
+                        <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
+                            {STEPS.map((step, idx) => {
+                                const isActive = currentStep === step.id;
+                                const isCompleted = STEPS.findIndex(s => s.id === currentStep) > idx;
+                                const Icon = step.icon;
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => {
+                                            if (canNavigate(step.id)) {
+                                                setCurrentStep(step.id);
+                                            } else {
+                                                if (currentStep === "DECLARATION") {
+                                                    toast.error("Please complete the declaration and schedule first.");
+                                                } else {
+                                                    toast.error("Please complete the current phase first.");
+                                                }
+                                            }
+                                        }}
+                                        className={cn(
+                                            "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group",
+                                            isActive ? "opacity-100" : isCompleted ? "opacity-80" : "opacity-40"
+                                        )}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "w-8 h-8 md:w-16 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center justify-center transition-all duration-300 shadow-md",
+                                                isActive
+                                                    ? "text-white scale-105 shadow-primary/30"
+                                                    : isCompleted
+                                                        ? "bg-emerald-500 text-white"
+                                                        : "bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 group-hover:border-primary/50"
+                                            )}
+                                            style={isActive ? { backgroundColor: themeColor } : undefined}
+                                        >
+                                            <Icon className="w-4 h-4 md:w-7 md:h-7" />
+                                        </div>
+                                        <span className={cn(
+                                            "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                            isActive ? "text-primary opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                        )}>
+                                            {step.label}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
 
-            {/* Main Form container */}
-            <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col print:border-none print:shadow-none print:bg-white print:text-black">
-                <div className="flex-1">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentStep}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.4 }}
-                        >
+                    {/* Main Form container */}
+                    <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col print:border-none print:shadow-none print:bg-white print:text-black">
+                        <div className="flex-1">
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={currentStep}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.4 }}
+                                >
                             {currentStep === "STATUS" && (
                                 <div className="space-y-8 md:space-y-12">
                                     <div className="space-y-3 md:space-y-4 text-center">
@@ -1289,22 +1352,24 @@ export function CedulaAppointmentClient({
                 </div>
             </div>
 
-            {/* Sticky Progress Bar at Bottom */}
-            {currentStep !== "SUCCESS" && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white/70 dark:bg-[#06080a]/70 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 z-50 pt-2.5 pb-0 px-2.5 flex flex-col items-center print:hidden">
-                    <div className="w-full max-w-5xl flex items-center justify-center gap-4">
-                        <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full bg-primary"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
-                            />
+                    {/* Sticky Progress Bar at Bottom */}
+                    {currentStep !== "SUCCESS" && (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white/70 dark:bg-[#06080a]/70 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 z-50 pt-2.5 pb-0 px-2.5 flex flex-col items-center print:hidden">
+                            <div className="w-full max-w-5xl flex items-center justify-center gap-4">
+                                <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                    <motion.div
+                                        className="h-full bg-primary"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
+                                    />
+                                </div>
+                                <span className="font-black uppercase tracking-widest italic text-[8px] md:text-[10px] text-slate-400 whitespace-nowrap">
+                                    Phase {STEPS.findIndex(s => s.id === currentStep) + 1} / {STEPS.length}
+                                </span>
+                            </div>
                         </div>
-                        <span className="font-black uppercase tracking-widest italic text-[8px] md:text-[10px] text-slate-400 whitespace-nowrap">
-                            Phase {STEPS.findIndex(s => s.id === currentStep) + 1} / {STEPS.length}
-                        </span>
-                    </div>
-                </div>
+                    )}
+                </>
             )}
         </div>
     );
