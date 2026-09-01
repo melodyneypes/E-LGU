@@ -50,6 +50,7 @@ import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaView from "./views/CedulaView";
 import BusinessPermitView from "./views/BusinessPermitView";
 import CivilRegistry from "./views/CivilRegistry";
+import TransactionFeedbackCard from "@/components/shared/TransactionFeedbackCard";
 
 const HealthCenterMap = dynamic(() => import("@/components/shared/HealthCenterMap"), {
     ssr: false,
@@ -722,6 +723,21 @@ export default function AppointmentDetailsPage() {
                                     )}
                                 </ul>
                             </Card>
+                        )}
+
+                        {/* Citizen Experience & Feedback Section (For Released / Completed Transactions) */}
+                        {((request.status === "RELEASED" || request.status === "DELIVERED" || additionalData?.rhuStatus === "COMPLETED") && !request.isCancelled) && (
+                            <TransactionFeedbackCard
+                                transactionId={request.id}
+                                existingFeedback={request.feedback}
+                                themeColor={themeColor}
+                                onFeedbackSubmitted={(newFeedback) => {
+                                    setRequest((prev: any) => ({
+                                        ...prev,
+                                        feedback: newFeedback
+                                    }));
+                                }}
+                            />
                         )}
                     </div>
                 </div>
