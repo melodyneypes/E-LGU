@@ -426,6 +426,12 @@ export function Sidebar({
             category: "Registrar"
         },
         {
+            href: "/admin/registrar/feedback",
+            label: "Citizen Feedback",
+            icon: MessageSquareHeart,
+            category: "Registrar"
+        },
+        {
             href: "/admin/registrar/appointment-settings",
             label: "Appointment Settings",
             icon: Calendar,
@@ -667,6 +673,7 @@ export function Sidebar({
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
+                        (item.label === "Citizen Feedback" && item.category === "Registrar") ||
                         (item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else if (deptUpper === "TREASURY") {
