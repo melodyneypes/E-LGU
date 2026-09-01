@@ -27,6 +27,7 @@ interface AdminShellProps {
     pendingTransactionsCount?: number;
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
+    rhuCenterName?: string | null;
 }
 
 export function AdminShell({
@@ -41,6 +42,7 @@ export function AdminShell({
     pendingTransactionsCount: initialPendingTransactionsCount = 0,
     pendingAnnouncementsCount: initialPendingAnnouncementsCount = 0,
     unviewedLcrCounts: initialUnviewedLcrCounts = {},
+    rhuCenterName = null,
 }: AdminShellProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -274,6 +276,7 @@ export function AdminShell({
                 pendingTransactionsCount={transactionsCount}
                 pendingAnnouncementsCount={announcementsCount}
                 unviewedLcrCounts={lcrCounts}
+                rhuCenterName={rhuCenterName}
             />
             <div className="flex-1 flex flex-col min-w-0 relative">
                 <TopNav
@@ -282,6 +285,7 @@ export function AdminShell({
                     brandWord1={brandWord1}
                     brandWord2={brandWord2}
                     logoUrl={logoUrl}
+                    rhuCenterName={rhuCenterName}
                 />
                 <main className="flex-1 overflow-y-auto">
                     {isRedirecting ? (

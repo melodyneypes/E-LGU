@@ -37,6 +37,7 @@ interface TopNavProps {
     brandWord1?: string;
     brandWord2?: string;
     logoUrl?: string;
+    rhuCenterName?: string | null;
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -72,11 +73,19 @@ const SEGMENT_LABELS: Record<string, string> = {
     registrar: "Civil Registry",
 };
 
-function formatSegment(seg: string): string {
-    return SEGMENT_LABELS[seg] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", brandWord2 = "", logoUrl, rhuCenterName = null }: TopNavProps) {
+    const rhuLabel = React.useMemo(() => {
+        if (!rhuCenterName) return "Rural Health Unit";
+        if (rhuCenterName.toUpperCase().startsWith("RHU") || rhuCenterName.toLowerCase().includes("rural health unit")) {
+            return rhuCenterName;
+        }
+        return `RHU ${rhuCenterName}`;
+    }, [rhuCenterName]);
 
-export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", brandWord2 = "", logoUrl }: TopNavProps) {
+    function formatSegment(seg: string): string {
+        if (seg === "rhu") return rhuLabel;
+        return SEGMENT_LABELS[seg] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    }
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();

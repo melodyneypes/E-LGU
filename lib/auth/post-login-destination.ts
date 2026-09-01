@@ -34,6 +34,9 @@ export function getPostLoginDestination(
     if (role === "ASSESSOR" || department === "ASSESSOR") {
         return "/admin/assessor";
     }
+    if (role === "MDRRMO_ADMIN" || department === "MDRRMO" || department === "DISASTER") {
+        return "/admin/mdrrmo";
+    }
     if (role === "ENGINEER") return "/admin/engineer";
     if (role === "MPDC_ZONING") return "/admin/zoning";
     if (department === "REGISTRAR" || department === "CIVIL_REGISTRY") {

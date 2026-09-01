@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "./components/AdminShell";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import prisma from "@/lib/db/prisma";
+import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 export const dynamic = "force-dynamic";
 export default async function AdminLayout({
@@ -17,8 +18,10 @@ export default async function AdminLayout({
         redirect("/auth/login");
     }
     const role = (session.user as { role?: string })?.role;
+    const department = (((session.user as any)?.department as string) || "").toUpperCase();
     const isAllowedAdmin = [
         "ADMIN",
+        "MDRRMO_ADMIN",
         "RHU_ADMIN",
         "CONTENT_ADMIN",
         "BARANGAY_ADMIN",
@@ -32,7 +35,7 @@ export default async function AdminLayout({
         "RHU_STAFF",
         "RHU_PHARMACY",
         "ASSESSOR"
-    ].includes(role || "");
+    ].includes(role || "") || department.includes("MDRRMO") || department.includes("DISASTER") || department === "LGU";
 
     if (!isAllowedAdmin) {
         redirect("/auth/login");
@@ -63,9 +66,10 @@ export default async function AdminLayout({
     let pendingResidentsCount = 0;
     let pendingTreasuryCount = 0;
     let lcrTransactions: any[] = [];
+    let rhuCenterName: string | null = null;
 
     try {
-        const [repCnt, resCnt, trsCnt, lcrTx] = await Promise.all([
+        const [repCnt, resCnt, trsCnt, lcrTx, matchedCenter] = await Promise.all([
             prisma.report.count({ where: reportsWhere }).catch(() => 0),
             prisma.resident.count({ where: residentsWhere }).catch(() => 0),
             prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0),
@@ -86,12 +90,16 @@ export default async function AdminLayout({
                     updatedAt: true,
                     type: { select: { code: true } }
                 }
-            }).catch(() => [])
+            }).catch(() => []),
+            session?.user ? getMatchedCenterForUser(session.user).catch(() => null) : Promise.resolve(null)
         ]);
         pendingReportsCount = repCnt;
         pendingResidentsCount = resCnt;
         pendingTreasuryCount = trsCnt;
         lcrTransactions = lcrTx;
+        if (matchedCenter?.name) {
+            rhuCenterName = matchedCenter.name;
+        }
     } catch (err) {
         console.error("Error fetching admin layout counts:", err);
     }
@@ -140,6 +148,7 @@ export default async function AdminLayout({
                     pendingResidentsCount={pendingResidentsCount}
                     pendingTransactionsCount={pendingTreasuryCount}
                     unviewedLcrCounts={unviewedLcrCounts}
+                    rhuCenterName={rhuCenterName}
                 >
                     {children}
                 </AdminShell>

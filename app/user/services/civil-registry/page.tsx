@@ -2,18 +2,13 @@
 
 import React from "react";
 import {
-    Baby,
-    Skull,
-    Heart,
     FileText,
     Sparkles,
     Home,
     User,
     Upload,
     CheckCircle2,
-    Scroll,
     FileSignature,
-    HeartHandshake,
     Calendar,
     Star
 } from "lucide-react";
@@ -28,36 +23,6 @@ import CivilRegistryReviewsTab from "./_components/CivilRegistryReviewsTab";
 
 const REGISTRY_TYPES = [
     {
-        id: "BIRTH_REQ",
-        label: "Birth Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing birth certificate.",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_BIRTH"
-    },
-    {
-        id: "BIRTH_REG",
-        label: "Birth Registration",
-        icon: Baby,
-        description: "Register a new birth record (timely or late registration).",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_BIRTH_REG"
-    },
-    {
-        id: "PSA_ENDORSEMENT",
-        label: "Birth PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local birth certificate record to the PSA.",
-        color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
-        available: true,
-        code: "LCR_PSA_ENDORSEMENT"
-    },
-    {
         id: "PSA_APPOINTMENT_ENDORSEMENT",
         label: "Birth Certified True Copy Appointment",
         icon: FileSignature,
@@ -66,16 +31,6 @@ const REGISTRY_TYPES = [
         href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
         code: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT"
-    },
-    {
-        id: "DEATH_PSA_ENDORSEMENT",
-        label: "Death PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local death certificate record to the PSA.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH_PSA_ENDORSEMENT"
     },
     {
         id: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
@@ -88,46 +43,6 @@ const REGISTRY_TYPES = [
         code: "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
     {
-        id: "DEATH_REQ",
-        label: "Death Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing death certificate.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH"
-    },
-    {
-        id: "DEATH",
-        label: "Death Registration",
-        icon: Skull,
-        description: "Register a Death or Request a Certified Death Certificate.",
-        color: "slate",
-        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
-        available: true,
-        code: "LCR_DEATH_REG"
-    },
-    {
-        id: "MARRIAGE_REQ",
-        label: "Marriage Certificate Request (True Copy)",
-        icon: Scroll,
-        description: "Request a certified true copy of an existing marriage certificate.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE"
-    },
-    {
-        id: "MARRIAGE_PSA_ENDORSEMENT",
-        label: "Marriage PSA Endorsement",
-        icon: FileSignature,
-        description: "Request endorsement of a verified local marriage certificate record to the PSA.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_PSA_ENDORSEMENT"
-    },
-    {
         id: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
         label: "Marriage Certified True Copy Appointment",
         icon: FileSignature,
@@ -137,26 +52,6 @@ const REGISTRY_TYPES = [
         available: true,
         code: "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
-    {
-        id: "MARRIAGE",
-        label: "Marriage Registration",
-        icon: Heart,
-        description: "Request a certified copy of a Marriage Certificate.",
-        color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_REG"
-    },
-    {
-        id: "MARRIAGE_LICENSE",
-        label: "Marriage License Application",
-        icon: HeartHandshake,
-        description: "Apply for a legal license to be married in the Philippines.",
-        color: "amber",
-        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
-        available: true,
-        code: "LCR_MARRIAGE_LICENSE"
-    },
 ];
 
 const STEPS = [
@@ -165,24 +60,6 @@ const STEPS = [
     { id: "DETAILS", label: "Details", icon: FileText },
     { id: "DOCUMENTS", label: "Documents", icon: Upload },
     { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
-];
-
-const REGISTRY_SECTIONS = [
-    {
-        title: "Birth Registry Services",
-        subtitle: "Registration & Certified Copies & Endorsements",
-        items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT", "PSA_APPOINTMENT_ENDORSEMENT"]
-    },
-    {
-        title: "Death Registry Services",
-        subtitle: "Registration & Certified True Copy Requests",
-        items: ["DEATH", "DEATH_REQ", "DEATH_PSA_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT"]
-    },
-    {
-        title: "Marriage Registry & Licenses",
-        subtitle: "License Applications, Registrations & Certified Copies",
-        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ", "MARRIAGE_PSA_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"]
-    }
 ];
 
 export default function CivilRegistryPage() {
@@ -312,47 +189,16 @@ export default function CivilRegistryPage() {
     const sectionsToRender = React.useMemo(() => {
         if (!activeCodes) return [];
 
+        // Only these 3 services are allowed; all other civil registry services are hardcoded disabled
         const activeItems = REGISTRY_TYPES.filter(type => activeCodes.has(type.code));
 
-        if (activeItems.length <= 3) {
-            return [
-                {
-                    title: "Available Services",
-                    subtitle: "Select a civil registry service to proceed",
-                    items: activeItems
-                }
-            ];
-        }
-
-        const appointmentIds = ["PSA_APPOINTMENT_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
-        const activeAppointments = activeItems.filter(type => appointmentIds.includes(type.id));
-        const activeNonAppointments = activeItems.filter(type => !appointmentIds.includes(type.id));
-
-        if (activeNonAppointments.length === 0 && activeAppointments.length > 0) {
-            // Only appointments are active, render them in a single row
-            return [
-                {
-                    title: "PSA Appointment Endorsements",
-                    subtitle: "Schedule appointments for PSA Endorsement of your civil registry records",
-                    items: activeAppointments
-                }
-            ];
-        }
-
-        // Default layout: Grouped by Birth, Death, Marriage
-        return REGISTRY_SECTIONS.map((section) => {
-            const sectionItems = section.items
-                .map(id => REGISTRY_TYPES.find(t => t.id === id))
-                .filter(Boolean) as typeof REGISTRY_TYPES;
-
-            const activeSectionItems = sectionItems.filter(type => activeCodes.has(type.code));
-
-            return {
-                title: section.title,
-                subtitle: section.subtitle,
-                items: activeSectionItems
-            };
-        }).filter(section => section.items.length > 0);
+        return [
+            {
+                title: "Available Services",
+                subtitle: "Select a civil registry service to proceed",
+                items: activeItems
+            }
+        ];
     }, [activeCodes]);
 
     return (
@@ -461,158 +307,158 @@ export default function CivilRegistryPage() {
                 <>
                     {/* Progress Stepper (Mocked consistent with CEDULA and Business Permit) */}
                     <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
-                {STEPS.map((step, idx) => {
-                    const isActive = step.id === "STATUS";
-                    const Icon = step.icon;
-                    return (
-                        <div
-                            key={idx}
-                            className={cn(
-                                "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group",
-                                !isActive && "opacity-50 pointer-events-none"
-                            )}
-                        >
-                            <div
-                                className={cn(
-                                    "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
-                                    isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent"
-                                )}
-                                style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
-                            >
-                                <Icon className="w-4 h-4 md:w-7 md:h-7" />
-                            </div>
-                            <span
-                                className={cn(
-                                    "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                    isActive ? "text-primary opacity-100 font-black" : "opacity-40"
-                                )}
-                                style={isActive ? { color: themeColor } : {}}
-                            >
-                                {step.label}
-                            </span>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Step Content */}
-            <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
-                <div className="flex-1 space-y-8 md:space-y-12">
-
-
-                    {/* Civil Registry Sections */}
-                    <div className="space-y-16 max-w-6xl mx-auto w-full">
-                        {activeCodes === null ? (
-                            <div className="space-y-6 animate-pulse">
-                                {/* Section Header Skeleton */}
-                                <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4 select-none">
-                                    <div className="w-1.5 h-8 rounded-full bg-slate-200 dark:bg-slate-800" />
-                                    <div className="space-y-2">
-                                        <div className="h-5 w-48 bg-slate-300 dark:bg-slate-700 rounded-md" />
-                                        <div className="h-3 w-64 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                        {STEPS.map((step, idx) => {
+                            const isActive = step.id === "STATUS";
+                            const Icon = step.icon;
+                            return (
+                                <div
+                                    key={idx}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group",
+                                        !isActive && "opacity-50 pointer-events-none"
+                                    )}
+                                >
+                                    <div
+                                        className={cn(
+                                            "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                            isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent"
+                                        )}
+                                        style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                    >
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
+                                    <span
+                                        className={cn(
+                                            "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                            isActive ? "text-primary opacity-100 font-black" : "opacity-40"
+                                        )}
+                                        style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
                                 </div>
-
-                                {/* Cards Grid Skeleton */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {Array(3).fill(0).map((_, idx) => (
-                                        <div key={idx} className="p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md min-h-[100px] md:min-h-[220px] flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between">
-                                            <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
-                                            <div className="space-y-3 mt-0 md:mt-6 w-full">
-                                                <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded-md w-3/4" />
-                                                <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-5/6" />
-                                                <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-2/3" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            sectionsToRender.map((section) => {
-                                return (
-                                    <div key={section.title} className="space-y-6">
-                                        {/* Section Header */}
-                                        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4 select-none">
-                                            <div className="w-1.5 h-8 rounded-full transition-colors duration-500" style={{ backgroundColor: themeColor }} />
-                                            <div>
-                                                <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter text-slate-800 dark:text-slate-100 leading-none">
-                                                    {section.title}
-                                                </h3>
-                                                <p className="text-[9px] md:text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mt-2 italic">
-                                                    {section.subtitle}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Cards Grid for Section */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {section.items.map((type) => {
-                                                const Icon = type.icon;
-                                                const isMarriageService = type.id === "MARRIAGE" || type.id === "MARRIAGE_LICENSE";
-                                                const isBlockedForMinor = isMinor && isMarriageService;
-
-                                                const cardContent = (
-                                                    <div className={cn(
-                                                        "p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 transition-all duration-300 text-left relative group select-none overflow-hidden flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between min-h-[100px] md:min-h-[220px] cursor-pointer bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5",
-                                                        (!type.available || isBlockedForMinor) && "opacity-60 cursor-not-allowed"
-                                                    )}>
-                                                        <div className="flex justify-between items-start w-auto md:w-full shrink-0">
-                                                            <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
-                                                                <Icon className="w-4.5 h-4.5 md:w-5 md:h-5 stroke-[2.5] theme-icon-text" />
-                                                            </div>
-                                                            {isBlockedForMinor && (
-                                                                <span className="text-[7px] md:text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
-                                                                    18+ Required
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="space-y-1.5 mt-0 md:mt-6">
-                                                            <h4 className="text-base md:text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-tight">
-                                                                {type.label}
-                                                            </h4>
-                                                            <p className="text-[9px] md:text-[10px] font-bold uppercase italic tracking-widest text-slate-400 dark:text-slate-500 leading-relaxed">
-                                                                {isBlockedForMinor ? "Not available for minors. You must be at least 18 years old to apply." : type.description}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                );
-
-                                                if (type.available && !isBlockedForMinor) {
-                                                    return (
-                                                        <Link href={type.href} key={type.id} className="block h-full">
-                                                            {cardContent}
-                                                        </Link>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <div
-                                                        key={type.id}
-                                                        onClick={() => {
-                                                            if (isBlockedForMinor) {
-                                                                toast.error("Application Blocked: You must be at least 18 years old to apply for marriage services.");
-                                                            } else if (type.id === "PSA_ENDORSEMENT") {
-                                                                toast.info("Birth PSA Endorsement can be requested from your completed Birth Certificate Request details page if the local record is found (Form 1A).");
-                                                            } else {
-                                                                toast.info(`${type.label} is currently under development.`);
-                                                            }
-                                                        }}
-                                                        className="block h-full"
-                                                    >
-                                                        {cardContent}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                            );
+                        })}
                     </div>
-                </div>
-            </div>
-            </>
+
+                    {/* Step Content */}
+                    <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
+                        <div className="flex-1 space-y-8 md:space-y-12">
+
+
+                            {/* Civil Registry Sections */}
+                            <div className="space-y-16 max-w-6xl mx-auto w-full">
+                                {activeCodes === null ? (
+                                    <div className="space-y-6 animate-pulse">
+                                        {/* Section Header Skeleton */}
+                                        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4 select-none">
+                                            <div className="w-1.5 h-8 rounded-full bg-slate-200 dark:bg-slate-800" />
+                                            <div className="space-y-2">
+                                                <div className="h-5 w-48 bg-slate-300 dark:bg-slate-700 rounded-md" />
+                                                <div className="h-3 w-64 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                                            </div>
+                                        </div>
+
+                                        {/* Cards Grid Skeleton */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {Array(3).fill(0).map((_, idx) => (
+                                                <div key={idx} className="p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md min-h-[100px] md:min-h-[220px] flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between">
+                                                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                                                    <div className="space-y-3 mt-0 md:mt-6 w-full">
+                                                        <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded-md w-3/4" />
+                                                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-5/6" />
+                                                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-2/3" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    sectionsToRender.map((section) => {
+                                        return (
+                                            <div key={section.title} className="space-y-6">
+                                                {/* Section Header */}
+                                                <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4 select-none">
+                                                    <div className="w-1.5 h-8 rounded-full transition-colors duration-500" style={{ backgroundColor: themeColor }} />
+                                                    <div>
+                                                        <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter text-slate-800 dark:text-slate-100 leading-none">
+                                                            {section.title}
+                                                        </h3>
+                                                        <p className="text-[9px] md:text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mt-2 italic">
+                                                            {section.subtitle}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Cards Grid for Section */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {section.items.map((type) => {
+                                                        const Icon = type.icon;
+                                                        const isMarriageService = type.id === "MARRIAGE" || type.id === "MARRIAGE_LICENSE";
+                                                        const isBlockedForMinor = isMinor && isMarriageService;
+
+                                                        const cardContent = (
+                                                            <div className={cn(
+                                                                "p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 transition-all duration-300 text-left relative group select-none overflow-hidden flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between min-h-[100px] md:min-h-[220px] cursor-pointer bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5",
+                                                                (!type.available || isBlockedForMinor) && "opacity-60 cursor-not-allowed"
+                                                            )}>
+                                                                <div className="flex justify-between items-start w-auto md:w-full shrink-0">
+                                                                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
+                                                                        <Icon className="w-4.5 h-4.5 md:w-5 md:h-5 stroke-[2.5] theme-icon-text" />
+                                                                    </div>
+                                                                    {isBlockedForMinor && (
+                                                                        <span className="text-[7px] md:text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
+                                                                            18+ Required
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-1.5 mt-0 md:mt-6">
+                                                                    <h4 className="text-base md:text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-tight">
+                                                                        {type.label}
+                                                                    </h4>
+                                                                    <p className="text-[9px] md:text-[10px] font-bold uppercase italic tracking-widest text-slate-400 dark:text-slate-500 leading-relaxed">
+                                                                        {isBlockedForMinor ? "Not available for minors. You must be at least 18 years old to apply." : type.description}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        );
+
+                                                        if (type.available && !isBlockedForMinor) {
+                                                            return (
+                                                                <Link href={type.href} key={type.id} className="block h-full">
+                                                                    {cardContent}
+                                                                </Link>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={type.id}
+                                                                onClick={() => {
+                                                                    if (isBlockedForMinor) {
+                                                                        toast.error("Application Blocked: You must be at least 18 years old to apply for marriage services.");
+                                                                    } else if (type.id === "PSA_ENDORSEMENT") {
+                                                                        toast.info("Birth PSA Endorsement can be requested from your completed Birth Certificate Request details page if the local record is found (Form 1A).");
+                                                                    } else {
+                                                                        toast.info(`${type.label} is currently under development.`);
+                                                                    }
+                                                                }}
+                                                                className="block h-full"
+                                                            >
+                                                                {cardContent}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     );

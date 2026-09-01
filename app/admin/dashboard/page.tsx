@@ -87,6 +87,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         redirect("/admin/bfp");
     }
 
+    // Redirect MDRRMO Admin directly to MDRRMO Emergency Hub
+    if (user?.role === "MDRRMO_ADMIN" || user?.department?.toUpperCase() === "MDRRMO" || user?.department?.toUpperCase() === "DISASTER") {
+        redirect("/admin/mdrrmo");
+    }
+
     const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";
     const isAdmin = user?.role === "ADMIN";
 
