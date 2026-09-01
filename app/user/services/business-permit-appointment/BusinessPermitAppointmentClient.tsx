@@ -213,6 +213,13 @@ interface BusinessPermitAppointmentClientProps {
         csatPercentage: number;
         ratingCounts: Record<string, number>;
     };
+    initialPagination?: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        hasMore: boolean;
+        remainingCount: number;
+    };
 }
 
 export function BusinessPermitAppointmentClient({
@@ -231,6 +238,13 @@ export function BusinessPermitAppointmentClient({
         averageRating: 0,
         csatPercentage: 0,
         ratingCounts: { FIVE: 0, FOUR: 0, THREE: 0, TWO: 0, ONE: 0 }
+    },
+    initialPagination = {
+        page: 1,
+        limit: 6,
+        totalCount: 0,
+        hasMore: false,
+        remainingCount: 0
     }
 }: BusinessPermitAppointmentClientProps) {
     const router = useRouter();
@@ -679,6 +693,7 @@ export function BusinessPermitAppointmentClient({
                     feedbacks={feedbacks}
                     stats={feedbackStats}
                     themeColor={themeColor}
+                    initialPagination={initialPagination}
                 />
             ) : (
                 <>

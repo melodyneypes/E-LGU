@@ -84,6 +84,13 @@ interface CedulaAppointmentClientProps {
         csatPercentage: number;
         ratingCounts: Record<string, number>;
     };
+    initialPagination?: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        hasMore: boolean;
+        remainingCount: number;
+    };
 }
 
 export function CedulaAppointmentClient({
@@ -102,6 +109,13 @@ export function CedulaAppointmentClient({
         averageRating: 0,
         csatPercentage: 0,
         ratingCounts: { FIVE: 0, FOUR: 0, THREE: 0, TWO: 0, ONE: 0 }
+    },
+    initialPagination = {
+        page: 1,
+        limit: 6,
+        totalCount: 0,
+        hasMore: false,
+        remainingCount: 0
     }
 }: CedulaAppointmentClientProps) {
     const router = useRouter();
@@ -554,6 +568,7 @@ export function CedulaAppointmentClient({
                     feedbacks={feedbacks}
                     stats={feedbackStats}
                     themeColor={themeColor}
+                    initialPagination={initialPagination}
                 />
             ) : (
                 <>

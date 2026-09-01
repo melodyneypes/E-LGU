@@ -111,7 +111,7 @@ export default async function CedulaAppointmentPage() {
         }
     });
 
-    // Fetch Cedula feedbacks and compute CSAT metrics
+    // Fetch initial 6 Cedula feedbacks and compute CSAT metrics
     const baseCedulaScope = {
         OR: [
             {
@@ -135,48 +135,56 @@ export default async function CedulaAppointmentPage() {
         ]
     };
 
-    const cedulaFeedbacks = await prisma.transactionFeedback.findMany({
-        where: baseCedulaScope,
-        orderBy: { createdAt: "desc" },
-        select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    residentProfile: {
-                        select: {
-                            firstName: true,
-                            lastName: true
+    const [cedulaFeedbacks, allCedulaRatings, totalCedulaCount] = await Promise.all([
+        prisma.transactionFeedback.findMany({
+            where: baseCedulaScope,
+            orderBy: { createdAt: "desc" },
+            take: 6,
+            select: {
+                id: true,
+                rating: true,
+                comment: true,
+                createdAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        residentProfile: {
+                            select: {
+                                firstName: true,
+                                lastName: true
+                            }
                         }
                     }
-                }
-            },
-            transaction: {
-                select: {
-                    id: true,
-                    queueNumber: true,
-                    type: {
-                        select: {
-                            id: true,
-                            name: true,
-                            category: true
+                },
+                transaction: {
+                    select: {
+                        id: true,
+                        queueNumber: true,
+                        type: {
+                            select: {
+                                id: true,
+                                name: true,
+                                category: true
+                            }
                         }
                     }
-                }
-            },
-            transactionType: {
-                select: {
-                    id: true,
-                    name: true,
-                    category: true
+                },
+                transactionType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        category: true
+                    }
                 }
             }
-        }
-    });
+        }),
+        prisma.transactionFeedback.findMany({
+            where: baseCedulaScope,
+            select: { rating: true }
+        }),
+        prisma.transactionFeedback.count({ where: baseCedulaScope })
+    ]);
 
     const RATING_NUM_MAP: Record<string, number> = {
         ONE: 1,
@@ -186,7 +194,7 @@ export default async function CedulaAppointmentPage() {
         FIVE: 5
     };
 
-    const totalFeedbacksCount = cedulaFeedbacks.length;
+    const totalFeedbacksCount = allCedulaRatings.length;
     let sumRating = 0;
     const ratingCounts: Record<string, number> = {
         FIVE: 0,
@@ -196,7 +204,7 @@ export default async function CedulaAppointmentPage() {
         ONE: 0
     };
 
-    for (const item of cedulaFeedbacks) {
+    for (const item of allCedulaRatings) {
         const num = RATING_NUM_MAP[item.rating] || 0;
         sumRating += num;
         if (ratingCounts[item.rating] !== undefined) {
@@ -215,6 +223,14 @@ export default async function CedulaAppointmentPage() {
         ratingCounts
     };
 
+    const initialPagination = {
+        page: 1,
+        limit: 6,
+        totalCount: totalCedulaCount,
+        hasMore: 6 < totalCedulaCount,
+        remainingCount: Math.max(0, totalCedulaCount - 6)
+    };
+
     return (
         <CedulaAppointmentClient
             resident={userWithResident?.residentProfile ? JSON.parse(JSON.stringify(userWithResident.residentProfile)) : null}
@@ -228,6 +244,7 @@ export default async function CedulaAppointmentPage() {
             cedulaSettings={cedulaSettings}
             feedbacks={JSON.parse(JSON.stringify(cedulaFeedbacks))}
             feedbackStats={feedbackStats}
+            initialPagination={initialPagination}
         />
     );
 }

@@ -166,48 +166,56 @@ export default async function BusinessPermitAppointmentPage() {
         ]
     };
 
-    const bploFeedbacks = await prisma.transactionFeedback.findMany({
-        where: baseBploScope,
-        orderBy: { createdAt: "desc" },
-        select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    residentProfile: {
-                        select: {
-                            firstName: true,
-                            lastName: true
+    const [bploFeedbacks, allBploRatings, totalBploCount] = await Promise.all([
+        prisma.transactionFeedback.findMany({
+            where: baseBploScope,
+            orderBy: { createdAt: "desc" },
+            take: 6,
+            select: {
+                id: true,
+                rating: true,
+                comment: true,
+                createdAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        residentProfile: {
+                            select: {
+                                firstName: true,
+                                lastName: true
+                            }
                         }
                     }
-                }
-            },
-            transaction: {
-                select: {
-                    id: true,
-                    queueNumber: true,
-                    type: {
-                        select: {
-                            id: true,
-                            name: true,
-                            category: true
+                },
+                transaction: {
+                    select: {
+                        id: true,
+                        queueNumber: true,
+                        type: {
+                            select: {
+                                id: true,
+                                name: true,
+                                category: true
+                            }
                         }
                     }
-                }
-            },
-            transactionType: {
-                select: {
-                    id: true,
-                    name: true,
-                    category: true
+                },
+                transactionType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        category: true
+                    }
                 }
             }
-        }
-    });
+        }),
+        prisma.transactionFeedback.findMany({
+            where: baseBploScope,
+            select: { rating: true }
+        }),
+        prisma.transactionFeedback.count({ where: baseBploScope })
+    ]);
 
     const RATING_NUM_MAP: Record<string, number> = {
         ONE: 1,
@@ -217,7 +225,7 @@ export default async function BusinessPermitAppointmentPage() {
         FIVE: 5
     };
 
-    const totalFeedbacksCount = bploFeedbacks.length;
+    const totalFeedbacksCount = allBploRatings.length;
     let sumRating = 0;
     const ratingCounts: Record<string, number> = {
         FIVE: 0,
@@ -227,7 +235,7 @@ export default async function BusinessPermitAppointmentPage() {
         ONE: 0
     };
 
-    for (const item of bploFeedbacks) {
+    for (const item of allBploRatings) {
         const num = RATING_NUM_MAP[item.rating] || 0;
         sumRating += num;
         if (ratingCounts[item.rating] !== undefined) {
@@ -246,6 +254,14 @@ export default async function BusinessPermitAppointmentPage() {
         ratingCounts
     };
 
+    const initialPagination = {
+        page: 1,
+        limit: 6,
+        totalCount: totalBploCount,
+        hasMore: 6 < totalBploCount,
+        remainingCount: Math.max(0, totalBploCount - 6)
+    };
+
     return (
         <BusinessPermitAppointmentClient
             resident={userWithResident?.residentProfile || null}
@@ -260,6 +276,7 @@ export default async function BusinessPermitAppointmentPage() {
             bploSettings={bploSettings}
             feedbacks={JSON.parse(JSON.stringify(bploFeedbacks))}
             feedbackStats={feedbackStats}
+            initialPagination={initialPagination}
         />
     );
 }

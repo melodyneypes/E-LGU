@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Star, MessageSquareHeart, Award, ThumbsUp, Search, Filter } from "lucide-react";
+import React, { useState, useEffect, useCallback, useTransition } from "react";
+import { Star, MessageSquareHeart, Award, ThumbsUp, Search, Filter, Loader2, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
@@ -12,6 +13,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { getCedulaFeedbacksAction } from "../actions";
 
 interface CedulaReviewsTabProps {
     feedbacks: any[];
@@ -22,6 +24,13 @@ interface CedulaReviewsTabProps {
         ratingCounts: Record<string, number>;
     };
     themeColor?: string;
+    initialPagination?: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        hasMore: boolean;
+        remainingCount: number;
+    };
 }
 
 const RATING_MAP: Record<string, { label: string; num: number; color: string }> = {
@@ -41,39 +50,75 @@ const STAR_LEVELS = [
 ];
 
 export default function CedulaReviewsTab({
-    feedbacks,
+    feedbacks: initialFeedbacks,
     stats,
-    themeColor = "#2563eb"
+    themeColor = "#2563eb",
+    initialPagination = { page: 1, limit: 6, totalCount: 0, hasMore: false, remainingCount: 0 }
 }: CedulaReviewsTabProps) {
     const [search, setSearch] = useState("");
     const [ratingFilter, setRatingFilter] = useState("ALL");
+    const [feedbacks, setFeedbacks] = useState<any[]>(initialFeedbacks);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(initialPagination.hasMore);
+    const [remainingCount, setRemainingCount] = useState(initialPagination.remainingCount);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [, startTransition] = useTransition();
 
     const total = stats.totalFeedbacks || 0;
 
-    // Filter feedbacks on the client
-    const filteredFeedbacks = useMemo(() => {
-        return feedbacks.filter((item) => {
-            if (ratingFilter !== "ALL" && item.rating !== ratingFilter) {
-                return false;
+    // Fetch filtered or search results from server
+    const fetchFilteredReviews = useCallback((query: string, rating: string) => {
+        startTransition(async () => {
+            const res = await getCedulaFeedbacksAction({
+                page: 1,
+                limit: 6,
+                rating,
+                search: query
+            });
+
+            if (res.success) {
+                setFeedbacks(res.data || []);
+                setPage(1);
+                setHasMore(res.pagination?.hasMore || false);
+                setRemainingCount(res.pagination?.remainingCount || 0);
             }
-
-            if (search.trim()) {
-                const q = search.toLowerCase();
-                const profile = item.user?.residentProfile;
-                const name = profile
-                    ? `${profile.firstName} ${profile.lastName}`.toLowerCase()
-                    : (item.user?.name || "").toLowerCase();
-                const comment = (item.comment || "").toLowerCase();
-                const service = (item.transactionType?.name || "").toLowerCase();
-
-                if (!name.includes(q) && !comment.includes(q) && !service.includes(q)) {
-                    return false;
-                }
-            }
-
-            return true;
         });
-    }, [feedbacks, ratingFilter, search]);
+    }, []);
+
+    // Debounced filter/search trigger
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            fetchFilteredReviews(search, ratingFilter);
+        }, 300);
+
+        return () => clearTimeout(handler);
+    }, [search, ratingFilter, fetchFilteredReviews]);
+
+    // Handle "Load More" Click
+    const handleLoadMore = async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            const res = await getCedulaFeedbacksAction({
+                page: nextPage,
+                limit: 6,
+                rating: ratingFilter,
+                search
+            });
+
+            if (res.success && res.data) {
+                setFeedbacks(prev => [...prev, ...res.data]);
+                setPage(nextPage);
+                setHasMore(res.pagination?.hasMore || false);
+                setRemainingCount(res.pagination?.remainingCount || 0);
+            }
+        } catch (err) {
+            console.error("Failed to load more reviews:", err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-400">
@@ -235,7 +280,7 @@ export default function CedulaReviewsTab({
             </Card>
 
             {/* Reviews Stream Feed */}
-            {filteredFeedbacks.length === 0 ? (
+            {feedbacks.length === 0 ? (
                 <Card className="p-12 text-center rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121622] space-y-3">
                     <MessageSquareHeart className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
                     <h3 className="text-sm font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
@@ -249,7 +294,7 @@ export default function CedulaReviewsTab({
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    {filteredFeedbacks.map((item) => {
+                    {feedbacks.map((item: any) => {
                         const ratingInfo = RATING_MAP[item.rating] || RATING_MAP.FIVE;
                         const profile = item.user?.residentProfile;
                         const citizenName = profile
@@ -319,7 +364,7 @@ export default function CedulaReviewsTab({
                                         </Badge>
                                     </div>
 
-                                    {/* Comment Quote */}
+                    {/* Comment Quote */}
                                     {item.comment ? (
                                         <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed whitespace-pre-wrap break-words pt-1">
                                             &ldquo;{item.comment}&rdquo;
@@ -333,6 +378,38 @@ export default function CedulaReviewsTab({
                             </Card>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Load More Action Button */}
+            {hasMore && (
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        variant="outline"
+                        className="h-11 px-8 rounded-xl text-xs font-black uppercase tracking-wider border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all gap-2 shadow-sm"
+                    >
+                        {loadingMore ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                <span>Loading reviews...</span>
+                            </>
+                        ) : (
+                            <>
+                                <span>Load More Reviews ({remainingCount} remaining)</span>
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                            </>
+                        )}
+                    </Button>
+                </div>
+            )}
+
+            {!hasMore && feedbacks.length > 6 && (
+                <div className="text-center py-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 italic">
+                        ✨ You have viewed all community reviews
+                    </p>
                 </div>
             )}
         </div>
