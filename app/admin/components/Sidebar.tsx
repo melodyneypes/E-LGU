@@ -551,6 +551,7 @@ export function Sidebar({
         { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
         { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
+        { href: "/admin/bplo/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "BPLO Department" },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "BPLO Department" },
         { href: "/admin/bplo/announcements", label: "BPLO Announcements", icon: Megaphone, category: "BPLO Department" },
@@ -659,7 +660,10 @@ export function Sidebar({
             if (department) {
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
-                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label));
+                    menuItems = allMenuItems.filter(item =>
+                        ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
+                        (item.label === "Citizen Feedback" && item.category === "BPLO Department")
+                    );
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
@@ -667,7 +671,8 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Market Stalls", "Payments Ledger", "Citizen Feedback", "Treasury Queue"].includes(item.label) ||
+                        ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "POSO") {
@@ -698,7 +703,8 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Market Stalls", "Payments Ledger", "Citizen Feedback", "Treasury Queue"].includes(item.label) ||
+                ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
         } else if (role === "ADMIN_AIDE") {
@@ -706,7 +712,10 @@ export function Sidebar({
             if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                 menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
             } else {
-                menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label));
+                menuItems = allMenuItems.filter(item =>
+                    ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
+                    (item.label === "Citizen Feedback" && item.category === "BPLO Department")
+                );
             }
         } else if (role === "ENGINEER") {
             menuItems = [

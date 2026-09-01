@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 
-interface FeedbackDetailModalProps {
+interface BploFeedbackDetailModalProps {
     feedback: any | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -29,19 +29,19 @@ interface FeedbackDetailModalProps {
 }
 
 const RATING_MAP: Record<string, { label: string; num: number; color: string; desc: string }> = {
-    FIVE: { label: "Outstanding", num: 5, color: "text-amber-500 bg-amber-500/10 border-amber-500/20", desc: "Exceptional municipal service experience" },
-    FOUR: { label: "Great", num: 4, color: "text-blue-500 bg-blue-500/10 border-blue-500/20", desc: "Friendly and prompt public service" },
-    THREE: { label: "Good", num: 3, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20", desc: "Satisfactory transaction turnaround" },
-    TWO: { label: "Fair", num: 2, color: "text-orange-500 bg-orange-500/10 border-orange-500/20", desc: "Acceptable but room for service improvement" },
-    ONE: { label: "Poor", num: 1, color: "text-rose-500 bg-rose-500/10 border-rose-500/20", desc: "Citizen experienced issues during service" }
+    FIVE: { label: "Outstanding", num: 5, color: "text-amber-500 bg-amber-500/10 border-amber-500/20", desc: "Exceptional business permit licensing experience" },
+    FOUR: { label: "Great", num: 4, color: "text-blue-500 bg-blue-500/10 border-blue-500/20", desc: "Efficient and friendly BPLO service" },
+    THREE: { label: "Good", num: 3, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20", desc: "Satisfactory permit processing" },
+    TWO: { label: "Fair", num: 2, color: "text-orange-500 bg-orange-500/10 border-orange-500/20", desc: "Acceptable but room for process streamlining" },
+    ONE: { label: "Poor", num: 1, color: "text-rose-500 bg-rose-500/10 border-rose-500/20", desc: "Taxpayer experienced delays or issues" }
 };
 
-export default function FeedbackDetailModal({
+export default function BploFeedbackDetailModal({
     feedback,
     open,
     onOpenChange,
     themeColor = "#2563eb"
-}: FeedbackDetailModalProps) {
+}: BploFeedbackDetailModalProps) {
     const router = useRouter();
     if (!feedback) return null;
 
@@ -49,11 +49,11 @@ export default function FeedbackDetailModal({
     const profile = feedback.user?.residentProfile;
     const citizenName = profile
         ? `${profile.firstName} ${profile.lastName}`
-        : feedback.user?.name || "Verified Citizen";
+        : feedback.user?.name || "Verified Taxpayer";
     const serviceName =
         feedback.transactionType?.name ||
         feedback.transaction?.type?.name ||
-        "Treasury Service";
+        "Business Permit";
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,7 +129,7 @@ export default function FeedbackDetailModal({
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-bold text-xs">
                             <MessageSquareQuote className="w-4 h-4 text-primary" />
-                            <span>Citizen Remarks / Suggestions</span>
+                            <span>Taxpayer Remarks / Suggestions</span>
                         </div>
                         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
                             {feedback.comment ? (
@@ -149,7 +149,7 @@ export default function FeedbackDetailModal({
                     {/* Transaction Context */}
                     <div className="space-y-3">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                            Transaction Reference
+                            Permit Transaction Reference
                         </span>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                             <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-1">
@@ -196,12 +196,12 @@ export default function FeedbackDetailModal({
                             size="sm"
                             onClick={() => {
                                 onOpenChange(false);
-                                router.push(`/admin/treasury/${feedback.transaction.id}?category=CEDULA`);
+                                router.push(`/admin/bplo/${feedback.transaction.id}`);
                             }}
                             className="rounded-xl text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 cursor-pointer shadow-md"
                             style={{ backgroundColor: themeColor }}
                         >
-                            <span>Open Transaction</span>
+                            <span>Open Permit</span>
                             <ExternalLink className="w-3.5 h-3.5" />
                         </Button>
                     )}
