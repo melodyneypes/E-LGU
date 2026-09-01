@@ -189,17 +189,7 @@ export default function BploFeedbackClient({
             </Card>
 
             {/* Feedback Records Table */}
-            <Card className="rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121622] shadow-sm overflow-hidden relative">
-                {/* Subtle loading overlay during page transitions */}
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-black/40 backdrop-blur-[1px] z-20 flex items-center justify-center">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-xl shadow-lg">
-                            <RefreshCcw className="w-4 h-4 animate-spin text-primary" />
-                            <span>Updating records...</span>
-                        </div>
-                    </div>
-                )}
-
+            <Card className="rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121622] shadow-sm overflow-hidden">
                 <div className="p-4 md:p-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div
@@ -239,7 +229,30 @@ export default function BploFeedbackClient({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {initialData.length === 0 ? (
+                            {isPending ? (
+                                Array.from({ length: 6 }).map((_, i) => (
+                                    <TableRow key={i} className="border-b border-slate-100 dark:border-white/5">
+                                        <TableCell className="py-3.5">
+                                            <div className="h-4 w-28 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-6 w-24 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-5 w-20 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-48 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-3.5 w-24 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse" />
+                                        </TableCell>
+                                        <TableCell className="text-right pr-5">
+                                            <div className="h-8 w-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse ml-auto" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : initialData.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-12 text-slate-400">
                                         <div className="flex flex-col items-center justify-center space-y-2">
