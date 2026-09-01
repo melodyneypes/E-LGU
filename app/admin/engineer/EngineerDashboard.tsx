@@ -29,16 +29,86 @@ import { supabase } from "@/lib/supabase";
 
 
 const STATUS_TABS = [
-    { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
-    { value: "FOR_REQUESTING", label: "Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
-    { value: "FOR_REVISION", label: "For Revision", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
-    { value: "FOR_INSPECTION", label: "For Inspection", color: "text-purple-600", activeColor: "bg-purple-500 text-white" },
-    { value: "FOR_PROCESSING", label: "Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
-    { value: "FOR_CLAIM", label: "For Claim", color: "text-indigo-600", activeColor: "bg-indigo-500 text-white" },
-    { value: "PAID", label: "Paid", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
-    { value: "RELEASED", label: "Released", color: "text-blue-600", activeColor: "bg-blue-500 text-white" },
-    { value: "REJECTED", label: "Rejected", color: "text-red-600", activeColor: "bg-red-500 text-white" },
-    { value: "CANCELLED", label: "Cancelled", color: "text-slate-600", activeColor: "bg-slate-500 text-white" }
+    { 
+        value: "ALL", 
+        label: "All", 
+        inactiveColor: "bg-slate-100/80 text-slate-700 border-slate-200/80 dark:bg-[#1c2233] dark:text-slate-300 dark:border-slate-700/60 hover:bg-slate-200/70 dark:hover:bg-[#252d43]", 
+        activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm border-slate-900 dark:border-white",
+        badgeInactive: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
+        badgeActive: "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
+    },
+    { 
+        value: "FOR_REQUESTING", 
+        label: "Evaluation", 
+        inactiveColor: "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 hover:bg-amber-500/20 dark:hover:bg-amber-500/20", 
+        activeColor: "bg-amber-500 text-white shadow-sm shadow-amber-500/20 border-amber-500",
+        badgeInactive: "bg-amber-500/20 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "FOR_REVISION", 
+        label: "For Revision", 
+        inactiveColor: "bg-orange-500/10 text-orange-700 border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/30 hover:bg-orange-500/20 dark:hover:bg-orange-500/20", 
+        activeColor: "bg-orange-600 text-white shadow-sm shadow-orange-600/20 border-orange-600",
+        badgeInactive: "bg-orange-500/20 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "FOR_INSPECTION", 
+        label: "For Inspection", 
+        inactiveColor: "bg-purple-500/10 text-purple-700 border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30 hover:bg-purple-500/20 dark:hover:bg-purple-500/20", 
+        activeColor: "bg-purple-600 text-white shadow-sm shadow-purple-600/20 border-purple-600",
+        badgeInactive: "bg-purple-500/20 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "FOR_PROCESSING", 
+        label: "Processing", 
+        inactiveColor: "bg-sky-500/10 text-sky-700 border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30 hover:bg-sky-500/20 dark:hover:bg-sky-500/20", 
+        activeColor: "bg-sky-600 text-white shadow-sm shadow-sky-600/20 border-sky-600",
+        badgeInactive: "bg-sky-500/20 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "FOR_CLAIM", 
+        label: "For Claim", 
+        inactiveColor: "bg-indigo-500/10 text-indigo-700 border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30 hover:bg-indigo-500/20 dark:hover:bg-indigo-500/20", 
+        activeColor: "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 border-indigo-600",
+        badgeInactive: "bg-indigo-500/20 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "PAID", 
+        label: "Paid", 
+        inactiveColor: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20", 
+        activeColor: "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 border-emerald-600",
+        badgeInactive: "bg-emerald-500/20 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "RELEASED", 
+        label: "Released", 
+        inactiveColor: "bg-blue-500/10 text-blue-700 border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30 hover:bg-blue-500/20 dark:hover:bg-blue-500/20", 
+        activeColor: "bg-blue-600 text-white shadow-sm shadow-blue-600/20 border-blue-600",
+        badgeInactive: "bg-blue-500/20 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "REJECTED", 
+        label: "Rejected", 
+        inactiveColor: "bg-rose-500/10 text-rose-700 border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30 hover:bg-rose-500/20 dark:hover:bg-rose-500/20", 
+        activeColor: "bg-rose-600 text-white shadow-sm shadow-rose-600/20 border-rose-600",
+        badgeInactive: "bg-rose-500/20 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+        badgeActive: "bg-white/25 text-white"
+    },
+    { 
+        value: "CANCELLED", 
+        label: "Cancelled", 
+        inactiveColor: "bg-slate-500/10 text-slate-600 border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/30 hover:bg-slate-500/20 dark:hover:bg-slate-500/20", 
+        activeColor: "bg-slate-600 text-white shadow-sm shadow-slate-600/20 border-slate-600",
+        badgeInactive: "bg-slate-500/20 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400",
+        badgeActive: "bg-white/25 text-white"
+    }
 ];
 
 // Helper: format exact date & time
@@ -260,16 +330,16 @@ export default function EngineerDashboard() {
                                             key={tab.value}
                                             value={tab.value}
                                             className={cn(
-                                                "rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 shadow-none",
+                                                "rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border cursor-pointer",
                                                 isActive
-                                                    ? `${tab.activeColor} border-transparent`
-                                                    : `bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] ${tab.color} hover:border-slate-300 dark:hover:border-slate-600`
+                                                    ? tab.activeColor
+                                                    : tab.inactiveColor
                                             )}
                                         >
                                             {tab.label}
                                             <span className={cn(
-                                                "text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center",
-                                                isActive ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                                "text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center transition-colors duration-200",
+                                                isActive ? tab.badgeActive : tab.badgeInactive
                                             )}>
                                                 {count}
                                             </span>
