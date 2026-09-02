@@ -40,6 +40,7 @@ import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { generateQueueNumber } from "@/lib/queue";
 
 async function getSession() {
     return await getServerSession(authOptions);
@@ -750,3 +751,224 @@ export async function getRHUHealthCenters() {
         return { success: false, error: error.message || "Failed to fetch health centers.", data: [] };
     }
 }
+
+export async function registerRHUWalkInConsultation(payload: {
+    residentId?: string;
+    userId?: string;
+    firstName: string;
+    middleName?: string;
+    lastName: string;
+    suffix?: string;
+    gender?: string;
+    dateOfBirth?: string;
+    age?: number | string;
+    civilStatus?: string;
+    contactNumber?: string;
+    email?: string;
+    houseNumber?: string;
+    street?: string;
+    barangay: string;
+    municipality?: string;
+    province?: string;
+    philhealthNumber?: string;
+    healthCenterId?: string;
+    checkupType: string;
+    chiefComplaint?: string;
+    isPriorityLane?: boolean;
+    priorityReason?: string;
+    vitals?: {
+        height?: string;
+        weight?: string;
+        systolic?: string;
+        diastolic?: string;
+        temperature?: string;
+        pulseRate?: string;
+        recordedBy?: string;
+    };
+}) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized: Please log in." };
+        }
+
+        const user = session.user as any;
+        const matchedCenter = await getMatchedCenterForUser(user);
+
+        // 1. Resolve target Health Center
+        let targetCenterId = payload.healthCenterId || (matchedCenter ? matchedCenter.id : null);
+        let targetCenterName = matchedCenter ? matchedCenter.name : "Main Rural Health Unit (RHU)";
+
+        if (payload.healthCenterId) {
+            try {
+                const centerRow: any[] = await prisma.$queryRaw`
+                    SELECT "id", "name" FROM "RHUHealthCenter" WHERE "id" = ${payload.healthCenterId} LIMIT 1
+                `;
+                if (centerRow && centerRow[0]) {
+                    targetCenterId = centerRow[0].id;
+                    targetCenterName = centerRow[0].name;
+                }
+            } catch {}
+        }
+
+        // 2. Resolve TransactionType for RHU
+        let txType = await prisma.transactionType.findFirst({
+            where: {
+                OR: [
+                    { category: "Rural Health Unit" },
+                    { code: "rhu_consultation_v1" },
+                    { code: { startsWith: "rhu_" } },
+                    { name: { contains: "Consultation", mode: "insensitive" } }
+                ]
+            }
+        });
+
+        if (!txType) {
+            txType = await prisma.transactionType.findFirst();
+        }
+
+        if (!txType) {
+            return { success: false, error: "No active RHU transaction type found in system." };
+        }
+
+        // 3. Resolve user linkage if resident is registered
+        let linkedUserId: string | null = null;
+        if (payload.userId) {
+            linkedUserId = payload.userId;
+        } else if (payload.residentId) {
+            const resRecord = await prisma.resident.findUnique({
+                where: { id: payload.residentId },
+                select: { userId: true }
+            });
+            if (resRecord?.userId) {
+                linkedUserId = resRecord.userId;
+            }
+        }
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentSlot = currentHour < 12 ? "08:00 AM - 11:00 AM" : "01:00 PM - 04:00 PM";
+        const isPriority = Boolean(payload.isPriorityLane);
+
+        // 4. Generate RHU queue number
+        const queueNumber = await generateQueueNumber({
+            source: "kiosk",
+            isPriority,
+            appointmentDate: now,
+            appointmentSlot: currentSlot,
+            category: "RHU"
+        });
+
+        // 5. Calculate BMI if height & weight provided
+        let calculatedBmi: string | null = null;
+        let calculatedCategory: string | null = null;
+        if (payload.vitals?.height && payload.vitals?.weight) {
+            const h = parseFloat(payload.vitals.height);
+            const w = parseFloat(payload.vitals.weight);
+            if (h > 0 && w > 0) {
+                const heightM = h / 100;
+                const bmiVal = w / (heightM * heightM);
+                calculatedBmi = bmiVal.toFixed(1);
+                if (bmiVal < 18.5) calculatedCategory = "Underweight";
+                else if (bmiVal <= 24.9) calculatedCategory = "Normal weight";
+                else if (bmiVal <= 29.9) calculatedCategory = "Overweight";
+                else calculatedCategory = "Obese";
+            }
+        }
+
+        const staffName = user.name || user.email || "RHU Triage Staff";
+
+        const residentSnapshot = {
+            firstName: payload.firstName.trim(),
+            middleName: payload.middleName?.trim() || "",
+            lastName: payload.lastName.trim(),
+            suffix: payload.suffix?.trim() || "",
+            gender: payload.gender || "UNSPECIFIED",
+            dateOfBirth: payload.dateOfBirth || null,
+            age: payload.age ? Number(payload.age) : null,
+            civilStatus: payload.civilStatus || "Single",
+            contactNumber: payload.contactNumber?.trim() || "",
+            email: payload.email?.trim() || "",
+            houseNumber: payload.houseNumber?.trim() || "",
+            street: payload.street?.trim() || "",
+            barangay: payload.barangay?.trim() || "Poblacion",
+            municipality: payload.municipality?.trim() || "Mapandan",
+            province: payload.province?.trim() || "Pangasinan",
+            philhealthNumber: payload.philhealthNumber?.trim() || "",
+        };
+
+        const additionalData: any = {
+            checkupType: payload.checkupType || "General Consultation",
+            healthCenterId: targetCenterId,
+            healthCenterName: targetCenterName,
+            chiefComplaint: payload.chiefComplaint?.trim() || "",
+            isWalkIn: true,
+            isPriorityLane: isPriority,
+            priorityReason: payload.priorityReason || null,
+            rhuStatus: "CHECK_IN",
+            checkedInBy: staffName,
+            checkedInAt: now.toISOString(),
+            registeredBy: staffName,
+            registeredByEmail: user.email || null,
+            registeredAt: now.toISOString(),
+        };
+
+        if (payload.vitals) {
+            additionalData.vitals = {
+                height: payload.vitals.height || null,
+                weight: payload.vitals.weight || null,
+                bmi: calculatedBmi,
+                bmiCategory: calculatedCategory,
+                bloodPressure: (payload.vitals.systolic && payload.vitals.diastolic)
+                    ? `${payload.vitals.systolic}/${payload.vitals.diastolic}`
+                    : null,
+                systolic: payload.vitals.systolic || null,
+                diastolic: payload.vitals.diastolic || null,
+                temperature: payload.vitals.temperature || null,
+                pulseRate: payload.vitals.pulseRate || null,
+                philhealthNumber: payload.philhealthNumber || null,
+                recordedBy: payload.vitals.recordedBy || staffName,
+                recordedByEmail: user.email || null,
+                recordedById: user.id || null,
+            };
+        }
+
+        // 6. Create Transaction
+        const newTransaction = await prisma.transaction.create({
+            data: {
+                userId: linkedUserId,
+                typeId: txType.id,
+                status: "FOR_INSPECTION", // Mapped to CHECK_IN in RHU effective status
+                residentSnapshot,
+                additionalData,
+                totalAmount: 0,
+                appointmentDate: now,
+                appointmentSlot: currentSlot,
+                queueNumber,
+                isPriority,
+            }
+        });
+
+        revalidatePath("/admin/rhu");
+        revalidatePath("/admin/rhu/consultations");
+        revalidatePath("/admin/rhu/queue");
+        revalidatePath("/admin/rhu/ledger");
+
+        return {
+            success: true,
+            data: {
+                id: newTransaction.id,
+                queueNumber,
+                patientName: `${payload.firstName} ${payload.lastName}`,
+                centerName: targetCenterName,
+                checkupType: payload.checkupType,
+                appointmentSlot: currentSlot,
+                isPriority
+            }
+        };
+    } catch (error: any) {
+        console.error("registerRHUWalkInConsultation error:", error);
+        return { success: false, error: error.message || "Failed to register walk-in patient." };
+    }
+}
+

@@ -10,7 +10,6 @@ import {
     Phone,
     UserCheck,
     Edit,
-    Trash2,
     CheckCircle2,
     AlertTriangle,
     Hospital,
@@ -1848,14 +1847,6 @@ export default function RHUCentersClient({
                                                             className="h-8 px-3 text-xs font-semibold rounded-lg hover:border-rose-400 hover:text-rose-600"
                                                         >
                                                             <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => setDeleteCenterTarget(center)}
-                                                            className="h-8 px-3 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
                                                         </Button>
                                                     </div>
                                                 </div>

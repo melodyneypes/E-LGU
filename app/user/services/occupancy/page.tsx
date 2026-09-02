@@ -1093,19 +1093,61 @@ export default function OccupancyPermitPage() {
       <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
 
         {loading && (
-          <div className="flex-1 min-h-[400px] md:min-h-[500px] flex items-center justify-center animate-in fade-in duration-300">
-            <div className="flex flex-col items-center gap-5 text-center">
-              <div className="w-20 h-20 rounded-3xl border border-primary/20 bg-primary/10 text-primary flex items-center justify-center shadow-xl shadow-primary/10 animate-pulse">
-                <Hourglass className="w-9 h-9" />
+          <div className="w-full space-y-8 animate-in fade-in duration-300">
+            {/* Header Banner Skeleton */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm">
+              <div className="space-y-3">
+                <div className="h-8 md:h-10 w-64 md:w-80 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse" />
+                <div className="h-4 w-72 md:w-96 bg-slate-200/70 dark:bg-white/5 rounded-xl animate-pulse" />
               </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
-                  Loading Occupancy Permit
-                </h2>
-                <p className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
-                  Checking your existing applications...
-                </p>
-              </div>
+              <div className="h-12 w-48 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse shrink-0" />
+            </div>
+
+            {/* Search Bar Skeleton */}
+            <div className="h-14 w-full bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl animate-pulse" />
+
+            {/* Application Cards Skeletons */}
+            <div className="grid grid-cols-1 gap-4">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm space-y-6"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/60 dark:border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-white/10 animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 bg-slate-200 dark:bg-white/10 rounded-lg animate-pulse" />
+                        <div className="h-3 w-24 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-28 bg-slate-200 dark:bg-white/10 rounded-full animate-pulse" />
+                      <div className="h-7 w-24 bg-slate-200/60 dark:bg-white/5 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <div className="h-3 w-20 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-44 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-20 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-36 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-24 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-28 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="h-4 w-48 bg-slate-200/60 dark:bg-white/5 rounded-lg animate-pulse" />
+                    <div className="h-10 w-36 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse shrink-0" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1720,7 +1762,7 @@ export default function OccupancyPermitPage() {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Building Permit No. */}
-                        <div>
+                        <div id="field-occ-building-permit-no">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Building Permit No. <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1728,7 +1770,7 @@ export default function OccupancyPermitPage() {
                             type="text"
                             className={cn(
                               "w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none",
-(showValidationErrors && !formData.buildingPermitNo) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
+                              (showValidationErrors && !formData.buildingPermitNo) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10"
                             )}
                             value={formData.buildingPermitNo || ""}
                             onChange={e => setFormData({ ...formData, buildingPermitNo: e.target.value })}
@@ -1741,7 +1783,7 @@ export default function OccupancyPermitPage() {
                         </div>
 
                         {/* Building Permit Date Issued */}
-                        <div>
+                        <div id="field-occ-building-permit-date">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Building Permit Date Issued <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1765,7 +1807,7 @@ export default function OccupancyPermitPage() {
                         </div>
 
                         {/* FSEC No. */}
-                        <div>
+                        <div id="field-occ-fsec-no">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             FSEC No. <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1786,7 +1828,7 @@ export default function OccupancyPermitPage() {
                         </div>
 
                         {/* FSEC Date Issued */}
-                        <div>
+                        <div id="field-occ-fsec-date">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             FSEC Date Issued <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1821,7 +1863,7 @@ export default function OccupancyPermitPage() {
                     </div>
 
                     <div className="space-y-8">
-                      <div>
+                      <div id="field-occ-project-name">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           Name of Project <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -1838,7 +1880,7 @@ export default function OccupancyPermitPage() {
                         )}
                       </div>
 
-                      <div>
+                      <div id="field-occ-project-location">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           Location of Project <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -1864,7 +1906,7 @@ export default function OccupancyPermitPage() {
                         )}
                       </div>
 
-                      <div>
+                      <div id="field-occ-character-occupancy">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           Use/Character of Occupancy <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -1882,7 +1924,7 @@ export default function OccupancyPermitPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
+                        <div id="field-occ-no-of-storeys">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             No. of Storey/s <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1900,7 +1942,7 @@ export default function OccupancyPermitPage() {
                           )}
                         </div>
 
-                        <div>
+                        <div id="field-occ-no-of-units">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             No. of Units <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1918,7 +1960,7 @@ export default function OccupancyPermitPage() {
                           )}
                         </div>
 
-                        <div>
+                        <div id="field-occ-total-floor-area">
                           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Total Gross Floor Area <span className="text-red-500 text-lg">*</span>
                           </label>
@@ -1941,7 +1983,7 @@ export default function OccupancyPermitPage() {
                         </div>
                       </div>
 
-                      <div>
+                      <div id="field-occ-date-completion">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           Date of Completion <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -1976,35 +2018,83 @@ export default function OccupancyPermitPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const todayStr = new Date().toISOString().split("T")[0];
-                        const isBuildingPermitDateFuture = formData.buildingPermitDateIssued > todayStr;
-                        const isFsecDateFuture = formData.fsecDateIssued > todayStr;
-                        const isCompletionDateFuture = formData.dateOfCompletion > todayStr;
-
-                        const hasMissingFields = !formData.contactNumber ||
-                          !formData.buildingPermitNo ||
-                          !formData.buildingPermitDateIssued ||
-                          !formData.fsecNo ||
-                          !formData.fsecDateIssued ||
-                          !formData.nameOfProject ||
-                          !formData.locationOfProject ||
-                          !formData.useCharacterOfOccupancy ||
-                          !formData.noOfStoreys ||
-                          !formData.noOfUnits ||
-                          !formData.totalGrossFloorArea ||
-                          !formData.dateOfCompletion ||
-                          isBuildingPermitDateFuture ||
-                          isFsecDateFuture ||
-                          isCompletionDateFuture ||
-                          (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile);
-
-                        if (hasMissingFields) {
+                        const scrollToFirstInvalidField = (targetId: string, message: string) => {
                           setShowValidationErrors(true);
-                          if (isBuildingPermitDateFuture || isFsecDateFuture || isCompletionDateFuture) {
-                            toast.error("Future dates are not allowed for permit issuance or project completion.");
-                          } else {
-                            toast.error("Please fill in all required fields marked with *.");
-                          }
+                          toast.error(message);
+                          setTimeout(() => {
+                            const el = document.getElementById(targetId);
+                            if (el) {
+                              el.scrollIntoView({ behavior: "smooth", block: "center" });
+                              const focusable = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "BUTTON"
+                                ? (el as HTMLElement)
+                                : el.querySelector<HTMLElement>("input:not([type=hidden]), textarea, select, button");
+                              if (focusable) {
+                                focusable.focus({ preventScroll: true });
+                              }
+                            }
+                          }, 100);
+                        };
+
+                        const todayStr = new Date().toISOString().split("T")[0];
+
+                        if (idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile) {
+                          scrollToFirstInvalidField("field-occ-valid-id", "Please upload your valid Government ID (Front side).");
+                          return;
+                        }
+                        if (!formData.buildingPermitNo) {
+                          scrollToFirstInvalidField("field-occ-building-permit-no", "Please enter your Building Permit No.");
+                          return;
+                        }
+                        if (!formData.buildingPermitDateIssued) {
+                          scrollToFirstInvalidField("field-occ-building-permit-date", "Please enter the Building Permit Date Issued.");
+                          return;
+                        }
+                        if (formData.buildingPermitDateIssued > todayStr) {
+                          scrollToFirstInvalidField("field-occ-building-permit-date", "Future dates are not allowed for Building Permit Date Issued.");
+                          return;
+                        }
+                        if (!formData.fsecNo) {
+                          scrollToFirstInvalidField("field-occ-fsec-no", "Please enter the FSEC No.");
+                          return;
+                        }
+                        if (!formData.fsecDateIssued) {
+                          scrollToFirstInvalidField("field-occ-fsec-date", "Please enter the FSEC Date Issued.");
+                          return;
+                        }
+                        if (formData.fsecDateIssued > todayStr) {
+                          scrollToFirstInvalidField("field-occ-fsec-date", "Future dates are not allowed for FSEC Date Issued.");
+                          return;
+                        }
+                        if (!formData.nameOfProject) {
+                          scrollToFirstInvalidField("field-occ-project-name", "Please enter the Name of Project.");
+                          return;
+                        }
+                        if (!formData.locationOfProject) {
+                          scrollToFirstInvalidField("field-occ-project-location", "Please enter the Location of Project.");
+                          return;
+                        }
+                        if (!formData.useCharacterOfOccupancy) {
+                          scrollToFirstInvalidField("field-occ-character-occupancy", "Please enter the Use/Character of Occupancy.");
+                          return;
+                        }
+                        if (!formData.noOfStoreys) {
+                          scrollToFirstInvalidField("field-occ-no-of-storeys", "Please enter the number of Storey(s).");
+                          return;
+                        }
+                        if (!formData.noOfUnits) {
+                          scrollToFirstInvalidField("field-occ-no-of-units", "Please enter the number of Unit(s).");
+                          return;
+                        }
+                        if (!formData.totalGrossFloorArea) {
+                          scrollToFirstInvalidField("field-occ-total-floor-area", "Please enter the Total Gross Floor Area.");
+                          return;
+                        }
+                        if (!formData.dateOfCompletion) {
+                          scrollToFirstInvalidField("field-occ-date-completion", "Please enter the Date of Completion.");
+                          return;
+                        }
+                        if (formData.dateOfCompletion > todayStr) {
+                          scrollToFirstInvalidField("field-occ-date-completion", "Future dates are not allowed for Date of Completion.");
                           return;
                         }
 
@@ -2036,7 +2126,7 @@ export default function OccupancyPermitPage() {
                 <span className="text-slate-800 dark:text-white">Upload Requirements & Documents</span>
               </h2>
               <p className="text-slate-500 font-medium text-xs md:text-sm uppercase tracking-widest">
-                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 5MB each).
+                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 15MB each).
               </p>
             </div>
 
@@ -2044,7 +2134,7 @@ export default function OccupancyPermitPage() {
               <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
                 <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
+                  <b>File Upload Rules:</b> Max 15MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
                 </p>
               </div>
             </div>
@@ -2159,7 +2249,7 @@ export default function OccupancyPermitPage() {
                           setViewerOpen(true);
                         }}
                         error={hasError}
-                        infoText="PDF / Image (Max 5MB)"
+                        infoText="PDF / Image (Max 15MB)"
                         disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
                       />
                     </div>

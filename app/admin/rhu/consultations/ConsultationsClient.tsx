@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw, Activity, CheckCircle2,
-    Clock, XCircle, ChevronDown
+    Clock, XCircle, ChevronDown, UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getRHUAdminTransactions } from "../actions";
 import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 import { supabase } from "@/lib/supabase";
+import { RHUWalkInModal } from "./RHUWalkInModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -239,6 +240,7 @@ export default function ConsultationsClient() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [centerName, setCenterName] = useState<string | null>(null);
+    const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
 
     useEffect(() => {
         setCheckupFilter(urlCheckup);
@@ -448,6 +450,14 @@ export default function ConsultationsClient() {
                     </p>
                 </div>
 
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={() => setIsWalkInModalOpen(true)}
+                        className="h-11 px-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/25 hover:scale-105 active:scale-95 transition-all gap-2 cursor-pointer"
+                    >
+                        <UserPlus className="w-4 h-4" /> Register Walk-In Patient
+                    </Button>
+                </div>
             </div>
 
             {/* Sub-Category Filter Tabs */}
@@ -661,6 +671,14 @@ export default function ConsultationsClient() {
                     </div>
                 )}
             </div>
+
+            {/* Walk-In Patient Registration Modal */}
+            <RHUWalkInModal
+                open={isWalkInModalOpen}
+                onOpenChange={setIsWalkInModalOpen}
+                onSuccess={() => loadData(true)}
+                centerName={centerName}
+            />
         </div>
     );
 }

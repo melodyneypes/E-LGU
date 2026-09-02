@@ -8,12 +8,14 @@ import {
     Users,
     Activity,
     Smile,
-    ShieldAlert
+    ShieldAlert,
+    UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { RHUWalkInModal } from "../consultations/RHUWalkInModal";
 import {
     getRHUQueueTickets,
     fetchAndCallNextRHUTicket,
@@ -28,6 +30,7 @@ export default function RHUQueuePage() {
     const [loading, setLoading] = useState(true);
     const [isInitialized, setIsInitialized] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
     const hasFetchedRef = useRef(false);
 
     // Load active counter from localStorage
@@ -193,13 +196,22 @@ export default function RHUQueuePage() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-3 rounded-2xl shadow-sm">
-                        <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
-                        <div className="text-left">
-                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Active Terminal</p>
-                            <p className="text-xs font-bold text-slate-800 dark:text-white uppercase">
-                                {counterName || "NO WINDOW CONFIGURED"}
-                            </p>
+                    <div className="flex items-center gap-3">
+                        <Button
+                            onClick={() => setIsWalkInModalOpen(true)}
+                            className="h-11 px-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/25 hover:scale-105 active:scale-95 transition-all gap-2 cursor-pointer"
+                        >
+                            <UserPlus className="w-4 h-4" /> Register Walk-In
+                        </Button>
+
+                        <div className="flex items-center gap-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-3 rounded-2xl shadow-sm">
+                            <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
+                            <div className="text-left">
+                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Active Terminal</p>
+                                <p className="text-xs font-bold text-slate-800 dark:text-white uppercase">
+                                    {counterName || "NO WINDOW CONFIGURED"}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -407,6 +419,13 @@ export default function RHUQueuePage() {
                     </div>
                 )}
             </div>
+
+            {/* Walk-in Patient Modal */}
+            <RHUWalkInModal
+                open={isWalkInModalOpen}
+                onOpenChange={setIsWalkInModalOpen}
+                onSuccess={() => fetchQueue()}
+            />
         </div>
     );
 }

@@ -301,10 +301,10 @@ export default function EquipmentClient({
         setAssetPhotoFile(null);
         const defaultFac = matchedCenter
             ? matchedCenter.name
-            : isLegacy
+            : (isLegacy ? "BHS Pias" : "Main Rural Health Unit (RHU)");
         const defaultRooms = getRoomsForFacility(defaultFac);
         const defaultRoom = defaultRooms.includes("Central Stockroom")
-            ? (isLegacy ? "Consultation Room 1" : "Central Stockroom")
+            ? (isLegacy ? "Treatment & Examination Room" : "Central Stockroom")
             : (defaultRooms[0] || "Treatment & Examination Room");
 
         setAssetForm({
@@ -718,7 +718,7 @@ export default function EquipmentClient({
                 >
                     {[
                         { id: "LEDGER", label: "Master Ledger & Rooms", icon: Boxes },
-                        { id: "PO", label: `Purchase Orders (${pos.length})`, icon: ShoppingCart },
+                        { id: "PO", label: `Dispense (${pos.length})`, icon: ShoppingCart },
                         { id: "RO", label: `Requisitions (${ros.length})`, icon: ClipboardCheck },
                         { id: "SO", label: `Stock Transfers (${sos.length})`, icon: Truck },
                         { id: "RETURNS", label: `Receiving & Returns (${returns.length})`, icon: RotateCcw },
@@ -966,18 +966,6 @@ export default function EquipmentClient({
                                                                 title="Edit Asset"
                                                             >
                                                                 <Edit3 className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => {
-                                                                    setAssetToDelete(asset);
-                                                                    setIsDeleteModalOpen(true);
-                                                                }}
-                                                                className="h-7 w-7 p-0 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                                                                title="Delete Asset"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
                                                             </Button>
                                                         </>
                                                     )}
