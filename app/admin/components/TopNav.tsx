@@ -19,7 +19,8 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion } from "framer-motion";
-import { getTransactionById } from "@/app/admin/transactions/actions";
+import { getTransactionById, getSystemSettingsAction } from "@/app/admin/transactions/actions";
+import { supabase } from "@/lib/supabase";
 import CounterSelectorHeader from "@/components/admin/CounterSelectorHeader";
 
 interface TopNavProps {
@@ -71,6 +72,7 @@ const SEGMENT_LABELS: Record<string, string> = {
     content: "Content",
     payments: "Payments Ledger",
     registrar: "Civil Registry",
+    "purchase-orders": "Dispense",
 };
 
 export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", brandWord2 = "", logoUrl, rhuCenterName = null }: TopNavProps) {
@@ -86,6 +88,62 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
         if (seg === "rhu") return rhuLabel;
         return SEGMENT_LABELS[seg] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     }
+    const [resolvedThemeColor, setResolvedThemeColor] = React.useState(themeColor || "#2563eb");
+    const [resolvedLogoUrl, setResolvedLogoUrl] = React.useState(logoUrl);
+    const [resolvedBrandWord1, setResolvedBrandWord1] = React.useState(brandWord1 || "E");
+    const [resolvedBrandWord2, setResolvedBrandWord2] = React.useState(brandWord2 || "");
+
+    const fetchThemeSettings = React.useCallback(async () => {
+        try {
+            const res = await getSystemSettingsAction(["theme_color", "brand_word_1", "brand_word_2", "site_logo"]);
+            if (res && res.success && res.data) {
+                if (res.data.theme_color) setResolvedThemeColor(res.data.theme_color);
+                if (res.data.brand_word_1) setResolvedBrandWord1(res.data.brand_word_1);
+                if (res.data.brand_word_2 !== undefined) setResolvedBrandWord2(res.data.brand_word_2);
+                if (res.data.site_logo) setResolvedLogoUrl(res.data.site_logo);
+            }
+        } catch (err) {
+            console.error("[TopNav] Error fetching theme settings:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (themeColor) setResolvedThemeColor(themeColor);
+        if (logoUrl) setResolvedLogoUrl(logoUrl);
+        if (brandWord1) setResolvedBrandWord1(brandWord1);
+        if (brandWord2 !== undefined) setResolvedBrandWord2(brandWord2);
+        fetchThemeSettings();
+    }, [themeColor, logoUrl, brandWord1, brandWord2, fetchThemeSettings]);
+
+    React.useEffect(() => {
+        if (!supabase) return;
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("topnav-system-settings-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "SystemSetting",
+                    },
+                    () => {
+                        fetchThemeSettings();
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.warn("[TopNav SystemSettings Realtime] Setup error:", error);
+        }
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchThemeSettings]);
+
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
@@ -296,18 +354,18 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                     {!isOpen && (
                         <div className="flex items-center space-x-3 shrink-0">
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden shadow-lg"
-                                style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                                style={{ backgroundColor: resolvedThemeColor, boxShadow: `0 10px 15px -3px ${resolvedThemeColor}33` }}
                             >
-                                {logoUrl ? (
+                                {resolvedLogoUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-1.5" />
+                                    <img src={resolvedLogoUrl} alt="Logo" className="w-full h-full object-cover p-1.5" />
                                 ) : (
                                     <Map className="text-white w-4 h-4 transition-transform" />
                                 )}
                             </div>
                             <div>
                                 <h2 className="text-slate-900 dark:text-slate-100 font-bold text-sm leading-tight">
-                                    {brandWord1}<span style={{ color: themeColor }}>{brandWord2}</span>
+                                    {resolvedBrandWord1}<span style={{ color: resolvedThemeColor }}>{resolvedBrandWord2}</span>
                                 </h2>
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Admin Control</p>
                             </div>
@@ -333,7 +391,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
             {/* Right: User menu & Counter Selector */}
             <div className="flex items-center gap-4 shrink-0">
                 <CounterSelectorHeader 
-                    themeColor={themeColor} 
+                    themeColor={resolvedThemeColor} 
                     userRole={session.user?.role || "ADMIN"} 
                     userDepartment={session.user?.department} 
                 />
@@ -346,7 +404,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                     {/* Avatar */}
                     <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black text-white shadow"
-                        style={{ backgroundColor: themeColor }}
+                        style={{ backgroundColor: resolvedThemeColor }}
                     >
                         {initials}
                     </div>

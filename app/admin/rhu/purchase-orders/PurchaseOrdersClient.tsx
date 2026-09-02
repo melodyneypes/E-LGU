@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    Search, RefreshCcw, ShoppingCart, CheckCircle2,
+    Search, RefreshCcw, CheckCircle2,
     Clock, FileSpreadsheet, FileText, Eye, Pill, Download
 } from "lucide-react";
 import { toast } from "sonner";
@@ -185,9 +185,9 @@ export default function PurchaseOrdersClient() {
 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
-        doc.text(`APPROVED PURCHASE ORDERS SUMMARY REPORT (${centerName || "All Health Centers"})`, 14, 22);
+        doc.text(`APPROVED DISPENSES SUMMARY REPORT (${centerName || "All Health Centers"})`, 14, 22);
         doc.setFontSize(9);
-        doc.text(`Generated Date: ${new Date().toLocaleString("en-PH")} | Total Approved Purchase Orders: ${dataToExport.length}`, 14, 28);
+        doc.text(`Generated Date: ${new Date().toLocaleString("en-PH")} | Total Approved Dispenses: ${dataToExport.length}`, 14, 28);
 
         // Table Rows Formatting
         const tableRows = dataToExport.map((tx, idx) => {
@@ -224,7 +224,7 @@ export default function PurchaseOrdersClient() {
 
         autoTable(doc, {
             startY: 32,
-            head: [["#", "PO / Control #", "Patient Name", "Barangay", "Doctor Prescribed", "Actual Pharmacy Dispensed Qty", "Appt Date & Slot", "Dispensed By (Pharmacy)", "Status"]],
+            head: [["#", "Dispense / Control #", "Patient Name", "Barangay", "Doctor Prescribed", "Actual Pharmacy Dispensed Qty", "Appt Date & Slot", "Dispensed By (Pharmacy)", "Status"]],
             body: tableRows,
             theme: "grid",
             headStyles: {
@@ -259,7 +259,7 @@ export default function PurchaseOrdersClient() {
                 doc.setFontSize(8);
                 doc.setTextColor(100);
                 doc.text(
-                    `Page ${data.pageNumber} — Official RHU EMapandan Electronic Purchase Order Summary`,
+                    `Page ${data.pageNumber} — Official RHU EMapandan Electronic Medicine Dispense Summary`,
                     14,
                     pageHeight - 10
                 );
@@ -279,7 +279,7 @@ export default function PurchaseOrdersClient() {
             });
 
             if (dataToExport.length === 0) {
-                toast.error("No approved purchase orders available to export.");
+                toast.error("No approved dispenses available to export.");
                 return;
             }
 
@@ -306,7 +306,7 @@ export default function PurchaseOrdersClient() {
 
                 return {
                     "No.": idx + 1,
-                    "PO / Control Number": controlNo,
+                    "Dispense / Control Number": controlNo,
                     "Patient / Applicant": patientName,
                     "Barangay": barangay,
                     "Doctor Prescribed Items": rawPrescription,
@@ -324,10 +324,10 @@ export default function PurchaseOrdersClient() {
             ];
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Approved Purchase Orders");
+            XLSX.utils.book_append_sheet(wb, ws, "Approved Dispenses");
 
-            XLSX.writeFile(wb, `RHU_Approved_Purchase_Orders_${new Date().toISOString().split('T')[0]}.xlsx`);
-            toast.success("Approved purchase orders exported to Excel successfully!");
+            XLSX.writeFile(wb, `RHU_Approved_Dispenses_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Approved dispenses exported to Excel successfully!");
         } catch (err: any) {
             console.error("Excel Export error:", err);
             toast.error("Failed to export Excel summary.");
@@ -342,7 +342,7 @@ export default function PurchaseOrdersClient() {
             return rhuStatus === "PO_APPROVED" || rhuStatus === "COMPLETED" || tx.status === "FOR_CLAIM" || tx.status === "RELEASED" || tx.status === "DELIVERED";
         });
         if (approvedPOs.length === 0) {
-            toast.error("No approved purchase orders available to export.");
+            toast.error("No approved dispenses available to export.");
             return;
         }
 
@@ -407,9 +407,9 @@ export default function PurchaseOrdersClient() {
                 />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 mb-1">
-                        <ShoppingCart className="w-6 h-6 shrink-0" style={{ color: themeColor }} />
+                        <Pill className="w-6 h-6 shrink-0" style={{ color: themeColor }} />
                         <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
-                            RHU <span style={{ color: themeColor }}>Purchase Orders</span>
+                            RHU <span style={{ color: themeColor }}>Medicine Dispense</span>
                         </h1>
                     </div>
                     {centerName && (
@@ -421,7 +421,7 @@ export default function PurchaseOrdersClient() {
                         </p>
                     )}
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        Manage, track, and export summaries for RHU prescription purchase orders.
+                        Manage, track, and export summaries for RHU prescription medicine dispensing.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap relative z-10">
@@ -450,8 +450,8 @@ export default function PurchaseOrdersClient() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Orders</span>
-                        <ShoppingCart className="w-4 h-4" style={{ color: themeColor }} />
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Dispenses</span>
+                        <Pill className="w-4 h-4" style={{ color: themeColor }} />
                     </div>
                     <span className="text-3xl font-black text-slate-900 dark:text-white">{totalCount}</span>
                 </div>
@@ -466,7 +466,7 @@ export default function PurchaseOrdersClient() {
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-teal-500">PO Approved</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-teal-500">Dispense Approved</span>
                         <CheckCircle2 className="w-4 h-4 text-teal-500" />
                     </div>
                     <span className="text-3xl font-black text-slate-900 dark:text-white">{poApprovedCount}</span>
@@ -488,7 +488,7 @@ export default function PurchaseOrdersClient() {
                     <Input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search PO #, patient, control #..."
+                        placeholder="Search dispense #, patient, control #..."
                         className="pl-10 h-10 rounded-2xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-xs font-medium focus-visible:ring-emerald-500"
                     />
                 </div>
@@ -500,7 +500,7 @@ export default function PurchaseOrdersClient() {
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl">
                             <SelectItem value="ALL" className="text-xs font-bold">All Statuses</SelectItem>
-                            <SelectItem value="PRESCRIBED" className="text-xs font-bold">Pending PO Approval</SelectItem>
+                            <SelectItem value="PRESCRIBED" className="text-xs font-bold">Pending Dispense Approval</SelectItem>
                             <SelectItem value="PO_APPROVED" className="text-xs font-bold">Approved — Ready to Dispense</SelectItem>
                             <SelectItem value="COMPLETED" className="text-xs font-bold">Completed & Dispensed</SelectItem>
                             <SelectItem value="CANCELLED" className="text-xs font-bold">Cancelled / Rejected</SelectItem>
@@ -517,7 +517,7 @@ export default function PurchaseOrdersClient() {
                 </div>
             </div>
 
-            {/* Purchase Orders Table */}
+            {/* Dispense Table */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
@@ -555,7 +555,7 @@ export default function PurchaseOrdersClient() {
                             ) : transactions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="h-40 text-center text-xs font-bold text-slate-400 italic">
-                                        No purchase orders found matching your search criteria.
+                                        No dispense records found matching your search criteria.
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -648,7 +648,7 @@ export default function PurchaseOrdersClient() {
                                                         boxShadow: `0 4px 12px ${themeColor}30`
                                                     }}
                                                 >
-                                                    <Eye className="w-3.5 h-3.5" /> VIEW PO
+                                                    <Eye className="w-3.5 h-3.5" /> VIEW DISPENSE
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -738,7 +738,7 @@ export default function PurchaseOrdersClient() {
                                 <div className="bg-emerald-700 text-white px-4 py-2 flex items-center justify-between border-b border-emerald-800 text-xs font-bold">
                                     <div className="flex items-center gap-2">
                                         <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-                                        <span className="tracking-tight">Microsoft Excel — RHU_Approved_Purchase_Orders.xlsx</span>
+                                        <span className="tracking-tight">Microsoft Excel — RHU_Approved_Dispenses.xlsx</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-[11px] font-mono">
                                         <span className="bg-emerald-800/80 px-2.5 py-0.5 rounded text-emerald-100">
@@ -768,7 +768,7 @@ export default function PurchaseOrdersClient() {
                                 <div className="bg-slate-50 dark:bg-slate-950 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 text-xs font-mono text-slate-700 dark:text-slate-300">
                                     <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">A1</span>
                                     <span className="text-slate-400">fx</span>
-                                    <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">RHU Approved Purchase Orders Summary Sheet</span>
+                                    <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">RHU Approved Dispenses Summary Sheet</span>
                                 </div>
 
                                 {/* Spreadsheet Table Grid */}

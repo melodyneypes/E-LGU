@@ -8,15 +8,15 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale,
-    FolderArchive, MessageSquareHeart, Boxes
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, Store, Scale,
+    FolderArchive, MessageSquareHeart, Boxes, Pill
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes } from "@/app/admin/transactions/actions";
+import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes, getSystemSettingsAction } from "@/app/admin/transactions/actions";
 import { getPendingReportsCount } from "@/app/admin/actions";
 import { supabase } from "@/lib/supabase";
 
@@ -95,6 +95,62 @@ export function Sidebar({
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/bplo/stall-registration"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
     const [isMDRRMOOpen, setIsMDRRMOOpen] = React.useState(pathname.startsWith("/admin/mdrrmo"));
+
+    const [resolvedThemeColor, setResolvedThemeColor] = React.useState(themeColor || "#2563eb");
+    const [resolvedLogoUrl, setResolvedLogoUrl] = React.useState(logoUrl);
+    const [resolvedBrandWord1, setResolvedBrandWord1] = React.useState(brandWord1 || "E");
+    const [resolvedBrandWord2, setResolvedBrandWord2] = React.useState(brandWord2 || "");
+
+    const fetchThemeSettings = React.useCallback(async () => {
+        try {
+            const res = await getSystemSettingsAction(["theme_color", "brand_word_1", "brand_word_2", "site_logo"]);
+            if (res && res.success && res.data) {
+                if (res.data.theme_color) setResolvedThemeColor(res.data.theme_color);
+                if (res.data.brand_word_1) setResolvedBrandWord1(res.data.brand_word_1);
+                if (res.data.brand_word_2 !== undefined) setResolvedBrandWord2(res.data.brand_word_2);
+                if (res.data.site_logo) setResolvedLogoUrl(res.data.site_logo);
+            }
+        } catch (err) {
+            console.error("[Sidebar] Error fetching theme settings:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (themeColor) setResolvedThemeColor(themeColor);
+        if (logoUrl) setResolvedLogoUrl(logoUrl);
+        if (brandWord1) setResolvedBrandWord1(brandWord1);
+        if (brandWord2 !== undefined) setResolvedBrandWord2(brandWord2);
+        fetchThemeSettings();
+    }, [themeColor, logoUrl, brandWord1, brandWord2, fetchThemeSettings]);
+
+    React.useEffect(() => {
+        if (!supabase) return;
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("sidebar-system-settings-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "SystemSetting",
+                    },
+                    () => {
+                        fetchThemeSettings();
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.warn("[Sidebar SystemSettings Realtime] Setup error:", error);
+        }
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchThemeSettings]);
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -490,8 +546,8 @@ export function Sidebar({
         },
         {
             href: "/admin/rhu/purchase-orders",
-            label: "Purchase Orders",
-            icon: ShoppingCart,
+            label: "Dispense",
+            icon: Pill,
             category: rhuCategory
         },
         {
@@ -896,18 +952,18 @@ export function Sidebar({
                                     <div className="flex items-center space-x-3">
                                         <div
                                             className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden shadow-lg"
-                                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                                            style={{ backgroundColor: resolvedThemeColor, boxShadow: `0 10px 15px -3px ${resolvedThemeColor}33` }}
                                         >
-                                            {logoUrl ? (
+                                            {resolvedLogoUrl ? (
                                                 // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-1.5" />
+                                                <img src={resolvedLogoUrl} alt="Logo" className="w-full h-full object-cover p-1.5" />
                                             ) : (
                                                 <Map className="text-white w-5 h-5 transition-transform group-hover:rotate-12" />
                                             )}
                                         </div>
                                         <div>
                                             <h2 className="text-slate-900 dark:text-slate-100 font-bold text-lg leading-tight">
-                                                {brandWord1}<span style={{ color: themeColor }}>{brandWord2}</span>
+                                                {resolvedBrandWord1}<span style={{ color: resolvedThemeColor }}>{resolvedBrandWord2}</span>
                                             </h2>
                                             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">Admin Control</p>
                                         </div>
@@ -963,10 +1019,10 @@ export function Sidebar({
                                                     "w-full flex items-center justify-between px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group",
                                                     item.isOpen ? "bg-slate-50 dark:bg-white/5" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
                                                 )}
-                                                style={{ color: item.isOpen ? themeColor : undefined }}
+                                                style={{ color: item.isOpen ? resolvedThemeColor : undefined }}
                                             >
                                                 <div className="flex items-center space-x-3">
-                                                    <Icon size={18} style={{ color: item.isOpen ? themeColor : undefined }} className={cn(!item.isOpen && "text-slate-500")} />
+                                                    <Icon size={18} style={{ color: item.isOpen ? resolvedThemeColor : undefined }} className={cn(!item.isOpen && "text-slate-500")} />
                                                     <span className="text-sm">{item.label}</span>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
@@ -1032,15 +1088,16 @@ export function Sidebar({
                                                                         href={sub.href}
                                                                         prefetch={false}
                                                                         className={cn(
-                                                                            "flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all focus:outline-none focus-visible:outline-none focus-visible:ring-0 select-none",
+                                                                            "flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all focus:outline-none focus-visible:outline-none focus-visible:ring-0 select-none border",
                                                                             isSubActive
-                                                                                ? "font-bold text-slate-900 dark:text-white border border-rose-500/20"
-                                                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent",
+                                                                                ? "font-bold text-slate-900 dark:text-white"
+                                                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 border-transparent",
                                                                             isDashboard ? "font-semibold text-slate-700 dark:text-slate-400" : "font-medium"
                                                                         )}
                                                                         style={{
-                                                                            color: isSubActive ? themeColor : undefined,
-                                                                            backgroundColor: isSubActive ? `${themeColor}15` : undefined
+                                                                            color: isSubActive ? resolvedThemeColor : undefined,
+                                                                            backgroundColor: isSubActive ? `${resolvedThemeColor}15` : undefined,
+                                                                            borderColor: isSubActive ? `${resolvedThemeColor}33` : "transparent"
                                                                         }}
                                                                     >
                                                                         <div className="flex items-center gap-2">
@@ -1098,8 +1155,8 @@ export function Sidebar({
                                                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-[#2a3040]"
                                             )}
                                             style={{
-                                                backgroundColor: isActive ? themeColor : undefined,
-                                                boxShadow: isActive ? `0 10px 15px -3px ${themeColor}44` : undefined
+                                                backgroundColor: isActive ? resolvedThemeColor : undefined,
+                                                boxShadow: isActive ? `0 10px 15px -3px ${resolvedThemeColor}44` : undefined
                                             }}
                                         >
                                             <div className="flex items-center space-x-3">
@@ -1110,7 +1167,7 @@ export function Sidebar({
                                                 <span className={cn(
                                                     "text-[10px] font-bold px-2 py-0.5 rounded-full",
                                                     isActive ? "bg-white" : "bg-red-500 text-white"
-                                                )} style={{ color: isActive ? themeColor : undefined }}>
+                                                )} style={{ color: isActive ? resolvedThemeColor : undefined }}>
                                                     {item.badge}
                                                 </span>
                                             )}
@@ -1126,7 +1183,7 @@ export function Sidebar({
                             <div className="flex items-center space-x-3">
                                 <div
                                     className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white shadow-lg relative overflow-hidden"
-                                    style={{ backgroundColor: themeColor, boxShadow: `0 4px 6px -1px ${themeColor}44` }}
+                                    style={{ backgroundColor: resolvedThemeColor, boxShadow: `0 4px 6px -1px ${resolvedThemeColor}44` }}
                                 >
                                     {session.user?.name?.charAt(0) || "A"}
                                     <div className="absolute inset-0 bg-white/10" />
@@ -1137,7 +1194,7 @@ export function Sidebar({
                                     </p>
                                     <p
                                         className="text-[10px] text-slate-500 mt-1 hover:opacity-80 cursor-pointer transition-colors font-bold uppercase tracking-widest"
-                                        style={{ color: themeColor }}
+                                        style={{ color: resolvedThemeColor }}
                                     >
                                         {role === "CONTENT_ADMIN"
                                             ? "Content Admin"

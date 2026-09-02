@@ -6,8 +6,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Purchase Orders | RHU Hub",
-    description: "Manage, track, and export RHU prescription purchase order summaries.",
+    title: "Dispense | RHU Hub",
+    description: "Manage, track, and export RHU prescription medicine dispense summaries.",
 };
 
 export default async function RHUPurchaseOrdersPage() {

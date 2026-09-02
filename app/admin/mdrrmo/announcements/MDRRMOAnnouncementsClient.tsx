@@ -253,21 +253,60 @@ export default function MDRRMOAnnouncementsClient({
             {/* Filter Bar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#161a24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                    {["All", "Critical", "Urgent", "High", "Normal"].map((p) => (
-                        <button
-                            key={p}
-                            type="button"
-                            onClick={() => setPriorityFilter(p)}
-                            className={cn(
-                                "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-                                priorityFilter === p
-                                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900"
-                                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                            )}
-                        >
-                            {p}
-                        </button>
-                    ))}
+                    {["All", "Critical", "Urgent", "High", "Normal"].map((p) => {
+                        const isSelected = priorityFilter.toUpperCase() === p.toUpperCase();
+                        let activeInactiveClass = "";
+                        let customStyle: React.CSSProperties | undefined = undefined;
+
+                        switch (p.toUpperCase()) {
+                            case "ALL":
+                                if (isSelected) {
+                                    activeInactiveClass = "text-white shadow-md font-black";
+                                    customStyle = {
+                                        backgroundColor: themeColor || "#2563eb",
+                                        boxShadow: `0 4px 12px -2px ${themeColor || "#2563eb"}60`
+                                    };
+                                } else {
+                                    activeInactiveClass = "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 border border-transparent";
+                                }
+                                break;
+                            case "CRITICAL":
+                                activeInactiveClass = isSelected
+                                    ? "bg-rose-600 text-white border border-rose-600 shadow-md shadow-rose-600/30"
+                                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20";
+                                break;
+                            case "URGENT":
+                                activeInactiveClass = isSelected
+                                    ? "bg-amber-500 text-white border border-amber-500 shadow-md shadow-amber-500/30"
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20";
+                                break;
+                            case "HIGH":
+                                activeInactiveClass = isSelected
+                                    ? "bg-purple-600 text-white border border-purple-600 shadow-md shadow-purple-600/30"
+                                    : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20";
+                                break;
+                            case "NORMAL":
+                                activeInactiveClass = isSelected
+                                    ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900 border border-slate-700 dark:border-slate-200 shadow-md"
+                                    : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 hover:bg-slate-500/20";
+                                break;
+                        }
+
+                        return (
+                            <button
+                                key={p}
+                                type="button"
+                                onClick={() => setPriorityFilter(p)}
+                                className={cn(
+                                    "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                                    activeInactiveClass
+                                )}
+                                style={customStyle}
+                            >
+                                {p}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className="relative min-w-[240px]">

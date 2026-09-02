@@ -130,6 +130,17 @@ function MapContent({
 
     const locateMe = () => {
         if (!map) return;
+
+        if (typeof window === "undefined" || !navigator?.geolocation) {
+            toast.error("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        if (typeof window !== "undefined" && window.isSecureContext === false) {
+            toast.error("Location access requires a secure connection (HTTPS or localhost).");
+            return;
+        }
+
         setLocating(true);
 
         const options = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
@@ -147,15 +158,23 @@ function MapContent({
         };
 
         const onError = (error: GeolocationPositionError) => {
+            if (error.message?.toLowerCase().includes("secure origin") || (typeof window !== "undefined" && !window.isSecureContext)) {
+                toast.error("Geolocation requires HTTPS or localhost.");
+                setLocating(false);
+                return;
+            }
+
             console.warn(`Primary geolocation failed (Code ${error.code}): ${error.message}. Retrying with low accuracy...`);
 
             // Fallback to low accuracy
             navigator.geolocation.getCurrentPosition(
                 onSuccess,
                 (err2) => {
-                    console.error("Secondary geolocation failed:", err2.message);
+                    console.warn("Secondary geolocation failed:", err2.message);
                     let readableMessage = "Please allow location access in your browser settings.";
-                    if (err2.code === err2.TIMEOUT) {
+                    if (err2.message?.toLowerCase().includes("secure origin")) {
+                        readableMessage = "Geolocation requires HTTPS or localhost.";
+                    } else if (err2.code === err2.TIMEOUT) {
                         readableMessage = "Request timed out. Please check your GPS signal.";
                     } else if (err2.code === err2.POSITION_UNAVAILABLE) {
                         readableMessage = "Location information is unavailable.";
@@ -167,7 +186,13 @@ function MapContent({
             );
         };
 
-        navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
+        try {
+            navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
+        } catch (err: any) {
+            console.warn("Geolocation invocation error:", err);
+            toast.error("Location access is restricted on insecure HTTP origins.");
+            setLocating(false);
+        }
     };
 
     return (
