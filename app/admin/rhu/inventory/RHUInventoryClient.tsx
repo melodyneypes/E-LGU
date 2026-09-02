@@ -8,7 +8,6 @@ import {
     Plus,
     Search,
     Edit3,
-    Trash2,
     AlertTriangle,
     Package,
     ArrowUpDown,
@@ -60,7 +59,6 @@ import {
     getRHUInventoryItems,
     receiveRHUStockBatch,
     adjustRHUBatchQuantity,
-    deleteRHUInventoryBatch,
     updateRHUInventoryBatch,
     type RHUInventoryInput,
     type RHUStockBatchInput,
@@ -224,10 +222,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
     const [deletingItemName, setDeletingItemName] = useState<string>("");
-
-    const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
-    const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
-    const [deletingBatchNo, setDeletingBatchNo] = useState<string>("");
 
     // Batch Stock Adjustment Popup Modal states
     const [isBatchAdjustModalOpen, setIsBatchAdjustModalOpen] = useState(false);
@@ -500,29 +494,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 await refreshData();
             } else {
                 toast.error(res.error || "Failed to delete item");
-            }
-        });
-    };
-
-    const handleOpenDeleteBatchModal = (batchId: string, batchNumber: string) => {
-        setDeletingBatchId(batchId);
-        setDeletingBatchNo(batchNumber);
-        setIsDeleteBatchModalOpen(true);
-    };
-
-    const handleConfirmDeleteBatch = async () => {
-        if (!deletingBatchId) return;
-
-        startTransition(async () => {
-            const res = await deleteRHUInventoryBatch(deletingBatchId);
-            if (res.success) {
-                toast.success(`Batch #${deletingBatchNo} removed`);
-                setIsDeleteBatchModalOpen(false);
-                setDeletingBatchId(null);
-                setDeletingBatchNo("");
-                await refreshData();
-            } else {
-                toast.error(res.error || "Failed to delete batch");
             }
         });
     };
@@ -1017,19 +988,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                                             >
                                                                 <Edit3 className="w-3.5 h-3.5" />
                                                             </Button>
-                                                            <Button
-                                                                onClick={() => {
-                                                                    setDeletingItemId(item.id);
-                                                                    setDeletingItemName(item.name);
-                                                                    setIsDeleteModalOpen(true);
-                                                                }}
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                                title="Delete Item"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </Button>
                                                         </div>
                                                     ) : (
                                                         <span className="text-xs text-slate-400 font-medium italic">Read-only</span>
@@ -1167,33 +1125,22 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                                                                             </TableCell>
                                                                                             <TableCell className="text-right py-2 space-x-1">
                                                                                                 {canManageInventory ? (
-                                                                                                    <>
-                                                                                                        <Button
-                                                                                                            onClick={() => handleOpenBatchAdjustModal(
-                                                                                                                batch.id,
-                                                                                                                batch.batchNumber,
-                                                                                                                item.name,
-                                                                                                                item.unit,
-                                                                                                                batch.quantity
-                                                                                                            )}
-                                                                                                            variant="outline"
-                                                                                                            size="sm"
-                                                                                                            className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 gap-1.5"
-                                                                                                            title="Adjust batch stock quantity"
-                                                                                                        >
-                                                                                                            <ArrowUpDown className="w-3.5 h-3.5" />
-                                                                                                            Adjust Stock
-                                                                                                        </Button>
-                                                                                                        <Button
-                                                                                                            onClick={() => handleOpenDeleteBatchModal(batch.id, batch.batchNumber)}
-                                                                                                            variant="ghost"
-                                                                                                            size="sm"
-                                                                                                            className="h-6 px-1.5 text-rose-500 hover:text-rose-700"
-                                                                                                            title="Delete Batch"
-                                                                                                        >
-                                                                                                            <Trash2 className="w-3 h-3" />
-                                                                                                        </Button>
-                                                                                                    </>
+                                                                                                    <Button
+                                                                                                        onClick={() => handleOpenBatchAdjustModal(
+                                                                                                            batch.id,
+                                                                                                            batch.batchNumber,
+                                                                                                            item.name,
+                                                                                                            item.unit,
+                                                                                                            batch.quantity
+                                                                                                        )}
+                                                                                                        variant="outline"
+                                                                                                        size="sm"
+                                                                                                        className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 gap-1.5"
+                                                                                                        title="Adjust batch stock quantity"
+                                                                                                    >
+                                                                                                        <ArrowUpDown className="w-3.5 h-3.5" />
+                                                                                                        Adjust Stock
+                                                                                                    </Button>
                                                                                                 ) : (
                                                                                                     <span className="text-[11px] text-slate-400 italic">Read-only</span>
                                                                                                 )}

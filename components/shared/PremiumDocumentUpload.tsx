@@ -30,7 +30,7 @@ export default function PremiumDocumentUpload({
     onClear,
     onView,
     error = false,
-    infoText = "PDF / IMAGE (MAX 5MB)",
+    infoText = "PDF / IMAGE (MAX 15MB)",
     disabled = false
 }: PremiumDocumentUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -39,9 +39,9 @@ export default function PremiumDocumentUpload({
         if (disabled) return;
         const selectedFile = e.target.files?.[0] || null;
         if (selectedFile) {
-            const maxBytes = 5 * 1024 * 1024; // 5MB limit
+            const maxBytes = 15 * 1024 * 1024; // 15MB limit
             if (selectedFile.size > maxBytes) {
-                toast.error(`The file "${selectedFile.name}" is too large! Maximum limit is 5MB`);
+                toast.error(`The file "${selectedFile.name}" is too large! Maximum limit is 15MB`);
                 e.target.value = "";
                 return;
             }

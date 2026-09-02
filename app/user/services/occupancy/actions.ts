@@ -97,7 +97,7 @@ export async function submitOccupancyPermit(formData: FormData) {
     });
 
     // Validate magic numbers of all uploaded files in additionalData
-    const fileCheck = await validatePayloadFiles(additionalData);
+    const fileCheck = await validatePayloadFiles(additionalData, "occupancy");
     if (!fileCheck.success) {
       return { success: false, error: fileCheck.error || "File validation failed." };
     }
@@ -302,7 +302,7 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     }
 
     // Validate magic numbers of all uploaded files in additionalData
-    const fileCheck = await validatePayloadFiles(additionalData);
+    const fileCheck = await validatePayloadFiles(additionalData, "occupancy");
     if (!fileCheck.success) {
       return { success: false, error: fileCheck.error || "File validation failed." };
     }

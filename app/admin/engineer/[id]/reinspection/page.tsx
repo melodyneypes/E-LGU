@@ -909,7 +909,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                     <div className="space-y-4">
                         {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <div className="space-y-3">
-                                <Button onClick={handleEvaluate} disabled={actionLoading} className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
+                                <Button onClick={handleEvaluate} disabled={actionLoading} className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-emerald-600/20">
                                     <Check className="w-4 h-4 mr-2" /> Approve Inspection
                                 </Button>
 

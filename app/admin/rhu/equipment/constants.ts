@@ -40,7 +40,10 @@ export const FACILITY_ROOMS: Record<string, string[]> = {
     ]
 };
 
-export function getRoomsForFacility(facility: string): string[] {
+export function getRoomsForFacility(facility?: string): string[] {
+    if (!facility || typeof facility !== "string") {
+        return FACILITY_ROOMS["DEFAULT_BHS"];
+    }
     if (facility === "Main Rural Health Unit (RHU)" || facility.toLowerCase().includes("main")) {
         return FACILITY_ROOMS["Main Rural Health Unit (RHU)"];
     }

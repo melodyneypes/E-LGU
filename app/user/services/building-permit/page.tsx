@@ -32,7 +32,6 @@ import {
   CheckCircle2,
   Upload,
   Shield,
-  Hourglass,
   Check,
   Hash,
   UserCheck,
@@ -1685,19 +1684,61 @@ export default function BuildingPermitPage() {
       <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
 
         {loading && (
-          <div className="flex-1 min-h-[400px] md:min-h-[500px] flex items-center justify-center animate-in fade-in duration-300">
-            <div className="flex flex-col items-center gap-5 text-center">
-              <div className="w-20 h-20 rounded-3xl border border-primary/20 bg-primary/10 text-primary flex items-center justify-center shadow-xl shadow-primary/10 animate-pulse">
-                <Hourglass className="w-9 h-9" />
+          <div className="w-full space-y-8 animate-in fade-in duration-300">
+            {/* Header Banner Skeleton */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm">
+              <div className="space-y-3">
+                <div className="h-8 md:h-10 w-64 md:w-80 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse" />
+                <div className="h-4 w-72 md:w-96 bg-slate-200/70 dark:bg-white/5 rounded-xl animate-pulse" />
               </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
-                  Loading Building Permit
-                </h2>
-                <p className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
-                  Checking your existing applications...
-                </p>
-              </div>
+              <div className="h-12 w-48 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse shrink-0" />
+            </div>
+
+            {/* Search Bar Skeleton */}
+            <div className="h-14 w-full bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl animate-pulse" />
+
+            {/* Application Cards Skeletons */}
+            <div className="grid grid-cols-1 gap-4">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm space-y-6"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/60 dark:border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-white/10 animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 bg-slate-200 dark:bg-white/10 rounded-lg animate-pulse" />
+                        <div className="h-3 w-24 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-28 bg-slate-200 dark:bg-white/10 rounded-full animate-pulse" />
+                      <div className="h-7 w-24 bg-slate-200/60 dark:bg-white/5 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <div className="h-3 w-20 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-44 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-20 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-36 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-24 bg-slate-200/60 dark:bg-white/5 rounded-md animate-pulse" />
+                      <div className="h-5 w-28 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="h-4 w-48 bg-slate-200/60 dark:bg-white/5 rounded-lg animate-pulse" />
+                    <div className="h-10 w-36 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse shrink-0" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -2318,7 +2359,7 @@ export default function BuildingPermitPage() {
                             <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Verified: <span className={cn("font-bold", displayResident?.registrationStatus === "APPROVED" || displayResident?.registrationStatus === "VERIFIED" ? "text-emerald-500" : "text-amber-500")}>{displayResident?.registrationStatus === "APPROVED" || displayResident?.registrationStatus === "VERIFIED" ? "Yes" : "Pending"}</span></p>
                           </div>
                         ) : (
-                          <div className="flex flex-col md:flex-row gap-6">
+                          <div id="field-valid-id" className="flex flex-col md:flex-row gap-6">
                             {/* Front Side Upload */}
                             <div className="flex-1 flex flex-col gap-2">
                               <PremiumDocumentUpload
@@ -2380,7 +2421,7 @@ export default function BuildingPermitPage() {
                     </div>
 
                     <div className="space-y-8">
-                      <div>
+                      <div id="field-scope-of-work">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           a. Scope of Work <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -2395,67 +2436,81 @@ export default function BuildingPermitPage() {
                         )) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
 
                           {/* New Construction */}
-                          <div className="flex items-center space-x-3 py-1">
+                          <div
+                            onClick={() => {
+                              if (!isEditable) return;
+                              const next = !formData.scopeNewConstruction;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: next,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center space-x-3 p-3 rounded-xl cursor-pointer transition-all border select-none",
+                              formData.scopeNewConstruction
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
                             <Checkbox
                               id="scope-new-con"
                               checked={formData.scopeNewConstruction}
                               disabled={!isEditable}
-                              onCheckedChange={checked => {
-                                if (checked) {
-                                  setFormData({
-                                    ...formData,
-                                    scopeNewConstruction: true,
-                                    scopeAddition: false,
-                                    scopeAdditionText: "",
-                                    scopeRepair: false,
-                                    scopeRepairText: "",
-                                    scopeRenovation: false,
-                                    scopeRenovationText: "",
-                                    scopeDemolition: false,
-                                    scopeDemolitionText: "",
-                                    scopeOthers1: false,
-                                    scopeOthers1Text1: "",
-                                    scopeOthers1Text2: ""
-                                  });
-                                } else {
-                                  setFormData({ ...formData, scopeNewConstruction: false });
-                                }
-                              }}
+                              className="pointer-events-none"
                             />
-                            <label htmlFor="scope-new-con" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                            <label htmlFor="scope-new-con" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                               New Construction
                             </label>
                           </div>
 
                           {/* Addition Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeAddition;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: next,
+                                scopeAdditionText: next ? formData.scopeAdditionText : "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeAddition
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-addition"
                                 checked={formData.scopeAddition}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: true,
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeAddition: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-addition" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-addition" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Addition of
                               </label>
                             </div>
@@ -2463,43 +2518,53 @@ export default function BuildingPermitPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeAdditionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeAdditionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeAdditionText}
                                 onChange={e => setFormData({ ...formData, scopeAdditionText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Repair Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeRepair;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: next,
+                                scopeRepairText: next ? formData.scopeRepairText : "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeRepair
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-repair"
                                 checked={formData.scopeRepair}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: true,
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRepair: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-repair" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-repair" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Repair of
                               </label>
                             </div>
@@ -2507,43 +2572,53 @@ export default function BuildingPermitPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRepairText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeRepairText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeRepairText}
                                 onChange={e => setFormData({ ...formData, scopeRepairText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Renovation Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeRenovation;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: next,
+                                scopeRenovationText: next ? formData.scopeRenovationText : "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeRenovation
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-renovation"
                                 checked={formData.scopeRenovation}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: true,
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRenovation: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-renovation" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-renovation" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Renovation of
                               </label>
                             </div>
@@ -2551,62 +2626,76 @@ export default function BuildingPermitPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeRenovationText}
                                 onChange={e => setFormData({ ...formData, scopeRenovationText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Others Specify */}
-                          <div className="flex flex-col gap-2 py-1 border-t border-slate-100 dark:border-white/5 pt-2">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeOthers1;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: next,
+                                scopeOthers1Text1: next ? formData.scopeOthers1Text1 : "",
+                                scopeOthers1Text2: next ? formData.scopeOthers1Text2 : ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col gap-2 p-3 rounded-xl cursor-pointer transition-all border border-t border-slate-100 dark:border-white/5",
+                              formData.scopeOthers1
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-others-1"
                                 checked={formData.scopeOthers1}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: true
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeOthers1: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-others-1" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0 font-bold text-slate-500">
+                              <label htmlFor="scope-others-1" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Others (Specify)
                               </label>
                             </div>
                             {formData.scopeOthers1 && (
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pl-6">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pl-6 pt-1">
                                 <input
                                   type="text"
                                   placeholder="Specify item"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text1) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeOthers1Text1) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                   value={formData.scopeOthers1Text1}
                                   onChange={e => setFormData({ ...formData, scopeOthers1Text1: e.target.value })}
+                                  onClick={e => e.stopPropagation()}
                                   disabled={!isEditable}
+                                  autoFocus
                                 />
-                                <span className="text-xs text-slate-400 self-center">OF</span>
+                                <span className="text-xs text-slate-400 font-bold self-center">OF</span>
                                 <input
                                   type="text"
                                   placeholder="Specify category/structure"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text2) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeOthers1Text2) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                   value={formData.scopeOthers1Text2}
                                   onChange={e => setFormData({ ...formData, scopeOthers1Text2: e.target.value })}
+                                  onClick={e => e.stopPropagation()}
                                   disabled={!isEditable}
                                 />
                               </div>
@@ -2630,7 +2719,7 @@ export default function BuildingPermitPage() {
                         </div>
                       </div>
 
-                      <div>
+                      <div id="field-tct-document">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -2656,11 +2745,11 @@ export default function BuildingPermitPage() {
                         />
                       </div>
 
-                      <div>
+                      <div id="field-occupancy-category">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           c. The use of the occupancy for which the proposed work is intended <span className="text-red-500 text-lg">*</span>
                         </label>
-                        <div className={cn("rounded-xl transition-all p-4 border bg-white/40 dark:bg-black/20", (showValidationErrors && (!formData.occupancyCategory || (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) || (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) || (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify))) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
+                        <div className={cn("rounded-xl transition-all p-4 border bg-white/40 dark:bg-black/20", (showValidationErrors && (!formData.occupancyCategory || (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) || (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) || (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify))) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}>
                           <Select
                             value={formData.occupancyCategory}
                             onValueChange={value => {
@@ -2690,28 +2779,37 @@ export default function BuildingPermitPage() {
                                 {OCCUPANCY_OPTIONS[formData.occupancyCategory]?.map((opt) => {
                                   const isChecked = formData.selectedSubOccupancies.includes(opt.label) || (formData.occupancyCategory === "Other Construction" && opt.label === "Specify");
                                   return (
-                                    <div key={opt.code} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                    <div
+                                      key={opt.code}
+                                      onClick={() => {
+                                        if (!isEditable) return;
+                                        if (formData.occupancyCategory !== "Other Construction") {
+                                          const next = !isChecked;
+                                          setFormData({
+                                            ...formData,
+                                            selectedSubOccupancies: next ? [opt.label] : [],
+                                            ...(opt.label !== "Others (Specify)" && { subOccupancyOthersSpecify: "" })
+                                          });
+                                        }
+                                      }}
+                                      className={cn(
+                                        "flex items-center space-x-3 p-3 rounded-xl border transition-all cursor-pointer select-none",
+                                        isChecked
+                                          ? "bg-primary/10 border-primary/40 text-primary shadow-sm"
+                                          : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300"
+                                      )}
+                                    >
                                       {formData.occupancyCategory !== "Other Construction" ? (
                                         <Checkbox
                                           id={`sub-occ-${opt.code}`}
                                           checked={isChecked}
                                           disabled={!isEditable}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              setFormData({
-                                                ...formData,
-                                                selectedSubOccupancies: [opt.label],
-                                                ...(opt.label !== "Others (Specify)" && { subOccupancyOthersSpecify: "" })
-                                              });
-                                            } else {
-                                              setFormData({ ...formData, selectedSubOccupancies: [] });
-                                            }
-                                          }}
+                                          className="pointer-events-none"
                                         />
                                       ) : (
                                         <div className="w-2.5 h-2.5 rounded bg-primary shrink-0" />
                                       )}
-                                      <label htmlFor={`sub-occ-${opt.code}`} className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                                      <label htmlFor={`sub-occ-${opt.code}`} className="text-xs md:text-sm font-semibold cursor-pointer select-none">
                                         {opt.label}
                                       </label>
                                     </div>
@@ -2720,11 +2818,11 @@ export default function BuildingPermitPage() {
                               </div>
 
                               {(formData.selectedSubOccupancies.includes("Others (Specify)") || formData.occupancyCategory === "Other Construction") && (
-                                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
+                                <div id="field-sub-occupancy-others" className="mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
                                   <input
                                     type="text"
                                     placeholder="Please specify occupancy use details"
-                                    className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.subOccupancyOthersSpecify) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                                    className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.subOccupancyOthersSpecify) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}
                                     value={formData.subOccupancyOthersSpecify}
                                     onChange={e => setFormData({ ...formData, subOccupancyOthersSpecify: e.target.value })}
                                     disabled={!isEditable}
@@ -2736,7 +2834,7 @@ export default function BuildingPermitPage() {
                         </div>
                       </div>
 
-                      <div>
+                      <div id="field-total-floors">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           Total Floor(s) <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -2744,7 +2842,7 @@ export default function BuildingPermitPage() {
                           type="number"
                           min="1"
                           placeholder="e.g. 2"
-                          className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.totalFloors || Number(formData.totalFloors) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.totalFloors || Number(formData.totalFloors) <= 0)) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}
                           value={formData.totalFloors || ""}
                           onChange={e => {
                             const val = e.target.value;
@@ -2756,7 +2854,7 @@ export default function BuildingPermitPage() {
                         />
                       </div>
 
-                      <div>
+                      <div id="field-estimated-cost">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           d. Estimated cost of the proposal <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -2765,7 +2863,7 @@ export default function BuildingPermitPage() {
                           <input
                             type="text"
                             inputMode="numeric"
-                            className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 pl-10 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.estimatedCost || Number(formData.estimatedCost) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                            className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 pl-10 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.estimatedCost || Number(formData.estimatedCost) <= 0)) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}
                             value={formatWithCommas(formData.estimatedCost)}
                             onChange={e => {
                               const rawVal = e.target.value;
@@ -2786,7 +2884,7 @@ export default function BuildingPermitPage() {
                         </label>
                         <div className="flex flex-col sm:flex-row gap-4 mb-3">
                           {/* House/Lot Number Input */}
-                          <div className="flex-1 sm:flex-[0.25]">
+                          <div id="field-location-house-no" className="flex-1 sm:flex-[0.25]">
                             <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                               House/Lot No. <span className="text-red-500">*</span>
                             </label>
@@ -2794,7 +2892,7 @@ export default function BuildingPermitPage() {
                               type="number"
                               min="0"
                               placeholder="e.g. 123"
-                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationHouseNumber) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationHouseNumber) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}
                               value={formData.locationHouseNumber || ""}
                               onChange={e => setFormData({ ...formData, locationHouseNumber: e.target.value })}
                               disabled={!isEditable}
@@ -2802,14 +2900,14 @@ export default function BuildingPermitPage() {
                           </div>
 
                           {/* Street Name Input */}
-                          <div className="flex-1 sm:flex-[0.45]">
+                          <div id="field-location-street" className="flex-1 sm:flex-[0.45]">
                             <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                               Street <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               placeholder="e.g. Bonifacio St."
-                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationStreet) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationStreet) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}
                               value={formData.locationStreet || ""}
                               onChange={e => setFormData({ ...formData, locationStreet: e.target.value })}
                               disabled={!isEditable}
@@ -2817,7 +2915,7 @@ export default function BuildingPermitPage() {
                           </div>
 
                           {/* Barangay Dropdown */}
-                          <div className="flex-1 sm:flex-[0.3] relative" ref={brgyDropdownRef}>
+                          <div id="field-location-barangay" className="flex-1 sm:flex-[0.3] relative" ref={brgyDropdownRef}>
                             <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                               Barangay <span className="text-red-500">*</span>
                             </label>
@@ -2890,7 +2988,7 @@ export default function BuildingPermitPage() {
                         )}
                       </div>
 
-                      <div>
+                      <div id="field-lot-owner">
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           f. Is the applicant the owner of the lot? <span className="text-red-500 text-lg">*</span>
                         </label>
@@ -2913,7 +3011,7 @@ export default function BuildingPermitPage() {
                           }}
                           disabled={!isEditable}
                         >
-                          <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && !formData.isLotOwner) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
+                          <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && !formData.isLotOwner) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}>
                             <SelectValue placeholder="Select Yes or No" />
                           </SelectTrigger>
                           <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
@@ -2923,7 +3021,7 @@ export default function BuildingPermitPage() {
                         </Select>
 
                         {formData.isLotOwner === "No" && (
-                          <div className="mt-4">
+                          <div id="field-property-relationship" className="mt-4">
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                               Since you are not the registered owner, please indicate your relationship to the property <span className="text-red-500 text-lg">*</span>
                             </label>
@@ -2945,7 +3043,7 @@ export default function BuildingPermitPage() {
                               }}
                               disabled={!isEditable}
                             >
-                              <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && formData.isLotOwner === "No" && !formData.propertyRelationship) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
+                              <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && formData.isLotOwner === "No" && !formData.propertyRelationship) ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10")}>
                                 <SelectValue placeholder="Select Relationship" />
                               </SelectTrigger>
                               <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
@@ -2974,6 +3072,30 @@ export default function BuildingPermitPage() {
                     </button>
                     <button
                       onClick={() => {
+                        const scrollToFirstInvalidField = (targetId: string, message: string) => {
+                          setShowValidationErrors(true);
+                          toast.error(message);
+                          setTimeout(() => {
+                            const el = document.getElementById(targetId);
+                            if (el) {
+                              el.scrollIntoView({ behavior: "smooth", block: "center" });
+                              const focusable = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "BUTTON"
+                                ? (el as HTMLElement)
+                                : el.querySelector<HTMLElement>("input:not([type=hidden]), textarea, select, button");
+                              if (focusable) {
+                                focusable.focus({ preventScroll: true });
+                              }
+                            }
+                          }, 100);
+                        };
+
+                        // 1. Valid ID Check
+                        if (idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile) {
+                          scrollToFirstInvalidField("field-valid-id", "Please upload your valid Government ID (Front side).");
+                          return;
+                        }
+
+                        // 2. Scope of Work Check
                         const hasNoScopeSelected = !formData.scopeNewConstruction &&
                           !formData.scopeAddition &&
                           !formData.scopeRepair &&
@@ -2987,55 +3109,68 @@ export default function BuildingPermitPage() {
                           (formData.scopeRenovation && !formData.scopeRenovationText) ||
                           (formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2));
 
-                        const hasMissingFields = hasNoScopeSelected ||
-                          hasMissingScopeTexts ||
-                          !formData.estimatedCost ||
-                          Number(formData.estimatedCost) <= 0 ||
-                          !formData.totalFloors ||
-                          Number(formData.totalFloors) <= 0 ||
-                          !formData.locationHouseNumber ||
-                          !formData.locationStreet ||
-                          !formData.locationBarangay ||
-                          !formData.isLotOwner ||
-                          !formData.occupancyCategory ||
-                          (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) ||
-                          (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) ||
-                          (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify) ||
-                          (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ||
-                          !hasTctFile;
+                        if (hasNoScopeSelected) {
+                          scrollToFirstInvalidField("field-scope-of-work", "Please select at least one Scope of Work.");
+                          return;
+                        }
+                        if (hasMissingScopeTexts) {
+                          scrollToFirstInvalidField("field-scope-of-work", "Please specify the required details for your selected Scope of Work.");
+                          return;
+                        }
 
-                        console.log("Validation Details:", {
-                          hasNoScopeSelected,
-                          hasMissingScopeTexts,
-                          estimatedCost: formData.estimatedCost,
-                          estimatedCostValid: !formData.estimatedCost || Number(formData.estimatedCost) <= 0,
-                          locationOfConstruction: formData.locationOfConstruction,
-                          isLotOwner: formData.isLotOwner,
-                          occupancyCategory: formData.occupancyCategory,
-                          selectedSubOccupancies: formData.selectedSubOccupancies,
-                          subOccupancyOthersSpecify: formData.subOccupancyOthersSpecify,
-                          idChoice,
-                          newIdFile: formData.newIdFile,
-                          hasTctFile,
-                          tctFile: formData.tctFile,
-                          uploadedReqs2: uploadedRequirements && uploadedRequirements[2],
-                          scopeOthers2: formData.scopeOthers2,
-                          scopeOthers2Text1: formData.scopeOthers2Text1,
-                          scopeOthers2Text2: formData.scopeOthers2Text2,
-                          hasMissingFields
-                        });
+                        // 3. TCT Document Check
+                        if (!hasTctFile) {
+                          scrollToFirstInvalidField("field-tct-document", "Please upload the Certified True Copy of TCT covering the lot.");
+                          return;
+                        }
 
-                        console.log("Scope Texts details:", {
-                          addition: !!(formData.scopeAddition && !formData.scopeAdditionText),
-                          repair: !!(formData.scopeRepair && !formData.scopeRepairText),
-                          renovation: !!(formData.scopeRenovation && !formData.scopeRenovationText),
-                          others1: !!(formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2)),
-                          others2: !!(formData.scopeOthers2 && (!formData.scopeOthers2Text1 || !formData.scopeOthers2Text2))
-                        });
+                        // 4. Occupancy Category & Specific Options Check
+                        if (!formData.occupancyCategory) {
+                          scrollToFirstInvalidField("field-occupancy-category", "Please select an Occupancy Category.");
+                          return;
+                        }
+                        if (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) {
+                          scrollToFirstInvalidField("field-occupancy-category", "Please select at least one specific option under Occupancy Category.");
+                          return;
+                        }
+                        if ((formData.occupancyCategory === "Other Construction" || formData.selectedSubOccupancies.includes("Others (Specify)")) && !formData.subOccupancyOthersSpecify) {
+                          scrollToFirstInvalidField("field-sub-occupancy-others", "Please specify your occupancy use details.");
+                          return;
+                        }
 
-                        if (hasMissingFields) {
-                          setShowValidationErrors(true);
-                          toast.error("Please fill in all required fields marked with *.");
+                        // 5. Total Floors Check
+                        if (!formData.totalFloors || Number(formData.totalFloors) <= 0) {
+                          scrollToFirstInvalidField("field-total-floors", "Please enter the number of Total Floor(s).");
+                          return;
+                        }
+
+                        // 6. Estimated Cost Check
+                        if (!formData.estimatedCost || Number(formData.estimatedCost) <= 0) {
+                          scrollToFirstInvalidField("field-estimated-cost", "Please enter the Estimated Cost of the proposal.");
+                          return;
+                        }
+
+                        // 7. Location of Construction Checks
+                        if (!formData.locationHouseNumber) {
+                          scrollToFirstInvalidField("field-location-house-no", "Please enter the House/Lot No. for construction location.");
+                          return;
+                        }
+                        if (!formData.locationStreet) {
+                          scrollToFirstInvalidField("field-location-street", "Please enter the Street name for construction location.");
+                          return;
+                        }
+                        if (!formData.locationBarangay) {
+                          scrollToFirstInvalidField("field-location-barangay", "Please select the Barangay for construction location.");
+                          return;
+                        }
+
+                        // 8. Lot Owner Check
+                        if (!formData.isLotOwner) {
+                          scrollToFirstInvalidField("field-lot-owner", "Please indicate whether the applicant is the owner of the lot.");
+                          return;
+                        }
+                        if (formData.isLotOwner === "No" && !formData.propertyRelationship) {
+                          scrollToFirstInvalidField("field-property-relationship", "Please select your relationship to the property.");
                           return;
                         }
 

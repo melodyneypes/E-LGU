@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { 
     Truck, 
-    Trash2, 
     Plus, 
     Pencil, 
     PhoneCall, 
@@ -218,24 +217,7 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
         }
     };
 
-    // Delete Ambulance
-    const handleDeleteAmbulance = async (idx: number) => {
-        const unitName = fleet[idx]?.unit || "Ambulance unit";
-        if (!confirm(`Are you sure you want to remove ${unitName}?`)) return;
 
-        const updatedFleet = fleet.filter((_, i) => i !== idx);
-        try {
-            const res = await updateAmbulanceSettings(updatedFleet, hotlines);
-            if (res.success) {
-                setFleet(updatedFleet);
-                toast.success(`${unitName} removed successfully.`);
-            } else {
-                toast.error(res.error || "Failed to remove unit.");
-            }
-        } catch {
-            toast.error("Failed to delete unit.");
-        }
-    };
 
     // Quick Status Change on card
     const handleQuickStatusChange = async (idx: number, newStatus: string) => {
@@ -322,25 +304,6 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
             toast.error("An error occurred while saving hotline.");
         } finally {
             setIsSavingModal(false);
-        }
-    };
-
-    // Delete Hotline
-    const handleDeleteHotline = async (idx: number) => {
-        const name = hotlines[idx]?.name || "Hotline";
-        if (!confirm(`Are you sure you want to remove ${name}?`)) return;
-
-        const updatedHotlines = hotlines.filter((_, i) => i !== idx);
-        try {
-            const res = await updateAmbulanceSettings(fleet, updatedHotlines);
-            if (res.success) {
-                setHotlines(updatedHotlines);
-                toast.success(`${name} removed successfully.`);
-            } else {
-                toast.error(res.error || "Failed to remove hotline.");
-            }
-        } catch {
-            toast.error("Failed to delete hotline.");
         }
     };
 
@@ -506,14 +469,6 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                                         title="Edit ambulance unit"
                                                     >
                                                         <Pencil className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteAmbulance(idx)}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
-                                                        title="Delete ambulance unit"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
                                             )}
@@ -690,14 +645,6 @@ export default function AmbulanceSettingsClient({ isReadOnly = false, healthCent
                                                 title="Edit hotline"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteHotline(idx)}
-                                                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors"
-                                                title="Delete hotline"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                     )}

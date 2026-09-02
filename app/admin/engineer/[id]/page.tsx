@@ -2375,7 +2375,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                 </Dialog>
                                             ) : (
                                                 <div className="flex gap-2">
-                                                    <Button onClick={handleEvaluate} disabled={actionLoading} className="flex-1 h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
+                                                    <Button onClick={handleEvaluate} disabled={actionLoading} className="flex-1 h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-emerald-600/20">
                                                         {actionLoading ? "Processing..." : "Evaluate / Issue Record"}
                                                     </Button>
                                                     {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") && (

@@ -161,7 +161,7 @@ export function UploadStep({
           <span className="text-slate-800 dark:text-white">Upload Requirements & Documents</span>
         </h2>
         <p className="text-slate-500 font-medium text-xs md:text-sm uppercase tracking-widest">
-          Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 5MB each).
+          Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 15MB each).
         </p>
       </div>
 
@@ -169,7 +169,7 @@ export function UploadStep({
         <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
           <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
-            <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
+            <b>File Upload Rules:</b> Max 15MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
           </p>
         </div>
       </div>
@@ -268,7 +268,7 @@ export function UploadStep({
           const cleanDocName = docName.replace(/\s*\(Optional\)/gi, "").trim();
 
           return (
-            <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
+            <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
               <div className="flex justify-between items-start gap-4 mb-4">
                 <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
                   <div className="min-h-[40px] leading-tight">
@@ -357,7 +357,7 @@ export function UploadStep({
                     setViewerOpen(true);
                   }}
                   error={hasError}
-                  infoText="PDF / Image (Max 5MB)"
+                  infoText="PDF / Image (Max 15MB)"
                   disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
                 />
               </div>
@@ -451,7 +451,7 @@ export function UploadStep({
                 </div>
               </div>
             )}
-            <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
+            <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-1 ring-red-500/40" : "border border-slate-200 dark:border-white/10")}>
             <SignaturePad
               themeColor={themeColor}
               onSave={async (file: File | null) => {

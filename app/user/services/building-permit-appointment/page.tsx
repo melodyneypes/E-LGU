@@ -2155,67 +2155,81 @@ export default function BuildingPermitAppointmentPage() {
                         )) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
 
                           {/* New Construction */}
-                          <div className="flex items-center space-x-3 py-1">
+                          <div
+                            onClick={() => {
+                              if (!isEditable) return;
+                              const next = !formData.scopeNewConstruction;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: next,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center space-x-3 p-3 rounded-xl cursor-pointer transition-all border select-none",
+                              formData.scopeNewConstruction
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
                             <Checkbox
                               id="scope-new-con"
                               checked={formData.scopeNewConstruction}
                               disabled={!isEditable}
-                              onCheckedChange={checked => {
-                                if (checked) {
-                                  setFormData({
-                                    ...formData,
-                                    scopeNewConstruction: true,
-                                    scopeAddition: false,
-                                    scopeAdditionText: "",
-                                    scopeRepair: false,
-                                    scopeRepairText: "",
-                                    scopeRenovation: false,
-                                    scopeRenovationText: "",
-                                    scopeDemolition: false,
-                                    scopeDemolitionText: "",
-                                    scopeOthers1: false,
-                                    scopeOthers1Text1: "",
-                                    scopeOthers1Text2: ""
-                                  });
-                                } else {
-                                  setFormData({ ...formData, scopeNewConstruction: false });
-                                }
-                              }}
+                              className="pointer-events-none"
                             />
-                            <label htmlFor="scope-new-con" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                            <label htmlFor="scope-new-con" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                               New Construction
                             </label>
                           </div>
 
                           {/* Addition Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeAddition;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: next,
+                                scopeAdditionText: next ? formData.scopeAdditionText : "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeAddition
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-addition"
                                 checked={formData.scopeAddition}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: true,
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeAddition: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-addition" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-addition" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Addition of
                               </label>
                             </div>
@@ -2223,43 +2237,53 @@ export default function BuildingPermitAppointmentPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeAdditionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeAdditionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeAdditionText}
                                 onChange={e => setFormData({ ...formData, scopeAdditionText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Repair Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeRepair;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: next,
+                                scopeRepairText: next ? formData.scopeRepairText : "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeRepair
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-repair"
                                 checked={formData.scopeRepair}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: true,
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRepair: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-repair" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-repair" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Repair of
                               </label>
                             </div>
@@ -2267,43 +2291,53 @@ export default function BuildingPermitAppointmentPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRepairText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeRepairText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeRepairText}
                                 onChange={e => setFormData({ ...formData, scopeRepairText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Renovation Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeRenovation;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: next,
+                                scopeRenovationText: next ? formData.scopeRenovationText : "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: false,
+                                scopeOthers1Text1: "",
+                                scopeOthers1Text2: ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl cursor-pointer transition-all border",
+                              formData.scopeRenovation
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-renovation"
                                 checked={formData.scopeRenovation}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: true,
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeRenovation: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-renovation" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
+                              <label htmlFor="scope-renovation" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Renovation of
                               </label>
                             </div>
@@ -2311,62 +2345,76 @@ export default function BuildingPermitAppointmentPage() {
                               <input
                                 type="text"
                                 placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeRenovationText}
                                 onChange={e => setFormData({ ...formData, scopeRenovationText: e.target.value })}
+                                onClick={e => e.stopPropagation()}
                                 disabled={!isEditable}
+                                autoFocus
                               />
                             )}
                           </div>
 
                           {/* Others Specify */}
-                          <div className="flex flex-col gap-2 py-1 border-t border-slate-100 dark:border-white/5 pt-2">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            onClick={(e) => {
+                              if (!isEditable) return;
+                              if ((e.target as HTMLElement).tagName === "INPUT" && (e.target as HTMLElement).getAttribute("type") === "text") return;
+                              const next = !formData.scopeOthers1;
+                              setFormData({
+                                ...formData,
+                                scopeNewConstruction: false,
+                                scopeAddition: false,
+                                scopeAdditionText: "",
+                                scopeRepair: false,
+                                scopeRepairText: "",
+                                scopeRenovation: false,
+                                scopeRenovationText: "",
+                                scopeDemolition: false,
+                                scopeDemolitionText: "",
+                                scopeOthers1: next,
+                                scopeOthers1Text1: next ? formData.scopeOthers1Text1 : "",
+                                scopeOthers1Text2: next ? formData.scopeOthers1Text2 : ""
+                              });
+                            }}
+                            className={cn(
+                              "flex flex-col gap-2 p-3 rounded-xl cursor-pointer transition-all border border-t border-slate-100 dark:border-white/5",
+                              formData.scopeOthers1
+                                ? "bg-primary/10 border-primary/40 shadow-sm"
+                                : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3 select-none">
                               <Checkbox
                                 id="scope-others-1"
                                 checked={formData.scopeOthers1}
                                 disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: false,
-                                      scopeDemolitionText: "",
-                                      scopeOthers1: true
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeOthers1: false });
-                                  }
-                                }}
+                                className="pointer-events-none"
                               />
-                              <label htmlFor="scope-others-1" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0 font-bold text-slate-500">
+                              <label htmlFor="scope-others-1" className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
                                 Others (Specify)
                               </label>
                             </div>
                             {formData.scopeOthers1 && (
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pl-6">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pl-6 pt-1">
                                 <input
                                   type="text"
                                   placeholder="Specify item"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text1) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeOthers1Text1) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                   value={formData.scopeOthers1Text1}
                                   onChange={e => setFormData({ ...formData, scopeOthers1Text1: e.target.value })}
+                                  onClick={e => e.stopPropagation()}
                                   disabled={!isEditable}
+                                  autoFocus
                                 />
-                                <span className="text-xs text-slate-400 self-center">OF</span>
+                                <span className="text-xs text-slate-400 font-bold self-center">OF</span>
                                 <input
                                   type="text"
                                   placeholder="Specify category/structure"
-                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeOthers1Text2) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
+                                  className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-text", (showValidationErrors && !formData.scopeOthers1Text2) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                   value={formData.scopeOthers1Text2}
                                   onChange={e => setFormData({ ...formData, scopeOthers1Text2: e.target.value })}
+                                  onClick={e => e.stopPropagation()}
                                   disabled={!isEditable}
                                 />
                               </div>
@@ -2465,28 +2513,37 @@ export default function BuildingPermitAppointmentPage() {
                                 {OCCUPANCY_OPTIONS[formData.occupancyCategory]?.map((opt) => {
                                   const isChecked = formData.selectedSubOccupancies.includes(opt.label) || (formData.occupancyCategory === "Other Construction" && opt.label === "Specify");
                                   return (
-                                    <div key={opt.code} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                    <div
+                                      key={opt.code}
+                                      onClick={() => {
+                                        if (!isEditable) return;
+                                        if (formData.occupancyCategory !== "Other Construction") {
+                                          const next = !isChecked;
+                                          setFormData({
+                                            ...formData,
+                                            selectedSubOccupancies: next ? [opt.label] : [],
+                                            ...(opt.label !== "Others (Specify)" && { subOccupancyOthersSpecify: "" })
+                                          });
+                                        }
+                                      }}
+                                      className={cn(
+                                        "flex items-center space-x-3 p-3 rounded-xl border transition-all cursor-pointer select-none",
+                                        isChecked
+                                          ? "bg-primary/10 border-primary/40 text-primary shadow-sm"
+                                          : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300"
+                                      )}
+                                    >
                                       {formData.occupancyCategory !== "Other Construction" ? (
                                         <Checkbox
                                           id={`sub-occ-${opt.code}`}
                                           checked={isChecked}
                                           disabled={!isEditable}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              setFormData({
-                                                ...formData,
-                                                selectedSubOccupancies: [opt.label],
-                                                ...(opt.label !== "Others (Specify)" && { subOccupancyOthersSpecify: "" })
-                                              });
-                                            } else {
-                                              setFormData({ ...formData, selectedSubOccupancies: [] });
-                                            }
-                                          }}
+                                          className="pointer-events-none"
                                         />
                                       ) : (
                                         <div className="w-2.5 h-2.5 rounded bg-primary shrink-0" />
                                       )}
-                                      <label htmlFor={`sub-occ-${opt.code}`} className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                                      <label htmlFor={`sub-occ-${opt.code}`} className="text-xs md:text-sm font-semibold cursor-pointer select-none">
                                         {opt.label}
                                       </label>
                                     </div>
@@ -2804,7 +2861,7 @@ export default function BuildingPermitAppointmentPage() {
                 <span className="text-slate-800 dark:text-white">Upload Requirements & Documents</span>
               </h2>
               <p className="text-slate-500 font-medium text-xs md:text-sm uppercase tracking-widest">
-                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 5MB each).
+                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 15MB each).
               </p>
             </div>
 
@@ -2812,7 +2869,7 @@ export default function BuildingPermitAppointmentPage() {
               <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
                 <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
+                  <b>File Upload Rules:</b> Max 15MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
                 </p>
               </div>
 

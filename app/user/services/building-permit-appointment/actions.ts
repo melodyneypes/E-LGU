@@ -101,7 +101,7 @@ export async function submitBuildingPermit(formData: FormData) {
     });
 
     // Validate magic numbers of all uploaded files in additionalData
-    const fileCheck = await validatePayloadFiles(additionalData);
+    const fileCheck = await validatePayloadFiles(additionalData, "building_permits");
     if (!fileCheck.success) {
       return { success: false, error: fileCheck.error || "File validation failed." };
     }
@@ -328,7 +328,7 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     }
 
     // Validate magic numbers of all uploaded files in additionalData
-    const fileCheck = await validatePayloadFiles(additionalData);
+    const fileCheck = await validatePayloadFiles(additionalData, "building_permits");
     if (!fileCheck.success) {
       return { success: false, error: fileCheck.error || "File validation failed." };
     }
