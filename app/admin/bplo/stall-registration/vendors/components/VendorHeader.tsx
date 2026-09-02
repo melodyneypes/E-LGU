@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useVendors } from "./VendorProvider";
-import { Users, Plus, Search, Store } from "lucide-react";
+import { Users, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

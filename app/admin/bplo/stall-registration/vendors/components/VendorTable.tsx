@@ -4,7 +4,7 @@ import React from "react";
 import { useVendors, VendorItem } from "./VendorProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Store, ChevronLeft, ChevronRight, User, CheckCircle2 } from "lucide-react";
+import { Edit, Trash2, Store, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";

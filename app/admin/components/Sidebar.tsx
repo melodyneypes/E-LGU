@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale,
-    FolderArchive, MessageSquareHeart, Tag
+    FolderArchive, MessageSquareHeart
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";

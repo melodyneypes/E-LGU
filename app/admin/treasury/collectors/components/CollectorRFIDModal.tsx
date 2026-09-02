@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CreditCard, Loader2, X, CheckCircle2, Ban } from "lucide-react";
+import { CreditCard, Loader2, X, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { bindCollectorRFID } from "../actions";
 
