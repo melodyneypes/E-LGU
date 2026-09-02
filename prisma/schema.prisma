@@ -564,28 +564,28 @@ model BarangayInfo {
 }
 
 model TransactionType {
-  id                   String        @id @default(cuid())
-  code                 String        @unique
+  id                   String                @id @default(cuid())
+  code                 String                @unique
   name                 String
   description          String?
-  level                Int           @default(1)
+  level                Int                   @default(1)
   category             String
-  baseFee              Float         @default(0)
-  deliveryFee          Float         @default(0)
-  isFixed              Boolean       @default(true)
-  requiresBusinessName Boolean       @default(false)
-  supportsECopy        Boolean       @default(false)
-  requiredDocs         Json          @default("[]")
-  formSchema           Json          @default("{}")
+  baseFee              Float                 @default(0)
+  deliveryFee          Float                 @default(0)
+  isFixed              Boolean               @default(true)
+  requiresBusinessName Boolean               @default(false)
+  supportsECopy        Boolean               @default(false)
+  requiredDocs         Json                  @default("[]")
+  formSchema           Json                  @default("{}")
   logicCode            String?
-  defaultFees          Json          @default("[]")
-  slaDays              Int           @default(3)
-  processorRole        UserRole      @default(TREASURY_STAFF)
-  isActive             Boolean       @default(true)
-  studentFee           Float?        @default(0)
-  lateFee              Float?        @default(0)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  defaultFees          Json                  @default("[]")
+  slaDays              Int                   @default(3)
+  processorRole        UserRole              @default(TREASURY_STAFF)
+  isActive             Boolean               @default(true)
+  studentFee           Float?                @default(0)
+  lateFee              Float?                @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   pickupAddress        String?
   processingTime       String?
   transactions         Transaction[]
@@ -646,11 +646,11 @@ model Transaction {
   marriageRegistration          MarriageRegistration?
   occupancyPermit               OccupancyPermit?
   payment                       Payment?
-  feedback                      TransactionFeedback?
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
   type                          TransactionType                @relation(fields: [typeId], references: [id])
   user                          User?                          @relation("ResidentTransactions", fields: [userId], references: [id])
+  feedback                      TransactionFeedback?
 
   @@index([userId])
   @@index([driverId])
@@ -1286,6 +1286,100 @@ model StallCollection {
   vendor          User?              @relation("VendorCollections", fields: [vendorId], references: [id])
 }
 
+model RHUAmbulance {
+  id                 String                      @id @default(cuid())
+  unit               String
+  plateNumber        String
+  station            String
+  status             String                      @default("STANDBY")
+  statusColor        String                      @default("text-emerald-500 bg-emerald-500/10 border-emerald-500/20")
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  assigned_center_id String?
+  assignedDriverId   String?
+  chassisNumber      String?
+  engineNumber       String?
+  orNumber           String?
+  crNumber           String?
+  registrationExpiry DateTime?
+  insuranceExpiry    DateTime?
+  schedules          AmbulanceDispatchSchedule[]
+  documents          AmbulanceDocument[]
+  drivers            AmbulanceDriver[]
+}
+
+model AmbulanceDocument {
+  id             String       @id @default(cuid())
+  ambulanceId    String
+  documentType   String
+  title          String
+  documentNumber String?
+  fileUrl        String
+  fileName       String?
+  fileSize       String?
+  fileType       String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  issuingAgency  String?
+  status         String       @default("VALID")
+  remarks        String?
+  uploadedBy     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  ambulance      RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+}
+
+model AmbulanceDriver {
+  id                  String                      @id @default(cuid())
+  name                String
+  contactNumber       String
+  licenseNumber       String
+  licenseExpiry       DateTime?
+  status              String                      @default("STANDBY")
+  dutyShift           String?                     @default("Day Shift (6:00 AM - 2:00 PM)")
+  emergencyContact    String?
+  notes               String?
+  photoUrl            String?
+  assignedAmbulanceId String?
+  assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id], onDelete: SetNull)
+  trips               AmbulanceDispatchSchedule[]
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  @@index([assignedAmbulanceId])
+  @@index([status])
+}
+
+model AmbulanceDispatchSchedule {
+  id                  String           @id @default(cuid())
+  title               String
+  dispatchType        String           @default("EMERGENCY_TRANSFER")
+  priority            String           @default("HIGH")
+  status              String           @default("SCHEDULED")
+  patientName         String?
+  patientContact      String?
+  pickupLocation      String
+  destination         String
+  scheduledDate       DateTime
+  departureTime       String?
+  returnTime          String?
+  ambulanceId         String?
+  ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id], onDelete: SetNull)
+  driverId            String?
+  driver              AmbulanceDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  medicStaff          String?
+  notes               String?
+  destinationHospital String?
+  requestedBy         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([scheduledDate])
+  @@index([ambulanceId])
+  @@index([driverId])
+  @@index([status])
+}
+
 model RHUAmbulanceHotline {
   id        String   @id @default(cuid())
   name      String
@@ -1378,6 +1472,179 @@ model AuditLog {
   @@index([action])
   @@index([entityType])
   @@index([createdAt])
+}
+
+model TransactionFeedback {
+  id                String           @id @default(cuid())
+  transactionId     String           @unique
+  userId            String?
+  rating            FeedbackRating
+  comment           String?
+  department        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  transactionTypeId String?
+  transaction       Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionType   TransactionType? @relation(fields: [transactionTypeId], references: [id])
+  user              User?            @relation("UserFeedbacks", fields: [userId], references: [id])
+
+  @@index([transactionTypeId])
+  @@index([department])
+  @@index([rating])
+  @@index([createdAt])
+}
+
+model MedicalAsset {
+  id                    String             @id @default(cuid())
+  assetTagNo            String             @unique
+  equipmentName         String
+  brand                 String?
+  serialNo              String?            @default("UNKNOWN/NONE")
+  category              PropertyCategory   @default(SEMI_EXPENDABLE)
+  acquisitionSource     AcquisitionSource  @default(STOCKROOM_ISSUANCE)
+  unitCost              Float              @default(0)
+  acquisitionDate       DateTime?          @default(now())
+  currentStatus         MedicalAssetStatus @default(IN_STOCKROOM)
+  currentFacility       String             @default("Main RHU")
+  assignedRoom          String             @default("Central Stockroom")
+  accountablePerson     String             @default("Unassigned")
+  accountableEmployeeId String?
+  documentReference     String?
+  photoUrl              String?
+  poReferenceNo         String?
+  roReferenceNo         String?
+  soReferenceNo         String?
+  discrepancyNotes      String?
+  defectDetails         String?
+  lastRepairDate        DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @default(now()) @updatedAt
+  quantity              Int                @default(1)
+  availableQty          Int                @default(1)
+
+  @@index([currentFacility])
+  @@index([currentStatus])
+  @@index([category])
+  @@index([assetTagNo])
+}
+
+model EquipmentPurchaseOrder {
+  id            String            @id @default(cuid())
+  poNumber      String            @unique
+  vendorName    String
+  vendorContact String?
+  totalAmount   Float             @default(0)
+  status        String            @default("DRAFT")
+  createdById   String?
+  createdByName String?
+  pdfUrl        String?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
+  items         EquipmentPOItem[]
+
+  @@index([poNumber])
+  @@index([status])
+}
+
+model EquipmentPOItem {
+  id            String                 @id @default(cuid())
+  poId          String
+  equipmentName String
+  brand         String?
+  quantity      Int                    @default(1)
+  unitCost      Float                  @default(0)
+  totalCost     Float                  @default(0)
+  receivedQty   Int                    @default(0)
+  status        String                 @default("PENDING")
+  po            EquipmentPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+}
+
+model EquipmentRequestOrder {
+  id                 String            @id @default(cuid())
+  roNumber           String            @unique
+  requestingFacility String
+  requestedRoom      String
+  requestedBy        String
+  requestedById      String?
+  status             String            @default("SUBMITTED")
+  justification      String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @default(now()) @updatedAt
+  items              EquipmentROItem[]
+
+  @@index([roNumber])
+  @@index([requestingFacility])
+}
+
+model EquipmentROItem {
+  id                String                @id @default(cuid())
+  roId              String
+  equipmentName     String
+  quantity          Int                   @default(1)
+  estimatedUnitCost Float?                @default(0)
+  urgency           String?               @default("NORMAL")
+  ro                EquipmentRequestOrder @relation(fields: [roId], references: [id], onDelete: Cascade)
+
+  @@index([roId])
+}
+
+model EquipmentStockTransfer {
+  id                String            @id @default(cuid())
+  soNumber          String            @unique
+  linkedRoNumber    String?
+  targetFacility    String
+  targetRoom        String
+  dispatchedBy      String
+  dispatchedById    String?
+  status            String            @default("DISPATCHED")
+  dispatchedAt      DateTime          @default(now())
+  receivedAt        DateTime?
+  receivedBy        String?
+  documentType      String?
+  documentReference String?
+  notes             String?
+  items             EquipmentSOItem[]
+
+  @@index([soNumber])
+  @@index([targetFacility])
+}
+
+model EquipmentSOItem {
+  id            String                 @id @default(cuid())
+  soId          String
+  assetId       String?
+  equipmentName String
+  brand         String?
+  serialNo      String?
+  quantity      Int                    @default(1)
+  unitCost      Float                  @default(0)
+  totalCost     Float                  @default(0)
+  status        String                 @default("DISPATCHED")
+  so            EquipmentStockTransfer @relation(fields: [soId], references: [id], onDelete: Cascade)
+
+  @@index([soId])
+}
+
+model EquipmentStockReturnTicket {
+  id                String    @id @default(cuid())
+  ticketNumber      String    @unique
+  soNumber          String
+  bhsFacility       String
+  returnedBy        String
+  missingQuantity   Int       @default(0)
+  defectiveQuantity Int       @default(0)
+  reasonNotes       String
+  status            String    @default("OPEN_INVESTIGATION")
+  resolutionNotes   String?
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  @@index([ticketNumber])
+  @@index([soNumber])
 }
 
 enum InventoryCategory {
@@ -1533,129 +1800,6 @@ enum FeedbackRating {
   FIVE
 }
 
-model RHUAmbulance {
-  id                 String                      @id @default(cuid())
-  unit               String
-  plateNumber        String
-  station            String
-  status             String                      @default("STANDBY")
-  statusColor        String                      @default("text-emerald-500 bg-emerald-500/10 border-emerald-500/20")
-  assigned_center_id String?
-  assignedDriverId   String?
-  chassisNumber      String?
-  engineNumber       String?
-  orNumber           String?
-  crNumber           String?
-  registrationExpiry DateTime?
-  insuranceExpiry    DateTime?
-  drivers            AmbulanceDriver[]
-  documents          AmbulanceDocument[]
-  schedules          AmbulanceDispatchSchedule[]
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
-}
-
-model AmbulanceDriver {
-  id                  String                      @id @default(cuid())
-  name                String
-  contactNumber       String
-  licenseNumber       String
-  licenseExpiry       DateTime?
-  status              String                      @default("STANDBY") // "ON_DUTY", "STANDBY", "ON_TRIP", "OFF_DUTY", "ON_LEAVE"
-  dutyShift           String?                     @default("Day Shift (6:00 AM - 2:00 PM)")
-  emergencyContact    String?
-  notes               String?
-  photoUrl            String?
-  assignedAmbulanceId String?
-  assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id], onDelete: SetNull)
-  trips               AmbulanceDispatchSchedule[]
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-
-  @@index([assignedAmbulanceId])
-  @@index([status])
-}
-
-model AmbulanceDocument {
-  id            String       @id @default(cuid())
-  ambulanceId   String
-  ambulance     RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
-  documentType  String       // "OR_CR", "OFFICIAL_RECEIPT", "CERTIFICATE_OF_REGISTRATION", "INSURANCE_POLICY", "EMISSION_TEST", "LTO_REGISTRATION", "MAINTENANCE_RECORD", "SPECIAL_PERMIT", "OTHER"
-  title         String
-  documentNumber String?     // e.g. "OR# 98213-LTO" or "CR# 54321-REG"
-  fileUrl       String       // Supabase / storage public URL
-  fileName      String?
-  fileSize      String?
-  fileType      String?      // "application/pdf", "image/png", etc.
-  issueDate     DateTime?
-  expiryDate    DateTime?    // Expiration tracker for OR/CR / Insurance / LTO
-  issuingAgency String?      // e.g. "Land Transportation Office", "GSIS"
-  status        String       @default("VALID") // "VALID", "EXPIRING_SOON", "EXPIRED", "ARCHIVED"
-  remarks       String?
-  uploadedBy    String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  @@index([ambulanceId])
-  @@index([documentType])
-  @@index([expiryDate])
-}
-
-model AmbulanceDispatchSchedule {
-  id                  String           @id @default(cuid())
-  title               String           // e.g. "Emergency Hospital Transfer to Region 1 Medical Center"
-  dispatchType        String           @default("EMERGENCY_TRANSFER") // "EMERGENCY_TRANSFER", "PATIENT_CONVEYANCE", "ROUTINE_STANDBY", "COMMUNITY_EVENT", "DRILL_EXERCISE", "VEHICLE_MAINTENANCE"
-  priority            String           @default("HIGH") // "CRITICAL", "HIGH", "NORMAL", "LOW"
-  status              String           @default("SCHEDULED") // "SCHEDULED", "DISPATCHED", "IN_TRANSIT", "COMPLETED", "CANCELLED"
-  patientName         String?
-  patientContact      String?
-  pickupLocation      String           // e.g. "Barangay Poblacion Zone 1"
-  destination         String           // e.g. "Pangasinan Provincial Hospital"
-  scheduledDate       DateTime
-  departureTime       String?          // e.g. "09:30 AM"
-  returnTime          String?          // e.g. "01:00 PM"
-  ambulanceId         String?
-  ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id], onDelete: SetNull)
-  driverId            String?
-  driver              AmbulanceDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  medicStaff          String?          // e.g. "Nurse Sarah, EMT Mark"
-  notes               String?
-  destinationHospital String?
-  requestedBy         String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-
-  @@index([scheduledDate])
-  @@index([ambulanceId])
-  @@index([driverId])
-  @@index([status])
-}
-
-model TransactionFeedback {
-  id                String           @id @default(cuid())
-  transactionId     String           @unique
-  transactionTypeId String?
-  userId            String?
-  rating            FeedbackRating
-  comment           String?
-  department        String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-
-  transaction       Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  transactionType   TransactionType? @relation(fields: [transactionTypeId], references: [id], onDelete: SetNull)
-  user              User?            @relation("UserFeedbacks", fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([transactionTypeId])
-  @@index([department])
-  @@index([rating])
-  @@index([createdAt])
-}
-
-// =========================================================================
-// RHU MEDICAL EQUIPMENT & STOCKROOM MONITORING SYSTEM
-// =========================================================================
-
 enum PropertyCategory {
   PPE
   SEMI_EXPENDABLE
@@ -1678,158 +1822,4 @@ enum MedicalAssetStatus {
   DEFECTIVE_FOR_REPAIR
   UNSERVICEABLE_FOR_CONDEMNATION
   CONDEMNED_DISPOSED
-}
-
-model MedicalAsset {
-  id                    String              @id @default(cuid())
-  assetTagNo            String              @unique // PROP-2026-RHU-0012
-  equipmentName         String
-  brand                 String?
-  serialNo              String?             @default("UNKNOWN/NONE")
-  category              PropertyCategory    @default(SEMI_EXPENDABLE)
-  acquisitionSource     AcquisitionSource   @default(STOCKROOM_ISSUANCE)
-  unitCost              Float               @default(0)
-  acquisitionDate       DateTime?           @default(now())
-  currentStatus         MedicalAssetStatus  @default(IN_STOCKROOM)
-  currentFacility       String              @default("Main RHU") // Main RHU or BHS <Name>
-  assignedRoom          String              @default("Central Stockroom") // e.g. Consultation Room 1, Treatment Room
-  accountablePerson     String              @default("Unassigned")
-  accountableEmployeeId String?
-  documentReference     String?             // PAR No. or ICS No.
-  photoUrl              String?
-  poReferenceNo         String?
-  roReferenceNo         String?
-  soReferenceNo         String?
-  discrepancyNotes      String?
-  defectDetails         String?
-  lastRepairDate        DateTime?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-
-  @@index([currentFacility])
-  @@index([currentStatus])
-  @@index([category])
-  @@index([assetTagNo])
-}
-
-model EquipmentPurchaseOrder {
-  id            String               @id @default(cuid())
-  poNumber      String               @unique // PO-2026-RHU-0004
-  vendorName    String
-  vendorContact String?
-  totalAmount   Float                @default(0)
-  status        String               @default("DRAFT") // DRAFT, PRINTED_PDF, DELIVERED_INTAKE, CANCELLED
-  createdById   String?
-  createdByName String?
-  pdfUrl        String?
-  notes         String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  items         EquipmentPOItem[]
-
-  @@index([poNumber])
-  @@index([status])
-}
-
-model EquipmentPOItem {
-  id            String                 @id @default(cuid())
-  poId          String
-  equipmentName String
-  brand         String?
-  quantity      Int                    @default(1)
-  unitCost      Float                  @default(0)
-  totalCost     Float                  @default(0)
-  receivedQty   Int                    @default(0)
-  status        String                 @default("PENDING") // PENDING, RECEIVED, DISCREPANCY
-  po            EquipmentPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-
-  @@index([poId])
-}
-
-model EquipmentRequestOrder {
-  id                 String              @id @default(cuid())
-  roNumber           String              @unique // RO-BHS-NILOMBOT-0012
-  requestingFacility String
-  requestedRoom      String
-  requestedBy        String
-  requestedById      String?
-  status             String              @default("SUBMITTED") // SUBMITTED, CONVERTED_TO_SO, REJECTED
-  justification      String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  items              EquipmentROItem[]
-
-  @@index([roNumber])
-  @@index([requestingFacility])
-  @@index([status])
-}
-
-model EquipmentROItem {
-  id                String                @id @default(cuid())
-  roId              String
-  equipmentName     String
-  quantity          Int                   @default(1)
-  estimatedUnitCost Float?                @default(0)
-  urgency           String?               @default("NORMAL")
-  ro                EquipmentRequestOrder @relation(fields: [roId], references: [id], onDelete: Cascade)
-
-  @@index([roId])
-}
-
-model EquipmentStockTransfer {
-  id                String              @id @default(cuid())
-  soNumber          String              @unique // SO-2026-RHU-0088
-  linkedRoNumber    String?
-  targetFacility    String
-  targetRoom        String
-  dispatchedBy      String
-  dispatchedById    String?
-  status            String              @default("DISPATCHED") // DISPATCHED, ACCEPTED_FULL, ACCEPTED_WITH_RETURN, CANCELLED
-  dispatchedAt      DateTime            @default(now())
-  receivedAt        DateTime?
-  receivedBy        String?
-  documentType      String?             // PAR or ICS
-  documentReference String?
-  notes             String?
-  items             EquipmentSOItem[]
-
-  @@index([soNumber])
-  @@index([targetFacility])
-  @@index([status])
-}
-
-model EquipmentSOItem {
-  id            String                 @id @default(cuid())
-  soId          String
-  assetId       String?
-  equipmentName String
-  brand         String?
-  serialNo      String?
-  quantity      Int                    @default(1)
-  unitCost      Float                  @default(0)
-  totalCost     Float                  @default(0)
-  status        String                 @default("DISPATCHED")
-  so            EquipmentStockTransfer @relation(fields: [soId], references: [id], onDelete: Cascade)
-
-  @@index([soId])
-}
-
-model EquipmentStockReturnTicket {
-  id                String    @id @default(cuid())
-  ticketNumber      String    @unique // SRT-2026-0001
-  soNumber          String
-  bhsFacility       String
-  returnedBy        String
-  missingQuantity   Int       @default(0)
-  defectiveQuantity Int       @default(0)
-  reasonNotes       String
-  status            String    @default("OPEN_INVESTIGATION") // OPEN_INVESTIGATION, REPLACED_RESOLVED, WRITTEN_OFF
-  resolutionNotes   String?
-  resolvedAt        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([ticketNumber])
-  @@index([soNumber])
-  @@index([status])
 }
