@@ -87,16 +87,19 @@ export function EmergencyReport({
     initialFleet = [],
     initialDispatchHotlines = [],
     showMap = true, 
-    isMaintenanceActive = false 
+    isMaintenanceActive = false,
+    themeColor = "var(--primary-theme, #2563eb)"
 }: { 
     initialHotlines?: InitialHotline[];
     initialFleet?: InitialAmbulance[];
     initialDispatchHotlines?: InitialDispatchHotline[];
     showMap?: boolean;
     isMaintenanceActive?: boolean;
+    themeColor?: string;
 }) {
     const [copied, setCopied] = React.useState<string | null>(null);
     const [copiedDispatch, setCopiedDispatch] = React.useState<string | null>(null);
+    const resolvedTheme = themeColor || "var(--primary-theme, #2563eb)";
     const [fleet, setFleet] = React.useState<InitialAmbulance[]>(
         (initialFleet.length > 0 ? initialFleet : defaultFleet).filter(v => v.status !== "INACTIVE")
     );
@@ -368,7 +371,14 @@ export function EmergencyReport({
                     {/* Section Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-slate-200 dark:border-white/10 relative z-10">
                         <div className="space-y-3">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest">
+                            <div 
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest"
+                                style={{
+                                    backgroundColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}1a` : `color-mix(in srgb, ${resolvedTheme} 10%, transparent)`,
+                                    borderColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}33` : `color-mix(in srgb, ${resolvedTheme} 20%, transparent)`,
+                                    color: resolvedTheme
+                                }}
+                            >
                                 <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
                             </div>
                             <div className="flex items-center gap-3">
@@ -389,7 +399,11 @@ export function EmergencyReport({
                             </span>
                             <Link
                                 href="/user/services/rural-health-unit"
-                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white bg-primary hover:bg-primary/90 border border-primary/20 px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-primary/10"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white border px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-black/10 hover:opacity-90"
+                                style={{
+                                    backgroundColor: resolvedTheme,
+                                    borderColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}33` : `color-mix(in srgb, ${resolvedTheme} 20%, transparent)`
+                                }}
                             >
                                 <span>RHU Medical Hub</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -403,12 +417,25 @@ export function EmergencyReport({
                             {fleet.map((vehicle, idx) => (
                                 <div
                                     key={idx}
-                                    className="p-5 rounded-2xl md:rounded-3xl bg-slate-50/90 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-rose-500/30 hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-all flex flex-col justify-between space-y-4 group relative shadow-sm"
+                                    className="p-5 rounded-2xl md:rounded-3xl bg-slate-50/90 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-all flex flex-col justify-between space-y-4 group relative shadow-sm"
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = resolvedTheme.startsWith("#") ? `${resolvedTheme}4d` : `color-mix(in srgb, ${resolvedTheme} 30%, transparent)`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = "";
+                                    }}
                                 >
                                     <div className="space-y-3">
                                         {/* Unit Name & Plate */}
                                         <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
+                                            <div 
+                                                className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-all duration-300"
+                                                style={{
+                                                    backgroundColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}1a` : `color-mix(in srgb, ${resolvedTheme} 10%, transparent)`,
+                                                    borderColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}33` : `color-mix(in srgb, ${resolvedTheme} 20%, transparent)`,
+                                                    color: resolvedTheme
+                                                }}
+                                            >
                                                 <Truck className="w-5 h-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -423,7 +450,7 @@ export function EmergencyReport({
 
                                         {/* Station */}
                                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100/70 dark:bg-white/[0.01] p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
-                                            <MapPin className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 shrink-0" />
+                                            <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: resolvedTheme }} />
                                             <span className="truncate">{vehicle.station || "Main Station"}</span>
                                         </div>
                                     </div>
@@ -447,7 +474,7 @@ export function EmergencyReport({
                         {/* Direct Emergency Dispatch Contact Directory */}
                         <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-3">
                             <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 italic flex items-center gap-2">
-                                <PhoneCall className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
+                                <PhoneCall className="w-3.5 h-3.5" style={{ color: resolvedTheme }} /> Direct Ambulance & Emergency Dispatch Lines (Click to Call)
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 {dispatchHotlines.map((hotline, idx) => {
@@ -467,20 +494,31 @@ export function EmergencyReport({
                                             key={idx}
                                             href={`tel:${cleanNumber}`}
                                             onClick={() => handleDispatchCall(hotline.number)}
-                                            className="p-4 bg-slate-50/90 dark:bg-white/[0.02] hover:bg-rose-500/5 dark:hover:bg-rose-500/5 border border-slate-200 dark:border-white/10 hover:border-rose-500/40 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline shadow-sm"
+                                            className="p-4 bg-slate-50/90 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl cursor-pointer flex items-center gap-3 transition-all duration-200 group active:scale-[0.98] no-underline shadow-sm hover:bg-slate-100/80 dark:hover:bg-white/[0.04]"
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.borderColor = resolvedTheme.startsWith("#") ? `${resolvedTheme}66` : `color-mix(in srgb, ${resolvedTheme} 40%, transparent)`;
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.borderColor = "";
+                                            }}
                                         >
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
-                                                isCopied 
-                                                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
-                                                    : "bg-rose-500/10 text-rose-500 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white"
-                                            )}>
+                                            <div 
+                                                className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+                                                    isCopied 
+                                                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20" 
+                                                        : ""
+                                                )}
+                                                style={!isCopied ? {
+                                                    backgroundColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}1a` : `color-mix(in srgb, ${resolvedTheme} 10%, transparent)`,
+                                                    color: resolvedTheme
+                                                } : undefined}
+                                            >
                                                 <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <span className={cn(
-                                                    "text-[9px] font-black uppercase tracking-wider block truncate transition-colors",
-                                                    isCopied ? "text-emerald-600 dark:text-emerald-500" : "text-slate-500 dark:text-slate-400 group-hover:text-rose-500 dark:group-hover:text-rose-400"
+                                                    "text-[9px] font-black uppercase tracking-wider block truncate transition-colors text-slate-500 dark:text-slate-400"
                                                 )}>
                                                     {hotline.name}
                                                 </span>

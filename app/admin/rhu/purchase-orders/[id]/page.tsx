@@ -108,13 +108,13 @@ export default function PurchaseOrderDetail() {
                     if (found) {
                         setTx(found);
                     } else {
-                        throw new Error("Purchase order not found");
+                        throw new Error("Dispense record not found");
                     }
                 } else {
-                    throw new Error(res?.error || "Failed to load purchase orders");
+                    throw new Error(res?.error || "Failed to load dispense records");
                 }
             } catch (err: any) {
-                toast.error(err.message || "Error loading purchase order");
+                toast.error(err.message || "Error loading dispense record");
                 router.back();
             } finally {
                 setLoading(false);
@@ -157,7 +157,7 @@ export default function PurchaseOrderDetail() {
 
             doc.setFontSize(11);
             doc.setFont("helvetica", "normal");
-            doc.text(`PURCHASE ORDER VOUCHER (#${controlNo})`, 14, 28);
+            doc.text(`MEDICINE DISPENSE VOUCHER (#${controlNo})`, 14, 28);
             doc.text(`Patient Name: ${patientName}`, 14, 36);
             doc.text(`Barangay: ${resident.barangay || "Mapandan"}`, 14, 44);
             doc.text(`Dispensing Pharmacy / Center: ${healthCenterName}`, 14, 52);
@@ -171,8 +171,8 @@ export default function PurchaseOrderDetail() {
             const lines = doc.splitTextToSize(orders, 180);
             doc.text(lines, 14, 88);
 
-            doc.save(`PO_Voucher_${controlNo}.pdf`);
-            toast.success("PO Voucher exported successfully!");
+            doc.save(`Dispense_Voucher_${controlNo}.pdf`);
+            toast.success("Dispense Voucher exported successfully!");
         } catch (err) {
             console.error("PDF export error:", err);
             toast.error("Failed to generate PDF voucher.");
@@ -264,7 +264,7 @@ export default function PurchaseOrderDetail() {
                     onClick={() => router.push("/admin/rhu/purchase-orders")}
                     className="h-10 px-4 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all flex items-center gap-2 shadow-sm"
                 >
-                    <ArrowLeft className="w-4 h-4" /> Back to Purchase Orders
+                    <ArrowLeft className="w-4 h-4" /> Back to Dispense
                 </Button>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -273,7 +273,7 @@ export default function PurchaseOrderDetail() {
                         onClick={handlePrint}
                         className="h-10 px-4 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center gap-2 shadow-sm"
                     >
-                        <Printer className="w-3.5 h-3.5" style={{ color: themeColor }} /> Print PO
+                        <Printer className="w-3.5 h-3.5" style={{ color: themeColor }} /> Print Slip
                     </Button>
                     <Button
                         variant="outline"
@@ -321,7 +321,7 @@ export default function PurchaseOrderDetail() {
                                 <Building2 className="w-3.5 h-3.5" /> Municipality of Mapandan • RHU Pharmacy
                             </span>
                             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white print:text-slate-900 mt-0.5">
-                                Prescription Purchase Order Slip
+                                Prescription Medicine Dispense Slip
                             </h1>
                             <p className="text-xs text-slate-500 dark:text-slate-400 print:text-slate-600">
                                 Official Dispensing Summary & Dispenser Verification Record
@@ -331,7 +331,7 @@ export default function PurchaseOrderDetail() {
 
                     <div className="flex flex-col sm:items-end gap-2">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 print:bg-slate-100 print:border-slate-300">
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-slate-600">Ref / PO #</span>
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 print:text-slate-600">Ref / Dispense #</span>
                             <span className="font-mono text-sm font-black tracking-wider" style={{ color: themeColor }}>#{controlNo}</span>
                         </div>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${statusBg} print:border-slate-400 print:text-slate-800`}>
@@ -486,7 +486,7 @@ export default function PurchaseOrderDetail() {
                 <div className="pt-8 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-8 print:border-slate-300">
                     <div className="space-y-6">
                         <div className="flex items-center gap-2 text-xs text-slate-400 print:text-slate-600">
-                            <ShieldCheck className="w-4 h-4 text-teal-400" /> Authorized RHU Purchase Order Voucher
+                            <ShieldCheck className="w-4 h-4 text-teal-400" /> Authorized RHU Medicine Dispense Voucher
                         </div>
                         <div className="pt-6 border-b border-slate-700/60 w-48 print:border-slate-400" />
                         <p className="text-[10px] uppercase font-bold text-slate-400 print:text-slate-600">
