@@ -1538,38 +1538,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 </DialogContent>
             </Dialog>
 
-            {/* Confirm Delete Batch Dialog */}
-            <Dialog open={isDeleteBatchModalOpen} onOpenChange={setIsDeleteBatchModalOpen}>
-                <DialogContent className="sm:max-w-[420px] rounded-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-red-600">
-                            <AlertTriangle className="w-5 h-5 text-red-500" /> Confirm Batch Deletion
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                            Are you sure you want to delete Batch <strong className="text-slate-900 dark:text-slate-100">#{deletingBatchNo}</strong>? The batch stock will be removed and total stock recalculation will occur immediately.
-                        </DialogDescription>
-                    </DialogHeader>
 
-                    <DialogFooter className="pt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsDeleteBatchModalOpen(false)}
-                            className="rounded-xl text-xs h-9"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleConfirmDeleteBatch}
-                            disabled={isPending}
-                            className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs h-9 font-bold"
-                        >
-                            {isPending ? "Deleting..." : "Delete Batch"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Batch Stock Adjustment Modal Popup */}
             <Dialog open={isBatchAdjustModalOpen} onOpenChange={setIsBatchAdjustModalOpen}>
