@@ -25,7 +25,7 @@ export default async function RegistryPage() {
     const userRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department?.toUpperCase();
 
-    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY", "MAYOR"];
+    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY_OFFICER", "ADMIN_AIDE", "MAYOR"];
     const allowedDepartments = ["TREASURY", "LGU"];
 
     const isAllowedRole = allowedRoles.includes(userRole);

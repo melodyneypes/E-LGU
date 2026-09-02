@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Plus, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { updateStall } from "../actions/stalls.actions";
 
 interface OtherFeeItem {
@@ -18,7 +19,7 @@ interface OtherFeeItem {
 }
 
 export function EditStallModal() {
-    const { isEditOpen, setIsEditOpen, editingStall, stallTypes, vendors, themeColor, triggerRefresh } = useStalls();
+    const { isEditOpen, setIsEditOpen, editingStall, stallTypes, vendors, themeColor, triggerRefresh, setStalls } = useStalls();
 
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState("");
@@ -95,11 +96,14 @@ export function EditStallModal() {
         });
 
         setLoading(false);
-        if (res.success) {
+        if (res.success && res.data) {
+            // Instant Optimistic Update: 0ms delay in table and grid
+            setStalls((prev) => prev.map((s) => (s.id === editingStall.id ? (res.data as any) : s)));
+            toast.success(`Market Stall "${stallNumber}" updated successfully!`);
             setIsEditOpen(false);
             triggerRefresh();
         } else {
-            alert(res.error || "Failed to update stall");
+            toast.error(res.error || "Failed to update stall");
         }
     };
 

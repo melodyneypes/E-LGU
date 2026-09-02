@@ -33,8 +33,8 @@ export async function verifyMarketRegistryAccess(): Promise<SessionUser> {
     const accessiblePages = user.accessiblePages || [];
 
     const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
-    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || role === "ADMIN_AIDE" || department === "TREASURY";
-    const hasPageAccess = accessiblePages.includes("/admin/treasury/stalls/registry") || accessiblePages.includes("/admin/treasury/stalls");
+    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || role === "ADMIN_AIDE" || role === "MAYOR" || department === "TREASURY";
+    const hasPageAccess = accessiblePages.includes("/admin/treasury/registry") || accessiblePages.includes("/admin/treasury");
 
     if (!isLguAdmin && !isTreasury && !hasPageAccess) {
         throw new Error("Forbidden: You do not have permissions to manage Market Personnel Registry.");
@@ -140,8 +140,8 @@ export async function createMarketPersonnel(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging
         try {
@@ -237,8 +237,8 @@ export async function updateMarketPersonnel(
             data: updateData,
         });
 
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging with Precise Field Diffs
         try {
@@ -311,8 +311,8 @@ export async function deleteMarketPersonnel(userId: string) {
             where: { id: userId },
         });
 
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging with Recovery Snapshot
         try {

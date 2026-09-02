@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, ShoppingCart, Store, Scale,
-    FolderArchive, MessageSquareHeart
+    FolderArchive, MessageSquareHeart, Tag
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -75,7 +75,7 @@ export function Sidebar({
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [livePendingAnnouncementsCount, setLivePendingAnnouncementsCount] = React.useState(pendingAnnouncementsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
-    const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/treasury/stalls"));
+    const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/bplo/stall-registration"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
@@ -523,22 +523,8 @@ export function Sidebar({
                 { href: "/admin/treasury?category=POSO", label: "POSO Traffic Citations" },
             ]
         },
-        {
-            label: "Market Stalls",
-            icon: Store,
-            category: "Treasury Department",
-            isDropdown: true,
-            isOpen: isMarketStallsOpen,
-            onToggle: () => {
-                setIsMarketStallsOpen(!isMarketStallsOpen);
-            },
-            subItems: [
-                { href: "/admin/treasury/stalls", label: "All Market Stalls" },
-                { href: "/admin/treasury/stalls/types", label: "Market Sections" },
-                { href: "/admin/treasury/stalls/collections", label: "Daily Ticket Collections" },
-                { href: "/admin/treasury/stalls/registry", label: "Vendor & Collector Registry" },
-            ]
-        },
+        { href: "/admin/treasury/collections", label: "Daily Ticket Collections", icon: Store, category: "Treasury Department" },
+        { href: "/admin/treasury/registry", label: "Vendor & Collector Registry", icon: Users, category: "Treasury Department" },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
         { href: "/admin/treasury/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
@@ -557,6 +543,20 @@ export function Sidebar({
         { href: "/admin/assessor/archive", label: "Document Archives", icon: FolderArchive, category: "Assessor Office" },
         { href: "/admin/assessor/queue", label: "Assessor Queue", icon: Users, category: "Assessor Office" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
+        {
+            label: "Stall Registration",
+            icon: Store,
+            category: "BPLO Department",
+            isDropdown: true,
+            isOpen: isMarketStallsOpen,
+            onToggle: () => {
+                setIsMarketStallsOpen(!isMarketStallsOpen);
+            },
+            subItems: [
+                { href: "/admin/bplo/stall-registration", label: "All Market Stalls" },
+                { href: "/admin/bplo/stall-registration/types", label: "Market Sections" },
+            ]
+        },
         { href: "/admin/bplo/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "BPLO Department" },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "BPLO Department" },
@@ -667,7 +667,7 @@ export function Sidebar({
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
                     menuItems = allMenuItems.filter(item =>
-                        ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
+                        ["BPLO Permits", "Stall Registration", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
                         (item.label === "Citizen Feedback" && item.category === "BPLO Department")
                     );
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
@@ -678,7 +678,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        ["Treasury Hub", "Daily Ticket Collections", "Vendor & Collector Registry", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
@@ -710,7 +710,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Market Stalls", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                ["Treasury Hub", "Daily Ticket Collections", "Vendor & Collector Registry", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                 (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
@@ -720,7 +720,7 @@ export function Sidebar({
                 menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
             } else {
                 menuItems = allMenuItems.filter(item =>
-                    ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
+                    ["BPLO Permits", "Stall Registration", "BPLO Appointment Settings", "BPLO Queue", "BPLO Announcements"].includes(item.label) ||
                     (item.label === "Citizen Feedback" && item.category === "BPLO Department")
                 );
             }

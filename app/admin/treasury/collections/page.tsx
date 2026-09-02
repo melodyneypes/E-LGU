@@ -24,7 +24,7 @@ export default async function CollectionsPage() {
     const userDepartment = (session?.user as any)?.department?.toUpperCase();
     const userId = (session?.user as any)?.id;
 
-    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY", "MAYOR"];
+    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY_OFFICER", "ADMIN_AIDE", "MAYOR"];
     const allowedDepartments = ["TREASURY", "LGU"];
 
     const isAllowedRole = allowedRoles.includes(userRole);

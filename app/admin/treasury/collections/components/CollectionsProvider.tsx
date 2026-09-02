@@ -97,14 +97,12 @@ export function CollectionsProvider({
     themeColor: string;
     children: React.ReactNode;
 }) {
-    const todayStr = new Date().toISOString().split("T")[0];
-
     const [collections] = useState<CollectionRecord[]>(initialCollections);
     const [search, setSearch] = useState("");
     const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
     const [statusFilter, setStatusFilter] = useState("ALL");
-    const [startDate, setStartDate] = useState(todayStr);
-    const [endDate, setEndDate] = useState(todayStr);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
     const [selectedReceipt, setSelectedReceipt] = useState<CollectionRecord | null>(null);

@@ -19,7 +19,7 @@ interface SessionUser {
  * 1. SECURITY & PERMISSIONS GUARD
  * Enforces role clearances: ADMIN (LGU), TREASURY_STAFF, TREASURY_OFFICER, ADMIN_AIDE, or custom accessiblePages
  */
-export async function verifyTreasuryStallsAccess(): Promise<SessionUser> {
+export async function verifyBploStallsAccess(): Promise<SessionUser> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
         throw new Error("Unauthorized access. Please sign in.");
@@ -31,11 +31,12 @@ export async function verifyTreasuryStallsAccess(): Promise<SessionUser> {
     const accessiblePages = user.accessiblePages || [];
 
     const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
-    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || role === "ADMIN_AIDE" || department === "TREASURY";
-    const hasPageAccess = accessiblePages.includes("/admin/treasury/stalls");
+    const isBplo = role === "BPLO" || role === "BPLO_STAFF" || role === "BPLO_OFFICER" || role === "ADMIN_AIDE" || role === "MAYOR" || department === "BPLO";
+    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || department === "TREASURY";
+    const hasPageAccess = accessiblePages.includes("/admin/bplo/stall-registration") || accessiblePages.includes("/admin/bplo");
 
-    if (!isLguAdmin && !isTreasury && !hasPageAccess) {
-        throw new Error("Forbidden: You do not have permissions to manage Market Stalls.");
+    if (isTreasury || (!isLguAdmin && !isBplo && !hasPageAccess)) {
+        throw new Error("Forbidden: You do not have permissions to manage Market Stall Registration.");
     }
 
     return user;
@@ -50,7 +51,7 @@ export async function getStallDetails(id: string) {
             return { success: false, error: "Stall ID is required." };
         }
 
-        await verifyTreasuryStallsAccess();
+        await verifyBploStallsAccess();
 
         const stall = await (prisma as any).stall.findUnique({
             where: { id },
@@ -106,7 +107,7 @@ export async function createStall(data: {
     }[];
 }) {
     try {
-        const user = await verifyTreasuryStallsAccess();
+        const user = await verifyBploStallsAccess();
         const userName = user.name || user.email || "System";
 
         const stallNumber = data.stallNumber.trim();
@@ -146,9 +147,9 @@ export async function createStall(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls");
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls/collections");
+        revalidatePath("/admin/bplo/stall-registration");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/treasury/collections");
 
         // Audit Logging
         try {
@@ -207,7 +208,7 @@ export async function updateStall(
             return { success: false, error: "Stall ID is required." };
         }
 
-        const user = await verifyTreasuryStallsAccess();
+        const user = await verifyBploStallsAccess();
         const userName = user.name || user.email || "System";
 
         const existing = await (prisma as any).stall.findUnique({
@@ -268,9 +269,9 @@ export async function updateStall(
             return stallRecord;
         });
 
-        revalidatePath("/admin/treasury/stalls");
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls/collections");
+        revalidatePath("/admin/bplo/stall-registration");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/treasury/collections");
 
         // Audit Logging with Precise Field Diffs
         try {
@@ -351,7 +352,7 @@ export async function deleteStall(id: string) {
             return { success: false, error: "Stall ID is required." };
         }
 
-        await verifyTreasuryStallsAccess();
+        await verifyBploStallsAccess();
 
         const existing = await (prisma as any).stall.findUnique({
             where: { id },
@@ -377,9 +378,9 @@ export async function deleteStall(id: string) {
             });
         });
 
-        revalidatePath("/admin/treasury/stalls");
-        revalidatePath("/admin/treasury/stalls/registry");
-        revalidatePath("/admin/treasury/stalls/collections");
+        revalidatePath("/admin/bplo/stall-registration");
+        revalidatePath("/admin/treasury/registry");
+        revalidatePath("/admin/treasury/collections");
 
         // Audit Logging with Recovery Snapshot
         try {
@@ -415,7 +416,7 @@ export async function addStallOtherFee(data: {
     remarks?: string | null;
 }) {
     try {
-        await verifyTreasuryStallsAccess();
+        await verifyBploStallsAccess();
 
         const newFee = await (prisma as any).stallOtherFee.create({
             data: {
@@ -427,7 +428,7 @@ export async function addStallOtherFee(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: newFee };
     } catch (error: any) {
         console.error("[addStallOtherFee] Error:", error);
@@ -440,13 +441,13 @@ export async function addStallOtherFee(data: {
  */
 export async function deleteStallOtherFee(id: string) {
     try {
-        await verifyTreasuryStallsAccess();
+        await verifyBploStallsAccess();
 
         await (prisma as any).stallOtherFee.delete({
             where: { id },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true };
     } catch (error: any) {
         console.error("[deleteStallOtherFee] Error:", error);

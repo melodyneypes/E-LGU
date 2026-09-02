@@ -17,8 +17,8 @@ export async function createStallType(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: newStallType };
     } catch (error: any) {
         console.error("Failed to create stall type:", error);
@@ -44,8 +44,8 @@ export async function updateStallType(
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Failed to update stall type:", error);
@@ -71,8 +71,8 @@ export async function deleteStallType(id: string) {
             where: { id },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete stall type:", error);

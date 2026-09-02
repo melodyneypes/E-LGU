@@ -16,7 +16,7 @@ import { StallTypeDetailsModal } from "./components/StallTypeDetailsModal";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Market Sections & Types | Treasury Hub",
+    title: "Market Sections & Types | BPLO Hub",
     description: "Manage public market sections, stall categories, and base specifications.",
 };
 
@@ -25,14 +25,16 @@ export default async function StallTypesPage() {
     const userRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department?.toUpperCase();
 
-    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY", "MAYOR"];
-    const allowedDepartments = ["TREASURY", "LGU"];
+    // Only BPLO, Admin, Admin Aide, and Mayor are authorized. Treasury is blocked.
+    const allowedRoles = ["ADMIN", "ADMIN_AIDE", "BPLO", "BPLO_STAFF", "BPLO_OFFICER", "MAYOR"];
+    const allowedDepartments = ["BPLO", "LGU"];
 
     const isAllowedRole = allowedRoles.includes(userRole);
     const isAllowedDepartment = !userDepartment || allowedDepartments.includes(userDepartment);
+    const isTreasury = userRole === "TREASURY_STAFF" || userRole === "TREASURY_OFFICER" || userDepartment === "TREASURY";
 
-    if (!session || !isAllowedRole || !isAllowedDepartment) {
-        redirect("/auth/login");
+    if (!session || !isAllowedRole || !isAllowedDepartment || isTreasury) {
+        redirect("/admin/dashboard");
     }
 
     const [stallTypes, themeColor] = await Promise.all([

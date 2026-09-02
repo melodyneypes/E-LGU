@@ -50,7 +50,7 @@ export async function createStall(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: newStall };
     } catch (error: any) {
         console.error("Failed to create stall:", error);
@@ -116,7 +116,7 @@ export async function updateStall(
             }
         }
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Failed to update stall:", error);
@@ -130,7 +130,7 @@ export async function deleteStall(id: string) {
             where: { id },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete stall:", error);
@@ -156,7 +156,7 @@ export async function addStallOtherFee(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true, data: newFee };
     } catch (error: any) {
         console.error("Failed to add stall fee:", error);
@@ -170,7 +170,7 @@ export async function deleteStallOtherFee(id: string) {
             where: { id },
         });
 
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration");
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete stall fee:", error);

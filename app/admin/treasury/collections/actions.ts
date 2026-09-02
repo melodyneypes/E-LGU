@@ -45,7 +45,7 @@ export async function issueStallTicket(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/collections");
+        revalidatePath("/admin/treasury/collections");
         return { success: true, data: newCollection };
     } catch (error: any) {
         console.error("Failed to issue stall ticket:", error);
@@ -60,7 +60,7 @@ export async function cancelStallTicket(id: string) {
             data: { status: "CANCELLED" },
         });
 
-        revalidatePath("/admin/treasury/stalls/collections");
+        revalidatePath("/admin/treasury/collections");
         return { success: true };
     } catch (error: any) {
         console.error("Failed to cancel ticket:", error);

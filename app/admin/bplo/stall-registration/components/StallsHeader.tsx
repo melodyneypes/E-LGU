@@ -46,10 +46,10 @@ export function StallsHeader() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
-                            Market Stalls <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold not-italic">Registry</span>
+                            Stall <span className="text-primary italic">Registration</span> <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold not-italic">BPLO Portal</span>
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-0.5">
-                            {totalStalls} total stalls · {occupiedCount} occupied · {vacantCount} vacant
+                            {totalStalls} total stalls registered · {occupiedCount} occupied · {vacantCount} vacant
                         </p>
                     </div>
                 </div>

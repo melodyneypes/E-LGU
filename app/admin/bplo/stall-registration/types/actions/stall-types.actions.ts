@@ -19,7 +19,7 @@ interface SessionUser {
  * 1. SECURITY & PERMISSIONS GUARD
  * Enforces role clearances: ADMIN (LGU), TREASURY_STAFF, TREASURY_OFFICER, ADMIN_AIDE, or custom accessiblePages
  */
-export async function verifyTreasuryStallTypesAccess(): Promise<SessionUser> {
+export async function verifyBploStallTypesAccess(): Promise<SessionUser> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
         throw new Error("Unauthorized access. Please sign in.");
@@ -31,10 +31,11 @@ export async function verifyTreasuryStallTypesAccess(): Promise<SessionUser> {
     const accessiblePages = user.accessiblePages || [];
 
     const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
-    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || role === "ADMIN_AIDE" || department === "TREASURY";
-    const hasPageAccess = accessiblePages.includes("/admin/treasury/stalls/types") || accessiblePages.includes("/admin/treasury/stalls");
+    const isBplo = role === "BPLO" || role === "BPLO_STAFF" || role === "BPLO_OFFICER" || role === "ADMIN_AIDE" || role === "MAYOR" || department === "BPLO";
+    const isTreasury = role === "TREASURY_STAFF" || role === "TREASURY_OFFICER" || department === "TREASURY";
+    const hasPageAccess = accessiblePages.includes("/admin/bplo/stall-registration/types") || accessiblePages.includes("/admin/bplo/stall-registration") || accessiblePages.includes("/admin/bplo");
 
-    if (!isLguAdmin && !isTreasury && !hasPageAccess) {
+    if (isTreasury || (!isLguAdmin && !isBplo && !hasPageAccess)) {
         throw new Error("Forbidden: You do not have permissions to manage Market Stall Types.");
     }
 
@@ -46,7 +47,7 @@ export async function verifyTreasuryStallTypesAccess(): Promise<SessionUser> {
  */
 export async function getStallTypes() {
     try {
-        await verifyTreasuryStallTypesAccess();
+        await verifyBploStallTypesAccess();
 
         const stallTypes = await (prisma as any).stallType.findMany({
             select: {
@@ -79,7 +80,7 @@ export async function getStallTypeById(id: string) {
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyTreasuryStallTypesAccess();
+        await verifyBploStallTypesAccess();
 
         const stallType = await (prisma as any).stallType.findUnique({
             where: { id },
@@ -116,7 +117,7 @@ export async function createStallType(data: {
     description?: string | null;
 }) {
     try {
-        await verifyTreasuryStallTypesAccess();
+        await verifyBploStallTypesAccess();
 
         const code = data.code.trim().toUpperCase();
         const name = data.name.trim();
@@ -146,8 +147,8 @@ export async function createStallType(data: {
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging
         try {
@@ -190,7 +191,7 @@ export async function updateStallType(
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyTreasuryStallTypesAccess();
+        await verifyBploStallTypesAccess();
 
         const existing = await (prisma as any).stallType.findUnique({
             where: { id },
@@ -223,8 +224,8 @@ export async function updateStallType(
             },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging with Precise Field Diffs
         try {
@@ -276,7 +277,7 @@ export async function deleteStallType(id: string) {
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyTreasuryStallTypesAccess();
+        await verifyBploStallTypesAccess();
 
         const existing = await (prisma as any).stallType.findUnique({
             where: { id },
@@ -302,8 +303,8 @@ export async function deleteStallType(id: string) {
             where: { id },
         });
 
-        revalidatePath("/admin/treasury/stalls/types");
-        revalidatePath("/admin/treasury/stalls");
+        revalidatePath("/admin/bplo/stall-registration/types");
+        revalidatePath("/admin/bplo/stall-registration");
 
         // Audit Logging with Recovery Snapshot
         try {

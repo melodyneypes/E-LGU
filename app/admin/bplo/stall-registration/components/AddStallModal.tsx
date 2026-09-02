@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Store, Plus, Trash2, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { createStall } from "../actions/stalls.actions";
 
 interface OtherFeeInput {
@@ -18,7 +19,7 @@ interface OtherFeeInput {
 }
 
 export function AddStallModal() {
-    const { isAddOpen, setIsAddOpen, stallTypes, vendors, themeColor, triggerRefresh } = useStalls();
+    const { isAddOpen, setIsAddOpen, stallTypes, vendors, themeColor, triggerRefresh, setStalls } = useStalls();
 
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState(stallTypes[0]?.id || "");
@@ -95,15 +96,22 @@ export function AddStallModal() {
         });
 
         setLoading(false);
-        if (res.success) {
+        if (res.success && res.data) {
+            // Instant Optimistic Insertion: 0ms delay in table and grid
+            setStalls((prev) => [res.data as any, ...prev]);
+            toast.success(`Market Stall "${stallNumber}" created successfully!`);
             setIsAddOpen(false);
             setStallNumber("");
             setVendorId("NONE");
             setVendorSearch("");
+            setDailyRate("");
+            setMonthlyRate("");
+            setDailyRateOverdueFee("");
+            setMonthlyRateOverdueFee("");
             setOtherFees([]);
             triggerRefresh();
         } else {
-            alert(res.error || "Failed to create stall");
+            toast.error(res.error || "Failed to create stall");
         }
     };
 

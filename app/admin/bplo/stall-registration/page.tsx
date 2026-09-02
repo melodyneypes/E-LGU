@@ -17,8 +17,8 @@ import { StallsMainView } from "./components/StallsMainView";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Market Stalls Registry | Treasury Hub",
-    description: "Manage municipal public market stalls, rates, and vendor assignments.",
+    title: "Market Stall Registration | BPLO Hub",
+    description: "Manage municipal public market stalls, rates, and vendor registrations.",
 };
 
 export default async function StallsPage() {
@@ -26,14 +26,16 @@ export default async function StallsPage() {
     const userRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department?.toUpperCase();
 
-    const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY", "MAYOR"];
-    const allowedDepartments = ["TREASURY", "LGU"];
+    // Only BPLO, Admin, Admin Aide, and Mayor are authorized. Treasury is blocked.
+    const allowedRoles = ["ADMIN", "ADMIN_AIDE", "BPLO", "BPLO_STAFF", "BPLO_OFFICER", "MAYOR"];
+    const allowedDepartments = ["BPLO", "LGU"];
 
     const isAllowedRole = allowedRoles.includes(userRole);
     const isAllowedDepartment = !userDepartment || allowedDepartments.includes(userDepartment);
+    const isTreasury = userRole === "TREASURY_STAFF" || userRole === "TREASURY_OFFICER" || userDepartment === "TREASURY";
 
-    if (!session || !isAllowedRole || !isAllowedDepartment) {
-        redirect("/auth/login");
+    if (!session || !isAllowedRole || !isAllowedDepartment || isTreasury) {
+        redirect("/admin/dashboard");
     }
 
     const [stalls, stallTypes, vendors, themeColor] = await Promise.all([
