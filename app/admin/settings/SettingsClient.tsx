@@ -223,16 +223,16 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                 <TabsList className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-[1.2rem] h-auto mb-8 flex flex-wrap gap-1">
                     {isAdmin && (
                         <>
-                            <TabsTrigger 
-                                value="general" 
+                            <TabsTrigger
+                                value="general"
                                 style={activeTab === "general" ? { backgroundColor: themeColor, color: "white" } : undefined}
                                 className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
                             >
                                 <Globe className="w-3.5 h-3.5 mr-2" />
                                 General
                             </TabsTrigger>
-                            <TabsTrigger 
-                                value="credentials" 
+                            <TabsTrigger
+                                value="credentials"
                                 style={activeTab === "credentials" ? { backgroundColor: themeColor, color: "white" } : undefined}
                                 className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
                             >
@@ -241,8 +241,8 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                             </TabsTrigger>
                         </>
                     )}
-                    <TabsTrigger 
-                        value="hero" 
+                    <TabsTrigger
+                        value="hero"
                         style={activeTab === "hero" ? { backgroundColor: themeColor, color: "white" } : undefined}
                         className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
                     >
@@ -251,8 +251,8 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                     </TabsTrigger>
 
                     {isAdmin && (
-                        <TabsTrigger 
-                            value="sections" 
+                        <TabsTrigger
+                            value="sections"
                             style={activeTab === "sections" ? { backgroundColor: themeColor, color: "white" } : undefined}
                             className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
                         >
@@ -276,69 +276,69 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                 <CardContent className="p-6 space-y-8">
                                     {/* Maintenance Mode */}
                                     <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-200 dark:border-amber-900/50">
-                                         <div className="space-y-1">
-                                             <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
-                                                 <ShieldAlert className="w-4 h-4" />
-                                                 Maintenance Mode
-                                             </Label>
-                                             <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
-                                                 Redirects all public visitors to the maintenance page.
-                                             </p>
-                                         </div>
-                                         <Switch
-                                             checked={maintenanceMode}
-                                             onCheckedChange={async (checked) => {
-                                                 setMaintenanceMode(checked);
-                                                 try {
-                                                     const res = await updateGeneralSettingToggle("maintenance_mode", checked.toString());
-                                                     if (res.success) {
-                                                         toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                         router.refresh();
-                                                     } else {
-                                                         toast.error(res.error || "Failed to update maintenance mode");
-                                                         setMaintenanceMode(!checked);
-                                                     }
-                                                 } catch {
-                                                     toast.error("Failed to update maintenance mode");
-                                                     setMaintenanceMode(!checked);
-                                                 }
-                                             }}
-                                             className="data-[state=checked]:bg-amber-600"
-                                         />
-                                     </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-base font-bold text-amber-900 dark:text-amber-400 flex items-center gap-2">
+                                                <ShieldAlert className="w-4 h-4" />
+                                                Maintenance Mode
+                                            </Label>
+                                            <p className="text-sm text-amber-700 dark:text-amber-500/80 italic">
+                                                Redirects all public visitors to the maintenance page.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={maintenanceMode}
+                                            onCheckedChange={async (checked) => {
+                                                setMaintenanceMode(checked);
+                                                try {
+                                                    const res = await updateGeneralSettingToggle("maintenance_mode", checked.toString());
+                                                    if (res.success) {
+                                                        toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                        router.refresh();
+                                                    } else {
+                                                        toast.error(res.error || "Failed to update maintenance mode");
+                                                        setMaintenanceMode(!checked);
+                                                    }
+                                                } catch {
+                                                    toast.error("Failed to update maintenance mode");
+                                                    setMaintenanceMode(!checked);
+                                                }
+                                            }}
+                                            className="data-[state=checked]:bg-amber-600"
+                                        />
+                                    </div>
 
-                                     {/* Kiosk Maintenance Mode */}
-                                     <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
-                                         <div className="space-y-1">
-                                             <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
-                                                 <ShieldAlert className="w-4 h-4" />
-                                                 Kiosk Maintenance Mode
-                                             </Label>
-                                             <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
-                                                 Puts all local physical kiosk terminals into maintenance mode.
-                                             </p>
-                                         </div>
-                                         <Switch
-                                             checked={kioskMaintenanceMode}
-                                             onCheckedChange={async (checked) => {
-                                                 setKioskMaintenanceMode(checked);
-                                                 try {
-                                                     const res = await updateGeneralSettingToggle("kiosk_maintenance_mode", checked.toString());
-                                                     if (res.success) {
-                                                         toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
-                                                         router.refresh();
-                                                     } else {
-                                                         toast.error(res.error || "Failed to update kiosk maintenance mode");
-                                                         setKioskMaintenanceMode(!checked);
-                                                     }
-                                                 } catch {
-                                                     toast.error("Failed to update kiosk maintenance mode");
-                                                     setKioskMaintenanceMode(!checked);
-                                                 }
-                                             }}
-                                             className="data-[state=checked]:bg-orange-600"
-                                         />
-                                     </div>
+                                    {/* Kiosk Maintenance Mode */}
+                                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
+                                        <div className="space-y-1">
+                                            <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
+                                                <ShieldAlert className="w-4 h-4" />
+                                                Kiosk Maintenance Mode
+                                            </Label>
+                                            <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
+                                                Puts all local physical kiosk terminals into maintenance mode.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={kioskMaintenanceMode}
+                                            onCheckedChange={async (checked) => {
+                                                setKioskMaintenanceMode(checked);
+                                                try {
+                                                    const res = await updateGeneralSettingToggle("kiosk_maintenance_mode", checked.toString());
+                                                    if (res.success) {
+                                                        toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                        router.refresh();
+                                                    } else {
+                                                        toast.error(res.error || "Failed to update kiosk maintenance mode");
+                                                        setKioskMaintenanceMode(!checked);
+                                                    }
+                                                } catch {
+                                                    toast.error("Failed to update kiosk maintenance mode");
+                                                    setKioskMaintenanceMode(!checked);
+                                                }
+                                            }}
+                                            className="data-[state=checked]:bg-orange-600"
+                                        />
+                                    </div>
 
                                     {/* Site Logo */}
                                     <div className="space-y-4">
@@ -593,8 +593,8 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                         </div>
                                     </div>
                                 </CardContent>
-                                </Card>
-                            </TabsContent>
+                            </Card>
+                        </TabsContent>
 
                         <TabsContent value="credentials" className="space-y-6">
                             <Card className="border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
@@ -670,10 +670,10 @@ function HeroSlidesManager({
 
     const handleConfirmDelete = async () => {
         if (!slideToDelete) return;
-        
+
         const targetId = slideToDelete.id;
         const previousSlides = [...slides];
-        
+
         // Optimistic UI Removal
         setSlides(prev => prev.filter(s => s.id !== targetId));
         setIsDeleting(true);
@@ -711,8 +711,8 @@ function HeroSlidesManager({
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Active Slides</h3>
-                <Button 
-                    onClick={handleAdd} 
+                <Button
+                    onClick={handleAdd}
                     style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                     className="text-white rounded-full px-6 gap-2 hover:opacity-90 transition-opacity"
                 >
@@ -723,12 +723,12 @@ function HeroSlidesManager({
 
             <div className="grid grid-cols-1 gap-6">
                 {slides.map((slide) => (
-                    <SlideEditor 
-                        key={slide.id} 
-                        slide={slide} 
-                        onEdit={() => handleEdit(slide)} 
-                        onDelete={() => setSlideToDelete(slide)} 
-                        themeColor={themeColor} 
+                    <SlideEditor
+                        key={slide.id}
+                        slide={slide}
+                        onEdit={() => handleEdit(slide)}
+                        onDelete={() => setSlideToDelete(slide)}
+                        themeColor={themeColor}
                     />
                 ))}
             </div>
@@ -974,7 +974,8 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
                 showCloseButton={false}
                 className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]"
             >
-                <style dangerouslySetInnerHTML={{ __html: `
+                <style dangerouslySetInnerHTML={{
+                    __html: `
                     .dynamic-theme-file-input::file-selector-button {
                         background-color: ${themeColor} !important;
                     }
@@ -985,8 +986,8 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
                         <div className="flex items-center space-x-3">
-                            <div 
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
+                            <div
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
                                 style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
                             >
                                 <ImageIcon className="w-6 h-6 text-white" />

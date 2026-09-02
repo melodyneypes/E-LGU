@@ -410,6 +410,15 @@ async function main() {
       isEmailVerified: true,
       emailVerified: new Date(),
       isPasswordChanged: true,
+    },
+    {
+      name: "MDRRMO Administrator",
+      email: "mdrrmo@mapandan.gov.ph",
+      password: commonHashedPassword,
+      role: "MDRRMO_ADMIN" as any,
+      department: "MDRRMO",
+      isEmailVerified: true,
+      emailVerified: new Date(),
     }
   ];
 
