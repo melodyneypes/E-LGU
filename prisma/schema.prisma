@@ -1329,6 +1329,57 @@ model AmbulanceDocument {
   rhuAmbulance   RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
 }
 
+model AmbulanceDriver {
+  id                  String                      @id @default(cuid())
+  name                String
+  contactNumber       String
+  licenseNumber       String
+  licenseExpiry       DateTime?
+  status              String                      @default("STANDBY")
+  dutyShift           String?                     @default("Day Shift (6:00 AM - 2:00 PM)")
+  emergencyContact    String?
+  notes               String?
+  photoUrl            String?
+  assignedAmbulanceId String?
+  assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id], onDelete: SetNull)
+  trips               AmbulanceDispatchSchedule[]
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  @@index([assignedAmbulanceId])
+  @@index([status])
+}
+
+model AmbulanceDispatchSchedule {
+  id                  String           @id @default(cuid())
+  title               String
+  dispatchType        String           @default("EMERGENCY_TRANSFER")
+  priority            String           @default("HIGH")
+  status              String           @default("SCHEDULED")
+  patientName         String?
+  patientContact      String?
+  pickupLocation      String
+  destination         String
+  scheduledDate       DateTime
+  departureTime       String?
+  returnTime          String?
+  ambulanceId         String?
+  ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id], onDelete: SetNull)
+  driverId            String?
+  driver              AmbulanceDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  medicStaff          String?
+  notes               String?
+  destinationHospital String?
+  requestedBy         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([scheduledDate])
+  @@index([ambulanceId])
+  @@index([driverId])
+  @@index([status])
+}
+
 model RHUAmbulanceHotline {
   id        String   @id @default(cuid())
   name      String
@@ -1421,51 +1472,6 @@ model AuditLog {
   @@index([action])
   @@index([entityType])
   @@index([createdAt])
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model AmbulanceDispatchSchedule {
-  id                  String           @id
-  title               String
-  dispatchType        String           @default("EMERGENCY_TRANSFER")
-  priority            String           @default("HIGH")
-  status              String           @default("SCHEDULED")
-  patientName         String?
-  patientContact      String?
-  pickupLocation      String
-  destination         String
-  scheduledDate       DateTime
-  departureTime       String?
-  returnTime          String?
-  ambulanceId         String?
-  driverId            String?
-  medicStaff          String?
-  notes               String?
-  destinationHospital String?
-  requestedBy         String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @default(now())
-  RHUAmbulance        RHUAmbulance?    @relation(fields: [ambulanceId], references: [id])
-  AmbulanceDriver     AmbulanceDriver? @relation(fields: [driverId], references: [id])
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model AmbulanceDriver {
-  id                        String                      @id
-  name                      String
-  contactNumber             String
-  licenseNumber             String
-  licenseExpiry             DateTime?
-  status                    String                      @default("STANDBY")
-  dutyShift                 String?                     @default("Day Shift (6:00 AM - 2:00 PM)")
-  emergencyContact          String?
-  notes                     String?
-  photoUrl                  String?
-  assignedAmbulanceId       String?
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @default(now())
-  AmbulanceDispatchSchedule AmbulanceDispatchSchedule[]
-  RHUAmbulance              RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id])
 }
 
 model TransactionFeedback {
