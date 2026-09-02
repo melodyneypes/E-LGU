@@ -738,7 +738,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
             if (res.success) {
                 if (targetStatus === "COMPLETED") {
-                    toast.success("Purchase order approved and completed successfully!");
+                    toast.success("Dispense approved and completed successfully!");
                 } else {
                     toast.success("Medicine dispensed by RHU Pharmacy! Awaiting Center Admin approval.");
                 }
@@ -1357,7 +1357,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     </div>
                                     <div className="space-y-0.5">
                                         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-400">RHU Pharmacy Recorded</p>
-                                        <p className="text-sm font-black text-white uppercase tracking-tight italic">Actual Pharmacy Dispensed Purchase Order</p>
+                                        <p className="text-sm font-black text-white uppercase tracking-tight italic">Actual Pharmacy Dispensed Record</p>
                                     </div>
                                 </div>
                                 {addData.dispenseInfo.dispensedBy && (
@@ -1634,7 +1634,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                         className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                                                     >
                                                         <CheckCircle2 className="w-4 h-4" />
-                                                        APPROVE PURCHASE ORDER
+                                                        APPROVE DISPENSE
                                                     </Button>
                                                 )}
 
@@ -2340,7 +2340,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             {/* Audit & Center Admin Approval Warning Confirmation Dialog */}
             <Dialog open={confirmApprovePoDialogOpen} onOpenChange={setConfirmApprovePoDialogOpen}>
                 <DialogContent className="sm:max-w-[680px] max-h-[88vh] overflow-y-auto overflow-x-hidden bg-[#0f172a] border border-rose-500/40 text-white rounded-3xl shadow-2xl p-6 space-y-5 custom-scrollbar">
-                    <DialogTitle className="sr-only">Confirm Purchase Order Approval & Completion</DialogTitle>
+                    <DialogTitle className="sr-only">Confirm Dispense Approval & Completion</DialogTitle>
 
                     {/* Warning Header */}
                     <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
@@ -2349,7 +2349,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         </div>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">ADMINISTRATIVE & MEDICAL ACCOUNTABILITY AUDIT</p>
-                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Final PO Approval & Completion</h3>
+                            <h3 className="text-base font-black text-white uppercase italic tracking-wide">Confirm Final Dispense Approval & Completion</h3>
                         </div>
                     </div>
 
@@ -2360,7 +2360,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             Center Admin Final Approval Responsibility Notice
                         </p>
                         <p>
-                            You are about to authorize final executive approval and mark this Purchase Order as <strong className="text-white font-black uppercase underline decoration-rose-500">COMPLETED</strong> under your authenticated account: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "Center Admin"}</strong>.
+                            You are about to authorize final executive approval and mark this Medicine Dispense as <strong className="text-white font-black uppercase underline decoration-rose-500">COMPLETED</strong> under your authenticated account: <strong className="text-white font-black uppercase underline decoration-rose-500">{currentUser?.name || "Center Admin"}</strong>.
                         </p>
                         <p className="text-[11px] text-rose-300">
                             Please verify that all clinical notes and pharmacy medicine dispensing items for patient <strong className="text-white uppercase font-bold">{patientName}</strong> are accurate. Once approved, this consultation cycle will be officially completed and logged in the municipal audit trail.
@@ -2369,7 +2369,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                     {/* PO & Dispensing Summary Card */}
                     <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Purchase Order Approval Summary Review</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5 pb-1.5">Dispense Approval Summary Review</p>
                         <div className="grid grid-cols-2 gap-2 font-medium">
                             <div><span className="text-slate-400">Patient:</span> <strong className="text-white uppercase font-black">{patientName}</strong></div>
                             <div><span className="text-slate-400">Center Admin Approver:</span> <strong className="text-rose-400 uppercase font-black">{currentUser?.name || "Center Admin"}</strong></div>

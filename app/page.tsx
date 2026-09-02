@@ -593,6 +593,7 @@ export default async function Home({
                         initialDispatchHotlines={initialDispatchHotlines}
                         showMap={showMap} 
                         isMaintenanceActive={maintenance} 
+                        themeColor={themeColor}
                     />
                 </ClientOnly>
             )}
