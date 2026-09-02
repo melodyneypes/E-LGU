@@ -1287,25 +1287,25 @@ model StallCollection {
 }
 
 model RHUAmbulance {
-  id                        String                      @id @default(cuid())
-  unit                      String
-  plateNumber               String
-  station                   String
-  status                    String                      @default("STANDBY")
-  statusColor               String                      @default("text-emerald-500 bg-emerald-500/10 border-emerald-500/20")
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
-  assigned_center_id        String?
-  assignedDriverId          String?
-  chassisNumber             String?
-  engineNumber              String?
-  orNumber                  String?
-  crNumber                  String?
-  registrationExpiry        DateTime?
-  insuranceExpiry           DateTime?
-  AmbulanceDispatchSchedule AmbulanceDispatchSchedule[]
-  documents                 AmbulanceDocument[]
-  AmbulanceDriver           AmbulanceDriver[]
+  id                 String                      @id @default(cuid())
+  unit               String
+  plateNumber        String
+  station            String
+  status             String                      @default("STANDBY")
+  statusColor        String                      @default("text-emerald-500 bg-emerald-500/10 border-emerald-500/20")
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  assigned_center_id String?
+  assignedDriverId   String?
+  chassisNumber      String?
+  engineNumber       String?
+  orNumber           String?
+  crNumber           String?
+  registrationExpiry DateTime?
+  insuranceExpiry    DateTime?
+  schedules          AmbulanceDispatchSchedule[]
+  documents          AmbulanceDocument[]
+  drivers            AmbulanceDriver[]
 }
 
 model AmbulanceDocument {
@@ -1326,7 +1326,7 @@ model AmbulanceDocument {
   uploadedBy     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now()) @updatedAt
-  rhuAmbulance   RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+  ambulance      RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
 }
 
 model AmbulanceDriver {
