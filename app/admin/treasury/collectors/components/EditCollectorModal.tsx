@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Edit, Loader2, X } from "lucide-react";
+import { Edit, Loader2, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { updateCollector } from "../actions";
 
@@ -17,6 +17,7 @@ export function EditCollectorModal() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rfid, setRfid] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -132,13 +133,23 @@ export function EditCollectorModal() {
                         <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                             Reset Password (Optional)
                         </Label>
-                        <Input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Leave blank to keep existing password"
-                            className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium"
-                        />
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Leave blank to keep existing password"
+                                className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer p-1"
+                                title={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#2a3040]">

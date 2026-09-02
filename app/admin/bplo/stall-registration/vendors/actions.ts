@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase";
 
 interface SessionUser {
     id?: string;
@@ -61,7 +62,7 @@ export async function createVendor(data: {
 
         const normalizedEmail = data.email.trim().toLowerCase();
 
-        // Check if email is already taken
+        // Check if email is already taken in database
         const existing = await prisma.user.findUnique({
             where: { email: normalizedEmail },
         });
@@ -73,16 +74,39 @@ export async function createVendor(data: {
         const plainPassword = data.password && data.password.trim().length >= 6 
             ? data.password.trim() 
             : "Vendor@123";
+
+        // Create user in Supabase auth.users if supabaseAdmin is active
+        let authUserId: string | undefined;
+        if (supabaseAdmin) {
+            const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email: normalizedEmail,
+                password: plainPassword,
+                email_confirm: true,
+                user_metadata: { name: data.name.trim() },
+            });
+
+            if (authError || !authUser?.user) {
+                console.error("[createVendor] Supabase Auth Error:", authError);
+                return {
+                    success: false,
+                    error: authError?.message || "Failed to create cloud authentication account.",
+                };
+            }
+            authUserId = authUser.user.id;
+        }
+
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         const newVendor = await prisma.user.create({
             data: {
+                ...(authUserId && { id: authUserId }),
                 name: data.name.trim(),
                 email: normalizedEmail,
                 password: hashedPassword,
                 role: "VENDOR" as any,
                 isEmailVerified: true,
-                isPasswordChanged: false,
+                emailVerified: new Date(),
+                isPasswordChanged: true,
             },
             select: {
                 id: true,
@@ -141,6 +165,35 @@ export async function updateVendor(
             }
         }
 
+        const isUuid = (str: string) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
+        // Update in Supabase Auth if applicable
+        if (supabaseAdmin && isUuid(id)) {
+            const authUpdatePayload: any = {};
+            if (normalizedEmail) {
+                authUpdatePayload.email = normalizedEmail;
+                authUpdatePayload.email_confirm = true;
+            }
+            if (data.password && data.password.trim().length >= 6) {
+                authUpdatePayload.password = data.password.trim();
+            }
+            if (data.name) {
+                authUpdatePayload.user_metadata = { name: data.name.trim() };
+            }
+
+            if (Object.keys(authUpdatePayload).length > 0) {
+                const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+                    id,
+                    authUpdatePayload
+                );
+                if (authError) {
+                    console.error("[updateVendor] Supabase Auth Error:", authError);
+                    return { success: false, error: "Auth sync error: " + authError.message };
+                }
+            }
+        }
+
         const updateData: any = {};
         if (data.name) updateData.name = data.name.trim();
         if (normalizedEmail) updateData.email = normalizedEmail;
@@ -194,6 +247,17 @@ export async function deleteVendor(id: string) {
             data: { vendorId: null, status: "VACANT" },
         });
 
+        // Delete from Supabase Auth if applicable
+        const isUuid = (str: string) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+        if (supabaseAdmin && isUuid(id)) {
+            try {
+                await supabaseAdmin.auth.admin.deleteUser(id);
+            } catch (authErr) {
+                console.warn("[deleteVendor] Supabase Auth cleanup warning:", authErr);
+            }
+        }
+
         await prisma.user.delete({
             where: { id },
         });
@@ -208,3 +272,4 @@ export async function deleteVendor(id: string) {
         return { success: false, error: error.message || "Failed to delete vendor account." };
     }
 }
+

@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase";
 
 interface SessionUser {
     id?: string;
@@ -72,17 +73,40 @@ export async function createCollector(data: {
         const plainPassword = data.password && data.password.trim().length >= 6 
             ? data.password.trim() 
             : "Collector@123";
+
+        // Create user in Supabase auth.users if supabaseAdmin is active
+        let authUserId: string | undefined;
+        if (supabaseAdmin) {
+            const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email: normalizedEmail,
+                password: plainPassword,
+                email_confirm: true,
+                user_metadata: { name: data.name.trim() },
+            });
+
+            if (authError || !authUser?.user) {
+                console.error("[createCollector] Supabase Auth Error:", authError);
+                return {
+                    success: false,
+                    error: authError?.message || "Failed to create cloud authentication account.",
+                };
+            }
+            authUserId = authUser.user.id;
+        }
+
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         const newCollector = await prisma.user.create({
             data: {
+                ...(authUserId && { id: authUserId }),
                 name: data.name.trim(),
                 email: normalizedEmail,
                 password: hashedPassword,
                 role: "COLLECTOR" as any,
                 rfid: data.rfid?.trim() || null,
                 isEmailVerified: true,
-                isPasswordChanged: false,
+                emailVerified: new Date(),
+                isPasswordChanged: true,
             },
             select: {
                 id: true,
@@ -140,6 +164,35 @@ export async function updateCollector(
             }
         }
 
+        const isUuid = (str: string) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
+        // Update in Supabase Auth if applicable
+        if (supabaseAdmin && isUuid(id)) {
+            const authUpdatePayload: any = {};
+            if (normalizedEmail) {
+                authUpdatePayload.email = normalizedEmail;
+                authUpdatePayload.email_confirm = true;
+            }
+            if (data.password && data.password.trim().length >= 6) {
+                authUpdatePayload.password = data.password.trim();
+            }
+            if (data.name) {
+                authUpdatePayload.user_metadata = { name: data.name.trim() };
+            }
+
+            if (Object.keys(authUpdatePayload).length > 0) {
+                const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+                    id,
+                    authUpdatePayload
+                );
+                if (authError) {
+                    console.error("[updateCollector] Supabase Auth Error:", authError);
+                    return { success: false, error: "Auth sync error: " + authError.message };
+                }
+            }
+        }
+
         const updateData: any = {};
         if (data.name) updateData.name = data.name.trim();
         if (normalizedEmail) updateData.email = normalizedEmail;
@@ -184,6 +237,17 @@ export async function deleteCollector(id: string) {
 
         if (!id) {
             return { success: false, error: "Collector ID is required." };
+        }
+
+        // Delete from Supabase Auth if applicable
+        const isUuid = (str: string) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+        if (supabaseAdmin && isUuid(id)) {
+            try {
+                await supabaseAdmin.auth.admin.deleteUser(id);
+            } catch (authErr) {
+                console.warn("[deleteCollector] Supabase Auth cleanup warning:", authErr);
+            }
         }
 
         await prisma.user.delete({
@@ -248,6 +312,6 @@ export async function bindCollectorRFID(id: string, rfid: string | null) {
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Failed to bind RFID:", error);
-        return { success: false, error: error.message || "Failed to update RFID tag." };
+        return { success: false, error: error.message || "Failed to bind RFID badge." };
     }
 }
