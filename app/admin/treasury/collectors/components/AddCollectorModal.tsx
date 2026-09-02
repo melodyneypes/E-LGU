@@ -82,7 +82,7 @@ export function AddCollectorModal() {
                     </button>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} autoComplete="off" className="p-6 space-y-4">
                     <div className="space-y-1.5">
                         <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                             Full Name <span className="text-red-500">*</span>
@@ -91,6 +91,7 @@ export function AddCollectorModal() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="e.g. Juan Dela Cruz"
+                            autoComplete="off"
                             className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium"
                             required
                         />
@@ -105,6 +106,7 @@ export function AddCollectorModal() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="e.g. juan.collector@mapandan.gov.ph"
+                            autoComplete="off"
                             className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium"
                             required
                         />
@@ -118,6 +120,7 @@ export function AddCollectorModal() {
                             value={rfid}
                             onChange={(e) => setRfid(e.target.value)}
                             placeholder="Scan or enter RFID UID (e.g. 84B310F2)"
+                            autoComplete="off"
                             className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium uppercase font-mono"
                         />
                     </div>
@@ -132,6 +135,7 @@ export function AddCollectorModal() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Defaults to Collector@123 if blank"
+                                autoComplete="new-password"
                                 className="h-10 text-xs bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium pr-10"
                             />
                             <button
