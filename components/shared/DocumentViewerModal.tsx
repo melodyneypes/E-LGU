@@ -493,7 +493,10 @@ export default function DocumentViewerModal({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={onClose}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
                         className="fixed inset-0 bg-slate-950/80 backdrop-blur-md"
                     />
 
@@ -608,8 +611,12 @@ export default function DocumentViewerModal({
                                     <Download className="w-4 h-4" />
                                 </Button>
                                 <button
-                                    onClick={onClose}
-                                    className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onClose();
+                                    }}
+                                    className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
