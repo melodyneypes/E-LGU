@@ -18,6 +18,8 @@ import {
     Trash2,
     UploadCloud,
     Loader2,
+    ZoomIn,
+    FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +77,33 @@ const OCCUPANCY_TYPES = [
     "Other Construction",
 ];
 
+const DOCUMENT_PRESETS = [
+    "Architectural Plans",
+    "Structural / Civil Plans",
+    "Sanitary & Plumbing Clearance",
+    "Electrical Permit & Wiring Layout",
+    "Tax Declaration / Land Title (TCT)",
+    "Barangay Construction Clearance",
+];
+
+export interface SupplementaryAttachmentItem {
+    id: string;
+    label: string;
+    file: File | null;
+    previewUrl?: string;
+    isImage: boolean;
+    isPdf: boolean;
+    fileSizeFormatted?: string;
+}
+
+function formatFileSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
 export default function EngineerArchiveClient({
     themeColor = "#2563eb",
 }: {
@@ -102,12 +131,11 @@ export default function EngineerArchiveClient({
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Form inputs state for physical encoding
+    // Form inputs state for physical encoding (Strictly First Name + Last Name)
     const [formData, setFormData] = useState({
         permitNumber: "",
         firstName: "",
         lastName: "",
-        applicantName: "",
         occupation: "",
         citizenship: "Filipino",
         civilStatus: "Single",
@@ -128,13 +156,70 @@ export default function EngineerArchiveClient({
         remarks: "",
     });
 
+    // Primary Permit File & Instant Preview
     const [mainPermitFile, setMainPermitFile] = useState<File | null>(null);
-    const [additionalAttachments, setAdditionalAttachments] = useState<
-        { label: string; file: File | null }[]
-    >([
-        { label: "Approved Architectural Plans", file: null },
-        { label: "Tax Declaration / Land Title", file: null },
+    const [mainPermitPreview, setMainPermitPreview] = useState<string | null>(null);
+
+    // Supplementary Attachments with rich metadata & previews
+    const [additionalAttachments, setAdditionalAttachments] = useState<SupplementaryAttachmentItem[]>([
+        {
+            id: "preset-arch",
+            label: "Approved Architectural Plans",
+            file: null,
+            isImage: false,
+            isPdf: false,
+        },
+        {
+            id: "preset-tax",
+            label: "Tax Declaration / Land Title (TCT)",
+            file: null,
+            isImage: false,
+            isPdf: false,
+        },
     ]);
+
+    // Local Inspection Lightbox State for Newly Selected Draft Files
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [activeDraftPreview, setActiveDraftPreview] = useState<{
+        url: string;
+        title: string;
+        isPdf: boolean;
+    } | null>(null);
+
+    // Clean up created object URLs on unmount or form reset
+    const cleanupAttachmentUrls = useCallback(() => {
+        if (mainPermitPreview) {
+            URL.revokeObjectURL(mainPermitPreview);
+        }
+        additionalAttachments.forEach(att => {
+            if (att.previewUrl) {
+                URL.revokeObjectURL(att.previewUrl);
+            }
+        });
+    }, [mainPermitPreview, additionalAttachments]);
+
+    useEffect(() => {
+        return () => {
+            cleanupAttachmentUrls();
+        };
+    }, [cleanupAttachmentUrls]);
+
+    // Update main permit file and generate live preview
+    const handleMainPermitChange = (file: File | null) => {
+        if (mainPermitPreview) {
+            URL.revokeObjectURL(mainPermitPreview);
+            setMainPermitPreview(null);
+        }
+
+        if (!file) {
+            setMainPermitFile(null);
+            return;
+        }
+
+        setMainPermitFile(file);
+        const url = URL.createObjectURL(file);
+        setMainPermitPreview(url);
+    };
 
     // Debounce search input
     useEffect(() => {
@@ -191,11 +276,11 @@ export default function EngineerArchiveClient({
 
     // Reset form helper
     const resetForm = () => {
+        cleanupAttachmentUrls();
         setFormData({
             permitNumber: "",
             firstName: "",
             lastName: "",
-            applicantName: "",
             occupation: "",
             citizenship: "Filipino",
             civilStatus: "Single",
@@ -216,28 +301,110 @@ export default function EngineerArchiveClient({
             remarks: "",
         });
         setMainPermitFile(null);
+        setMainPermitPreview(null);
         setAdditionalAttachments([
-            { label: "Approved Architectural Plans", file: null },
-            { label: "Tax Declaration / Land Title", file: null },
+            {
+                id: `init-${Date.now()}-1`,
+                label: "Approved Architectural Plans",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+            {
+                id: `init-${Date.now()}-2`,
+                label: "Tax Declaration / Land Title (TCT)",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
         ]);
     };
 
-    // Add extra document row
-    const handleAddAttachmentRow = () => {
-        setAdditionalAttachments(prev => [...prev, { label: "", file: null }]);
+    // Add extra document row with custom label
+    const handleAddAttachmentRow = (defaultLabel = "") => {
+        setAdditionalAttachments(prev => [
+            ...prev,
+            {
+                id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                label: defaultLabel,
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+        ]);
     };
 
     // Remove extra document row
-    const handleRemoveAttachmentRow = (index: number) => {
-        setAdditionalAttachments(prev => prev.filter((_, i) => i !== index));
+    const handleRemoveAttachmentRow = (id: string) => {
+        setAdditionalAttachments(prev => {
+            const target = prev.find(item => item.id === id);
+            if (target?.previewUrl) {
+                URL.revokeObjectURL(target.previewUrl);
+            }
+            return prev.filter(item => item.id !== id);
+        });
+    };
+
+    // Handle file selection for a specific supplementary row
+    const handleAttachmentFileChange = (id: string, file: File | null) => {
+        setAdditionalAttachments(prev =>
+            prev.map(item => {
+                if (item.id !== id) return item;
+
+                if (item.previewUrl) {
+                    URL.revokeObjectURL(item.previewUrl);
+                }
+
+                if (!file) {
+                    return {
+                        ...item,
+                        file: null,
+                        previewUrl: undefined,
+                        isImage: false,
+                        isPdf: false,
+                        fileSizeFormatted: undefined,
+                    };
+                }
+
+                const isImg = file.type.startsWith("image/");
+                const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+                const previewUrl = URL.createObjectURL(file);
+
+                return {
+                    ...item,
+                    file,
+                    previewUrl,
+                    isImage: isImg,
+                    isPdf,
+                    fileSizeFormatted: formatFileSize(file.size),
+                };
+            })
+        );
+    };
+
+    // Open quick preview inspector
+    const handleInspectDraftFile = (title: string, file: File | null, previewUrl?: string) => {
+        if (!file || !previewUrl) return;
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        setActiveDraftPreview({
+            url: previewUrl,
+            title,
+            isPdf,
+        });
+        setPreviewModalOpen(true);
     };
 
     // Submit Physical Record
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.permitNumber) {
-            toast.error("Please enter the Permit Number.");
+        if (!formData.permitNumber.trim()) {
+            toast.error("Please enter the Official Permit Number.");
+            return;
+        }
+
+        if (!formData.firstName.trim() || !formData.lastName.trim()) {
+            toast.error("Please enter both First Name and Last Name of the applicant.");
             return;
         }
 
@@ -255,7 +422,7 @@ export default function EngineerArchiveClient({
             additionalAttachments.forEach((item, idx) => {
                 if (item.file) {
                     fd.append("attachedFiles", item.file);
-                    fd.append("attachedLabels", item.label || `Attachment ${idx + 1}`);
+                    fd.append("attachedLabels", item.label.trim() || `Attachment ${idx + 1}`);
                 }
             });
 
@@ -330,7 +497,20 @@ export default function EngineerArchiveClient({
                             </Button>
                         </DialogTrigger>
 
-                        <DialogContent className="sm:max-w-[95vw] lg:max-w-7xl w-[95vw] h-[92vh] max-h-[92vh] p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] flex flex-col shadow-2xl">
+                        <DialogContent
+                            onPointerDownOutside={e => {
+                                // Prevent dismissing the archive dialog if draft preview viewer is active or closing
+                                if (previewModalOpen || activeDraftPreview) {
+                                    e.preventDefault();
+                                }
+                            }}
+                            onInteractOutside={e => {
+                                if (previewModalOpen || activeDraftPreview) {
+                                    e.preventDefault();
+                                }
+                            }}
+                            className="sm:max-w-[95vw] lg:max-w-7xl w-[95vw] h-[92vh] max-h-[92vh] p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] flex flex-col shadow-2xl"
+                        >
                             {/* Modal Header */}
                             <div className="p-6 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-3.5">
@@ -395,11 +575,13 @@ export default function EngineerArchiveClient({
                                                  </div>
 
                                                  {/* First Name & Last Name */}
+                                                 {/* First Name & Last Name (Required) */}
                                                  <div className="space-y-1.5">
                                                      <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         First Name
+                                                         First Name <span className="text-rose-500">*</span>
                                                      </Label>
                                                      <Input
+                                                         required
                                                          placeholder="Enter applicant's first name"
                                                          value={formData.firstName}
                                                          onChange={e => setFormData({ ...formData, firstName: e.target.value })}
@@ -409,9 +591,10 @@ export default function EngineerArchiveClient({
 
                                                  <div className="space-y-1.5">
                                                      <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Last Name
+                                                         Last Name <span className="text-rose-500">*</span>
                                                      </Label>
                                                      <Input
+                                                         required
                                                          placeholder="Enter applicant's last name"
                                                          value={formData.lastName}
                                                          onChange={e => setFormData({ ...formData, lastName: e.target.value })}
@@ -476,8 +659,8 @@ export default function EngineerArchiveClient({
                                                      />
                                                  </div>
 
-                                                 {/* Contact Number */}
-                                                 <div className="space-y-1.5 sm:col-span-2">
+                                                 {/* Contact Number & Email */}
+                                                 <div className="space-y-1.5">
                                                      <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                          Contact Number
                                                      </Label>
@@ -485,6 +668,19 @@ export default function EngineerArchiveClient({
                                                          placeholder="+63 9XX XXX XXXX"
                                                          value={formData.contactNumber}
                                                          onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
+                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                     />
+                                                 </div>
+
+                                                 <div className="space-y-1.5">
+                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                         Email Address
+                                                     </Label>
+                                                     <Input
+                                                         type="email"
+                                                         placeholder="e.g. applicant@email.com"
+                                                         value={formData.email}
+                                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                                                          className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
                                                      />
                                                  </div>
@@ -662,98 +858,287 @@ export default function EngineerArchiveClient({
                                                         Scanned Documents
                                                     </h3>
                                                 </div>
-                                                <Button
-                                                    type="button"
-                                                    onClick={handleAddAttachmentRow}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer"
-                                                >
-                                                    <Plus className="w-3.5 h-3.5 mr-1" /> Add File
-                                                </Button>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                    Digital Archiving
+                                                </span>
                                             </div>
 
-                                            {/* Primary Signed Permit Upload Box */}
-                                            <div className="p-4 rounded-2xl bg-indigo-500/5 border-2 border-dashed border-indigo-500/30 space-y-2.5 shrink-0">
+                                            {/* Primary Signed Permit Upload Box with Live Preview */}
+                                            <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-3 shrink-0">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
-                                                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> Official Signed Permit (Primary)
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                                        <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Official Signed Permit (Primary)
                                                     </Label>
                                                     {mainPermitFile && (
-                                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                                            ✓ File Selected
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                                            <CheckCircle2 className="w-3 h-3" /> Ready
                                                         </span>
                                                     )}
                                                 </div>
-                                                <Input
-                                                    type="file"
-                                                    accept="image/*,application/pdf"
-                                                    onChange={e => setMainPermitFile(e.target.files?.[0] || null)}
-                                                    className="bg-white dark:bg-[#121622] rounded-xl cursor-pointer text-xs"
-                                                />
+
+                                                {mainPermitFile ? (
+                                                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040]">
+                                                        {mainPermitFile.type.startsWith("image/") && mainPermitPreview ? (
+                                                            <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shrink-0 group">
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={mainPermitPreview}
+                                                                    alt="Permit Scan"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview)}
+                                                                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                                    title="Inspect Image"
+                                                                >
+                                                                    <ZoomIn className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-14 h-14 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                <FileText className="w-6 h-6" />
+                                                                <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                {mainPermitFile.name}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400 font-medium">
+                                                                {formatFileSize(mainPermitFile.size)} • High-Res Official Scan
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            {mainPermitPreview && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview)}
+                                                                    className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                    title="Preview scan"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleMainPermitChange(null)}
+                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                title="Remove file"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#121622] border border-dashed border-indigo-500/30 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                                                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                            <UploadCloud className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                                                Choose Official Signed Permit Scan
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                PDF, JPG, PNG (Click to browse file)
+                                                            </p>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*,application/pdf"
+                                                            onChange={e => handleMainPermitChange(e.target.files?.[0] || null)}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
+                                                )}
                                                 <p className="text-[10px] text-slate-400 font-medium">
-                                                    Upload high-res scan of the official signed building permit certificate.
+                                                    Upload clear scanned image or PDF copy of the official signed permit.
                                                 </p>
                                             </div>
 
-                                            {/* Supplementary Attachments List - Capped with internal scrollbar when reaching bottom */}
-                                            <div className="space-y-3 flex flex-col">
+                                            {/* Presets Bar */}
+                                            <div className="space-y-1.5 shrink-0">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                    Quick Preset Additions:
+                                                </span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                        const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                        return (
+                                                            <button
+                                                                key={pIdx}
+                                                                type="button"
+                                                                disabled={isAlreadyAdded}
+                                                                onClick={() => handleAddAttachmentRow(preset)}
+                                                                className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                    isAlreadyAdded
+                                                                        ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                        : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs cursor-pointer"
+                                                                }`}
+                                                            >
+                                                                <Plus className="w-3 h-3" /> {preset}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Supplementary Attachments List */}
+                                            <div className="space-y-3 flex flex-col flex-1">
                                                 <div className="flex items-center justify-between shrink-0">
-                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                        Supplementary Plans, Clearances & Records ({additionalAttachments.length})
+                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Supplementary Plans & Clearances ({additionalAttachments.length})
                                                     </p>
                                                 </div>
-                                                
+
                                                 {additionalAttachments.length === 0 ? (
-                                                    <div 
-                                                        onClick={handleAddAttachmentRow}
-                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-indigo-500 hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all cursor-pointer text-center min-h-[160px]"
+                                                    <div
+                                                        onClick={() => handleAddAttachmentRow("")}
+                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-indigo-500 hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all cursor-pointer text-center min-h-[220px]"
                                                     >
-                                                        <UploadCloud className="w-8 h-8 text-indigo-400/80 mb-2 animate-bounce" />
-                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">No Supplementary Files Added</span>
-                                                        <span className="text-[10px] text-slate-400 mt-1">Click here or &ldquo;+ Add File&rdquo; to attach blueprints, clearances, or tax declarations</span>
+                                                        <UploadCloud className="w-8 h-8 text-indigo-400/80 mb-2" />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                            No Supplementary Documents
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">
+                                                            Select one of the presets above or click here to add a custom attachment
+                                                        </span>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
+                                                    <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1.5 custom-scrollbar">
                                                         {additionalAttachments.map((att, idx) => (
                                                             <div
-                                                                key={idx}
-                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200 dark:border-[#2a3040] space-y-2 shadow-sm"
+                                                                key={att.id}
+                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-2.5 shadow-2xs transition-all hover:border-indigo-500/30"
                                                             >
                                                                 <div className="flex items-center justify-between gap-2">
-                                                                    <Input
-                                                                        placeholder="Document Label (e.g. Architectural Plan)"
-                                                                        value={att.label}
-                                                                        onChange={e => {
-                                                                            const updated = [...additionalAttachments];
-                                                                            updated[idx].label = e.target.value;
-                                                                            setAdditionalAttachments(updated);
-                                                                        }}
-                                                                        className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b]"
-                                                                    />
+                                                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                        <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                                                            {idx + 1}
+                                                                        </span>
+                                                                        <Input
+                                                                            placeholder="Document Label (e.g. Architectural Plan)"
+                                                                            value={att.label}
+                                                                            onChange={e => {
+                                                                                const updated = [...additionalAttachments];
+                                                                                updated[idx].label = e.target.value;
+                                                                                setAdditionalAttachments(updated);
+                                                                            }}
+                                                                            className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]"
+                                                                        />
+                                                                    </div>
                                                                     <Button
                                                                         type="button"
-                                                                        onClick={() => handleRemoveAttachmentRow(idx)}
+                                                                        onClick={() => handleRemoveAttachmentRow(att.id)}
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
-                                                                        title="Remove file"
+                                                                        title="Remove item"
                                                                     >
                                                                         <Trash2 className="w-3.5 h-3.5" />
                                                                     </Button>
                                                                 </div>
-                                                                <Input
-                                                                    type="file"
-                                                                    accept="image/*,application/pdf"
-                                                                    onChange={e => {
-                                                                        const updated = [...additionalAttachments];
-                                                                        updated[idx].file = e.target.files?.[0] || null;
-                                                                        setAdditionalAttachments(updated);
-                                                                    }}
-                                                                    className="h-9 rounded-lg text-xs cursor-pointer bg-slate-50 dark:bg-[#151b2b]"
-                                                                />
+
+                                                                {/* File Selection / Preview row */}
+                                                                {att.file ? (
+                                                                    <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
+                                                                        {att.isImage && att.previewUrl ? (
+                                                                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
+                                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                                <img
+                                                                                    src={att.previewUrl}
+                                                                                    alt="Preview"
+                                                                                    className="w-full h-full object-cover"
+                                                                                />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Scanned Document", att.file, att.previewUrl)}
+                                                                                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                                                    title="View Image"
+                                                                                >
+                                                                                    <ZoomIn className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-12 h-12 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                                <FileText className="w-5 h-5" />
+                                                                                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                                {att.file.name}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-400 font-medium">
+                                                                                {att.fileSizeFormatted} • {att.isImage ? "Image Scan" : "PDF Document"}
+                                                                            </p>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-1 shrink-0">
+                                                                            {att.previewUrl && (
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl)}
+                                                                                    className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                                    title="Inspect Document"
+                                                                                >
+                                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                                </Button>
+                                                                            )}
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => handleAttachmentFileChange(att.id, null)}
+                                                                                className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                                title="Change file"
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <label className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/60 dark:bg-[#151b2b]/60 border border-dashed border-slate-300 dark:border-[#2a3040] hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                                            <FileUp className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                                                                Choose Document / Plan
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                                PDF, PNG, JPG (Click to browse file)
+                                                                            </p>
+                                                                        </div>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*,application/pdf"
+                                                                            onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
+                                                                            className="hidden"
+                                                                        />
+                                                                    </label>
+                                                                )}
                                                             </div>
                                                         ))}
+
+                                                        {/* Prominent Bottom Add Custom Button */}
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => handleAddAttachmentRow("")}
+                                                            variant="outline"
+                                                            className="w-full h-10 rounded-xl border-dashed border-2 border-indigo-500/30 hover:border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all mt-1"
+                                                        >
+                                                            <Plus className="w-4 h-4" /> Add Another Document
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
@@ -1106,6 +1491,25 @@ export default function EngineerArchiveClient({
                 documents={selectedDocuments}
                 showPrint={true}
             />
+
+            {/* Quick Inspection Modal for Newly Selected Draft Files */}
+            {activeDraftPreview && (
+                <DocumentViewerModal
+                    isOpen={previewModalOpen}
+                    onClose={() => {
+                        setPreviewModalOpen(false);
+                        setTimeout(() => {
+                            setActiveDraftPreview(null);
+                        }, 200);
+                    }}
+                    file={null}
+                    fileUrl={activeDraftPreview.url}
+                    title={activeDraftPreview.title}
+                    themeColor={themeColor}
+                    documents={[{ url: activeDraftPreview.url, label: activeDraftPreview.title }]}
+                    showPrint={false}
+                />
+            )}
         </div>
     );
 }
