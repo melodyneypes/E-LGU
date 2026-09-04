@@ -3,6 +3,7 @@ import { Dispatch, SetStateAction } from "react";
 import { TreasuryViewProps } from "./types";
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { format } from "date-fns";
 import {
@@ -18,8 +19,11 @@ import {
     Ban,
     Trash2,
     Upload,
-    ZoomIn
+    ZoomIn,
+    Volume2
 } from "lucide-react";
+import { toast } from "sonner";
+import { callTicketToCounter } from "@/app/admin/transactions/calling-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -34,6 +38,7 @@ import RejectionRevisionControls from "../components/RejectionRevisionControls";
 import { cn } from "@/lib/utils";
 
 export default function BuildingPermitView(props: TreasuryViewProps) {
+    const router = useRouter();
     const {
         transaction,
         session,
@@ -112,7 +117,118 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
     } = props;
 
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
-    const additional = transaction.additionalData || {};
+    const residentFullName = [resident?.firstName, resident?.lastName].filter(Boolean).join(" ") || transaction.user?.name || transaction.fullName || "";
+    const additional = typeof transaction.additionalData === "string"
+        ? (() => { try { return JSON.parse(transaction.additionalData); } catch { return {}; } })()
+        : (transaction.additionalData || {});
+
+    const [callingQueue, setCallingQueue] = React.useState(false);
+    const [activeCounterName, setActiveCounterName] = React.useState<string>("Counter 1");
+
+    React.useEffect(() => {
+        const updateCounter = () => {
+            if (typeof window !== "undefined") {
+                const saved = localStorage.getItem("activeCounterName");
+                if (saved) setActiveCounterName(saved);
+            }
+        };
+        updateCounter();
+        window.addEventListener("storage", updateCounter);
+        return () => window.removeEventListener("storage", updateCounter);
+    }, []);
+
+    const playLocalChimeAndVoice = (queueNum: string, counter: string) => {
+        try {
+            if (typeof window === "undefined") return;
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                const freqs = [523.25, 659.25, 783.99, 1046.50];
+                freqs.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = "sine";
+                    const startTime = ctx.currentTime + i * 0.12;
+                    const duration = i === 3 ? 1.5 : 0.3;
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.setValueAtTime(i === 3 ? 0.15 : 0.12, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration);
+                });
+            }
+
+            if (window.speechSynthesis) {
+                setTimeout(() => {
+                    window.speechSynthesis.cancel();
+                    const phrase = `Ticket number, ${queueNum.split("").join(" ")}, please proceed to ${counter}.`;
+                    const utterance = new SpeechSynthesisUtterance(phrase);
+                    utterance.rate = 0.85;
+                    utterance.pitch = 1.05;
+                    const voices = window.speechSynthesis.getVoices();
+                    const femaleVoice = voices.find(v => {
+                        const n = v.name.toLowerCase();
+                        const l = v.lang.toLowerCase();
+                        return l.startsWith("en") && (n.includes("zira") || n.includes("samantha") || n.includes("hazel") || n.includes("female"));
+                    });
+                    if (femaleVoice) utterance.voice = femaleVoice;
+                    window.speechSynthesis.speak(utterance);
+                }, 1000);
+            }
+        } catch (e) {
+            console.error("Local audio chime error:", e);
+        }
+    };
+
+    const handleCallInQueue = async () => {
+        const activeCounter = typeof window !== "undefined" ? (localStorage.getItem("activeCounterName") || activeCounterName || "Counter 1") : "Counter 1";
+        setCallingQueue(true);
+        try {
+            const res = await callTicketToCounter(transaction.id, activeCounter);
+            if (res.success) {
+                toast.success(`Successfully called ticket: ${transaction.queueNumber || transaction.id}`);
+                playLocalChimeAndVoice(transaction.queueNumber || transaction.id, activeCounter);
+                window.location.href = "/admin/treasury/queue";
+            } else {
+                toast.error(res.error || "Failed to call ticket.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to call ticket.");
+        } finally {
+            setCallingQueue(false);
+        }
+    };
+
+    const handleRecallInQueue = async () => {
+        const activeCounter = additional.counterName || activeCounterName || "Counter 1";
+        setCallingQueue(true);
+        try {
+            const res = await callTicketToCounter(transaction.id, activeCounter);
+            if (res.success) {
+                toast.success(`📢 Re-calling ticket: ${transaction.queueNumber || transaction.id} to ${activeCounter}`);
+                playLocalChimeAndVoice(transaction.queueNumber || transaction.id, activeCounter);
+                await fetchTransaction();
+            } else {
+                toast.error(res.error || "Failed to recall ticket.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to recall ticket.");
+        } finally {
+            setCallingQueue(false);
+        }
+    };
+
+    const hasQueueTicket = Boolean(transaction.queueNumber);
+    const isServingAtCounter = Boolean(
+        additional?.counterName &&
+        (transaction.status === "FOR_PROCESSING" || additional?.servingDepartment === "Treasury")
+    );
+    const requiresQueueCall = hasQueueTicket && !isServingAtCounter;
 
     const totalEndorsedAmount =
         (additional.feeAssessment?.buildingPermitFee || 0) +
@@ -503,7 +619,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                         </div>
 
                         {/* Interactive Decision / Actions box */}
-                        {(!isReadOnlyAide && transaction.status !== "FOR_PROCESSING") && (
+                        {(!isReadOnlyAide && (transaction.status !== "FOR_PROCESSING" || additional?.servingDepartment === "Treasury" || additional?.counterName)) && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
                                 <div>
                                     <h3 className="text-md font-black italic uppercase tracking-wider text-slate-800 dark:text-slate-200">
@@ -525,9 +641,9 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                             <Button
                                                 onClick={handleApproveBilling}
                                                 disabled={actionLoading}
-                                                className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black italic uppercase tracking-wider shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                                                className="w-full h-12 whitespace-normal px-4 py-2 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black italic uppercase tracking-wider shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-center text-xs leading-tight"
                                             >
-                                                {actionLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : "Approve & Send Billing Statement"}
+                                                {actionLoading ? <RotateCw className="w-4 h-4 animate-spin shrink-0" /> : "Approve & Send Billing Statement"}
                                             </Button>
                                         </div>
                                     ) : (
@@ -551,156 +667,139 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                     )
                                 )}
 
-                                {transaction.status === "UNPAID" && (
+                                {(transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && (additional?.servingDepartment === "Treasury" || additional?.counterName))) && (
                                     <div className="space-y-4">
-                                        <div className="bg-blue-50 dark:bg-blue-500/5 p-8 rounded-[2.5rem] border-2 border-blue-100 dark:border-blue-500/20 text-center space-y-4">
-                                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
-                                                <span className="text-2xl animate-pulse">⏳</span>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-500 italic">Financial Protocol Active</p>
-                                                <p className="text-[11px] font-bold text-blue-900/60 dark:text-blue-400/60 leading-relaxed uppercase tracking-tight">
-                                                    {transaction.paymentReference ? "Resident has submitted a payment proof for verification." : "Waiting for Citizen to finalize payment."}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        {requiresQueueCall ? (
+                                            /* Citizen holds a queue ticket but has not yet been called to counter - matching other services */
+                                            <div className="space-y-3 animate-in fade-in duration-300">
+                                                <Button
+                                                    onClick={handleCallInQueue}
+                                                    disabled={actionLoading || callingQueue}
+                                                    className="w-full h-14 whitespace-normal px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10 text-center leading-tight"
+                                                >
+                                                    {callingQueue ? (
+                                                        <>
+                                                            <RotateCw className="w-4 h-4 animate-spin mr-2 shrink-0" />
+                                                            <span>Calling Resident...</span>
+                                                        </>
+                                                    ) : (
+                                                        <span>Call Resident in Queue</span>
+                                                    )}
+                                                </Button>
 
-                                        {/* Submitted Payment Proofs Section moved below Resident Profile */}
-                                        {(rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
-                                            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-white/5">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <Button
-                                                            className="w-full h-12 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-black italic uppercase tracking-wider shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2"
-                                                        >
-                                                            Approve payment (Move to Paid)
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent className="max-w-md bg-white dark:bg-[#0c111d] border-slate-100 dark:border-white/5 rounded-[2.5rem] p-10">
-                                                        <DialogHeader className="space-y-3">
-                                                            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                                                                Treasury <span className="text-emerald-500">Receipt</span>
-                                                            </DialogTitle>
-                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Process Payment / Upload Receipt</p>
-                                                        </DialogHeader>
-                                                        <div className="space-y-6 py-4">
-                                                            <div className="space-y-3">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">O.R. Number / Reference No. (Required for Cash)</Label>
-                                                                <Input 
-                                                                    placeholder="Enter O.R. or Reference Number" 
-                                                                    value={orSeriesNumber || ""} 
-                                                                    onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                                                    className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-3">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Paid (₱)</Label>
-                                                                <Input 
-                                                                    type="number"
-                                                                    placeholder="Enter Amount" 
-                                                                    value={amountPaid} 
-                                                                    onChange={(e) => setAmountPaid(e.target.value)}
-                                                                    className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-3">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scanned Receipt (Optional)</Label>
-                                                                {receiptPreview ? (
-                                                                    <div className="relative rounded-2xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 p-2 overflow-hidden group">
-                                                                        <div className="aspect-[4/3] w-full relative rounded-xl overflow-hidden bg-white/50">
-                                                                            <Image src={receiptPreview} alt="Receipt Preview" fill className="object-contain" />
-                                                                        </div>
-                                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => {
-                                                                                    setReceiptFile(null);
-                                                                                    setReceiptPreview(null);
-                                                                                }}
-                                                                                className="w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all"
-                                                                            >
-                                                                                <Trash2 className="w-5 h-5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <label className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                                                                        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform mb-4">
-                                                                            <Upload className="w-6 h-6" />
-                                                                        </div>
-                                                                        <span className="text-[11px] font-black italic uppercase tracking-widest text-slate-500 dark:text-slate-400">Click to upload receipt</span>
-                                                                        <span className="text-[9px] text-slate-400 uppercase tracking-widest mt-1">JPG, PNG, PDF</span>
-                                                                        <input type="file" accept="image/*,.pdf" onChange={handleReceiptFileSelect} className="hidden" />
-                                                                    </label>
-                                                                )}
-                                                            </div>
-                                                            <div className="space-y-3">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Additional Notes</Label>
-                                                                <Textarea
-                                                                    placeholder="Optional notes for this payment..."
-                                                                    value={remarks}
-                                                                    onChange={(e) => setRemarks(e.target.value)}
-                                                                    className="min-h-[100px] rounded-xl text-sm border-slate-200 dark:border-white/10"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <Button
-                                                            onClick={() => handleConfirmPayment(amountPaid)}
-                                                            disabled={actionLoading || (!orSeriesNumber && !receiptFile)}
-                                                            className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
-                                                        >
-                                                            {actionLoading ? "Processing..." : "Confirm & Save Receipt"}
-                                                        </Button>
-                                                    </DialogContent>
-                                                </Dialog>
-
-                                                {(() => {
-                                                    const revCount = additional.paymentRevisionCount || 0;
-                                                    const isMaxed = revCount >= 3;
-                                                    const isLastWarning = revCount === 2;
-                                                    return (
-                                                        <div className="space-y-3">
-                                                            {isLastWarning && (
-                                                                <div className="flex items-start gap-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                                                                    <span className="text-orange-500 text-sm mt-0.5">⚠️</span>
-                                                                    <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide italic leading-relaxed">
-                                                                        Last revision allowed! If Treasury clicks <strong>Revise</strong> again, this application will be <strong>automatically rejected</strong>.
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                            {isMaxed && (
-                                                                <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                                                                    <span className="text-red-500 text-sm mt-0.5">🚫</span>
-                                                                    <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide italic leading-relaxed">
-                                                                        Maximum payment revisions reached. You can only <strong>Approve</strong> or <strong>Decline</strong> this payment.
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                            <div className="flex gap-2">
-                                                                {(transaction.revisionCount || 0) < 3 && (
-                                                                    <Button
-                                                                                                                                        variant="outline"
-                                                                                                                                        onClick={() => setIsRequestingRevision(true)}
-                                                                                                                                        disabled={actionLoading || isMaxed || (!transaction.paymentReference && !transaction.paymentProofUrl)}
-                                                                                                                                        className="flex-1 h-11 border-dashed rounded-xl font-bold text-[10px] uppercase tracking-wider text-amber-500 hover:text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                                                                                                                    >
-                                                                                                                                        {isMaxed ? "Revise (Maxed)" : `Revise (${revCount}/3)`}
-                                                                                                                                    </Button>
-                                                                )}
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setIsRejecting(true)}
+                                                    disabled={actionLoading}
+                                                    className="w-full h-11 border-dashed rounded-xl font-bold text-[10px] uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                >
+                                                    Decline
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {/* Payment Processing for Called / At-Counter Citizen */}
+                                                {(rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                                                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-white/5">
+                                                        <Dialog>
+                                                            <DialogTrigger asChild>
                                                                 <Button
-                                                                    variant="outline"
-                                                                    onClick={() => setIsRejecting(true)}
-                                                                    disabled={actionLoading || (!transaction.paymentReference && !transaction.paymentProofUrl)}
-                                                                    className="flex-1 h-11 border-dashed rounded-xl font-bold text-[10px] uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                    className="w-full h-12 whitespace-normal px-4 py-2 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-black italic uppercase tracking-wider shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-center text-xs leading-tight"
                                                                 >
-                                                                    Decline
+                                                                    Approve payment (Move to Paid)
                                                                 </Button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
+                                                            </DialogTrigger>
+                                                            <DialogContent className="max-w-md bg-white dark:bg-[#0c111d] border-slate-100 dark:border-white/5 rounded-[2.5rem] p-10">
+                                                                <DialogHeader className="space-y-3">
+                                                                    <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                                                                        Treasury <span className="text-emerald-500">Receipt</span>
+                                                                    </DialogTitle>
+                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Process Payment / Upload Receipt</p>
+                                                                </DialogHeader>
+                                                                <div className="space-y-6 py-4">
+                                                                    <div className="space-y-3">
+                                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">O.R. Number / Reference No. (Required for Cash)</Label>
+                                                                        <Input 
+                                                                            placeholder="Enter O.R. or Reference Number" 
+                                                                            value={orSeriesNumber || ""} 
+                                                                            onChange={(e) => setOrSeriesNumber?.(e.target.value)}
+                                                                            className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Paid (₱)</Label>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            placeholder="Enter Amount" 
+                                                                            value={amountPaid} 
+                                                                            onChange={(e) => setAmountPaid(e.target.value)}
+                                                                            className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scanned Receipt (Optional)</Label>
+                                                                        {receiptPreview ? (
+                                                                            <div className="relative rounded-2xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 p-2 overflow-hidden group">
+                                                                                <div className="aspect-[4/3] w-full relative rounded-xl overflow-hidden bg-white/50">
+                                                                                    <Image src={receiptPreview} alt="Receipt Preview" fill className="object-contain" />
+                                                                                </div>
+                                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        onClick={() => {
+                                                                                            setReceiptFile(null);
+                                                                                            setReceiptPreview(null);
+                                                                                        }}
+                                                                                        className="w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all"
+                                                                                    >
+                                                                                        <Trash2 className="w-5 h-5" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                                                                                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform mb-4">
+                                                                                    <Upload className="w-6 h-6" />
+                                                                                </div>
+                                                                                <span className="text-[11px] font-black italic uppercase tracking-widest text-slate-500 dark:text-slate-400">Click to upload receipt</span>
+                                                                                <span className="text-[9px] text-slate-400 uppercase tracking-widest mt-1">JPG, PNG, PDF</span>
+                                                                                <input type="file" accept="image/*,.pdf" onChange={handleReceiptFileSelect} className="hidden" />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Additional Notes</Label>
+                                                                        <Textarea
+                                                                            placeholder="Optional notes for this payment..."
+                                                                            value={remarks}
+                                                                            onChange={(e) => setRemarks(e.target.value)}
+                                                                            className="min-h-[100px] rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    onClick={() => handleConfirmPayment(amountPaid)}
+                                                                    disabled={actionLoading || (!orSeriesNumber && !receiptFile)}
+                                                                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
+                                                                >
+                                                                    {actionLoading ? "Processing..." : "Confirm & Save Receipt"}
+                                                                </Button>
+                                                            </DialogContent>
+                                                        </Dialog>
+
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => setIsRejecting(true)}
+                                                            disabled={actionLoading}
+                                                            className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-wider border-red-200/60 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                                                        >
+                                                            <Ban className="w-3.5 h-3.5 text-red-500" />
+                                                            <span>Decline</span>
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -720,82 +819,38 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                          </div>
 
                                          {(rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
-                                             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-white/5">
-                                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-primary italic">Send Official Receipt</h4>
-                                                 
-                                                 {additional.treasuryReceiptUrl ? (
-                                                     <div className="space-y-4">
-                                                         <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl space-y-2">
-                                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-450 block">Sent Receipt Link</span>
-                                                             <Dialog>
-                                                                 <DialogTrigger asChild>
-                                                                     <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden border border-slate-250 dark:border-white/10 cursor-pointer group bg-slate-100 dark:bg-white/5">
-                                                                         <Image src={additional.treasuryReceiptUrl} alt="Sent Receipt" fill className="object-contain" />
-                                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                             <ZoomIn className="w-6 h-6 text-white" />
-                                                                         </div>
-                                                                     </div>
-                                                                 </DialogTrigger>
-                                                                 <LightboxView src={additional.treasuryReceiptUrl} alt="Sent Receipt" label="Sent Official Treasury Receipt" />
-                                                             </Dialog>
-                                                         </div>
-                                                         {additional.treasuryRemarks && (
-                                                             <div className="p-4 bg-[#f8fafd] dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5 text-xs font-bold text-slate-600 dark:text-slate-400 italic">
-                                                                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 not-italic block mb-1">Sent Notes:</span>
-                                                                 &ldquo;{additional.treasuryRemarks}&rdquo;
-                                                             </div>
-                                                         )}
+                                             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-white/5">
+                                                 {(additional.orSeriesNumber || (transaction as any).payment?.orNumber) && (
+                                                     <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 flex items-center justify-between">
+                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Official Receipt (O.R.) No.</span>
+                                                         <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                                             #{additional.orSeriesNumber || (transaction as any).payment?.orNumber}
+                                                         </span>
                                                      </div>
-                                                 ) : (
-                                                     <>
-                                                         {receiptPreview ? (
-                                                             <div className="relative rounded-2xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 p-2 overflow-hidden group">
-                                                                 <div className="aspect-[16/9] w-full relative rounded-xl overflow-hidden bg-white/50">
-                                                                     <Image src={receiptPreview} alt="Receipt Preview" fill className="object-contain" />
-                                                                 </div>
-                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                                                     <Button
-                                                                         variant="ghost"
-                                                                         size="icon"
-                                                                         onClick={() => {
-                                                                            setReceiptFile(null);
-                                                                            setReceiptPreview(null);
-                                                                         }}
-                                                                         className="w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all"
-                                                                     >
-                                                                         <Trash2 className="w-5 h-5" />
-                                                                     </Button>
-                                                                 </div>
-                                                             </div>
-                                                         ) : (
-                                                             <label className="flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                                                                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform mb-2">
-                                                                     <Upload className="w-5 h-5" />
-                                                                 </div>
-                                                                 <span className="text-[10px] font-black italic uppercase tracking-widest text-slate-500 dark:text-slate-400">Click to upload receipt photo</span>
-                                                                 <span className="text-[8px] text-slate-400 uppercase tracking-widest mt-0.5">JPG, PNG, PDF</span>
-                                                                 <input type="file" accept="image/*,.pdf" onChange={handleReceiptFileSelect} className="hidden" />
-                                                             </label>
-                                                         )}
+                                                 )}
 
-                                                         <div className="space-y-2">
-                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Remarks / Notes</Label>
-                                                             <Textarea
-                                                                 placeholder="Write a message/notes to the resident..."
-                                                                 value={remarks}
-                                                                 onChange={(e) => setRemarks(e.target.value)}
-                                                                 className="min-h-[80px] rounded-xl text-xs border-slate-200 dark:border-white/10 font-bold italic"
-                                                             />
-                                                         </div>
+                                                 {additional.treasuryReceiptUrl && (
+                                                     <div className="space-y-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl">
+                                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Uploaded Official Receipt</span>
+                                                         <Dialog>
+                                                             <DialogTrigger asChild>
+                                                                 <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 cursor-pointer group bg-slate-100 dark:bg-white/5">
+                                                                     <Image src={additional.treasuryReceiptUrl} alt="Official Receipt" fill className="object-contain" />
+                                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                         <ZoomIn className="w-6 h-6 text-white" />
+                                                                     </div>
+                                                                 </div>
+                                                             </DialogTrigger>
+                                                             <LightboxView src={additional.treasuryReceiptUrl} alt="Official Receipt" label="Official Treasury Receipt" />
+                                                         </Dialog>
+                                                     </div>
+                                                 )}
 
-                                                         <Button
-                                                             onClick={() => handleConfirmPayment()}
-                                                             disabled={actionLoading || (!receiptFile && !remarks)}
-                                                             className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl shadow-lg active:scale-95 transition-all"
-                                                         >
-                                                             {actionLoading ? "Sending..." : "Send Official Receipt"}
-                                                         </Button>
-                                                     </>
+                                                 {(additional.treasuryRemarks || (transaction as any).paymentRemarks) && (
+                                                     <div className="p-4 bg-[#f8fafd] dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 text-xs font-bold text-slate-600 dark:text-slate-400 italic">
+                                                         <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 not-italic block mb-1">Notes:</span>
+                                                         &ldquo;{additional.treasuryRemarks || (transaction as any).paymentRemarks}&rdquo;
+                                                     </div>
                                                  )}
                                              </div>
                                          )}

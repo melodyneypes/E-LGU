@@ -493,3 +493,89 @@ export async function getBarangaysAction() {
     return { success: false, data: [] };
   }
 }
+
+export async function getOrCreateBuildingPermitQueueTicket(transactionId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      include: {
+        type: true,
+        user: {
+          include: {
+            residentProfile: true
+          }
+        }
+      }
+    });
+
+    if (!transaction) {
+      return { success: false, error: "Transaction not found." };
+    }
+
+    if (transaction.userId !== session.user.id) {
+      return { success: false, error: "Unauthorized access to transaction." };
+    }
+
+    if (transaction.queueNumber) {
+      return {
+        success: true,
+        data: {
+          queueNumber: transaction.queueNumber,
+          appointmentDate: transaction.appointmentDate || new Date(),
+          appointmentSlot: transaction.appointmentSlot || (new Date().getHours() < 12 ? "08:00 AM - 12:00 PM" : "01:00 PM - 05:00 PM"),
+          isPriority: transaction.isPriority || false
+        }
+      };
+    }
+
+    const now = new Date();
+    const isPriority = Boolean(
+      transaction.user?.residentProfile?.isSenior ||
+      transaction.user?.residentProfile?.isPWD ||
+      (transaction.additionalData as any)?.isPriorityLane === true ||
+      (transaction.additionalData as any)?.isPriority === true
+    );
+    const appointmentSlot = now.getHours() < 12 ? "08:00 AM - 12:00 PM" : "01:00 PM - 05:00 PM";
+
+    const { generateQueueNumber } = await import("@/lib/queue");
+    const queueNumber = await generateQueueNumber({
+      source: "web",
+      isPriority,
+      appointmentDate: now,
+      appointmentSlot,
+      category: "RPT_TREASURY"
+    });
+
+    const updatedTx = await prisma.transaction.update({
+      where: { id: transactionId },
+      data: {
+        queueNumber,
+        appointmentDate: now,
+        appointmentSlot,
+        isPriority
+      }
+    });
+
+    revalidatePath("/user/services/building-permit");
+    revalidatePath("/user/services/requests");
+
+    return {
+      success: true,
+      data: {
+        queueNumber: updatedTx.queueNumber,
+        appointmentDate: updatedTx.appointmentDate,
+        appointmentSlot: updatedTx.appointmentSlot,
+        isPriority: updatedTx.isPriority
+      }
+    };
+  } catch (error: any) {
+    console.error("getOrCreateBuildingPermitQueueTicket error:", error);
+    return { success: false, error: error.message || "Failed to generate queue ticket." };
+  }
+}
+

@@ -65,6 +65,25 @@ export async function callTicketToCounter(id: string, counterName: string) {
             }
         });
 
+        if (supabaseAdmin && transaction.queueNumber) {
+            try {
+                const channel = supabaseAdmin.channel("lobby-queue-realtime");
+                await channel.subscribe();
+                await channel.send({
+                    type: "broadcast",
+                    event: "RECALL_TICKET",
+                    payload: {
+                        queueNumber: transaction.queueNumber,
+                        counterName: sanitizedCounterName,
+                        department: servingDept
+                    }
+                });
+                await supabaseAdmin.removeChannel(channel);
+            } catch (broadcastErr) {
+                console.error("Supabase broadcast error in callTicketToCounter:", broadcastErr);
+            }
+        }
+
         revalidatePath("/admin/treasury");
         revalidatePath("/admin/assessor");
         revalidatePath("/queue");
@@ -151,6 +170,25 @@ export async function fetchAndCallNextTicket(counterName: string) {
                 updatedAt: new Date()
             }
         });
+
+        if (supabaseAdmin && nextTx.queueNumber) {
+            try {
+                const channel = supabaseAdmin.channel("lobby-queue-realtime");
+                await channel.subscribe();
+                await channel.send({
+                    type: "broadcast",
+                    event: "RECALL_TICKET",
+                    payload: {
+                        queueNumber: nextTx.queueNumber,
+                        counterName: sanitizedCounterName,
+                        department: "Treasury"
+                    }
+                });
+                await supabaseAdmin.removeChannel(channel);
+            } catch (broadcastErr) {
+                console.error("Supabase broadcast error in fetchAndCallNextTicket:", broadcastErr);
+            }
+        }
 
         revalidatePath("/admin/treasury");
         revalidatePath("/queue");

@@ -3269,6 +3269,14 @@ export default function BuildingPermitPage() {
             setViewerTitle={setViewerTitle}
             setViewerOpen={setViewerOpen}
             setCurrentStep={setCurrentStep}
+            setIsPaymentModalOpen={setIsPaymentModalOpen}
+            residentData={residentData}
+            onApplicationUpdated={(updatedData) => {
+              setSelectedApplication((prev: any) => ({ ...prev, ...updatedData }));
+              setExistingApplications((prev: any[]) =>
+                prev.map((app) => (app.id === selectedApplication?.id ? { ...app, ...updatedData } : app))
+              );
+            }}
           />
         )}
 

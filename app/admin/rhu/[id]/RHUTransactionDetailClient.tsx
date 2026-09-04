@@ -287,7 +287,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         examinationFindings: addData.deos?.examinationFindings || "",
         orders: addData.deos?.orders || "",
         status: addData.deos?.status || "",
-        attendingPhysician: addData.deos?.attendingPhysician || currentUser?.name || "",
+        attendingPhysician: addData.deos?.attendingPhysician && !addData.deos.attendingPhysician.toUpperCase().includes("ADMIN") && !addData.deos.attendingPhysician.toUpperCase().includes("CLINIC")
+            ? addData.deos.attendingPhysician
+            : (currentUser?.name && !currentUser.name.toUpperCase().includes("ADMIN") && !currentUser.name.toUpperCase().includes("CLINIC") ? currentUser.name : "Municipal Health Officer (MHO)"),
     }));
     const [deosErrors, setDeosErrors] = useState<Record<string, boolean>>({});
     const [confirmDeosDialogOpen, setConfirmDeosDialogOpen] = useState(false);
@@ -425,7 +427,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const handleOpenDeosModal = () => {
         setDeos(p => ({
             ...p,
-            attendingPhysician: p.attendingPhysician || currentUser?.name || ""
+            attendingPhysician: p.attendingPhysician && !p.attendingPhysician.toUpperCase().includes("ADMIN") && !p.attendingPhysician.toUpperCase().includes("CLINIC")
+                ? p.attendingPhysician
+                : (currentUser?.name && !currentUser.name.toUpperCase().includes("ADMIN") && !currentUser.name.toUpperCase().includes("CLINIC") ? currentUser.name : "Municipal Health Officer (MHO)")
         }));
         setDeosModalOpen(true);
     };
@@ -457,10 +461,20 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         handleUpdateStatus("CHECK_IN", undefined, undefined, vitalsDataToSave);
     };
 
+    const formatPhysician = (name?: string) => {
+        if (!name) return "Municipal Health Officer (MHO)";
+        const upper = name.toUpperCase();
+        if (upper.includes("ADMIN") || upper.includes("CLINIC")) {
+            return "Municipal Health Officer (MHO)";
+        }
+        return name;
+    };
+
     const getOutOfStockPrescription = () => {
-        const originalOrders = addData.deos?.orders || addData.deos?.diagnosis || "";
+        const originalOrders = addData.deos?.orders || "";
         const dispensedItems = addData.dispenseInfo?.items || [];
         
+        if (!originalOrders.trim()) return "";
         if (dispensedItems.length === 0) return originalOrders;
         
         const lines = originalOrders.split("\n");
@@ -470,13 +484,13 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             
             const lineLower = trimmed.toLowerCase();
             const isDispensed = dispensedItems.some((dispItem: any) => {
-                const dispNameLower = dispItem.name.toLowerCase();
-                return lineLower.includes(dispNameLower) || dispNameLower.includes(lineLower);
+                const dispNameLower = (dispItem.name || "").toLowerCase();
+                return dispNameLower && (lineLower.includes(dispNameLower) || dispNameLower.includes(lineLower));
             });
             return !isDispensed;
         });
         
-        return filtered.join("\n") || "All prescribed items were successfully dispensed by the RHU Pharmacy.";
+        return filtered.join("\n");
     };
 
     const handlePrintPrescription = () => {
@@ -486,7 +500,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             return;
         }
 
-        const dateStr = new Date(addData.prescribedAt || transaction.createdAt).toLocaleDateString("en-US", {
+        const dateStr = new Date(addData.prescribedAt || transaction.createdAt).toLocaleString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric",
@@ -494,71 +508,129 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             minute: "2-digit"
         });
 
+        const physicianName = formatPhysician(addData.deos?.attendingPhysician || currentUser?.name);
+        const originalOrders = addData.deos?.orders?.trim() || "";
+        const dispensedItems = addData.dispenseInfo?.items || [];
+        const outOfStockItems = getOutOfStockPrescription();
+
         const htmlContent = `
+            <!DOCTYPE html>
             <html>
                 <head>
+                    <meta charset="utf-8" />
                     <title>Prescription - ${patientName}</title>
                     <script src="https://cdn.tailwindcss.com"></script>
                     <style>
                         @media print {
-                            body { padding: 0; margin: 0; font-family: sans-serif; }
+                            body { 
+                                padding: 0 !important; 
+                                margin: 0 !important; 
+                                font-family: sans-serif; 
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
                         }
                     </style>
                 </head>
                 <body class="bg-white text-black p-6 font-sans">
-                    <div class="border-4 border-double border-slate-400 p-6 rounded-3xl space-y-6 max-w-lg mx-auto bg-white">
-                        {/* Header */}
-                        <div class="text-center border-b pb-4 space-y-1">
+                    <div class="border-4 border-double border-slate-400 p-8 rounded-3xl space-y-5 max-w-xl mx-auto bg-white">
+                        <!-- Header -->
+                        <div class="text-center border-b border-slate-200 pb-4 space-y-1">
                             <h1 class="text-lg font-black uppercase tracking-wider text-slate-900">Rural Health Unit</h1>
                             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Municipality of Mapandan</p>
                             <p class="text-[9px] text-slate-400 font-medium">Pangasinan, Philippines</p>
+                            <div class="inline-block bg-slate-900 text-white px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-1">
+                                Official Medical Prescription (Rx)
+                            </div>
                         </div>
 
-                        {/* Rx Logo & Meta Details */}
-                        <div class="flex justify-between items-start pt-2">
+                        <!-- Rx Logo & Meta Details -->
+                        <div class="flex justify-between items-start pt-1">
                             <div class="space-y-1 text-xs">
                                 <p class="text-slate-700"><strong>Date:</strong> ${dateStr}</p>
-                                <p class="text-slate-700"><strong>Rx Ref:</strong> <span class="font-mono">${transaction.id.substring(0, 12).toUpperCase()}</span></p>
+                                <p class="text-slate-700"><strong>Rx Ref:</strong> <span class="font-mono font-bold">${(transaction.controlNumber || transaction.id).substring(0, 14).toUpperCase()}</span></p>
                             </div>
-                            <div class="shrink-0 text-slate-800">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-10 h-10">
-                                    <path fill="currentColor" d="M30 20h20c15 0 20 8 20 18s-5 18-20 18H38v24h-8V20zm8 28h12c10 0 12-4 12-10s-2-10-12-10H38v20z"/>
-                                    <path fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" d="M48 50l32 30M80 50L48 80"/>
-                                </svg>
+                            <div class="shrink-0 text-slate-900">
+                                <span class="text-4xl font-serif italic font-black select-none">℞</span>
                             </div>
                         </div>
 
-                        {/* Patient info card */}
+                        <!-- Patient info card -->
                         <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 grid grid-cols-2 gap-3 text-xs">
                             <div>
-                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider">Patient Name</span>
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Patient Name</span>
                                 <p class="font-black text-slate-800 uppercase">${patientName}</p>
                             </div>
                             <div>
-                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider">Address / Barangay</span>
-                                <p class="font-bold text-slate-800 uppercase">${transaction.barangay || "Mapandan"}</p>
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Address / Barangay</span>
+                                <p class="font-bold text-slate-800 uppercase">${transaction.barangay || resident.barangay || "Mapandan"}</p>
                             </div>
-                                       {/* Diagnosis Section */}
-                        ${addData.deos?.diagnosis ? `
-                        <div class="space-y-1 text-xs">
-                            <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider">Clinical Diagnosis</span>
-                            <p class="font-bold text-slate-850 whitespace-pre-wrap leading-relaxed">${addData.deos.diagnosis}</p>
+                            ${(resident.gender || addData.gender) ? `
+                            <div>
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Gender / Sex</span>
+                                <p class="font-semibold text-slate-800 uppercase">${resident.gender || addData.gender}</p>
+                            </div>
+                            ` : ''}
+                            ${(resident.dateOfBirth || addData.dateOfBirth) ? `
+                            <div>
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Date of Birth</span>
+                                <p class="font-semibold text-slate-800">${new Date(resident.dateOfBirth || addData.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Diagnosis Section -->
+                        ${(addData.deos?.diagnosis || addData.deos?.examinationFindings) ? `
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                            ${addData.deos?.diagnosis ? `
+                            <div>
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Clinical Diagnosis</span>
+                                <p class="font-bold text-slate-800 whitespace-pre-wrap leading-relaxed">${addData.deos.diagnosis}</p>
+                            </div>
+                            ` : ''}
+                            ${addData.deos?.examinationFindings ? `
+                            <div class="${addData.deos?.diagnosis ? 'border-t border-slate-200 pt-2' : ''}">
+                                <span class="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Examination Findings</span>
+                                <p class="text-slate-600 whitespace-pre-wrap leading-relaxed">${addData.deos.examinationFindings}</p>
+                            </div>
+                            ` : ''}
                         </div>
                         ` : ''}
 
-                        {/* Prescription Orders */}
-                        <div class="border-t border-slate-250 pt-4 space-y-2">
-                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Medication / Prescription Rx</span>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-sm font-mono text-slate-855 whitespace-pre-wrap leading-relaxed">
-                                ${getOutOfStockPrescription()}
+                        <!-- Prescription Orders -->
+                        <div class="space-y-2">
+                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Medication & Prescription Orders (Rx)</span>
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed min-h-[60px]">
+                                ${originalOrders || "No specific medication orders recorded."}
                             </div>
                         </div>
 
-                        {/* Footer Signature */}
-                        <div class="pt-8 flex flex-col items-end">
+                        <!-- Pharmacy Dispensing Record (if dispensed) -->
+                        ${dispensedItems.length > 0 ? `
+                        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs space-y-2">
+                            <div class="flex items-center justify-between text-emerald-800 font-bold text-[10px] uppercase tracking-wider">
+                                <span>✓ RHU Pharmacy Dispensing Status</span>
+                                <span>${addData.dispenseInfo?.dispensedAt ? new Date(addData.dispenseInfo.dispensedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</span>
+                            </div>
+                            <div class="space-y-1 font-mono text-[11px] text-emerald-950">
+                                ${dispensedItems.map((item: any) => `<div>• ${item.name} — ${item.quantity} ${item.unit || "pcs"} <span class="text-emerald-700 font-sans font-semibold text-[10px]">[Dispensed]</span></div>`).join('')}
+                            </div>
+                            ${outOfStockItems ? `
+                            <div class="border-t border-emerald-200 pt-2 mt-2">
+                                <span class="text-[9px] font-black uppercase tracking-wider text-amber-800 block mb-1">⚠️ Out-of-Stock (To be acquired at external pharmacy):</span>
+                                <div class="font-mono text-[11px] text-amber-950 whitespace-pre-wrap">${outOfStockItems}</div>
+                            </div>
+                            ` : `
+                            <p class="text-[10px] text-emerald-700 font-medium italic mt-1">All prescribed items were successfully dispensed by the RHU Pharmacy (${addData.dispenseInfo?.dispensedBy || "Pharmacy Staff"}).</p>
+                            `}
+                        </div>
+                        ` : ''}
+
+                        <!-- Footer Signature -->
+                        <div class="pt-6 flex flex-col items-end">
                             <div class="w-60 text-center space-y-1">
-                                <div class="border-b border-slate-900 h-6"></div>
-                                <p class="text-xs font-black uppercase text-slate-800">${addData.deos?.attendingPhysician || "Attending Physician"}</p>
+                                <div class="border-b border-slate-900 h-8 mb-1"></div>
+                                <p class="text-xs font-black uppercase text-slate-800">${physicianName}</p>
                                 <p class="text-[8px] uppercase font-bold text-slate-400 tracking-widest">Attending Medical Officer</p>
                             </div>
                         </div>
@@ -596,7 +668,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         setConfirmDeosDialogOpen(false);
         const deosDataToSave = {
             ...deos,
-            attendingPhysician: currentUser?.name || "Attending Physician"
+            attendingPhysician: deos.attendingPhysician?.trim() || (currentUser?.name && !currentUser.name.toUpperCase().includes("ADMIN") ? currentUser.name : "Municipal Health Officer (MHO)")
         };
         
         const validVaccines = vaccines.filter((v: any) => v.name.trim() !== "");
@@ -2537,17 +2609,22 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     <div className="space-y-4">
                                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Diagnosis · Examination · Orders · Status</p>
 
-                                        {/* Attending Physician (Read-only Authenticated Display) */}
+                                        {/* Attending Physician / Prescribing Doctor */}
                                         <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attending Physician / Prescribing Doctor</Label>
-                                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs font-bold text-teal-300">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <Stethoscope className="w-4 h-4 text-teal-400 shrink-0" />
-                                                    <span className="truncate text-white font-black">{currentUser?.name || "Attending Physician"}</span>
-                                                </div>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md shrink-0 border border-teal-500/20">
-                                                    AUTHENTICATED
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attending Physician / Prescribing Doctor</Label>
+                                                <span className="text-[9px] font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20">
+                                                    PRESCRIPTION SIGNATORY
                                                 </span>
+                                            </div>
+                                            <div className="relative">
+                                                <Stethoscope className="w-4 h-4 text-teal-400 absolute left-3 top-2.5" />
+                                                <Input
+                                                    value={deos.attendingPhysician}
+                                                    onChange={(e) => setDeos(p => ({ ...p, attendingPhysician: e.target.value }))}
+                                                    placeholder="e.g. Dr. Maria Santos, MD / Attending Medical Officer"
+                                                    className="pl-9 h-10 rounded-xl bg-white/5 text-white placeholder:text-slate-600 font-medium text-xs border border-white/10 focus-visible:ring-teal-500"
+                                                />
                                             </div>
                                         </div>
 
@@ -3347,19 +3424,52 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             )}
 
                             {/* Prescription / Orders */}
-                            <div className="border-t border-slate-100 dark:border-white/5 pt-4 space-y-2">
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Medication & Orders</span>
-                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 text-sm font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-                                    {getOutOfStockPrescription()}
+                            <div className="border-t border-slate-100 dark:border-white/5 pt-4 space-y-3">
+                                <div className="space-y-1.5">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Medication & Prescription Orders (Rx)</span>
+                                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 text-sm font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                                        {addData.deos?.orders?.trim() || "No specific medication orders recorded."}
+                                    </div>
                                 </div>
+
+                                {addData.dispenseInfo?.items && Array.isArray(addData.dispenseInfo.items) && addData.dispenseInfo.items.length > 0 && (
+                                    <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2 text-xs">
+                                        <div className="flex items-center justify-between text-emerald-400 font-black text-[9px] uppercase tracking-wider">
+                                            <span>✓ RHU Pharmacy Dispensing Status</span>
+                                            <span>{addData.dispenseInfo.dispensedAt ? new Date(addData.dispenseInfo.dispensedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</span>
+                                        </div>
+                                        <div className="space-y-1 font-mono text-[11px] text-slate-200">
+                                            {addData.dispenseInfo.items.map((it: any, i: number) => (
+                                                <div key={i} className="flex items-center justify-between">
+                                                    <span>• {it.name}</span>
+                                                    <span className="text-emerald-400 font-bold">{it.quantity} {it.unit || "pcs"} (Dispensed)</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {getOutOfStockPrescription() ? (
+                                            <div className="border-t border-emerald-500/20 pt-2 mt-2">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 block mb-1">
+                                                    ⚠️ Out-of-Stock (To be acquired at external pharmacy):
+                                                </span>
+                                                <p className="font-mono text-[11px] text-amber-200 whitespace-pre-wrap">{getOutOfStockPrescription()}</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-emerald-400 font-medium italic">
+                                                All prescribed items were successfully dispensed by the RHU Pharmacy.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Attending Physician Section */}
                             <div className="border-t border-slate-100 dark:border-white/5 pt-6 flex flex-col items-end">
                                 <div className="w-64 text-center">
                                     <div className="border-b border-slate-300 dark:border-[#2a3040] h-6 mb-1"></div>
-                                    <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">{addData.deos?.attendingPhysician || "Attending Physician"}</p>
-                                    <p className="text-[8px] uppercase font-bold text-slate-400 tracking-widest">Licensed Medical Practitioner</p>
+                                    <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+                                        {formatPhysician(addData.deos?.attendingPhysician || currentUser?.name)}
+                                    </p>
+                                    <p className="text-[8px] uppercase font-bold text-slate-400 tracking-widest">Attending Medical Officer</p>
                                 </div>
                             </div>
                         </div>
@@ -3406,7 +3516,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 clinicalDiagnosis={addData.deos?.diagnosis}
                 examinationFindings={addData.deos?.examinationFindings}
                 reasonForReferral={addData.referralReason}
-                attendingPhysician={addData.deos?.attendingPhysician || currentUser?.name}
+                attendingPhysician={formatPhysician(addData.deos?.attendingPhysician || currentUser?.name)}
                 triggerPrint={triggerPrintReferral}
                 onPrintCompleted={() => setTriggerPrintReferral(false)}
             />

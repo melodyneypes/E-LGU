@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
-import { getEngineeringPermitCitizenRoute } from "@/lib/transactions/engineering-permit";
+import { getEngineeringPermitCitizenRoute, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -189,12 +189,26 @@ export default function UserServiceRequestsPage() {
         }
     };
 
-    const filteredRequests = requests.filter(r => 
-        !r.appointmentDate && (
-            r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.id.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-    );
+    const filteredRequests = requests.filter(r => {
+        const typeCode = r.type?.code || "";
+        const category = r.type?.category || "";
+        const isRHU = ["RHU", "Rural Health Unit", "HEALTH", "RURAL_HEALTH_UNIT"].includes(category) || typeCode.startsWith("RHU_");
+        const isCivilRegistryAppointment = typeCode.includes("APPOINTMENT");
+
+        // Dedicated appointment bookings (RHU and Civil Registry appointments) belong in /user/appointment.
+        // Permit applications (e.g. Building Permit, Occupancy Permit, Business Permit, RPT, etc.)
+        // must always be visible here under My Applications, even if they have an appointment date or walk-in queue ticket.
+        if (!isEngineeringPermitCode(typeCode) && (isRHU || isCivilRegistryAppointment)) {
+            return false;
+        }
+
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (r.type?.name || "").toLowerCase().includes(q) ||
+            (r.id || "").toLowerCase().includes(q)
+        );
+    });
 
     const sortedRequests = [...filteredRequests].sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -297,7 +311,7 @@ export default function UserServiceRequestsPage() {
                                 key={req.id} 
                                 onClick={() => {
                                     const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
-                                    if (engineeringPermitRoute && req.status !== "UNPAID") {
+                                    if (engineeringPermitRoute) {
                                         router.push(`${engineeringPermitRoute}?id=${req.id}`);
                                     } else {
                                         router.push(`/user/services/requests/${req.id}`);

@@ -1279,8 +1279,8 @@ export default function TreasuryDetailPage() {
         ];
         const getBuildingStepIndex = (status: string) => {
             if (status === "EVALUATED") return 0; // EVALUATION
-            if (status === "UNPAID") return 1; // ASSESSMENT
-            return 3; // PAYMENT HISTORY and everything else is fully verified/checked
+            if (status === "UNPAID" || status === "FOR_PROCESSING") return 1; // ASSESSMENT
+            return 2; // PAYMENT HISTORY (PAID)
         };
         currentStepIdx = showPaymentHistoryOverride ? 2 : getBuildingStepIndex(transaction.status);
     }

@@ -250,8 +250,8 @@ export default function PurchaseOrderDetail() {
     }
 
     // Dispensing Pharmacy & Officer Tracking Info
-    const dispenserName = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? "Lalas Medical Clinic Medical Admin" : "Awaiting Dispensing");
-    const dispenserEmail = dispenseInfo.dispensedByEmail || (isCompleted ? "lalas.medical.clinic@mapandan.gov.ph" : null);
+    const dispenserName = dispenseInfo.dispensedBy || addData.dispensedBy || (isCompleted ? "RHU Pharmacy Personnel" : "Awaiting Dispensing");
+    const dispenserEmail = dispenseInfo.dispensedByEmail || (isCompleted ? "rhu.pharmacy@mapandan.gov.ph" : null);
     const dispenserRole = dispenseInfo.dispensedByRole || "RHU_PHARMACY";
     const dispensedTime = formatFullDateTime(dispenseInfo.dispensedAt || addData.dispensedAt || tx.updatedAt);
 

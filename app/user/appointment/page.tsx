@@ -305,8 +305,8 @@ export default function UserAppointmentsPage() {
                                 key={req.id}
                                 onClick={() => {
                                     const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
-                                    if (engineeringPermitRoute && req.status !== "UNPAID") {
-                                        router.push(engineeringPermitRoute);
+                                    if (engineeringPermitRoute) {
+                                        router.push(`${engineeringPermitRoute}?id=${req.id}`);
                                     } else {
                                         router.push(`/user/appointment/${req.id}`);
                                     }
