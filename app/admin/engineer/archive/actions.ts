@@ -302,16 +302,23 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         const { user } = await assertEngineerSession();
 
         const permitNumber = (formData.get("permitNumber") as string)?.trim();
-        // Applicant Demographic & Location Fields (Optional)
+        // Applicant Demographic & Location Fields
         const firstName = (formData.get("firstName") as string)?.trim() || "";
         const lastName = (formData.get("lastName") as string)?.trim() || "";
-        const rawApplicantName = (formData.get("applicantName") as string)?.trim() || "";
-        const applicantName = rawApplicantName || `${firstName} ${lastName}`.trim() || "Walk-in Applicant";
+        const applicantName = `${firstName} ${lastName}`.trim();
+
+        if (!permitNumber) {
+            return { success: false, error: "Official Permit Number is required." };
+        }
+
+        if (!firstName || !lastName) {
+            return { success: false, error: "Both Applicant First Name and Last Name are required." };
+        }
 
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
         const occupation = (formData.get("occupation") as string)?.trim() || "";
-        const citizenship = (formData.get("citizenship") as string)?.trim() || "FILIPINO";
+        const citizenship = (formData.get("citizenship") as string)?.trim() || "Filipino";
         const civilStatus = (formData.get("civilStatus") as string)?.trim() || "Single";
         const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "";
         const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
@@ -398,8 +405,8 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         // Prepare Complete Resident Snapshot JSON (Single source of truth for resident details)
         const residentSnapshot = {
-            firstName: firstName || (rawApplicantName ? rawApplicantName.split(" ")[0] : ""),
-            lastName: lastName || (rawApplicantName ? rawApplicantName.split(" ").slice(1).join(" ") : ""),
+            firstName,
+            lastName,
             fullName: applicantName,
             barangay,
             municipality,
