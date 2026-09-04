@@ -97,7 +97,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         transaction?.status !== "REJECTED";
 
     const isViewOnly = !canEditZoningClearance;
-    const showZoningClearanceUpload = zoningStatus === "EVALUATED" && !isEndorsed;
+    const showZoningClearanceUpload = !isViewOnly && !isEndorsed;
 
     const totalZoningAmount = useMemo(() => {
         return zoningMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
@@ -891,6 +891,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     <p className="text-[10px] font-semibold text-amber-500 italic flex items-center justify-center gap-1 text-center">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                                         Please specify the required zoning fees to enable endorsement.
+                                    </p>
+                                )}
+                                {!zoningClearanceUrl && (
+                                    <p className="text-[10px] font-semibold text-amber-500 italic flex items-center justify-center gap-1 text-center">
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                        Please upload the required Zoning Clearance above to enable endorsement.
                                     </p>
                                 )}
                             </div>

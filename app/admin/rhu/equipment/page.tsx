@@ -23,6 +23,8 @@ export default async function RHUEquipmentPage() {
                 initialCenters={data.centers || []}
                 matchedCenter={data.matchedCenter || null}
                 isReadOnly={Boolean(data.isReadOnly)}
+                isGlobalAdmin={Boolean(data.isGlobalAdmin)}
+                canDispatchSO={Boolean(data.canDispatchSO)}
             />
         </div>
     );

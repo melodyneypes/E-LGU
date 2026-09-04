@@ -951,9 +951,9 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     transaction.status === "UNPAID" ? (
                                         <Button
                                             onClick={handleCallInQueue}
-                                            className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10"
+                                            className="w-full h-14 whitespace-normal px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10 text-center leading-tight"
                                         >
-                                            Go to Treasury Queue to Call Resident
+                                            Call Resident in Queue
                                         </Button>
                                     ) : (
                                         <Button

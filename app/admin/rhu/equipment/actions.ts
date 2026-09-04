@@ -60,7 +60,7 @@ async function checkWritePermission(user: any) {
         // Central Procurement & Administrative privileges restricted to Global RHU Admins:
         canCreatePO: isGlobalAdmin,
         canIntakePO: isGlobalAdmin,
-        canDispatchSO: isGlobalAdmin || isCenterAdmin,
+        canDispatchSO: isGlobalAdmin,
         canVerifyLegacy: isGlobalAdmin,
         canCondemnAsset: isGlobalAdmin,
         // Operational access allowed:
@@ -119,11 +119,8 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
         let assetQuery = `SELECT * FROM "MedicalAsset"`;
         const params: any[] = [];
 
-        // If user belongs to a specific health center, strictly scope their view to only their center's assets
-        if (matchedCenter) {
-            assetQuery += ` WHERE "currentFacility" = $1`;
-            params.push(matchedCenter.name);
-        } else if (facilityFilter && facilityFilter !== "ALL") {
+        // Apply facility filter if explicitly specified
+        if (facilityFilter && facilityFilter !== "ALL") {
             assetQuery += ` WHERE "currentFacility" = $1`;
             params.push(facilityFilter);
         }
@@ -198,11 +195,13 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
                 code: matchedCenter.code,
                 barangay: matchedCenter.barangay
             } : null,
-            isReadOnly: perm.isReadOnly
+            isReadOnly: perm.isReadOnly,
+            isGlobalAdmin: Boolean(perm.isGlobalAdmin),
+            canDispatchSO: Boolean(perm.canDispatchSO)
         };
     } catch (error: any) {
         console.error("[getRHUEquipmentData] Error:", error);
-        return { success: false, error: error.message, assets: [], stockroomAssets: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true };
+        return { success: false, error: error.message, assets: [], stockroomAssets: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true, isGlobalAdmin: false, canDispatchSO: false };
     }
 }
 
@@ -537,6 +536,7 @@ export async function createEquipmentPO(data: {
     vendorName: string;
     vendorContact?: string;
     notes?: string;
+    linkedRoNumber?: string;
     items: Array<{ equipmentName: string; brand?: string; quantity: number; unitCost: number }>;
 }) {
     try {
@@ -551,6 +551,9 @@ export async function createEquipmentPO(data: {
         if (!data.vendorName || !data.items || data.items.length === 0) {
             return { success: false, error: "Vendor name and at least one item are required." };
         }
+
+        await executeRawSafe(`ALTER TABLE "EquipmentPurchaseOrder" ADD COLUMN IF NOT EXISTS "linkedRoNumber" TEXT;`);
+        await executeRawSafe(`ALTER TABLE "EquipmentRequestOrder" ADD COLUMN IF NOT EXISTS "linkedPoNumber" TEXT;`);
 
         const year = new Date().getFullYear();
         const rand = Math.floor(1000 + Math.random() * 9000);
@@ -568,16 +571,16 @@ export async function createEquipmentPO(data: {
         const insertedPO = await queryRawSafe(`
             INSERT INTO "EquipmentPurchaseOrder" (
                 id, "poNumber", "vendorName", "vendorContact", "totalAmount",
-                "status", "createdByName", "createdById", "notes",
+                "status", "createdByName", "createdById", "notes", "linkedRoNumber",
                 "createdAt", "updatedAt"
             ) VALUES (
                 $1, $2, $3, $4, $5,
-                'DRAFT', $6, $7, $8,
+                'DRAFT', $6, $7, $8, $9,
                 NOW(), NOW()
             ) RETURNING *
         `, [
             poId, poNumber, data.vendorName.trim(), data.vendorContact?.trim() || null, totalAmount,
-            createdByName, createdById, data.notes?.trim() || null
+            createdByName, createdById, data.notes?.trim() || null, data.linkedRoNumber?.trim() || null
         ]);
 
         const po = insertedPO[0];
@@ -606,12 +609,25 @@ export async function createEquipmentPO(data: {
 
         po.items = formattedItems;
 
+        // If linked to an RO, update the RO's status and linkedPoNumber
+        if (data.linkedRoNumber) {
+            await executeRawSafe(`
+                UPDATE "EquipmentRequestOrder"
+                SET "status" = 'PO_ORDERED',
+                    "linkedPoNumber" = $1,
+                    "updatedAt" = NOW()
+                WHERE "roNumber" = $2
+            `, [poNumber, data.linkedRoNumber.trim()]);
+        }
+
         await logActivity({
             action: "CREATE",
             entityType: "EquipmentPO",
             entityId: po.id,
             entityName: po.poNumber,
-            description: `Created Purchase Order ${po.poNumber} from vendor "${po.vendorName}".`
+            description: data.linkedRoNumber
+                ? `Created Purchase Order ${po.poNumber} from vendor "${po.vendorName}" linked to Requisition ${data.linkedRoNumber}.`
+                : `Created Purchase Order ${po.poNumber} from vendor "${po.vendorName}".`
         });
 
         revalidatePath("/admin/rhu/equipment");
@@ -622,7 +638,11 @@ export async function createEquipmentPO(data: {
     }
 }
 
-export async function intakePOToStockroom(poId: string, receivedItems: Array<{ itemId: string; receivedQty: number }>) {
+export async function intakePOToStockroom(
+    poId: string,
+    receivedItems: Array<{ itemId: string; receivedQty: number; damagedQty?: number; missingQty?: number }>,
+    inspectionNotes?: string
+) {
     try {
         const auth = await verifyRHUAccess();
         if (!auth.authorized) return { success: false, error: auth.error };
@@ -634,6 +654,9 @@ export async function intakePOToStockroom(poId: string, receivedItems: Array<{ i
 
         await executeRawSafe(`ALTER TABLE "MedicalAsset" ADD COLUMN IF NOT EXISTS "quantity" INTEGER NOT NULL DEFAULT 1;`);
         await executeRawSafe(`ALTER TABLE "MedicalAsset" ADD COLUMN IF NOT EXISTS "availableQty" INTEGER NOT NULL DEFAULT 1;`);
+        await executeRawSafe(`ALTER TABLE "EquipmentPOItem" ADD COLUMN IF NOT EXISTS "damagedQty" INTEGER NOT NULL DEFAULT 0;`);
+        await executeRawSafe(`ALTER TABLE "EquipmentPOItem" ADD COLUMN IF NOT EXISTS "missingQty" INTEGER NOT NULL DEFAULT 0;`);
+        await executeRawSafe(`ALTER TABLE "EquipmentPurchaseOrder" ADD COLUMN IF NOT EXISTS "inspectionNotes" TEXT;`);
 
         const poRows = await queryRawSafe(`SELECT * FROM "EquipmentPurchaseOrder" WHERE id = $1`, [poId]);
         const po = poRows[0];
@@ -643,10 +666,30 @@ export async function intakePOToStockroom(poId: string, receivedItems: Array<{ i
         const year = new Date().getFullYear();
 
         let encodedCount = 0;
+        let totalDamagedCount = 0;
+        let totalMissingCount = 0;
 
         for (const item of items) {
             const match = receivedItems.find(r => r.itemId === item.id);
-            const count = match ? Number(match.receivedQty) : Number(item.quantity);
+            const count = match ? Number(match.receivedQty) || 0 : Number(item.quantity);
+            const damaged = match ? Number(match.damagedQty) || 0 : 0;
+            const missing = match ? Number(match.missingQty) || 0 : 0;
+
+            totalDamagedCount += damaged;
+            totalMissingCount += missing;
+
+            const previousReceived = Number(item.receivedQty) || 0;
+            const cumulativeReceived = previousReceived + count;
+            const itemStatus = cumulativeReceived >= Number(item.quantity) ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+
+            await executeRawSafe(`
+                UPDATE "EquipmentPOItem"
+                SET "receivedQty" = $1,
+                    "damagedQty" = COALESCE("damagedQty", 0) + $2,
+                    "missingQty" = $3,
+                    "status" = $4
+                WHERE id = $5
+            `, [cumulativeReceived, damaged, missing, itemStatus, item.id]);
 
             if (count > 0) {
                 const category = Number(item.unitCost) > 50000 ? "PPE" : "SEMI_EXPENDABLE";
@@ -672,33 +715,53 @@ export async function intakePOToStockroom(poId: string, receivedItems: Array<{ i
                     Number(item.unitCost) || 0, count, count, docRef, po.poNumber
                 ]);
 
-                await executeRawSafe(`
-                    UPDATE "EquipmentPOItem"
-                    SET "receivedQty" = $1, "status" = 'RECEIVED'
-                    WHERE id = $2
-                `, [count, item.id]);
-
                 encodedCount += count;
             }
         }
 
+        const updatedItems = await queryRawSafe(`SELECT * FROM "EquipmentPOItem" WHERE "poId" = $1`, [poId]);
+        const allFulfilled = updatedItems.every((i: any) => (Number(i.receivedQty) || 0) >= (Number(i.quantity) || 1));
+
+        const poStatus = allFulfilled 
+            ? 'DELIVERED_INTAKE' 
+            : (totalDamagedCount > 0 || totalMissingCount > 0 ? 'PARTIAL_INTAKE_DISCREPANCY' : 'PARTIAL_INTAKE');
+
         const updatedPORows = await queryRawSafe(`
             UPDATE "EquipmentPurchaseOrder"
-            SET "status" = 'DELIVERED_INTAKE', "updatedAt" = NOW()
-            WHERE id = $1
+            SET "status" = $1,
+                "inspectionNotes" = $2,
+                "updatedAt" = NOW()
+            WHERE id = $3
             RETURNING *
-        `, [poId]);
+        `, [poStatus, inspectionNotes?.trim() || po.inspectionNotes || null, poId]);
+
+        if (po.linkedRoNumber && encodedCount > 0) {
+            await executeRawSafe(`
+                UPDATE "EquipmentRequestOrder"
+                SET "status" = 'SUBMITTED', "updatedAt" = NOW()
+                WHERE "roNumber" = $1 AND "status" != 'CONVERTED_TO_SO'
+            `, [po.linkedRoNumber]);
+        }
 
         await logActivity({
             action: "UPDATE",
             entityType: "EquipmentPO",
             entityId: po.id,
             entityName: po.poNumber,
-            description: `Executed stockroom intake of ${encodedCount} total units for PO ${po.poNumber}. Assets recorded in Central Stockroom.`
+            description: totalDamagedCount > 0 || totalMissingCount > 0
+                ? `Stockroom intake with discrepancies for PO ${po.poNumber}: ${encodedCount} accepted good units encoded, ${totalDamagedCount} damaged units rejected (RTV), ${totalMissingCount} shortage.`
+                : `Executed stockroom intake of ${encodedCount} total units for PO ${po.poNumber}. Assets recorded in Central Stockroom.`
         });
 
         revalidatePath("/admin/rhu/equipment");
-        return { success: true, po: updatedPORows[0], newAssetCount: encodedCount };
+        return {
+            success: true,
+            po: updatedPORows[0],
+            newAssetCount: encodedCount,
+            damagedCount: totalDamagedCount,
+            missingCount: totalMissingCount,
+            poStatus
+        };
     } catch (error: any) {
         console.error("[intakePOToStockroom] Error:", error);
         return { success: false, error: error.message || "Failed to intake PO items" };

@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
 import { calculateCedula } from "@/lib/cedula";
-import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
+import { isEngineeringPermitCode, getEngineeringPermitCitizenRoute } from "@/lib/transactions/engineering-permit";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -794,6 +794,7 @@ export default function RequestHubPage() {
     const typeCode = request?.type?.code || "";
     const isPsaAppointmentEndorsement = checkIsPsaAppointmentEndorsement(typeCode);
     const isEngineeringPermit = isEngineeringPermitCode(typeCode);
+    const engineeringPermitRoute = getEngineeringPermitCitizenRoute(typeCode);
     const isActionable = (request?.status === "EVALUATED" && (!isEngineeringPermit || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || isEngineeringPermit));
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
     const isBuildingPermit = isEngineeringPermit;
@@ -1232,6 +1233,15 @@ export default function RequestHubPage() {
                                         >
                                             {statusConfig?.label}
                                         </Badge>
+                                        {engineeringPermitRoute && (
+                                            <Link
+                                                href={`${engineeringPermitRoute}?id=${request.id}`}
+                                                className="px-3 py-1 text-[7px] md:text-[9px] font-black uppercase tracking-widest italic rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 w-fit shadow-sm"
+                                            >
+                                                <FileText className="w-3 h-3" />
+                                                View Application Status & Walk-In
+                                            </Link>
+                                        )}
                                         {isPermitNewReleasedOrDelivered && (
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[8px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest opacity-80">
                                                 <div className="flex items-center gap-1.5">
@@ -1587,6 +1597,21 @@ export default function RequestHubPage() {
                                                             style={{ backgroundColor: themeColor }}
                                                         />
                                                     </div>
+
+                                                    {engineeringPermitRoute && (
+                                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-between gap-3 text-xs">
+                                                            <div className="space-y-0.5">
+                                                                <p className="font-bold text-slate-800 dark:text-white text-[11px]">Paying in cash at the Treasury counter?</p>
+                                                                <p className="text-[9px] text-slate-500 font-medium">You can settle fees as walk-in at Municipal Hall and upload your official receipt on the permit page.</p>
+                                                            </div>
+                                                            <Link
+                                                                href={`${engineeringPermitRoute}?id=${request.id}`}
+                                                                className="px-3 py-1.5 shrink-0 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase text-[8px] tracking-wider italic hover:opacity-90 transition-opacity"
+                                                            >
+                                                                Walk-in / Status
+                                                            </Link>
+                                                        </div>
+                                                    )}
 
                                                 </div>
                                             )

@@ -27,6 +27,7 @@ const eslintConfig = defineConfig([
     // Supabase Edge Functions run on Deno - exclude from Next.js ESLint
     "supabase/functions/**",
     "scratch/**",
+    "scripts/**",
   ]),
 ]);
 
