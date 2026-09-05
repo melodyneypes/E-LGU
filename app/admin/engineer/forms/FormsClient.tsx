@@ -129,12 +129,37 @@ export default function FormsClient({ initialForms }: { initialForms: Downloadab
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Button variant="outline" size="sm" asChild className="h-8 text-xs font-bold uppercase tracking-wider">
-                                                <a href={form.url} target="_blank" rel="noopener noreferrer">
-                                                    <ExternalLink className="w-3 h-3 mr-1.5" />
-                                                    View
-                                                </a>
-                                            </Button>
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" size="sm" className="h-8 text-xs font-bold uppercase tracking-wider">
+                                                        <ExternalLink className="w-3 h-3 mr-1.5" />
+                                                        View
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="max-w-5xl w-[90vw] h-[85vh] p-0 overflow-hidden flex flex-col bg-white dark:bg-[#1a1f2e] border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl">
+                                                    <DialogHeader className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm shrink-0">
+                                                        <DialogTitle className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-white flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                                                                <FileText className="w-5 h-5" />
+                                                            </div>
+                                                            <span className="truncate">{form.name}</span>
+                                                        </DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="flex-1 w-full bg-slate-100 dark:bg-black/50 relative overflow-hidden">
+                                                        {(() => {
+                                                            const isDoc = form.url.toLowerCase().includes(".doc") || form.url.toLowerCase().includes(".docx");
+                                                            const viewerUrl = isDoc ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(form.url)}` : form.url;
+                                                            return (
+                                                                <iframe 
+                                                                    src={viewerUrl} 
+                                                                    className="w-full h-full border-none absolute inset-0 bg-white"
+                                                                    title={form.name}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
                                             <Button 
                                                 variant="destructive" 
                                                 size="sm" 
