@@ -212,7 +212,8 @@ export function OfficialsTable() {
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    <TooltipProvider>
+                                    {/* Hide delete action temporarily */}
+                                    {/* <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
@@ -226,7 +227,7 @@ export function OfficialsTable() {
                                             </TooltipTrigger>
                                             <TooltipContent>Delete Profile</TooltipContent>
                                         </Tooltip>
-                                    </TooltipProvider>
+                                    </TooltipProvider> */}
                                 </div>
                             </TableCell>
                         </TableRow>

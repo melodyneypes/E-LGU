@@ -184,7 +184,8 @@ export function JobsTable() {
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    <TooltipProvider>
+                                    {/* Hide delete action temporarily */}
+                                    {/* <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
@@ -198,7 +199,7 @@ export function JobsTable() {
                                             </TooltipTrigger>
                                             <TooltipContent>Delete Job</TooltipContent>
                                         </Tooltip>
-                                    </TooltipProvider>
+                                    </TooltipProvider> */}
                                 </div>
                             </TableCell>
                         </TableRow>
