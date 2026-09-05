@@ -244,7 +244,8 @@ export function TourismTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -258,7 +259,7 @@ export function TourismTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete Tourism Spot</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>
