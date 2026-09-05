@@ -460,7 +460,8 @@ export function AnnouncementTable() {
                                                         </Tooltip>
                                                     </TooltipProvider>
 
-                                                    <TooltipProvider>
+                                                    {/* Hide delete action temporarily */}
+                                                    {/* <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <Button
@@ -477,7 +478,7 @@ export function AnnouncementTable() {
                                                                 Delete Announcement
                                                             </TooltipContent>
                                                         </Tooltip>
-                                                    </TooltipProvider>
+                                                    </TooltipProvider> */}
                                                 </>
                                             ) : (
                                                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800">

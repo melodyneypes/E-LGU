@@ -150,7 +150,8 @@ export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: 
                                                 <Edit className="w-3.5 h-3.5" />
                                                 <span>Edit</span>
                                             </Button>
-                                            <Button
+                                            {/* Hide delete action temporarily */}
+                                            {/* <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setDeletingItem(item)}
@@ -158,7 +159,7 @@ export function BarangaysListWorkspace({ initialData, themeColor = "#2563eb" }: 
                                                 title="Delete Barangay"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
-                                            </Button>
+                                            </Button> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>
