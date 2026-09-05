@@ -295,7 +295,8 @@ export function ProjectsTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -309,7 +310,7 @@ export function ProjectsTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete Project</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>
