@@ -488,13 +488,14 @@ export function DirectivesClient({
                                                     >
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button
+                                                    {/* Hide delete action temporarily */}
+                                                    {/* <button
                                                         onClick={() => setDirectiveToDelete(d)}
                                                         className="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                                                         title="Delete Directive"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    </button> */}
                                                 </div>
                                             </td>
                                         </tr>
