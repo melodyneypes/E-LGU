@@ -23,11 +23,13 @@ import {
     Truck,
     X,
     AlertCircle,
-    ArrowUpDown
+    ArrowUpDown,
+    Copy
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -324,6 +326,22 @@ export default function UserServiceRequestsPage() {
                                         <FileText className="w-5 h-5 md:w-7 md:h-7 transition-colors" />
                                     </div>
                                     <div className="space-y-0.5 md:space-y-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1 opacity-70">
+                                            <span className="text-[8px] md:text-[10px] font-black tracking-widest uppercase text-slate-500">
+                                                Application {req.id.substring(req.id.length - 8).toUpperCase()}
+                                            </span>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(req.id.substring(req.id.length - 8).toUpperCase());
+                                                    toast.success("Tracking code copied to clipboard");
+                                                }}
+                                                className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md transition-colors"
+                                                title="Copy tracking code"
+                                            >
+                                                <Copy className="w-3 h-3 text-slate-400 hover:text-slate-700 dark:hover:text-white" />
+                                            </button>
+                                        </div>
                                         <h3 className="text-lg md:text-2xl font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary py-1 pr-4 leading-normal">
                                             {req.type?.name || "Service Request"}
                                         </h3>

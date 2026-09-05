@@ -260,9 +260,9 @@ export async function ensureBuildingPermitTransactionTypes() {
                     "Plans duly signed & sealed by licensed professional",
                     "Certified true copy of Tax Declaration",
                     "Xerox copy of land title",
-                    "Community Tax Certificate (Cedula)",
+                    "Cedula of the Applicant (Community Tax Certificate)",
                     "Electrical & Sanitary permit",
-                    "Locational clearance",
+                    "Zoning Clearance",
                     "Fire Safety clearance"
                 ],
                 formSchema: {
@@ -287,7 +287,7 @@ export async function ensureBuildingPermitTransactionTypes() {
                     "Xerox copy of land title",
                     "Community Tax Certificate (Cedula)",
                     "Electrical & Sanitary permit",
-                    "Locational clearance",
+                    "Zoning Clearance",
                     "Fire Safety clearance"
                 ],
                 formSchema: {
@@ -4420,7 +4420,7 @@ export async function approveAndSendBuildingPermitBilling(id: string) {
 
         if (zoningCharges.length > 0) {
             zoningCharges.forEach((c: any) => {
-                lineItems.push({ label: c.name || "Zoning & Locational Clearance", amount: Number(c.amount || 0) });
+                lineItems.push({ label: c.name || "Zoning Clearance", amount: Number(c.amount || 0) });
             });
         }
 

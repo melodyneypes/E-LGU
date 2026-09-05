@@ -385,7 +385,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Zoning Endorsement</p>
-                            <p className="text-[11px] font-medium opacity-90">Please specify the Zoning & Locational Clearance charges. The application will be forwarded to the Municipal Engineer once endorsed.</p>
+                            <p className="text-[11px] font-medium opacity-90">Please specify the Zoning Clearance charges. The application will be forwarded to the Municipal Engineer once endorsed.</p>
                         </div>
                     </div>
                 )}
@@ -564,7 +564,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     Upload Zoning <span className="text-primary">Clearance</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the zoning or locational clearance before endorsing the fee assessment to the Engineer.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the zoning clearance before endorsing the fee assessment to the Engineer.</p>
                             </div>
 
                         <input
@@ -651,7 +651,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             {(userRole === "MPDC_ZONING" || zoningMunicipalCharges.some(c => c.name || c.amount) || transaction.additionalData?.feeAssessment?.zoningMunicipalCharges?.length > 0) && (
                                 <div className="col-span-1 md:col-span-2 space-y-4 pt-6 border-t border-dashed border-slate-100 dark:border-white/5">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Zoning & Locational Clearance Charges</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Zoning Clearance Charges</Label>
                                     </div>
 
                                     {zoningMunicipalCharges.map((charge, index) => {
@@ -790,7 +790,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     Zoning / Locational <span className="text-primary">Clearance Certificate</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning/Locational Clearance certificate issued by the Zoning Officer / MPDC.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning Clearance certificate issued by the Zoning Officer / MPDC.</p>
                             </div>
                             <Dialog>
                                 <DialogTrigger asChild>
@@ -803,7 +803,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         </div>
                                     </div>
                                 </DialogTrigger>
-                                <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning / Locational Clearance" />
+                                <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning Clearance" />
                             </Dialog>
                         </div>
                     )}

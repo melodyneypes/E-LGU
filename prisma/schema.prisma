@@ -1341,13 +1341,10 @@ model AmbulanceDriver {
   notes               String?
   photoUrl            String?
   assignedAmbulanceId String?
-  assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id], onDelete: SetNull)
-  trips               AmbulanceDispatchSchedule[]
   createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-
-  @@index([assignedAmbulanceId])
-  @@index([status])
+  updatedAt           DateTime                    @default(now()) @updatedAt
+  trips               AmbulanceDispatchSchedule[]
+  assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id])
 }
 
 model AmbulanceDispatchSchedule {
@@ -1364,20 +1361,15 @@ model AmbulanceDispatchSchedule {
   departureTime       String?
   returnTime          String?
   ambulanceId         String?
-  ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id], onDelete: SetNull)
   driverId            String?
-  driver              AmbulanceDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
   medicStaff          String?
   notes               String?
   destinationHospital String?
   requestedBy         String?
   createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-
-  @@index([scheduledDate])
-  @@index([ambulanceId])
-  @@index([driverId])
-  @@index([status])
+  updatedAt           DateTime         @default(now()) @updatedAt
+  ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id])
+  driver              AmbulanceDriver? @relation(fields: [driverId], references: [id])
 }
 
 model RHUAmbulanceHotline {
@@ -1529,19 +1521,21 @@ model MedicalAsset {
 }
 
 model EquipmentPurchaseOrder {
-  id            String            @id @default(cuid())
-  poNumber      String            @unique
-  vendorName    String
-  vendorContact String?
-  totalAmount   Float             @default(0)
-  status        String            @default("DRAFT")
-  createdById   String?
-  createdByName String?
-  pdfUrl        String?
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @default(now()) @updatedAt
-  items         EquipmentPOItem[]
+  id              String            @id @default(cuid())
+  poNumber        String            @unique
+  vendorName      String
+  vendorContact   String?
+  totalAmount     Float             @default(0)
+  status          String            @default("DRAFT")
+  createdById     String?
+  createdByName   String?
+  pdfUrl          String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @default(now()) @updatedAt
+  linkedRoNumber  String?
+  inspectionNotes String?
+  items           EquipmentPOItem[]
 
   @@index([poNumber])
   @@index([status])
@@ -1557,6 +1551,8 @@ model EquipmentPOItem {
   totalCost     Float                  @default(0)
   receivedQty   Int                    @default(0)
   status        String                 @default("PENDING")
+  damagedQty    Int                    @default(0)
+  missingQty    Int                    @default(0)
   po            EquipmentPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
 
   @@index([poId])
@@ -1573,6 +1569,7 @@ model EquipmentRequestOrder {
   justification      String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @default(now()) @updatedAt
+  linkedPoNumber     String?
   items              EquipmentROItem[]
 
   @@index([roNumber])
