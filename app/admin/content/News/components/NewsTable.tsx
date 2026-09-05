@@ -310,7 +310,8 @@ export function NewsTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -325,7 +326,7 @@ export function NewsTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete News</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>
