@@ -175,16 +175,6 @@ function AnnouncementCard({ item, idx, isMobile }: { item: Announcement; idx: nu
                     <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight group-hover:text-primary transition-colors">
                         {item.title}
                     </h3>
-                    {item.imageUrl && (
-                        <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-950 p-1.5 shadow-md flex items-center justify-center my-2">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={item.imageUrl}
-                                alt={item.title}
-                                className="w-full max-h-[260px] object-contain rounded-xl"
-                            />
-                        </div>
-                    )}
                     <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium italic line-clamp-2">
                         {item.content}
                     </p>
