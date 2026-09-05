@@ -589,12 +589,13 @@ export default function ChurchClient({
                                                 >
                                                     <Pencil size={18} />
                                                 </button>
-                                                <button 
+                                                {/* Hide delete action temporarily */}
+                                                {/* <button 
                                                     onClick={() => handleDeleteCollection(c.id, format(new Date(c.date), "MMM dd, yyyy"))} 
                                                     className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl transition-colors cursor-pointer"
                                                 >
                                                     <Trash2 size={18} />
-                                                </button>
+                                                </button> */}
                                             </div>
                                         </td>
                                     </tr>
@@ -678,18 +679,19 @@ export default function ChurchClient({
                                                                     });
                                                                     setIsScheduleModalOpen(true);
                                                                 }}
-                                                                className="w-12 h-12 flex items-center justify-center text-blue-500 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white rounded-[1.2rem] transition-all shadow-sm group/btn"
+                                                                className="w-12 h-12 flex items-center justify-center text-blue-500 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white rounded-[1.2rem] transition-all shadow-sm group/btn cursor-pointer"
                                                                 title="Edit Slot"
                                                             >
                                                                 <Pencil size={18} className="group-hover/btn:scale-110 transition-transform" />
                                                             </button>
-                                                            <button
+                                                            {/* Hide delete action temporarily */}
+                                                            {/* <button
                                                                 onClick={() => handleDeleteSchedule(s.id, `${s.day} ${s.time}`)}
                                                                 className="w-12 h-12 flex items-center justify-center text-red-500 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-red-600 hover:text-white rounded-[1.2rem] transition-all shadow-sm group/btn cursor-pointer"
                                                                 title="Delete Slot"
                                                             >
                                                                 <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                            </button>
+                                                            </button> */}
                                                         </div>
                                                     </div>
                                                 </div>
