@@ -15,6 +15,15 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
       // Disable immutability checking - too strict and has false positives with document.cookie/window.location
       "react-hooks/immutability": "off",
+      // Allow unused vars and args if prefixed with underscore (standard TypeScript convention)
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ],
     },
   },
   // Override default ignores of eslint-config-next.

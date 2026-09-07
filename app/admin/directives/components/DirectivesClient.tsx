@@ -6,7 +6,6 @@ import {
     FileText,
     Plus,
     Search,
-    Trash2,
     Building2,
     AlertCircle,
     CheckCircle2,

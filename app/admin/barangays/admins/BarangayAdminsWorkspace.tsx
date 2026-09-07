@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MapPin, Mail, Shield, Edit, Trash2 } from "lucide-react";
+import { Plus, MapPin, Mail, Shield, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";

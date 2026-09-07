@@ -267,7 +267,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
         word2: "Express",
         logo: ""
     });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const [_showAdditionalDebug, _setShowAdditionalDebug] = useState(false);
     const [isResolvingDispute, setIsResolvingDispute] = useState(false);
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
@@ -337,7 +337,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
     const isBuildingPermit = isEngineeringPermitCode(transaction?.type?.code);
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const typeCode = (transaction?.type?.code || "").toUpperCase();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const _isBirth = typeCode.includes("BIRTH");
     const isDeath = typeCode.includes("DEATH");
     const isMarriage = typeCode.includes("MARRIAGE") || typeCode.includes("LICENSE");

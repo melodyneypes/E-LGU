@@ -13,7 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Trash2, EyeOff, MapPin, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, EyeOff, MapPin, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { deleteEvent, getEventById } from "../actions/events.actions";
 import { toast } from "sonner";

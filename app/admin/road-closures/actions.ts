@@ -92,6 +92,24 @@ export async function getRoadClosuresAction() {
         }
 
         const closures = await prisma.roadClosure.findMany({
+            select: {
+                id: true,
+                title: true,
+                description: true,
+                status: true,
+                severity: true,
+                barangay: true,
+                roadName: true,
+                startLocation: true,
+                endLocation: true,
+                routeCoordinates: true,
+                detourAdvice: true,
+                startDate: true,
+                endDate: true,
+                isActive: true,
+                createdAt: true,
+                updatedAt: true,
+            },
             orderBy: [
                 { isActive: "desc" },
                 { startDate: "desc" }

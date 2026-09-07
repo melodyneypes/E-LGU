@@ -11,7 +11,6 @@ import {
     Search, 
     Plus, 
     Edit2, 
-    Trash2, 
     FileDown, 
     FileText, 
     Calendar,

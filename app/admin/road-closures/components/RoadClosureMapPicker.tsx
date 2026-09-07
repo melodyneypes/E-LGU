@@ -141,6 +141,7 @@ export function RoadClosureMapPicker({
         return () => {
             isCancelled = true;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [startLocation?.lat, startLocation?.lng, endLocation?.lat, endLocation?.lng]);
 
     const handlePointSelect = (lat: number, lng: number) => {
@@ -221,8 +222,15 @@ export function RoadClosureMapPicker({
                         </span>
                     )}
                     {activeMode === "done" && (
-                        <span className="text-amber-600 dark:text-amber-400 font-bold">
-                            Road Segment Selected
+                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                            {isSnapping ? (
+                                <>
+                                    <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                                    Snapping to Mapandan road network...
+                                </>
+                            ) : (
+                                "Road Segment Snapped & Selected"
+                            )}
                         </span>
                     )}
                 </div>

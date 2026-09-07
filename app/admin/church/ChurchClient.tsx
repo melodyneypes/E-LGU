@@ -302,7 +302,7 @@ export default function ChurchClient({
         }
     };
 
-    const handleDeleteSchedule = (id: string, label: string) => {
+    const _handleDeleteSchedule = (id: string, label: string) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Mass Schedule",
@@ -324,7 +324,7 @@ export default function ChurchClient({
         });
     };
 
-    const handleDeleteCollection = (id: string, dateStr: string) => {
+    const _handleDeleteCollection = (id: string, dateStr: string) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Financial Record",

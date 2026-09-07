@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Trash2, Calendar, Newspaper, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit2, Calendar, Newspaper, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";

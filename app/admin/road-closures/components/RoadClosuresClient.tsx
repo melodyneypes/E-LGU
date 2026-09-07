@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Plus,
     Search,
@@ -10,11 +10,21 @@ import {
     Trash2,
     Edit2,
     MapPin,
-    Loader2
+    Loader2,
+    ChevronLeft,
+    ChevronRight,
+    X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { RoadClosureStatus } from "@prisma/client";
 import { RoadClosureModal } from "./RoadClosureModal";
 import { toggleRoadClosureStatusAction, deleteRoadClosureAction } from "../actions";
@@ -57,19 +67,42 @@ export function RoadClosuresClient({
     isBarangayAdmin,
 }: RoadClosuresClientProps) {
     const [closures, setClosures] = useState<any[]>(initialClosures);
-    const [search, setSearch] = useState("");
+    const [searchInput, setSearchInput] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedClosure, setSelectedClosure] = useState<any | null>(null);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [isMutating, setIsMutating] = useState(false);
+    const [isPageChanging, setIsPageChanging] = useState(false);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    // 400ms search debounce
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchInput.trim().toLowerCase());
+            setCurrentPage(1); // Reset to first page on search change
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // Reset pagination when status filter changes
+    const handleStatusFilterChange = (tab: string) => {
+        setStatusFilter(tab);
+        setCurrentPage(1);
+    };
 
     // Filter closures
     const filteredClosures = closures.filter((c) => {
         const matchesSearch =
-            c.title.toLowerCase().includes(search.toLowerCase()) ||
-            (c.roadName && c.roadName.toLowerCase().includes(search.toLowerCase())) ||
-            (c.barangay && c.barangay.toLowerCase().includes(search.toLowerCase()));
+            !debouncedSearch ||
+            c.title.toLowerCase().includes(debouncedSearch) ||
+            (c.roadName && c.roadName.toLowerCase().includes(debouncedSearch)) ||
+            (c.barangay && c.barangay.toLowerCase().includes(debouncedSearch));
 
         if (!matchesSearch) return false;
         if (statusFilter === "ALL") return true;
@@ -77,6 +110,12 @@ export function RoadClosuresClient({
         if (statusFilter === "REOPENED") return c.status === RoadClosureStatus.REOPENED;
         return c.status === statusFilter;
     });
+
+    // Pagination calculations
+    const totalItems = filteredClosures.length;
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedClosures = filteredClosures.slice(startIndex, startIndex + pageSize);
 
     const activeCount = closures.filter((c) => c.status !== RoadClosureStatus.REOPENED).length;
     const closedCount = closures.filter((c) => c.status === RoadClosureStatus.CLOSED).length;
@@ -209,21 +248,30 @@ export function RoadClosuresClient({
             {/* Filter and Action Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0c111d] p-4 rounded-3xl border border-slate-200 dark:border-white/5 shadow-sm">
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative w-full sm:w-64">
+                    <div className="relative w-full sm:w-72">
                         <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <Input
                             placeholder="Search road, barangay..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 h-11 rounded-2xl text-xs"
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            className="pl-9 pr-8 h-11 rounded-2xl text-xs"
                         />
+                        {searchInput && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchInput("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-2xl">
                         {["ALL", "ACTIVE", "REOPENED"].map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => setStatusFilter(tab)}
+                                onClick={() => handleStatusFilterChange(tab)}
                                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                                     statusFilter === tab
                                         ? "bg-white dark:bg-[#151b2b] text-slate-900 dark:text-white shadow-sm"
@@ -248,16 +296,16 @@ export function RoadClosuresClient({
                 </Button>
             </div>
 
-            {/* Closures List / Table */}
-            <div className="bg-white dark:bg-[#0c111d] rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden shadow-sm">
-                {isMutating && (
-                    <div className="border-b border-slate-100 dark:border-white/5">
-                        <RoadClosureRowSkeleton />
-                    </div>
-                )}
-
-                {filteredClosures.length === 0 && !isMutating ? (
-                    <div className="p-12 text-center">
+            {/* Closures List: Spaced Cards Layout */}
+            <div className="space-y-3.5">
+                {(isMutating || isPageChanging) ? (
+                    Array.from({ length: Math.min(pageSize, 5) }).map((_, idx) => (
+                        <div key={idx} className="bg-white dark:bg-[#0c111d] rounded-2xl border border-slate-200/80 dark:border-white/5 p-2 shadow-sm">
+                            <RoadClosureRowSkeleton />
+                        </div>
+                    ))
+                ) : paginatedClosures.length === 0 ? (
+                    <div className="bg-white dark:bg-[#0c111d] rounded-3xl border border-slate-200 dark:border-white/5 p-12 text-center shadow-sm">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-3">
                             <AlertTriangle className="w-6 h-6" />
                         </div>
@@ -269,92 +317,166 @@ export function RoadClosuresClient({
                         </p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-slate-100 dark:divide-white/5">
-                        {filteredClosures.map((closure) => (
-                            <div
-                                key={closure.id}
-                                className="p-5 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
-                            >
-                                <div className="space-y-1.5 flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {getStatusBadge(closure.status)}
-                                        <Badge
-                                            variant="outline"
-                                            className="text-[10px] font-black uppercase tracking-wider rounded-lg"
-                                        >
-                                            {closure.barangay || "Town-wide"}
-                                        </Badge>
-                                        <span className="text-xs font-semibold text-slate-400">
-                                            {format(new Date(closure.startDate), "MMM dd, yyyy h:mm a")}
-                                        </span>
-                                    </div>
-
-                                    <h4 className="font-black text-base text-slate-900 dark:text-white truncate">
-                                        {closure.title}
-                                    </h4>
-
-                                    {closure.roadName && (
-                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                                            <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                                            {closure.roadName}
-                                        </p>
-                                    )}
-
-                                    {closure.detourAdvice && (
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 italic">
-                                            <span className="font-bold text-amber-600 dark:text-amber-400">Detour: </span>
-                                            {closure.detourAdvice}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <Button
-                                        size="sm"
+                    paginatedClosures.map((closure) => (
+                        <div
+                            key={closure.id}
+                            className="bg-white dark:bg-[#0c111d] rounded-2xl border border-slate-200/80 dark:border-white/5 p-5 hover:border-amber-500/30 dark:hover:border-amber-500/30 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+                        >
+                            <div className="space-y-2 flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {getStatusBadge(closure.status)}
+                                    <Badge
                                         variant="outline"
-                                        disabled={actionLoadingId === closure.id}
-                                        onClick={() => handleToggleStatus(closure.id, closure.status)}
-                                        className={`rounded-xl text-xs font-bold h-9 ${
-                                            closure.status === RoadClosureStatus.REOPENED
-                                                ? "text-rose-600 border-rose-200 dark:border-rose-900/30 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                                : "text-emerald-600 border-emerald-200 dark:border-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                                        }`}
+                                        className="text-[10px] font-black uppercase tracking-wider rounded-lg px-2 py-0.5"
                                     >
-                                        {actionLoadingId === closure.id ? (
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        ) : closure.status === RoadClosureStatus.REOPENED ? (
-                                            "Mark Closed"
-                                        ) : (
-                                            "Mark Reopened"
-                                        )}
-                                    </Button>
-
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => {
-                                            setSelectedClosure(closure);
-                                            setIsModalOpen(true);
-                                        }}
-                                        className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white"
-                                    >
-                                        <Edit2 className="w-4 h-4" />
-                                    </Button>
-
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        disabled={actionLoadingId === closure.id}
-                                        onClick={() => handleDelete(closure.id)}
-                                        className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                        {closure.barangay || "Town-wide"}
+                                    </Badge>
+                                    <span className="text-xs font-semibold text-slate-400">
+                                        {format(new Date(closure.startDate), "MMM dd, yyyy h:mm a")}
+                                    </span>
                                 </div>
+
+                                <h4 className="font-black text-base text-slate-900 dark:text-white truncate">
+                                    {closure.title}
+                                </h4>
+
+                                {closure.roadName && (
+                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                                        {closure.roadName}
+                                    </p>
+                                )}
+
+                                {closure.detourAdvice && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 italic">
+                                        <span className="font-bold text-amber-600 dark:text-amber-400">Detour: </span>
+                                        {closure.detourAdvice}
+                                    </p>
+                                )}
                             </div>
-                        ))}
-                    </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={actionLoadingId === closure.id}
+                                    onClick={() => handleToggleStatus(closure.id, closure.status)}
+                                    className={`rounded-xl text-xs font-bold h-9 ${
+                                        closure.status === RoadClosureStatus.REOPENED
+                                            ? "text-rose-600 border-rose-200 dark:border-rose-900/30 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            : "text-emerald-600 border-emerald-200 dark:border-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                                    }`}
+                                >
+                                    {actionLoadingId === closure.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : closure.status === RoadClosureStatus.REOPENED ? (
+                                        "Mark Closed"
+                                    ) : (
+                                        "Mark Reopened"
+                                    )}
+                                </Button>
+
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setSelectedClosure(closure);
+                                        setIsModalOpen(true);
+                                    }}
+                                    className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </Button>
+
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    disabled={actionLoadingId === closure.id}
+                                    onClick={() => handleDelete(closure.id)}
+                                    className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    ))
                 )}
+            </div>
+
+            {/* System Standard Pagination Bar */}
+            <div className="px-6 py-4 rounded-2xl border border-slate-200/80 dark:border-white/5 bg-white dark:bg-[#0c111d] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400 italic">
+                    <span>
+                        Showing <strong className="text-slate-900 dark:text-white font-black">{totalItems === 0 ? 0 : startIndex + 1}</strong> to{" "}
+                        <strong className="text-slate-900 dark:text-white font-black">
+                            {Math.min(startIndex + pageSize, totalItems)}
+                        </strong>{" "}
+                        of <strong className="text-slate-900 dark:text-white font-black">{totalItems}</strong> listings
+                    </span>
+
+                    <div className="flex items-center gap-2 sm:ml-4 not-italic">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">
+                            ROWS PER PAGE:
+                        </span>
+                        <Select
+                            value={pageSize.toString()}
+                            onValueChange={(val) => {
+                                setIsPageChanging(true);
+                                setPageSize(Number(val));
+                                setCurrentPage(1);
+                                setTimeout(() => {
+                                    setIsPageChanging(false);
+                                }, 300);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[72px] bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold">
+                                <SelectValue placeholder={pageSize.toString()} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b] rounded-xl">
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 not-italic">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage <= 1}
+                        onClick={() => {
+                            setIsPageChanging(true);
+                            setCurrentPage((p) => Math.max(1, p - 1));
+                            setTimeout(() => setIsPageChanging(false), 250);
+                        }}
+                        className="h-8 px-3 rounded-lg border-slate-200 dark:border-white/10 font-bold text-xs flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-white/5"
+                    >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        Prev
+                    </Button>
+
+                    <span className="text-xs font-black px-2.5 py-1 bg-slate-100 dark:bg-white/5 rounded-lg text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/5">
+                        {currentPage} / {totalPages}
+                    </span>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => {
+                            setIsPageChanging(true);
+                            setCurrentPage((p) => Math.min(totalPages, p + 1));
+                            setTimeout(() => setIsPageChanging(false), 250);
+                        }}
+                        className="h-8 px-3 rounded-lg border-slate-200 dark:border-white/10 font-bold text-xs flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-white/5"
+                    >
+                        Next
+                        <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                </div>
             </div>
 
             {/* Modal for Create/Edit */}
