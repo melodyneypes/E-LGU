@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { RoadClosureStatus } from "@prisma/client";
 import { RoadClosureModal } from "./RoadClosureModal";
+import { ConfirmDeleteModal } from "@/components/shared/ConfirmDeleteModal";
 import { toggleRoadClosureStatusAction, deleteRoadClosureAction } from "../actions";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -75,6 +76,20 @@ export function RoadClosuresClient({
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [isMutating, setIsMutating] = useState(false);
     const [isPageChanging, setIsPageChanging] = useState(false);
+    
+    // Delete Confirmation Modal State
+    const [deleteModalConfig, setDeleteModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => Promise<void>;
+    }>({
+        isOpen: false,
+        title: "",
+        description: "",
+        onConfirm: async () => {},
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
     
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -149,22 +164,29 @@ export function RoadClosuresClient({
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this road advisory?")) return;
-        setActionLoadingId(id);
-        try {
-            const res = await deleteRoadClosureAction(id);
-            if (res.success) {
-                setClosures((prev) => prev.filter((item) => item.id !== id));
-                toast.success("Road closure record deleted.");
-            } else {
-                toast.error(res.error || "Failed to delete.");
-            }
-        } catch {
-            toast.error("Failed to delete record.");
-        } finally {
-            setActionLoadingId(null);
-        }
+    const promptDelete = (closure: any) => {
+        setDeleteModalConfig({
+            isOpen: true,
+            title: "Delete Road Advisory",
+            description: `Are you sure you want to permanently delete the road advisory for "${closure.title}" (${closure.roadName || closure.barangay || "Mapandan"})? This will remove all hazard pins and detour guidelines from the public road advisory portal.`,
+            onConfirm: async () => {
+                setIsDeleting(true);
+                try {
+                    const res = await deleteRoadClosureAction(closure.id);
+                    if (res.success) {
+                        setClosures((prev) => prev.filter((item) => item.id !== closure.id));
+                        toast.success("Road closure advisory deleted successfully!");
+                        setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }));
+                    } else {
+                        toast.error(res.error || "Failed to delete.");
+                    }
+                } catch {
+                    toast.error("Failed to delete record.");
+                } finally {
+                    setIsDeleting(false);
+                }
+            },
+        });
     };
 
     const getStatusBadge = (status: RoadClosureStatus) => {
@@ -391,9 +413,9 @@ export function RoadClosuresClient({
                                 <Button
                                     size="icon"
                                     variant="ghost"
-                                    disabled={actionLoadingId === closure.id}
-                                    onClick={() => handleDelete(closure.id)}
-                                    className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    onClick={() => promptDelete(closure)}
+                                    className="h-9 w-9 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
+                                    title="Delete Road Advisory"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -504,6 +526,16 @@ export function RoadClosuresClient({
                     }}
                 />
             )}
+
+            {/* Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                onConfirm={deleteModalConfig.onConfirm}
+                title={deleteModalConfig.title}
+                description={deleteModalConfig.description}
+                isLoading={isDeleting}
+            />
         </div>
     );
 }
