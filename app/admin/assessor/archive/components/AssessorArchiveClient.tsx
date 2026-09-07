@@ -27,7 +27,8 @@ import {
     Info,
     HelpCircle,
     FolderSearch,
-    Clock
+    Clock,
+    FileUp
 } from "lucide-react";
 import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,15 @@ const CLASSIFICATIONS = [
     { value: "AGRICULTURAL", label: "Agricultural (40% Default)" },
     { value: "INDUSTRIAL", label: "Industrial (50% Default)" },
     { value: "SPECIAL", label: "Special / Exempt (10% Default)" },
+];
+
+const ASSESSOR_DOCUMENT_PRESETS = [
+    "Land Title (OCT / TCT)",
+    "Field Appraisal Sheet (FAAS)",
+    "Deed of Absolute Sale",
+    "Cadastral Survey / Lot Plan",
+    "Tax Clearance / Official Receipt",
+    "Barangay Certification",
 ];
 
 export interface AssessorAttachmentItem {
@@ -1277,93 +1287,120 @@ export default function AssessorArchiveClient({
                                             </div>
 
                                             {/* Supplementary Attachments List */}
-                                            <div className="space-y-3 flex flex-col">
-                                                <div className="flex items-center justify-between shrink-0 pb-1 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                            <div className="space-y-3 flex flex-col flex-1">
+                                                {/* Phase 2: Quick Preset Additions Toolbar */}
+                                                <div className="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        Quick Preset Additions:
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {ASSESSOR_DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                            const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                            return (
+                                                                <button
+                                                                    key={pIdx}
+                                                                    type="button"
+                                                                    disabled={isAlreadyAdded}
+                                                                    onClick={() => handleAddAttachmentRow(preset)}
+                                                                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                        isAlreadyAdded
+                                                                            ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                            : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-blue-500/50 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs cursor-pointer"
+                                                                    }`}
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> {preset}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between shrink-0">
                                                     <div className="flex items-center gap-1.5">
                                                         <FileText className="w-3.5 h-3.5 text-blue-600" />
                                                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                             Supplementary Deeds, Titles & Clearances ({additionalAttachments.length})
                                                         </p>
                                                     </div>
-                                                    <Button
-                                                        type="button"
-                                                        onClick={() => handleAddAttachmentRow()}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer h-7 px-2"
-                                                    >
-                                                        <Plus className="w-3 h-3 mr-1" /> Add Row
-                                                    </Button>
                                                 </div>
 
                                                 {additionalAttachments.length === 0 ? (
                                                     <div
-                                                        onClick={() => handleAddAttachmentRow()}
-                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer text-center min-h-[160px]"
+                                                        onClick={() => handleAddAttachmentRow("")}
+                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer text-center min-h-[220px]"
                                                     >
-                                                        <UploadCloud className="w-8 h-8 text-blue-400/80 mb-2 animate-bounce" />
-                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">No Supplementary Files Added</span>
-                                                        <span className="text-[10px] text-slate-400 mt-1">Click here or &ldquo;+ Add Row&rdquo; to attach Land Titles, Deeds, or FAAS sheets</span>
+                                                        <UploadCloud className="w-8 h-8 text-blue-400/80 mb-2" />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                            No Supplementary Documents
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">
+                                                            Select one of the presets above or click here to add a custom attachment
+                                                        </span>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
+                                                    <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1.5 custom-scrollbar">
                                                         {additionalAttachments.map((att, idx) => (
                                                             <div
                                                                 key={att.id || idx}
-                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200 dark:border-[#2a3040] space-y-2.5 shadow-sm"
+                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-2.5 shadow-2xs transition-all hover:border-blue-500/30"
                                                             >
                                                                 <div className="flex items-center justify-between gap-2">
-                                                                    <Input
-                                                                        placeholder="Document Label (e.g. Land Title OCT/TCT)"
-                                                                        value={att.label}
-                                                                        onChange={e => {
-                                                                            const updated = [...additionalAttachments];
-                                                                            updated[idx].label = e.target.value;
-                                                                            setAdditionalAttachments(updated);
-                                                                        }}
-                                                                        className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b]"
-                                                                    />
+                                                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                        <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                                                            {idx + 1}
+                                                                        </span>
+                                                                        <Input
+                                                                            placeholder="Document Label (e.g. Land Title OCT/TCT)"
+                                                                            value={att.label}
+                                                                            onChange={e => {
+                                                                                const updated = [...additionalAttachments];
+                                                                                updated[idx].label = e.target.value;
+                                                                                setAdditionalAttachments(updated);
+                                                                            }}
+                                                                            className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]"
+                                                                        />
+                                                                    </div>
                                                                     <Button
                                                                         type="button"
                                                                         onClick={() => handleRemoveAttachmentRow(att.id)}
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
-                                                                        title="Remove file"
+                                                                        title="Remove item"
                                                                     >
                                                                         <Trash2 className="w-3.5 h-3.5" />
                                                                     </Button>
                                                                 </div>
 
                                                                 {att.file ? (
-                                                                    <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-[#151b2b] border border-slate-200/60 dark:border-slate-800">
+                                                                    <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
                                                                         {att.isImage && att.previewUrl ? (
-                                                                            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 shrink-0 group">
+                                                                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
                                                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                                 <img
                                                                                     src={att.previewUrl}
-                                                                                    alt={att.label}
+                                                                                    alt="Preview"
                                                                                     className="w-full h-full object-cover"
                                                                                 />
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
                                                                                     className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                                                                    title="Inspect Image"
+                                                                                    title="View Image"
                                                                                 >
                                                                                     <ZoomIn className="w-3.5 h-3.5" />
                                                                                 </button>
                                                                             </div>
                                                                         ) : (
-                                                                            <div className="w-10 h-10 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
-                                                                                <FileText className="w-4 h-4" />
-                                                                                <span className="text-[8px] font-black uppercase mt-0.5">PDF</span>
+                                                                            <div className="w-12 h-12 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                                <FileText className="w-5 h-5" />
+                                                                                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
                                                                             </div>
                                                                         )}
 
                                                                         <div className="flex-1 min-w-0">
                                                                             <div className="flex items-center gap-1.5">
-                                                                                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                                                                                     {att.file.name}
                                                                                 </p>
                                                                                 {att.scannedAt && (
@@ -1386,7 +1423,7 @@ export default function AssessorArchiveClient({
                                                                                     size="icon"
                                                                                     onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
                                                                                     className="h-7 w-7 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer"
-                                                                                    title="Preview scan"
+                                                                                    title="Inspect Document"
                                                                                 >
                                                                                     <Eye className="w-3.5 h-3.5" />
                                                                                 </Button>
@@ -1397,22 +1434,45 @@ export default function AssessorArchiveClient({
                                                                                 size="icon"
                                                                                 onClick={() => handleAttachmentFileChange(att.id, null)}
                                                                                 className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                                                                                title="Clear file"
+                                                                                title="Change file"
                                                                             >
                                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                                             </Button>
                                                                         </div>
                                                                     </div>
                                                                 ) : (
-                                                                    <Input
-                                                                        type="file"
-                                                                        accept="image/*,application/pdf"
-                                                                        onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
-                                                                        className="h-9 rounded-lg text-xs cursor-pointer bg-slate-50 dark:bg-[#151b2b]"
-                                                                    />
+                                                                    <label className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/60 dark:bg-[#151b2b]/60 border border-dashed border-slate-300 dark:border-[#2a3040] hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group">
+                                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                                            <FileUp className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                                                                Choose Document / Deed
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                                PDF, PNG, JPG (Click to browse file)
+                                                                            </p>
+                                                                        </div>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*,application/pdf"
+                                                                            onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
+                                                                            className="hidden"
+                                                                        />
+                                                                    </label>
                                                                 )}
                                                             </div>
                                                         ))}
+
+                                                        {/* Prominent Bottom Add Custom Button */}
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => handleAddAttachmentRow("")}
+                                                            variant="outline"
+                                                            className="w-full h-10 rounded-xl border-dashed border-2 border-blue-500/30 hover:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all mt-1"
+                                                        >
+                                                            <Plus className="w-4 h-4" /> Add Another Document
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
