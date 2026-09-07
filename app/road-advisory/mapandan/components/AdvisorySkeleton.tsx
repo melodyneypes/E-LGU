@@ -7,7 +7,7 @@ export function PublicAdvisorySkeleton() {
             {Array.from({ length: 3 }).map((_, i) => (
                 <div 
                     key={i} 
-                    className="p-5 rounded-3xl bg-slate-900/60 shadow-lg space-y-4 animate-pulse"
+                    className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900/60 shadow-lg space-y-3.5 sm:space-y-4 animate-pulse"
                 >
                     <div className="flex items-center justify-between">
                         <Skeleton className="h-5 w-24 bg-slate-800 rounded-full" />

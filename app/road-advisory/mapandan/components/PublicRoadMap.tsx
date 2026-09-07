@@ -144,7 +144,7 @@ export default function PublicRoadMap({
     };
 
     return (
-        <div className="relative w-full h-[580px] rounded-3xl overflow-hidden shadow-2xl z-0">
+        <div className="relative w-full h-[360px] sm:h-[460px] lg:h-[580px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl z-0">
             <MapContainer
                 center={MAPANDAN_CENTER}
                 zoom={14}
@@ -247,43 +247,43 @@ export default function PublicRoadMap({
                 })}
             </MapContainer>
 
-            {/* Top-Right Floating Focus Control Badge */}
+            {/* Top-Right Floating Focus Control Badge (Responsive truncation) */}
             {selectedId && activeSelectedAdvisory && (
-                <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="bg-slate-900/95 backdrop-blur-xl px-3.5 py-2 rounded-2xl shadow-2xl flex items-center gap-2 text-xs">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                        <span className="font-black text-white uppercase italic tracking-tight truncate max-w-[200px]">
+                <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-[1000] flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="bg-slate-900/95 backdrop-blur-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl shadow-2xl flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                        <span className="font-black text-white uppercase italic tracking-tight truncate max-w-[130px] sm:max-w-[220px]">
                             {activeSelectedAdvisory.title}
                         </span>
                         {onClearSelection && (
                             <button
                                 type="button"
                                 onClick={onClearSelection}
-                                className="ml-1 p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                className="ml-1 p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
                                 title="Show All Roads"
                             >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                             </button>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* Floating Map Legend */}
-            <div className="absolute bottom-4 left-4 z-[1000] p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-xl text-xs space-y-2 hidden sm:block">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Traffic Legend</p>
-                <div className="flex flex-col gap-1.5 font-bold">
-                    <div className="flex items-center gap-2 text-rose-400">
-                        <span className="w-3 h-3 rounded-full bg-rose-500 shadow-sm" />
-                        <span>Closed / Impassable</span>
+            {/* Floating Map Legend (Responsive for mobile & desktop) */}
+            <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-[1000] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-xl text-[10px] sm:text-xs space-y-1 sm:space-y-2">
+                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Traffic Legend</p>
+                <div className="flex flex-row sm:flex-col gap-2 sm:gap-1.5 font-bold">
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-rose-400">
+                        <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-rose-500 shadow-sm shrink-0" />
+                        <span className="whitespace-nowrap">Closed</span>
                     </div>
-                    <div className="flex items-center gap-2 text-amber-400">
-                        <span className="w-3 h-3 rounded-full bg-amber-500 shadow-sm" />
-                        <span>Partially Open / One-way</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-amber-400">
+                        <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500 shadow-sm shrink-0" />
+                        <span className="whitespace-nowrap">Partial</span>
                     </div>
-                    <div className="flex items-center gap-2 text-purple-400">
-                        <span className="w-3 h-3 rounded-full bg-purple-500 shadow-sm" />
-                        <span>Detour Route Only</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-purple-400">
+                        <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-purple-500 shadow-sm shrink-0" />
+                        <span className="whitespace-nowrap">Detour</span>
                     </div>
                 </div>
             </div>
