@@ -513,7 +513,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const _handleAdjustBatchQty = async (batchId: string, delta: number) => {
         startTransition(async () => {
             const res = await adjustRHUBatchQuantity(batchId, delta);
@@ -526,7 +526,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const _handleOpenStockModal = (item: RHUInventoryItemData) => {
         setStockAdjustItem(item);
         setStockDelta(0);

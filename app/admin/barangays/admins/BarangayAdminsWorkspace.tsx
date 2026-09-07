@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MapPin, Mail, Shield, Edit, Trash2 } from "lucide-react";
+import { Plus, MapPin, Mail, Shield, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -250,7 +250,8 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                                                     <Edit className="w-3.5 h-3.5" />
                                                     <span>Edit</span>
                                                 </Button>
-                                                <Button
+                                                {/* Hide delete action temporarily */}
+                                                {/* <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setDeletingAdmin(admin)}
@@ -258,7 +259,7 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor =
                                                     title="Delete Account"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
-                                                </Button>
+                                                </Button> */}
                                             </div>
                                         </TableCell>
                                     </TableRow>

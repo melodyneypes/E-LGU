@@ -1820,3 +1820,41 @@ enum MedicalAssetStatus {
   UNSERVICEABLE_FOR_CONDEMNATION
   CONDEMNED_DISPOSED
 }
+
+enum RoadClosureStatus {
+  CLOSED
+  PARTIALLY_CLOSED
+  DETOUR_ONLY
+  REOPENED
+}
+
+enum RoadClosureSeverity {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+model RoadClosure {
+  id             String               @id @default(cuid())
+  title          String
+  description    String?
+  status         RoadClosureStatus    @default(CLOSED)
+  severity       RoadClosureSeverity  @default(HIGH)
+  barangay       String?
+  roadName       String?
+  startLocation    Json
+  endLocation      Json
+  routeCoordinates Json?
+  detourAdvice     String?
+  startDate      DateTime             @default(now())
+  endDate        DateTime?
+  isActive       Boolean              @default(true)
+  createdById    String?
+  createdByRole  String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([isActive, status])
+  @@index([barangay])
+}

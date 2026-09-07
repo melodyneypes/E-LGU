@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, Utensils, MapPin } from "lucide-react";
+import { Edit2, Utensils, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import Image from "next/image";
@@ -250,7 +250,8 @@ export function DiningTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -264,7 +265,7 @@ export function DiningTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete Restaurant</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>
