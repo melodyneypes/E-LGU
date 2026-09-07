@@ -28,6 +28,28 @@ interface RoadClosuresClientProps {
     isBarangayAdmin?: boolean;
 }
 
+// Sleek row skeleton loader
+function RoadClosureRowSkeleton() {
+    return (
+        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-pulse">
+            <div className="space-y-2.5 flex-1">
+                <div className="flex items-center gap-2">
+                    <div className="h-5 w-16 bg-slate-200 dark:bg-white/10 rounded-full" />
+                    <div className="h-5 w-24 bg-slate-200 dark:bg-white/10 rounded-lg" />
+                    <div className="h-4 w-32 bg-slate-100 dark:bg-white/5 rounded-md" />
+                </div>
+                <div className="h-5 w-3/4 bg-slate-200 dark:bg-white/10 rounded-md" />
+                <div className="h-4 w-1/2 bg-slate-100 dark:bg-white/5 rounded-md" />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+                <div className="h-9 w-24 bg-slate-200 dark:bg-white/10 rounded-xl" />
+                <div className="h-9 w-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
+                <div className="h-9 w-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
+            </div>
+        </div>
+    );
+}
+
 export function RoadClosuresClient({
     initialClosures,
     barangaysList,
@@ -40,6 +62,7 @@ export function RoadClosuresClient({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedClosure, setSelectedClosure] = useState<any | null>(null);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+    const [isMutating, setIsMutating] = useState(false);
 
     // Filter closures
     const filteredClosures = closures.filter((c) => {
@@ -227,7 +250,13 @@ export function RoadClosuresClient({
 
             {/* Closures List / Table */}
             <div className="bg-white dark:bg-[#0c111d] rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden shadow-sm">
-                {filteredClosures.length === 0 ? (
+                {isMutating && (
+                    <div className="border-b border-slate-100 dark:border-white/5">
+                        <RoadClosureRowSkeleton />
+                    </div>
+                )}
+
+                {filteredClosures.length === 0 && !isMutating ? (
                     <div className="p-12 text-center">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-3">
                             <AlertTriangle className="w-6 h-6" />
@@ -337,8 +366,19 @@ export function RoadClosuresClient({
                     barangaysList={barangaysList}
                     userManagedBarangay={userManagedBarangay}
                     isBarangayAdmin={isBarangayAdmin}
-                    onSuccess={() => {
-                        window.location.reload();
+                    onSuccess={(savedData, isEdit) => {
+                        setIsMutating(true);
+                        if (isEdit) {
+                            setClosures((prev) =>
+                                prev.map((item) => (item.id === savedData.id ? savedData : item))
+                            );
+                        } else {
+                            setClosures((prev) => [savedData, ...prev]);
+                        }
+                        // Short sleek timeout to smoothly finish pulse
+                        setTimeout(() => {
+                            setIsMutating(false);
+                        }, 400);
                     }}
                 />
             )}

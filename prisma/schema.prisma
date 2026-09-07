@@ -1843,9 +1843,10 @@ model RoadClosure {
   severity       RoadClosureSeverity  @default(HIGH)
   barangay       String?
   roadName       String?
-  startLocation  Json
-  endLocation    Json
-  detourAdvice   String?
+  startLocation    Json
+  endLocation      Json
+  routeCoordinates Json?
+  detourAdvice     String?
   startDate      DateTime             @default(now())
   endDate        DateTime?
   isActive       Boolean              @default(true)

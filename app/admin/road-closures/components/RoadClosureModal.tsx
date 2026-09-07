@@ -56,6 +56,7 @@ export function RoadClosureModal({
     const [endDate, setEndDate] = useState("");
     const [startLocation, setStartLocation] = useState<PointLocation | null>(null);
     const [endLocation, setEndLocation] = useState<PointLocation | null>(null);
+    const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
 
     useEffect(() => {
         if (closureToEdit) {
@@ -78,6 +79,7 @@ export function RoadClosureModal({
             );
             setStartLocation(closureToEdit.startLocation || null);
             setEndLocation(closureToEdit.endLocation || null);
+            setRouteCoordinates(closureToEdit.routeCoordinates || null);
         } else {
             // New record defaults
             setTitle("");
@@ -91,6 +93,7 @@ export function RoadClosureModal({
             setEndDate("");
             setStartLocation(null);
             setEndLocation(null);
+            setRouteCoordinates(null);
         }
     }, [closureToEdit, isOpen, isBarangayAdmin, userManagedBarangay]);
 
@@ -121,6 +124,7 @@ export function RoadClosureModal({
             endDate: endDate ? new Date(endDate) : null,
             startLocation,
             endLocation,
+            routeCoordinates,
         };
 
         try {
@@ -183,9 +187,13 @@ export function RoadClosureModal({
                                 <RoadClosureMapPicker
                                     startLocation={startLocation}
                                     endLocation={endLocation}
-                                    onChange={(start, end) => {
+                                    routeCoordinates={routeCoordinates}
+                                    onChange={(start, end, snapped) => {
                                         setStartLocation(start);
                                         setEndLocation(end);
+                                        if (snapped !== undefined) {
+                                            setRouteCoordinates(snapped);
+                                        }
                                     }}
                                 />
                             </div>

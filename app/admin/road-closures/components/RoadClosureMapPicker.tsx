@@ -21,7 +21,12 @@ export interface PointLocation {
 interface RoadClosureMapPickerProps {
     startLocation: PointLocation | null;
     endLocation: PointLocation | null;
-    onChange: (start: PointLocation | null, end: PointLocation | null) => void;
+    routeCoordinates?: [number, number][] | null;
+    onChange: (
+        start: PointLocation | null,
+        end: PointLocation | null,
+        routeCoords?: [number, number][] | null
+    ) => void;
 }
 
 const MAPANDAN_CENTER: [number, number] = [16.0271, 120.4542];
@@ -47,11 +52,14 @@ function MapEventListener({
 export function RoadClosureMapPicker({
     startLocation,
     endLocation,
+    routeCoordinates,
     onChange,
 }: RoadClosureMapPickerProps) {
     const [mounted, setMounted] = useState(false);
     const [activeMode, setActiveMode] = useState<"start" | "end" | "done">("start");
     const [LInstance, setLInstance] = useState<any>(null);
+    const [isSnapping, setIsSnapping] = useState(false);
+    const [snappedCoords, setSnappedCoords] = useState<[number, number][]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -70,30 +78,89 @@ export function RoadClosureMapPicker({
     useEffect(() => {
         if (!startLocation) {
             setActiveMode("start");
+            setSnappedCoords([]);
         } else if (!endLocation) {
             setActiveMode("end");
+            setSnappedCoords([]);
         } else {
             setActiveMode("done");
         }
     }, [startLocation, endLocation]);
 
+    // OSRM Snap Routing Engine
+    useEffect(() => {
+        if (routeCoordinates && routeCoordinates.length > 0) {
+            setSnappedCoords(routeCoordinates);
+            return;
+        }
+
+        if (!startLocation || !endLocation) {
+            setSnappedCoords([]);
+            return;
+        }
+
+        let isCancelled = false;
+
+        async function fetchSnappedRoute() {
+            setIsSnapping(true);
+            try {
+                // Query OSRM routing service: coordinates in format {lng},{lat};{lng},{lat}
+                const url = `https://router.project-osrm.org/route/v1/driving/${startLocation!.lng},${startLocation!.lat};${endLocation!.lng},${endLocation!.lat}?overview=full&geometries=geojson`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!isCancelled && data && data.routes && data.routes.length > 0) {
+                    const geometry = data.routes[0].geometry;
+                    // GeoJSON coordinates are [lng, lat], Leaflet polyline expects [lat, lng]
+                    const latLngs: [number, number][] = geometry.coordinates.map(
+                        (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                    );
+
+                    setSnappedCoords(latLngs);
+                    onChange(startLocation, endLocation, latLngs);
+                }
+            } catch (err) {
+                console.warn("[OSRM Snapper] Fallback to direct coordinates:", err);
+                if (!isCancelled) {
+                    const fallback: [number, number][] = [
+                        [startLocation!.lat, startLocation!.lng],
+                        [endLocation!.lat, endLocation!.lng],
+                    ];
+                    setSnappedCoords(fallback);
+                    onChange(startLocation, endLocation, fallback);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsSnapping(false);
+                }
+            }
+        }
+
+        fetchSnappedRoute();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [startLocation?.lat, startLocation?.lng, endLocation?.lat, endLocation?.lng]);
+
     const handlePointSelect = (lat: number, lng: number) => {
         if (!startLocation || activeMode === "start") {
-            onChange({ lat, lng }, endLocation);
+            onChange({ lat, lng }, endLocation, null);
             setActiveMode("end");
         } else if (!endLocation || activeMode === "end") {
-            onChange(startLocation, { lat, lng });
+            onChange(startLocation, { lat, lng }, null);
             setActiveMode("done");
         } else {
             // Both are already set, clicking resets to start
-            onChange({ lat, lng }, null);
+            onChange({ lat, lng }, null, null);
             setActiveMode("end");
         }
     };
 
     const handleReset = (e: React.MouseEvent) => {
         e.preventDefault();
-        onChange(null, null);
+        onChange(null, null, null);
+        setSnappedCoords([]);
         setActiveMode("start");
     };
 
@@ -224,21 +291,21 @@ export function RoadClosureMapPicker({
                         </Marker>
                     )}
 
-                    {polylinePositions.length === 2 && (
+                    {((snappedCoords && snappedCoords.length > 0) || polylinePositions.length === 2) && (
                         <>
-                            {/* Glow polyline */}
+                            {/* Outer Glow / Striped Hazard line */}
                             <Polyline
-                                positions={polylinePositions}
+                                positions={snappedCoords.length > 0 ? snappedCoords : polylinePositions}
                                 pathOptions={{
                                     color: "#ef4444",
                                     weight: 8,
-                                    opacity: 0.8,
+                                    opacity: 0.85,
                                     dashArray: "10, 10",
                                 }}
                             />
-                            {/* Inner polyline */}
+                            {/* Inner Solid Warning Line */}
                             <Polyline
-                                positions={polylinePositions}
+                                positions={snappedCoords.length > 0 ? snappedCoords : polylinePositions}
                                 pathOptions={{
                                     color: "#b91c1c",
                                     weight: 4,

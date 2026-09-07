@@ -75,6 +75,7 @@ export interface RoadClosureInput {
         lng: number;
         address?: string;
     };
+    routeCoordinates?: [number, number][] | null;
     detourAdvice?: string;
     startDate?: Date | string;
     endDate?: Date | string | null;
@@ -136,6 +137,7 @@ export async function createRoadClosureAction(input: RoadClosureInput) {
                 roadName: input.roadName?.trim() || null,
                 startLocation: input.startLocation,
                 endLocation: input.endLocation,
+                routeCoordinates: input.routeCoordinates || null,
                 detourAdvice: input.detourAdvice?.trim() || null,
                 startDate: input.startDate ? new Date(input.startDate) : new Date(),
                 endDate: input.endDate ? new Date(input.endDate) : null,
@@ -188,6 +190,7 @@ export async function updateRoadClosureAction(id: string, input: Partial<RoadClo
         if (input.roadName !== undefined) updateData.roadName = input.roadName?.trim() || null;
         if (input.startLocation !== undefined) updateData.startLocation = input.startLocation;
         if (input.endLocation !== undefined) updateData.endLocation = input.endLocation;
+        if (input.routeCoordinates !== undefined) updateData.routeCoordinates = input.routeCoordinates;
         if (input.detourAdvice !== undefined) updateData.detourAdvice = input.detourAdvice?.trim() || null;
         if (input.startDate !== undefined) updateData.startDate = new Date(input.startDate);
         if (input.endDate !== undefined) updateData.endDate = input.endDate ? new Date(input.endDate) : null;
