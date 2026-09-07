@@ -14,7 +14,6 @@ import {
     RefreshCw,
     HardHat,
     CheckCircle2,
-    Sparkles,
     Trash2,
     UploadCloud,
     Loader2,
@@ -24,8 +23,6 @@ import {
     Info,
     HelpCircle,
     FolderSearch,
-    ArrowUpRight,
-    RotateCw,
     Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
