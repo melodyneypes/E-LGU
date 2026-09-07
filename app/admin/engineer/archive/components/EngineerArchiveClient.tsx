@@ -20,6 +20,13 @@ import {
     Loader2,
     ZoomIn,
     FileUp,
+    Printer,
+    Info,
+    HelpCircle,
+    FolderSearch,
+    ArrowUpRight,
+    RotateCw,
+    Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +55,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import { compressDocumentScan } from "@/lib/image-compression";
 
 const MAPANDAN_BARANGAYS = [
     "Amanoaoac",
@@ -94,6 +102,7 @@ export interface SupplementaryAttachmentItem {
     isImage: boolean;
     isPdf: boolean;
     fileSizeFormatted?: string;
+    scannedAt?: number;
 }
 
 function formatFileSize(bytes: number): string {
@@ -102,6 +111,41 @@ function formatFileSize(bytes: number): string {
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function formatScanTimeAgo(timestamp?: number): string {
+    if (!timestamp) return "";
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 10) return "Just scanned now";
+    if (seconds < 60) return `Scanned ${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Scanned ${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Scanned ${hours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+}
+
+function guessScanDocumentLabel(fileName: string, pageIndex: number): string {
+    const lower = fileName.toLowerCase();
+    if (lower.includes("plan") || lower.includes("arch") || lower.includes("blueprint") || lower.includes("draw")) {
+        return "Approved Architectural / Blueprint Plan";
+    }
+    if (lower.includes("struct") || lower.includes("civil")) {
+        return "Structural / Civil Plans";
+    }
+    if (lower.includes("plumb") || lower.includes("sanitary")) {
+        return "Sanitary & Plumbing Clearance";
+    }
+    if (lower.includes("elect") || lower.includes("wiring")) {
+        return "Electrical Permit & Wiring Layout";
+    }
+    if (lower.includes("tax") || lower.includes("title") || lower.includes("tct") || lower.includes("deed")) {
+        return "Tax Declaration / Land Title (TCT)";
+    }
+    if (lower.includes("clearance") || lower.includes("brgy") || lower.includes("barangay")) {
+        return "Barangay Construction Clearance";
+    }
+    return `Supplementary Attachment (Page ${pageIndex + 2})`;
 }
 
 export default function EngineerArchiveClient({
@@ -130,6 +174,7 @@ export default function EngineerArchiveClient({
     // Create Modal State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
 
     // Form inputs state for physical encoding (Strictly First Name + Last Name)
     const [formData, setFormData] = useState({
@@ -159,6 +204,7 @@ export default function EngineerArchiveClient({
     // Primary Permit File & Instant Preview
     const [mainPermitFile, setMainPermitFile] = useState<File | null>(null);
     const [mainPermitPreview, setMainPermitPreview] = useState<string | null>(null);
+    const [mainPermitScannedAt, setMainPermitScannedAt] = useState<number | null>(null);
 
     // Supplementary Attachments with rich metadata & previews
     const [additionalAttachments, setAdditionalAttachments] = useState<SupplementaryAttachmentItem[]>([
@@ -184,7 +230,14 @@ export default function EngineerArchiveClient({
         url: string;
         title: string;
         isPdf: boolean;
+        targetType?: "main" | "attachment";
+        targetId?: string;
+        file?: File | null;
     } | null>(null);
+
+    // Scanner Station Quick Ingestion State
+    const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
+    const scannerFolderInputRef = React.useRef<HTMLInputElement | null>(null);
 
     // Clean up created object URLs on unmount or form reset
     const cleanupAttachmentUrls = useCallback(() => {
@@ -205,7 +258,7 @@ export default function EngineerArchiveClient({
     }, [cleanupAttachmentUrls]);
 
     // Update main permit file and generate live preview
-    const handleMainPermitChange = (file: File | null) => {
+    const handleMainPermitChange = (file: File | null, scannedAt?: number) => {
         if (mainPermitPreview) {
             URL.revokeObjectURL(mainPermitPreview);
             setMainPermitPreview(null);
@@ -213,10 +266,12 @@ export default function EngineerArchiveClient({
 
         if (!file) {
             setMainPermitFile(null);
+            setMainPermitScannedAt(null);
             return;
         }
 
         setMainPermitFile(file);
+        setMainPermitScannedAt(scannedAt || file.lastModified || null);
         const url = URL.createObjectURL(file);
         setMainPermitPreview(url);
     };
@@ -383,15 +438,65 @@ export default function EngineerArchiveClient({
     };
 
     // Open quick preview inspector
-    const handleInspectDraftFile = (title: string, file: File | null, previewUrl?: string) => {
+    const handleInspectDraftFile = (
+        title: string,
+        file: File | null,
+        previewUrl?: string,
+        targetType?: "main" | "attachment",
+        targetId?: string
+    ) => {
         if (!file || !previewUrl) return;
         const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
         setActiveDraftPreview({
             url: previewUrl,
             title,
             isPdf,
+            targetType,
+            targetId,
+            file,
         });
         setPreviewModalOpen(true);
+    };
+
+    // Callback when staff rotates image 90° in the inspection lightbox
+    const handleSaveRotatedDraftFile = (newFile: File, newPreviewUrl: string) => {
+        if (!activeDraftPreview) return;
+
+        // Revoke the old preview URL to prevent browser memory leaks on repeated rotations
+        const oldPreviewUrl = activeDraftPreview.url;
+
+        if (activeDraftPreview.targetType === "main") {
+            setMainPermitFile(newFile);
+            setMainPermitPreview(newPreviewUrl);
+            setActiveDraftPreview(prev => (prev ? { ...prev, url: newPreviewUrl, file: newFile } : null));
+
+            if (oldPreviewUrl && oldPreviewUrl !== newPreviewUrl) {
+                URL.revokeObjectURL(oldPreviewUrl);
+            }
+            toast.success("Main permit scan rotated 90° and saved!");
+        } else if (activeDraftPreview.targetType === "attachment" && activeDraftPreview.targetId) {
+            const targetId = activeDraftPreview.targetId;
+            setAdditionalAttachments(prev =>
+                prev.map(att => {
+                    if (att.id !== targetId) return att;
+                    if (att.previewUrl && att.previewUrl !== newPreviewUrl) {
+                        URL.revokeObjectURL(att.previewUrl);
+                    }
+                    return {
+                        ...att,
+                        file: newFile,
+                        previewUrl: newPreviewUrl,
+                        fileSizeFormatted: formatFileSize(newFile.size),
+                    };
+                })
+            );
+            setActiveDraftPreview(prev => (prev ? { ...prev, url: newPreviewUrl, file: newFile } : null));
+
+            if (oldPreviewUrl && oldPreviewUrl !== newPreviewUrl) {
+                URL.revokeObjectURL(oldPreviewUrl);
+            }
+            toast.success("Attachment scan rotated 90° and saved!");
+        }
     };
 
     // Submit Physical Record
@@ -415,16 +520,25 @@ export default function EngineerArchiveClient({
                 fd.append(key, val);
             });
 
+            // Phase 4: Client-side Auto-Compression for 300 DPI Scanner Imports
+            // Preserves fine lines, dry seals, and signatures while cutting 10MB-20MB scans to ~800KB
+            setIsCompressing(true);
+
             if (mainPermitFile) {
-                fd.append("mainPermitFile", mainPermitFile);
+                const optimizedMain = await compressDocumentScan(mainPermitFile);
+                fd.append("mainPermitFile", optimizedMain);
             }
 
-            additionalAttachments.forEach((item, idx) => {
+            for (let idx = 0; idx < additionalAttachments.length; idx++) {
+                const item = additionalAttachments[idx];
                 if (item.file) {
-                    fd.append("attachedFiles", item.file);
+                    const optimizedAttachment = await compressDocumentScan(item.file);
+                    fd.append("attachedFiles", optimizedAttachment);
                     fd.append("attachedLabels", item.label.trim() || `Attachment ${idx + 1}`);
                 }
-            });
+            }
+
+            setIsCompressing(false);
 
             const res = await createArchivedBuildingPermit(fd);
 
@@ -863,6 +977,150 @@ export default function EngineerArchiveClient({
                                                 </span>
                                             </div>
 
+                                            {/* Phase 1: Direct Scanner Ingestion Bar */}
+                                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-violet-500/10 border border-indigo-500/20 shadow-sm shrink-0 space-y-2.5">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-sm">
+                                                            <Printer className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                                <span>Scanner Station</span>
+                                                                <span className="text-[9px] px-2 py-0.2 rounded-full font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                                    Direct Ingest
+                                                                </span>
+                                                            </h4>
+                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                                                Quickly import newly scanned paper permits from your office printer.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                                                        title="Office Scanner Setup Guide"
+                                                    >
+                                                        <HelpCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 pt-0.5">
+                                                    {/* Hidden File Input for Scanner Folder Trigger */}
+                                                    <input
+                                                        ref={scannerFolderInputRef}
+                                                        type="file"
+                                                        multiple
+                                                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                        onChange={(e) => {
+                                                            const rawFiles = Array.from(e.target.files || []);
+                                                            if (rawFiles.length === 0) return;
+
+                                                            // Auto-detect and filter valid scanner documents (.pdf, .jpg, .jpeg, .png)
+                                                            const validScannerFiles = rawFiles.filter((file) => {
+                                                                const name = file.name.toLowerCase();
+                                                                const type = file.type.toLowerCase();
+                                                                return (
+                                                                    name.endsWith(".pdf") ||
+                                                                    name.endsWith(".jpg") ||
+                                                                    name.endsWith(".jpeg") ||
+                                                                    name.endsWith(".png") ||
+                                                                    type === "application/pdf" ||
+                                                                    type.startsWith("image/")
+                                                                );
+                                                            });
+
+                                                            if (validScannerFiles.length === 0) {
+                                                                toast.error("No valid scanner files found (.pdf, .jpg, .jpeg, .png required).");
+                                                                e.target.value = "";
+                                                                return;
+                                                            }
+
+                                                            // Sort by newest scan timestamp first (latest scan is first)
+                                                            const sortedFiles = validScannerFiles.sort((a, b) => b.lastModified - a.lastModified);
+                                                            const newestFile = sortedFiles[0];
+
+                                                            // Automatically slot the first/newest scan as the Primary Signed Permit
+                                                            handleMainPermitChange(newestFile, newestFile.lastModified);
+
+                                                            // Slot supplementary pages as Blueprints / Clearances
+                                                            if (sortedFiles.length > 1) {
+                                                                const additionalScans = sortedFiles.slice(1);
+                                                                setAdditionalAttachments((prev) => {
+                                                                    const updated = [...prev];
+                                                                    additionalScans.forEach((scanFile, idx) => {
+                                                                        const isPdf = scanFile.type === "application/pdf" || scanFile.name.toLowerCase().endsWith(".pdf");
+                                                                        const isImage = scanFile.type.startsWith("image/");
+                                                                        const previewUrl = URL.createObjectURL(scanFile);
+                                                                        const smartLabel = guessScanDocumentLabel(scanFile.name, idx);
+
+                                                                        // Fill existing empty preset row if available, otherwise append new scan row
+                                                                        const firstEmptyIdx = updated.findIndex((item) => !item.file);
+                                                                        const newAttachment: SupplementaryAttachmentItem = {
+                                                                            id: `scan-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+                                                                            label: smartLabel,
+                                                                            file: scanFile,
+                                                                            previewUrl,
+                                                                            isPdf,
+                                                                            isImage,
+                                                                            fileSizeFormatted: formatFileSize(scanFile.size),
+                                                                            scannedAt: scanFile.lastModified,
+                                                                        };
+
+                                                                        if (firstEmptyIdx !== -1) {
+                                                                            updated[firstEmptyIdx] = {
+                                                                                ...updated[firstEmptyIdx],
+                                                                                label: updated[firstEmptyIdx].label.trim() ? updated[firstEmptyIdx].label : smartLabel,
+                                                                                file: scanFile,
+                                                                                previewUrl,
+                                                                                isPdf,
+                                                                                isImage,
+                                                                                fileSizeFormatted: formatFileSize(scanFile.size),
+                                                                                scannedAt: scanFile.lastModified,
+                                                                            };
+                                                                        } else {
+                                                                            updated.push(newAttachment);
+                                                                        }
+                                                                    });
+                                                                    return updated;
+                                                                });
+
+                                                                toast.success(
+                                                                    `Auto-sorted ${sortedFiles.length} scans! Newest slotted as Primary Permit, ${sortedFiles.length - 1} slotted as attachments.`
+                                                                );
+                                                            } else {
+                                                                toast.success(`Imported newest scan "${newestFile.name}" as Official Signed Permit!`);
+                                                            }
+
+                                                            // Reset input so same files can be re-scanned if needed
+                                                            e.target.value = "";
+                                                        }}
+                                                        className="hidden"
+                                                    />
+
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => scannerFolderInputRef.current?.click()}
+                                                        className="flex-1 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all"
+                                                    >
+                                                        <FolderSearch className="w-4 h-4" />
+                                                        <span>Fetch from Scanner Folder</span>
+                                                    </Button>
+
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="h-9 px-3 rounded-xl border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-xs font-bold shrink-0 cursor-pointer"
+                                                    >
+                                                        <Info className="w-3.5 h-3.5 mr-1" />
+                                                        <span>Guide</span>
+                                                    </Button>
+                                                </div>
+                                            </div>
+
                                             {/* Primary Signed Permit Upload Box with Live Preview */}
                                             <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-3 shrink-0">
                                                 <div className="flex items-center justify-between">
@@ -888,7 +1146,7 @@ export default function EngineerArchiveClient({
                                                                 />
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview)}
+                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview, "main")}
                                                                     className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                                     title="Inspect Image"
                                                                 >
@@ -903,9 +1161,17 @@ export default function EngineerArchiveClient({
                                                         )}
 
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                                                {mainPermitFile.name}
-                                                            </p>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                    {mainPermitFile.name}
+                                                                </p>
+                                                                {mainPermitScannedAt && (
+                                                                    <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                        {formatScanTimeAgo(mainPermitScannedAt)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-[10px] text-slate-400 font-medium">
                                                                 {formatFileSize(mainPermitFile.size)} • High-Res Official Scan
                                                             </p>
@@ -917,7 +1183,7 @@ export default function EngineerArchiveClient({
                                                                     type="button"
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview)}
+                                                                    onClick={() => handleInspectDraftFile("Official Signed Permit", mainPermitFile, mainPermitPreview, "main")}
                                                                     className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
                                                                     title="Preview scan"
                                                                 >
@@ -1058,7 +1324,7 @@ export default function EngineerArchiveClient({
                                                                                 />
                                                                                 <button
                                                                                     type="button"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Scanned Document", att.file, att.previewUrl)}
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Scanned Document", att.file, att.previewUrl, "attachment", att.id)}
                                                                                     className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                                                     title="View Image"
                                                                                 >
@@ -1073,9 +1339,17 @@ export default function EngineerArchiveClient({
                                                                         )}
 
                                                                         <div className="flex-1 min-w-0">
-                                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                                                                {att.file.name}
-                                                                            </p>
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                                    {att.file.name}
+                                                                                </p>
+                                                                                {att.scannedAt && (
+                                                                                    <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                                        {formatScanTimeAgo(att.scannedAt)}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             <p className="text-[10px] text-slate-400 font-medium">
                                                                                 {att.fileSizeFormatted} • {att.isImage ? "Image Scan" : "PDF Document"}
                                                                             </p>
@@ -1087,7 +1361,7 @@ export default function EngineerArchiveClient({
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="icon"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl)}
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
                                                                                     className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
                                                                                     title="Inspect Document"
                                                                                 >
@@ -1175,11 +1449,13 @@ export default function EngineerArchiveClient({
                                     >
                                         {isSubmitting ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" /> Digitizing Record...
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : "Digitizing Record..."}</span>
                                             </>
                                         ) : (
                                             <>
-                                                <CheckCircle2 className="w-4 h-4" /> Save to Archive Vault
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                <span>Save to Archive Vault</span>
                                             </>
                                         )}
                                     </Button>
@@ -1388,12 +1664,12 @@ export default function EngineerArchiveClient({
                                         {/* Source Badge */}
                                         <TableCell className="py-4">
                                             {record.isPhysical ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm">
-                                                    <FolderArchive className="w-3 h-3" /> Paper Archive
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm">
+                                                    Paper Archive
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
-                                                    <Sparkles className="w-3 h-3" /> Online Portal
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                                    Online Portal
                                                 </span>
                                             )}
                                         </TableCell>
@@ -1492,7 +1768,7 @@ export default function EngineerArchiveClient({
                 showPrint={true}
             />
 
-            {/* Quick Inspection Modal for Newly Selected Draft Files */}
+            {/* Quick Inspection Modal for Newly Selected Draft Files with In-Browser Rotate Support */}
             {activeDraftPreview && (
                 <DocumentViewerModal
                     isOpen={previewModalOpen}
@@ -1502,14 +1778,94 @@ export default function EngineerArchiveClient({
                             setActiveDraftPreview(null);
                         }, 200);
                     }}
-                    file={null}
+                    file={activeDraftPreview.file || null}
                     fileUrl={activeDraftPreview.url}
                     title={activeDraftPreview.title}
                     themeColor={themeColor}
                     documents={[{ url: activeDraftPreview.url, label: activeDraftPreview.title }]}
                     showPrint={false}
+                    onSaveRotatedFile={handleSaveRotatedDraftFile}
                 />
             )}
+
+            {/* Office Scanner Station Setup Guide Dialog */}
+            <Dialog open={scannerGuideOpen} onOpenChange={setScannerGuideOpen}>
+                <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                <Printer className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                    Office Scanner Setup Guide
+                                </DialogTitle>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    3 simple steps to scan permits directly into EMapandan
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                            {/* Step 1 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    1
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Set Default Scanner Destination
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        In your printer software (Epson Scan, Canon IJ, HP Smart, or Brother ControlCenter), set the target folder to:
+                                        <code className="block mt-1 font-mono text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold">
+                                            Desktop\Scanned_Permits
+                                        </code>
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    2
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Press &quot;Scan&quot; on your Printer
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Place the building permit or blueprint on the scanner glass or feeder tray and press the physical <strong className="text-slate-700 dark:text-slate-300">Scan</strong> button. Recommended: <strong>200–300 DPI (Color / Grayscale PDF or JPEG)</strong>.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    3
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Click &quot;Fetch from Scanner Folder&quot;
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        In this modal, click the button and select your scanner folder. EMapandan will automatically sort and attach the newest scan instantly!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Button
+                            type="button"
+                            onClick={() => setScannerGuideOpen(false)}
+                            className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
+                        >
+                            Understood, Got it!
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
