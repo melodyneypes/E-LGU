@@ -6,7 +6,8 @@ import {
     ShieldAlert,
     RotateCcw,
     Building2,
-    Compass
+    Compass,
+    ShieldCheck
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -208,6 +209,19 @@ export default function RoadAdvisoryPublicPage() {
                                         />
                                     </div>
                                 ))}
+
+                                {/* Public Safety Note & Tagline Below Last Card */}
+                                <div className="p-4 rounded-2xl bg-slate-900/40 text-center space-y-2 pt-5 pb-4">
+                                    <div className="flex items-center justify-center gap-1.5 text-amber-400">
+                                        <ShieldCheck className="w-4 h-4" />
+                                        <span className="text-[11px] font-black uppercase tracking-wider italic">
+                                            Ingat sa Bawat Biyahe, Ka-Mapandan!
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 font-medium italic max-w-sm mx-auto leading-relaxed">
+                                        Traffic advisories are monitored in real-time by MDRRMO & POSO Mapandan. Please follow on-site road signs and detour marshals.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
