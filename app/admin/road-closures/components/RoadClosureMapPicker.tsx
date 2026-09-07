@@ -32,6 +32,10 @@ interface RoadClosureMapPickerProps {
 const MAPANDAN_CENTER: [number, number] = [16.0271, 120.4542];
 
 // Client child component for map events & dynamic icons
+// High-contrast custom SVG crosshair cursor (Black stroke with White inner fill and red center dot)
+// Perfectly visible on both pure white maps and dark satellite/hybrid backgrounds
+const HIGH_CONTRAST_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23000000' stroke-width='3.5'/%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23ef4444' stroke='%23000000' stroke-width='1'/%3E%3Cline x1='16' y1='0' x2='16' y2='9' stroke='%23000000' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='0' x2='16' y2='9' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='16' y1='23' x2='16' y2='32' stroke='%23000000' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='23' x2='16' y2='32' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='0' y1='16' x2='9' y2='16' stroke='%23000000' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='0' y1='16' x2='9' y2='16' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='23' y1='16' x2='32' y2='16' stroke='%23000000' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='23' y1='16' x2='32' y2='16' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, crosshair`;
+
 function MapEventListener({
     onPointSelect,
 }: {
@@ -40,11 +44,20 @@ function MapEventListener({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useMapEvents } = require("react-leaflet");
 
-    useMapEvents({
+    const map = useMapEvents({
         click(e: any) {
             onPointSelect(e.latlng.lat, e.latlng.lng);
         },
     });
+
+    useEffect(() => {
+        if (map) {
+            const container = map.getContainer();
+            if (container) {
+                container.style.cursor = HIGH_CONTRAST_CURSOR;
+            }
+        }
+    }, [map]);
 
     return null;
 }
@@ -247,11 +260,14 @@ export function RoadClosureMapPicker({
                 )}
             </div>
 
-            <div className="relative w-full h-[440px] rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-inner z-0">
+            <div 
+                className="relative w-full h-[440px] rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-inner z-0"
+                style={{ cursor: HIGH_CONTRAST_CURSOR }}
+            >
                 <MapContainer
                     center={startLocation ? [startLocation.lat, startLocation.lng] : MAPANDAN_CENTER}
                     zoom={14}
-                    style={{ width: "100%", height: "100%" }}
+                    style={{ width: "100%", height: "100%", cursor: HIGH_CONTRAST_CURSOR }}
                     className="z-0"
                 >
                     <TileLayer

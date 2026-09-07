@@ -1,10 +1,11 @@
 "use server";
 
-import prisma from "@/lib/db/prisma";
+import db from "@/lib/db/prisma";
+const prisma = db as any;
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { RoadClosureStatus, RoadClosureSeverity } from "@prisma/client";
+import { RoadClosureStatus, RoadClosureSeverity } from "./types";
 
 // =========================================================================
 // SECURITY & PERMISSION VERIFIER
@@ -153,9 +154,9 @@ export async function createRoadClosureAction(input: RoadClosureInput) {
                 severity: input.severity || RoadClosureSeverity.HIGH,
                 barangay: barangayToSet,
                 roadName: input.roadName?.trim() || null,
-                startLocation: input.startLocation,
-                endLocation: input.endLocation,
-                routeCoordinates: input.routeCoordinates || null,
+                startLocation: input.startLocation as any,
+                endLocation: input.endLocation as any,
+                routeCoordinates: (input.routeCoordinates || undefined) as any,
                 detourAdvice: input.detourAdvice?.trim() || null,
                 startDate: input.startDate ? new Date(input.startDate) : new Date(),
                 endDate: input.endDate ? new Date(input.endDate) : null,
