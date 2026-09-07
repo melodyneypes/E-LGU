@@ -432,6 +432,7 @@ export function Sidebar({
                 { href: "/admin/barangays/admins", label: "Add Barangay Admins" },
             ]
         },
+        { href: "/admin/road-closures", label: "Road Closures", icon: AlertTriangle, category: "Infrastructure" },
         {
             label: "Announcements",
             icon: Megaphone,
@@ -712,7 +713,8 @@ export function Sidebar({
         "Resident Registry",
         // "Barangay Services",
         // "Banner Slider",
-        "Household Map"
+        "Household Map",
+        "Road Closures"
     ];
 
     const accessiblePages = session?.user?.accessiblePages;
