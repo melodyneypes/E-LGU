@@ -11,7 +11,8 @@ import {
     FileText,
     Receipt,
     Info,
-    Eye
+    Eye,
+    Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,10 +76,18 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         { label: "BIR eCAR Document", url: rpt.birEcarUrl || additional.birEcarUrl }
     ].filter(att => Boolean(att.url));
 
+    const isCheckedIn = Boolean(additional.checkedIn === true || additional.checkedInAt || transaction.checkedIn === true);
+
     const steps = [
         { label: "FOR EVALUATION", status: "COMPLETED" },
-        { label: "TO PROCESS", status: "COMPLETED" },
-        { label: "FOR PROCESSING", status: transaction.status === "RELEASED" ? "COMPLETED" : "ACTIVE" },
+        {
+            label: "TO PROCESS",
+            status: isCheckedIn || transaction.status === "FOR_PROCESSING" || transaction.status === "RELEASED" ? "COMPLETED" : "ACTIVE"
+        },
+        {
+            label: "FOR PROCESSING",
+            status: transaction.status === "RELEASED" ? "COMPLETED" : (transaction.status === "FOR_PROCESSING" ? "ACTIVE" : "PENDING")
+        },
         { label: "RELEASED", status: transaction.status === "RELEASED" ? "COMPLETED" : "PENDING" }
     ];
 
@@ -332,6 +341,15 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                             O.R. Series Number: <span className="text-emerald-400">{orSeriesNumber}</span>
                                         </div>
                                     )}
+                                </div>
+                            ) : !isCheckedIn ? (
+                                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
+                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
+                                        <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed font-medium">
+                                        The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before Treasury can process payment and issue an Official Receipt.
+                                    </p>
                                 </div>
                             ) : (
                                 <>

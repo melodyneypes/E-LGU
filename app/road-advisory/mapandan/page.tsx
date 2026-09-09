@@ -1,0 +1,233 @@
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
+import {
+    ShieldAlert,
+    RotateCcw,
+    Building2,
+    Compass
+} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { getPublicRoadAdvisoriesAction, getPublicRoadAdvisorySettingsAction } from "./actions";
+import { AdvisoryCard } from "./components/AdvisoryCard";
+import { PublicAdvisorySkeleton } from "./components/AdvisorySkeleton";
+import dynamic from "next/dynamic";
+
+const PublicRoadMap = dynamic(() => import("./components/PublicRoadMap"), {
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-[580px] bg-slate-900 rounded-3xl flex flex-col items-center justify-center shadow-2xl">
+            <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin mb-3" />
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading Mapandan Network...</p>
+        </div>
+    ),
+});
+
+export default function RoadAdvisoryPublicPage() {
+    const [advisories, setAdvisories] = useState<any[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+    const [selectedAdvisoryId, setSelectedAdvisoryId] = useState<string | null>(null);
+
+    const [settings, setSettings] = useState<any>({
+        siteLogo: "",
+        location: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan",
+        hotline: "(075) 529-XXXX / +63 917 123 4567",
+        policeHotline: "0998 598 5143",
+        email: "mdrrmo@mapandan.gov.ph",
+    });
+
+    const loadData = async () => {
+        setLoadingData(true);
+        try {
+            const [advisoriesRes, settingsRes] = await Promise.all([
+                getPublicRoadAdvisoriesAction(),
+                getPublicRoadAdvisorySettingsAction(),
+            ]);
+
+            if (advisoriesRes.success && advisoriesRes.data) {
+                setAdvisories(advisoriesRes.data);
+            }
+            if (settingsRes) {
+                setSettings(settingsRes);
+            }
+        } catch (error) {
+            console.error("Failed to fetch public road advisories:", error);
+            toast.error("Failed to load traffic advisories. Please try again.");
+        } finally {
+            setLoadingData(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    // Stats calculations
+    const stats = useMemo(() => {
+        const closed = advisories.filter((a) => a.status === "CLOSED").length;
+        const partial = advisories.filter((a) => a.status === "PARTIALLY_CLOSED").length;
+        const detour = advisories.filter((a) => a.status === "DETOUR_ONLY").length;
+        return { closed, partial, detour, total: advisories.length };
+    }, [advisories]);
+
+    return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+            {/* Top Municipal Navigation Header (Clean, no borders, no hotline buttons) */}
+            <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl shadow-2xl">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                    <div className="flex items-center space-x-3 cursor-pointer">
+                        {loadingData ? (
+                            <Skeleton className="w-11 h-11 rounded-xl bg-slate-800" />
+                        ) : settings.siteLogo ? (
+                            <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-slate-800 shadow-md">
+                                <Image
+                                    src={settings.siteLogo}
+                                    alt="Mapandan Seal"
+                                    fill
+                                    className="object-contain p-1"
+                                    sizes="44px"
+                                />
+                            </div>
+                        ) : (
+                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-lg shadow-amber-500/20">
+                                <ShieldAlert className="w-6 h-6 stroke-[2.5]" />
+                            </div>
+                        )}
+                        <div>
+                            <span className="text-[10px] sm:text-xs font-black tracking-widest uppercase text-amber-500 italic block">
+                                MUNICIPALITY OF MAPANDAN
+                            </span>
+                            <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase italic">
+                                Road Closures & Traffic Advisory
+                            </h1>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Hero Section with Clean Modern Layout (No borders) */}
+            <section className="relative overflow-hidden pt-10 sm:pt-14 pb-8 sm:pb-12 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10 text-center sm:text-left">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-2 max-w-2xl">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-black uppercase tracking-widest italic">
+                                <Compass className="w-4 h-4" />
+                                <span>Real-Time Mapandan Traffic & Public Safety Monitor</span>
+                            </div>
+                            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
+                                Live Road Advisories & <br className="hidden sm:block" />
+                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-rose-400 to-orange-400">
+                                    Alternative Detour Routes
+                                </span>
+                            </h2>
+                            <p className="text-xs sm:text-sm text-slate-400 font-medium italic">
+                                Stay informed on ongoing infrastructure projects, culvert repairs, and emergency road closures across all 15 barangays.
+                            </p>
+                        </div>
+
+                        {/* Summary Badges Box (No borders) */}
+                        <div className="grid grid-cols-3 gap-3 bg-slate-900/80 p-4 rounded-3xl backdrop-blur-xl sm:min-w-[320px] shadow-lg">
+                            <div className="p-3 rounded-2xl bg-rose-500/10 text-center">
+                                <span className="text-xl sm:text-2xl font-black text-rose-400 block">{stats.closed}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed</span>
+                            </div>
+                            <div className="p-3 rounded-2xl bg-amber-500/10 text-center">
+                                <span className="text-xl sm:text-2xl font-black text-amber-400 block">{stats.partial}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Partial</span>
+                            </div>
+                            <div className="p-3 rounded-2xl bg-purple-500/10 text-center">
+                                <span className="text-xl sm:text-2xl font-black text-purple-400 block">{stats.detour}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Detour</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Main Content Area: Split Interactive Map & Advisory Cards (No borders) */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* Left Column: Interactive Map (Sticky on Desktop) */}
+                    <div className="lg:col-span-7 sticky top-28 space-y-4">
+                        <PublicRoadMap
+                            advisories={advisories}
+                            selectedId={selectedAdvisoryId}
+                            onSelectAdvisory={(id) => {
+                                setSelectedAdvisoryId(id);
+                                const el = document.getElementById(`advisory-card-${id}`);
+                                if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                }
+                            }}
+                            onClearSelection={() => setSelectedAdvisoryId(null)}
+                        />
+                    </div>
+
+                    {/* Right Column: Advisory List */}
+                    <div className="lg:col-span-5 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-white italic">
+                                Active Traffic Notices ({advisories.length})
+                            </h3>
+                            {selectedAdvisoryId && (
+                                <button
+                                    onClick={() => setSelectedAdvisoryId(null)}
+                                    className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
+                                >
+                                    Clear Selection
+                                </button>
+                            )}
+                        </div>
+
+                        {loadingData ? (
+                            <PublicAdvisorySkeleton />
+                        ) : advisories.length === 0 ? (
+                            <div className="p-12 rounded-3xl bg-slate-900/60 text-center space-y-3 shadow-md">
+                                <div className="p-3 bg-slate-800 rounded-2xl w-fit mx-auto text-emerald-400">
+                                    <RotateCcw className="w-6 h-6" />
+                                </div>
+                                <h4 className="text-base font-black uppercase tracking-tight text-white italic">
+                                    No Road Closures
+                                </h4>
+                                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                                    All major municipal roads and bridges in Mapandan are currently open and passable.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 max-h-[850px] overflow-y-auto pr-2 custom-scrollbar">
+                                {advisories.map((advisory) => (
+                                    <div key={advisory.id} id={`advisory-card-${advisory.id}`}>
+                                        <AdvisoryCard
+                                            advisory={advisory}
+                                            isSelected={selectedAdvisoryId === advisory.id}
+                                            onSelect={() => setSelectedAdvisoryId(advisory.id)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+
+            {/* Municipal Footer (Clean, no borders, no links) */}
+            <footer className="mt-auto bg-slate-900/60 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                            <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-white uppercase italic tracking-wider">Local Government of Mapandan</p>
+                            <p className="text-[11px] text-slate-500">MDRRMO & Public Order and Safety Office</p>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    );
+}

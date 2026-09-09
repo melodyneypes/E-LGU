@@ -392,7 +392,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                 {additional?.feeAssessment?.zoningMunicipalCharges && additional.feeAssessment.zoningMunicipalCharges.length > 0 && (
                                     additional.feeAssessment.zoningMunicipalCharges.map((charge: any, idx: number) => (
                                         <div key={`zoning-${idx}`} className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{charge.name || "Zoning & Locational Clearance"}</label>
+                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{charge.name || "Zoning Clearance"}</label>
                                             <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
                                                 ₱{Number(charge.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </div>
@@ -659,7 +659,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                     <p className="text-[11px] font-bold text-slate-550 dark:text-slate-400 leading-relaxed uppercase tracking-tight">
                                                         {!additional.feeAssessment?.endorsed 
                                                             ? "This building permit record has not yet been endorsed by the Engineering department. Treasury actions are currently restricted to view-only."
-                                                            : "This building permit record has been endorsed by Engineering, but is still awaiting the Zoning & Locational Clearance fees endorsement from the Zoning department."}
+                                                            : "This building permit record has been endorsed by Engineering, but is still awaiting the Zoning Clearance fees endorsement from the Zoning department."}
                                                     </p>
                                                 </div>
                                             </div>

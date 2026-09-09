@@ -83,7 +83,7 @@ export function SubmitStep({
                   </div>
                   <div className="text-center md:text-left">
                     <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                      Zoning / Locational Clearance
+                      Zoning Clearance
                     </p>
                     <p className="text-xs text-slate-500 font-medium mt-1">
                       Your approved zoning clearance is ready for download.

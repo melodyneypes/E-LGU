@@ -151,7 +151,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 "Community Tax Certificate",
                 "Latest Tax Receipts",
                 "Adjoining Owners Confirmation",
-                "Locational Clearance",
+                "Zoning Clearance",
                 "Affidavit of Consent",
                 "Affidavit of Adjoining Owners",
                 "Signed & Sealed Plans",
@@ -460,30 +460,48 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
 
     const steps = [
-        { id: "FOR_REQUESTING", label: "EVALUATION" },
-        { id: "FOR_INSPECTION", label: "INSPECTION" },
-        { id: "FOR_REINSPECTION", label: "RE-IN-SPECTION" },
-        { id: "EVALUATED", label: "FEE ASSESSMENT" },
-        { id: "FOR_PROCESSING", label: "SUBMIT" }
+        { id: "ENGINEERING", label: "ENGINEERING" },
+        { id: "ZONING", label: "ZONING CLEARANCE" },
+        { id: "ENGINEER_REVIEW", label: "ENGINEER REVIEW" },
+        { id: "BFP", label: "BFP ACKNOWLEDGMENT" },
+        { id: "PAYMENT", label: "PAYMENT" }
     ];
+    
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
-    const getStepIndex = (status: string) => {
-        if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
-        if (status === "FOR_INSPECTION") return 1;
-        if (status === "FOR_REINSPECTION") return 2;
-        if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        if (status === "FOR_PROCESSING" || status === "FOR_CLAIM" || status === "FOR_PICKING" || status === "RELEASED") return 4;
+    
+    const getStepIndex = () => {
+        if (!transaction || isRejected) return -1;
+        
+        if (["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(transaction.status)) {
+            return 0; // Engineering
+        }
+        
+        if (transaction.status === "EVALUATED" || transaction.status === "UNPAID" || transaction.status === "PAYMENT_SUBMITTED" || transaction.status === "PAID") {
+            const feeAssessment = transaction.additionalData?.feeAssessment;
+            const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
+            const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
+            const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
+            const isEndorsed = feeAssessment?.endorsed === true;
+            
+            if (isEndorsed || ["UNPAID", "PAYMENT_SUBMITTED", "PAID"].includes(transaction.status)) return 4; // Payment
+            if (bfpSubmitted && !isEndorsed) return 3; // BFP Acknowledgment
+            if (zoningEndorsed && !bfpSubmitted) return 2; // Engineer Review
+            if (engineerEndorsedToZoning && !zoningEndorsed) return 1; // Zoning Clearance
+            return 0; // Engineering (Assessing initially)
+        }
+        
+        if (["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
+            return 4; // Payment (or beyond)
+        }
         return -1;
     };
-    const currentStepIdx = isRejected ? -1 : getStepIndex(transaction.status);
+    
+    const currentStepIdx = getStepIndex();
 
     const getRejectedStepIndex = () => {
         const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
-        if (rejectedPhase === "FOR_INSPECTION") return 1;
-        if (rejectedPhase === "FOR_REINSPECTION") return 2;
-        if (rejectedPhase === "EVALUATED" || rejectedPhase === "FEE_ASSESSMENT") return 3;
-        if (rejectedPhase === "FOR_REQUESTING" || rejectedPhase === "EVALUATION") return 0;
-        return 3;
+        if (rejectedPhase === "FOR_INSPECTION" || rejectedPhase === "FOR_REINSPECTION" || rejectedPhase === "FOR_REQUESTING" || rejectedPhase === "EVALUATION") return 0;
+        return 0;
     };
     const rejectedStepIdx = isRejected ? getRejectedStepIndex() : -1;
 
@@ -506,22 +524,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <Link href={backUrl}>
                         <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
                             <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
-                        </Button>
-                    </Link>
-                    <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-                    <Link href={`/admin/engineer/${id}/evaluation?view=true`}>
-                        <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
-                            <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
-                        </Button>
-                    </Link>
-                    <Link href={`/admin/engineer/${id}/inspection?view=true`}>
-                        <Button variant="outline" className="h-9 gap-2 border-purple-500/20 text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
-                            <ArrowLeft className="w-3.5 h-3.5" /> View Site Inspection Phase
-                        </Button>
-                    </Link>
-                    <Link href={`/admin/engineer/${id}/reinspection?view=true`}>
-                        <Button variant="outline" className="h-9 gap-2 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
-                            <ArrowLeft className="w-3.5 h-3.5" /> View Re-Inspection Phase
                         </Button>
                     </Link>
                 </div>
@@ -934,7 +936,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             {transaction.additionalData?.feeAssessment?.zoningMunicipalCharges && transaction.additionalData.feeAssessment.zoningMunicipalCharges.length > 0 && (
                                 <div className="space-y-4 pt-6 border-t border-dashed border-slate-100 dark:border-white/5 col-span-2">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary italic block">
-                                        Zoning & Locational Clearance Charges
+                                        Zoning Clearance Charges
                                     </span>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {transaction.additionalData.feeAssessment.zoningMunicipalCharges.map((fee: any, idx: number) => (
@@ -1015,7 +1017,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     Zoning / Locational <span className="text-primary">Clearance Certificate</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning/Locational Clearance certificate issued by the Zoning Officer / MPDC. Please verify this document before approving the permit.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning Clearance certificate issued by the Zoning Officer / MPDC. Please verify this document before approving the permit.</p>
                             </div>
                             <Dialog>
                                 <DialogTrigger asChild>
@@ -1028,7 +1030,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         </div>
                                     </div>
                                 </DialogTrigger>
-                                <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning / Locational Clearance" />
+                                <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning Clearance" />
                             </Dialog>
                         </div>
                     )}
@@ -1298,12 +1300,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 <img src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="h-full w-full object-cover" />
                                             </div>
                                             <div className="min-w-0">
-                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">Zoning / Locational Clearance</span>
+                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">Zoning Clearance</span>
                                                 <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Submitted by Zoning Officer</span>
                                             </div>
                                         </button>
                                     </DialogTrigger>
-                                    <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning / Locational Clearance" />
+                                    <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning Clearance" />
                                 </Dialog>
                             ) : (
                                 <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4 text-amber-500">
@@ -1550,12 +1552,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         {!zoningClearanceReceived ? (
                                             <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                <span>Awaiting Zoning/Locational Clearance submission from Zoning Officer.</span>
+                                                <span>Awaiting Zoning Clearance submission from Zoning Officer.</span>
                                             </div>
                                         ) : (
                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                <span>Zoning/Locational Clearance Proof has been submitted by Zoning Officer!</span>
+                                                <span>Zoning Clearance Proof has been submitted by Zoning Officer!</span>
                                             </div>
                                         )}
 

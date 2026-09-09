@@ -328,7 +328,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                     "Community Tax Certificate",
                     "Latest Tax Receipts",
                     "Adjoining Owners Confirmation",
-                    "Locational Clearance",
+                    "Zoning Clearance",
                     "Affidavit of Consent",
                     "Affidavit of Adjoining Owners",
                     "Signed & Sealed Plans",
@@ -367,7 +367,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                 // 4: Latest Tax Receipts
                 // 5: Electrical & Sanitary Permit (Wait, this is index 5!)
                 // 6: Adjoining Owners Confirmation (index 6)
-                // 7: Locational Clearance (index 7)
+                // 7: Zoning Clearance (index 7)
                 // 8: Affidavit of Consent (index 8)
                 // 9: Affidavit of Adjoining Owners (index 9)
                 // 10: Signed & Sealed Plans (index 10)

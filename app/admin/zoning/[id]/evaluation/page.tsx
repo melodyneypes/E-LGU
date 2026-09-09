@@ -389,7 +389,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "Community Tax Certificate",
                 "Latest Tax Receipts",
                 "Adjoining Owners Confirmation",
-                "Locational Clearance",
+                "Zoning Clearance",
                 "Affidavit of Consent",
                 "Affidavit of Adjoining Owners",
                 "Signed & Sealed Plans",

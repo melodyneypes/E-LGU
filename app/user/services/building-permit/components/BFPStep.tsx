@@ -181,13 +181,13 @@ export function BFPStep({
       <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm">
         <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 mb-6">
           <Landmark className="w-6 h-6 text-primary" />
-          BFP Acknowledgement Status
+          Treasury Status / Payment Status
         </h2>
 
         <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <Receipt className="w-6 h-6 text-slate-700 dark:text-slate-300" />
-            <h3 className="font-bold text-slate-800 dark:text-white text-lg">BFP Review Processing</h3>
+            <h3 className="font-bold text-slate-800 dark:text-white text-lg">Treasury Payment Processing</h3>
           </div>
 
           {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (

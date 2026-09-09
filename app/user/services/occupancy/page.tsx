@@ -37,7 +37,11 @@ import {
   Eye,
   Ticket,
   Printer,
-  Loader2
+  Loader2,
+  Plus,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 import {
@@ -61,6 +65,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { getDownloadableForms, type DownloadableForm } from "@/app/admin/engineer/forms/actions";
 import { submitOccupancyPermit, saveTransactionSignature, getExistingOccupancyPermits, resubmitOccupancyPermit, submitOccupancyPermitPaymentProof, checkActivePropertyPermit, getOrCreateOccupancyQueueTicket } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -80,7 +85,7 @@ const STEPS = [
   { id: "PROFILE", label: "Profile", icon: User },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
   { id: "EVALUATION", label: "Evaluation", icon: Building2 },
-  { id: "BFP", label: "BFP", icon: Landmark },
+  { id: "BFP", label: "Treasury", icon: Landmark },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
 
@@ -170,6 +175,10 @@ export default function OccupancyPermitPage() {
   const [printTriggered, setPrintTriggered] = useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isGeneratingTicket, setIsGeneratingTicket] = useState(false);
+  const [downloadableForms, setDownloadableForms] = useState<DownloadableForm[]>([]);
+  const [existingSearchQuery, setExistingSearchQuery] = useState("");
+  const [existingCurrentPage, setExistingCurrentPage] = useState(1);
+  const EXISTING_ITEMS_PER_PAGE = 5;
 
   const handleGenerateOccupancyQueueTicket = async () => {
     if (!selectedApplication?.id) return;
@@ -392,9 +401,10 @@ export default function OccupancyPermitPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [res, permitsRes] = await Promise.all([
+        const [res, permitsRes, formsRes] = await Promise.all([
           getCurrentUserResident(),
-          getExistingOccupancyPermits()
+          getExistingOccupancyPermits(),
+          getDownloadableForms()
         ]);
         if (res.success && res.data) {
           const resData = res.data;
@@ -404,9 +414,38 @@ export default function OccupancyPermitPage() {
             contactNumber: prev.contactNumber || resData.contactNumber || ""
           }));
         }
+        if (formsRes.success && formsRes.data) {
+          setDownloadableForms(formsRes.data);
+        }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
-          setCurrentStep("EXISTING");
+
+          const urlParams = new URLSearchParams(window.location.search);
+          const targetId = urlParams.get("id");
+          let autoSelected = false;
+
+          if (targetId) {
+            const targetApp = permitsRes.data.find((app: any) => app.id === targetId);
+            if (targetApp) {
+              setSelectedApplication(targetApp);
+              let newMaxIdx = 3;
+              let initialStep = "EVALUATION";
+              if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(targetApp.status)) {
+                newMaxIdx = 5;
+                initialStep = "SUBMIT";
+              } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(targetApp.status)) {
+                newMaxIdx = 4;
+                initialStep = "BFP";
+              }
+              setMaxStepIdx(newMaxIdx);
+              setCurrentStep(initialStep);
+              autoSelected = true;
+            }
+          }
+
+          if (!autoSelected) {
+            setCurrentStep("EXISTING");
+          }
         }
       } catch (err) {
         console.error(err);
@@ -1185,122 +1224,205 @@ export default function OccupancyPermitPage() {
           </div>
         )}
 
-        {!loading && currentStep === "EXISTING" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
-                Existing <span className="text-primary italic">Applications</span>
-              </h2>
-              <p className="text-slate-500 font-medium italic text-xs md:text-lg uppercase tracking-widest max-w-2xl mx-auto mt-2">
-                We found existing Occupancy Permit records under your name.
-              </p>
-            </div>
-            <div className="grid gap-4">
-              {existingApplications.map((app, idx) => (
-                <div
-                  key={app.id || idx}
-                  onClick={() => {
-                    setSelectedApplication(app);
-                    setIsRevision(false);
-                    setIsZoningRevision(false);
-                    let newMaxIdx = 3;
-                    let initialStep = "EVALUATION";
-                    if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(app.status)) {
-                      newMaxIdx = 5;
-                      initialStep = "SUBMIT";
-                    } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(app.status)) {
-                      newMaxIdx = 4;
-                      initialStep = "BFP";
-                    }
-                    setMaxStepIdx(newMaxIdx);
-                    setCurrentStep(initialStep);
-                  }}
-                  className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6 flex items-center justify-between cursor-pointer hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/10 transition-all group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Building2 className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-sm md:text-base">
-                        Application {app.id?.substring(0, 8).toUpperCase()}
-                      </p>
-                      <p className="text-xs text-slate-500 font-medium mt-1">
-                        Submitted: {new Date(app.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {(() => {
-                      const statusDetails = getDisplayStatusDetails(app);
-                      return (
-                        <span className={cn(
-                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
-                          statusDetails.colorClass
-                        )}>
-                          {statusDetails.label}
-                        </span>
-                      );
-                    })()}
+        {!loading && currentStep === "EXISTING" && (() => {
+          const handleStartNewApp = () => {
+            setSelectedApplication(null);
+            setSignatureUrl(null);
+            setFormData({
+              occupancyApplicationType: "FULL",
+              buildingPermitNo: "",
+              buildingPermitDateIssued: "",
+              fsecNo: "",
+              fsecDateIssued: "",
+              nameOfProject: "",
+              locationOfProject: "",
+              useCharacterOfOccupancy: "",
+              noOfStoreys: "",
+              noOfUnits: "",
+              totalGrossFloorArea: "",
+              dateOfCompletion: "",
+              contactNumber: residentData?.contactNumber || "",
+              newIdFile: null,
+              newIdFileBack: null,
+            });
+            setUploadedRequirements({});
+            setUploadedPermits({});
+            setCurrentStep("GUIDE");
+          };
 
-                    <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
-                      →
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          const filteredApps = existingApplications.filter(app => {
+            if (!existingSearchQuery.trim()) return true;
+            const q = existingSearchQuery.toLowerCase().trim();
+            const idMatch = app.id?.toLowerCase().includes(q);
+            const locationMatch = app.additionalData?.locationOfProject?.toLowerCase().includes(q);
+            const statusDetails = getDisplayStatusDetails(app);
+            const statusMatch = statusDetails.label?.toLowerCase().includes(q) || app.status?.toLowerCase().includes(q);
+            return idMatch || locationMatch || statusMatch;
+          });
 
-            {hasActiveApplication && (
-              <div className="mt-8 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
-                <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(59,130,246,0.05)]">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 mb-1">
-                    <AlertCircle className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">
-                    Active Application In Progress
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans">
-                    You currently have an active occupancy permit application. You may still apply for a new permit for another property or project by clicking the button below.
+          const totalPages = Math.ceil(filteredApps.length / EXISTING_ITEMS_PER_PAGE) || 1;
+          const paginatedApps = filteredApps.slice(
+            (existingCurrentPage - 1) * EXISTING_ITEMS_PER_PAGE,
+            existingCurrentPage * EXISTING_ITEMS_PER_PAGE
+          );
+
+          return (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              {/* Header with Relocated Primary Action */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-6 md:p-8 rounded-3xl shadow-sm">
+                <div>
+                  <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                    Application <span className="text-primary italic">History</span>
+                  </h2>
+                  <p className="text-slate-500 font-medium italic text-xs md:text-sm uppercase tracking-widest mt-1">
+                    Comprehensive record of your past and active Occupancy Permit applications.
                   </p>
                 </div>
+                <button
+                  onClick={handleStartNewApp}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-500/20 shrink-0 self-start md:self-auto cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Start New Application</span>
+                </button>
               </div>
-            )}
 
-            <div className="mt-8 flex justify-center border-t border-slate-200 dark:border-white/10 pt-8">
-              <button
-                onClick={() => {
-                  setSelectedApplication(null);
-                  setSignatureUrl(null);
-                  setFormData({
-                    occupancyApplicationType: "FULL",
-                    buildingPermitNo: "",
-                    buildingPermitDateIssued: "",
-                    fsecNo: "",
-                    fsecDateIssued: "",
-                    nameOfProject: "",
-                    locationOfProject: "",
-                    useCharacterOfOccupancy: "",
-                    noOfStoreys: "",
-                    noOfUnits: "",
-                    totalGrossFloorArea: "",
-                    dateOfCompletion: "",
-                    contactNumber: residentData?.contactNumber || "",
-                    newIdFile: null,
-                    newIdFileBack: null,
-                  });
-                  setUploadedRequirements({});
-                  setUploadedPermits({});
-                  setCurrentStep("GUIDE");
-                }}
-                className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20"
-              >
-                Start a New Application
-                <span className="text-xl leading-none">+</span>
-              </button>
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={existingSearchQuery}
+                  onChange={(e) => {
+                    setExistingSearchQuery(e.target.value);
+                    setExistingCurrentPage(1);
+                  }}
+                  placeholder="Search by Application ID (e.g. CMSA2JGJ), location, or status..."
+                  className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
+                />
+                {existingSearchQuery && (
+                  <button
+                    onClick={() => setExistingSearchQuery("")}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-wider"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Applications List */}
+              {paginatedApps.length > 0 ? (
+                <div className="grid gap-4">
+                  {paginatedApps.map((app, idx) => (
+                    <div
+                      key={app.id || idx}
+                      onClick={() => {
+                        setSelectedApplication(app);
+                        setIsRevision(false);
+                        setIsZoningRevision(false);
+                        let newMaxIdx = 3;
+                        let initialStep = "EVALUATION";
+                        if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(app.status)) {
+                          newMaxIdx = 5;
+                          initialStep = "SUBMIT";
+                        } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(app.status)) {
+                          newMaxIdx = 4;
+                          initialStep = "BFP";
+                        }
+                        setMaxStepIdx(newMaxIdx);
+                        setCurrentStep(initialStep);
+                      }}
+                      className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6 flex items-center justify-between cursor-pointer hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/10 transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                          <Building2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-sm md:text-base">
+                            Application {app.id?.substring(0, 8).toUpperCase()}
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            Submitted: {new Date(app.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {(() => {
+                          const statusDetails = getDisplayStatusDetails(app);
+                          return (
+                            <span className={cn(
+                              "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
+                              statusDetails.colorClass
+                            )}>
+                              {statusDetails.label}
+                            </span>
+                          );
+                        })()}
+
+                        <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
+                          →
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2">
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">
+                    No matching records found
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Try adjusting your search query or clear the filter.
+                  </p>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Showing Page {existingCurrentPage} of {totalPages} ({filteredApps.length} Total Records)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={existingCurrentPage === 1}
+                      onClick={() => setExistingCurrentPage(prev => Math.max(prev - 1, 1))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Previous</span>
+                    </button>
+                    <button
+                      disabled={existingCurrentPage === totalPages}
+                      onClick={() => setExistingCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {hasActiveApplication && (
+                <div className="mt-8 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
+                  <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(59,130,246,0.05)]">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 mb-1">
+                      <AlertCircle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">
+                      Active Application In Progress
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans">
+                      You currently have an active occupancy permit application. You may still apply for a new permit for another property or project by clicking the button above.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {!loading && currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -1382,6 +1504,40 @@ export default function OccupancyPermitPage() {
                 </div>
               ))}
             </div>
+            {/* Downloadable Forms Section */}
+            {downloadableForms.length > 0 && (
+              <div className="mt-8 mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-red-500" />
+                  <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 dark:text-white">
+                    Downloadable Forms
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {downloadableForms.map((form) => (
+                    <a
+                      key={form.id}
+                      href={form.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center p-4 bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm hover:border-red-500 hover:shadow-md transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                        <FileText className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                          {form.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">
+                          Click to download
+                        </p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Document Catalog Summary */}
             <div className="mt-8 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-[2rem] p-6 md:p-8">
@@ -2193,17 +2349,38 @@ export default function OccupancyPermitPage() {
 
             {/* Document Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {([
-                  ...documentRequirementsList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                  ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
-                ]
-              ).map(({ docName, idx, kind }) => {
+              {(() => {
+                const baseItems = [
+                  ...documentRequirementsList.map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `req_${idx}` })),
+                  ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const, key: `req_${documentRequirementsList.length + idx}` }))
+                ];
+
+                const existingKeys = new Set(baseItems.map(item => item.key));
+                const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base"; key: string }> = [];
+
+                if (selectedApplication?.additionalData?.revisionRequests) {
+                  selectedApplication.additionalData.revisionRequests.forEach((req: any, i: number) => {
+                    const reqKey = req.key || `req_${documentRequirementsList.length + customRequirements.length + i}`;
+                    if (!existingKeys.has(reqKey) && req.name) {
+                      revisionItems.push({
+                        docName: req.name,
+                        idx: documentRequirementsList.length + customRequirements.length + i,
+                        kind: "revision",
+                        key: reqKey
+                      });
+                    }
+                  });
+                }
+
+                return [...baseItems, ...revisionItems];
+              })().map(({ docName, idx, kind, key }) => {
                 const isCustomItem = kind === "custom";
-                const key = `req_${idx}`;
+                const isRevisionItem = kind === "revision";
                 const fileUrl = effectiveDocuments?.[key];
                 const newlyUploaded = !!uploadedRequirements[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = isCustomItem ? false : requiredRequirementIndexes.includes(idx);
+                const isRequestedInRevision = isFieldRequested(key) || isRevisionItem;
+                const isRequired = isRevision ? isRequestedInRevision : (isCustomItem ? false : requiredRequirementIndexes.includes(idx));
                 const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
@@ -2283,7 +2460,7 @@ export default function OccupancyPermitPage() {
                         }}
                         error={hasError}
                         infoText="PDF / Image (Max 15MB)"
-                        disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
+                        disabled={!isEditable || (isRevision && !isFieldRequested(key) && !isRevisionItem && !!fileUrl)}
                       />
                     </div>
                   </div>
@@ -2951,10 +3128,10 @@ You cancelled this occupancy permit application. You can still view your details
                   className="px-8 py-3 bg-emerald-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-600"
                 >
                   {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-                    ? "AWAITING ENGINEER PAYMENT ENDORSEMENT"
+                    ? "AWAITING TREASURY PAYMENT ENDORSEMENT"
                     : selectedApplication?.status === "UNPAID"
                       ? "OPEN PAYMENT ENDORSEMENT"
-                    : "Next: BFP →"}
+                    : "Next: Treasury →"}
                 </button>
               )}
             </div>
@@ -2990,13 +3167,13 @@ You cancelled this occupancy permit application. You can still view your details
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm">
               <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 mb-6">
                 <Landmark className="w-6 h-6 text-primary" />
-                BFP Acknowledgement Status
+                Treasury Status / Payment Status
               </h2>
 
               <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <Receipt className="w-6 h-6 text-slate-700 dark:text-slate-300" />
-                  <h3 className="font-bold text-slate-800 dark:text-white text-lg">BFP Review Processing</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-lg">Treasury Payment Processing</h3>
                 </div>
 
                 {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (
@@ -3361,7 +3538,7 @@ You cancelled this occupancy permit application. You can still view your details
                         </div>
                         <div className="text-center md:text-left">
                           <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                            Zoning / Locational Clearance
+                            Zoning Clearance
                           </p>
                           <p className="text-xs text-slate-500 font-medium mt-1">
                             Your approved zoning clearance is ready for download.

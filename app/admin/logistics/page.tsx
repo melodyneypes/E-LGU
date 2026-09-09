@@ -7,8 +7,7 @@ import {
     Save, 
     RefreshCcw, 
     Info,
-    Plus,
-    Trash2
+    Plus
 } from "lucide-react";
 import { AddLogisticsModal } from "./components/AddLogisticsModal";
 import { 
@@ -50,7 +49,7 @@ export default function LogisticsManagementPage() {
     });
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDeleteNode = (brgy: any) => {
+    const _handleDeleteNode = (brgy: any) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Logistics Node",
@@ -265,7 +264,8 @@ export default function LogisticsManagementPage() {
                                         )}
                                     </Button>
 
-                                    <Button
+                                    {/* Hide delete action temporarily */}
+                                    {/* <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => handleDeleteNode(brgy)}
@@ -273,7 +273,7 @@ export default function LogisticsManagementPage() {
                                         title="Delete Logistics Node"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
+                                    </Button> */}
                                 </div>
                             </div>
 

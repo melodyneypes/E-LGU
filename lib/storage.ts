@@ -3,7 +3,7 @@ import { supabaseAdmin } from "./supabase";
 const DEFAULT_BUCKET = "system-assets";
 
 function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType?: string): boolean {
-    const allowedExtensions = /\.(jpe?g|png|webp|pdf)$/i;
+    const allowedExtensions = /\.(jpe?g|png|webp|pdf|docx?)$/i;
     if (!allowedExtensions.test(filename)) {
         return false;
     }
@@ -25,6 +25,10 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType?: string):
     } else if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250") {
         isMagicValid = true;
         expectedMime = "image/webp";
+    } else if (hex.startsWith("504B0304") || hex.startsWith("D0CF11E0")) {
+        // ZIP/DOCX is 504B0304, old DOC is D0CF11E0
+        isMagicValid = true;
+        expectedMime = mimeType || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     }
 
     if (!isMagicValid) {

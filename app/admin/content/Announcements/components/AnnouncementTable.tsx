@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Trash2, Calendar, Megaphone, Pin, PinOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit2, Calendar, Megaphone, Pin, PinOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -460,7 +460,8 @@ export function AnnouncementTable() {
                                                         </Tooltip>
                                                     </TooltipProvider>
 
-                                                    <TooltipProvider>
+                                                    {/* Hide delete action temporarily */}
+                                                    {/* <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <Button
@@ -477,7 +478,7 @@ export function AnnouncementTable() {
                                                                 Delete Announcement
                                                             </TooltipContent>
                                                         </Tooltip>
-                                                    </TooltipProvider>
+                                                    </TooltipProvider> */}
                                                 </>
                                             ) : (
                                                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800">

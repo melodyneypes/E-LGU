@@ -437,7 +437,7 @@ export default function RegistrarPage() {
                                 <div className="relative w-full sm:w-[350px]">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                     <Input
-                                        placeholder="Search names or Reference ID..."
+                                        placeholder="Search names or Application No...."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
                                         className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-blue-500 rounded-xl"

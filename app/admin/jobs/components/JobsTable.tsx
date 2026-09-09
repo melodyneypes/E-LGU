@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, Building2, Briefcase } from "lucide-react";
+import { Edit2, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState, type CSSProperties } from "react";
@@ -46,7 +46,7 @@ export function JobsTable() {
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = (item: Job) => {
+    const _handleDelete = (item: Job) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Job Vacancy",
@@ -184,7 +184,8 @@ export function JobsTable() {
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    <TooltipProvider>
+                                    {/* Hide delete action temporarily */}
+                                    {/* <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
@@ -198,7 +199,7 @@ export function JobsTable() {
                                             </TooltipTrigger>
                                             <TooltipContent>Delete Job</TooltipContent>
                                         </Tooltip>
-                                    </TooltipProvider>
+                                    </TooltipProvider> */}
                                 </div>
                             </TableCell>
                         </TableRow>

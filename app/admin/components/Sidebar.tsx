@@ -432,6 +432,7 @@ export function Sidebar({
                 { href: "/admin/barangays/admins", label: "Add Barangay Admins" },
             ]
         },
+        { href: "/admin/road-closures", label: "Road Closures", icon: AlertTriangle, category: "Infrastructure" },
         {
             label: "Announcements",
             icon: Megaphone,
@@ -616,7 +617,7 @@ export function Sidebar({
                 { href: "/admin/treasury?category=Real Property Tax", label: "Real Property Tax" },
                 { href: "/admin/treasury?category=Business Permit", label: "Business Permit" },
                 { href: "/admin/treasury?category=Civil Registry", label: "Civil Registry" },
-                { href: "/admin/treasury?category=Building Permit", label: "Building Permit" },
+                { href: "/admin/treasury?category=Building Permit", label: "Building & Occupancy Permit" },
                 { href: "/admin/treasury?category=POSO", label: "POSO Traffic Citations" },
             ]
         },
@@ -663,6 +664,7 @@ export function Sidebar({
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
         { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" },
+        { href: "/admin/engineer/forms", label: "Downloadable Forms", icon: FileText, category: "Engineering" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
@@ -711,7 +713,8 @@ export function Sidebar({
         "Resident Registry",
         // "Barangay Services",
         // "Banner Slider",
-        "Household Map"
+        "Household Map",
+        "Road Closures"
     ];
 
     const accessiblePages = session?.user?.accessiblePages;
@@ -831,7 +834,9 @@ export function Sidebar({
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-                { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" }
+                { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" },
+                { href: "/admin/engineer/forms", label: "Downloadable Forms", icon: FileText, category: "Engineering" },
+                { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [

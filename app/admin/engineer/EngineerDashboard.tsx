@@ -471,6 +471,13 @@ export default function EngineerDashboard() {
                                                          return tx.status?.replace(/_/g, " ");
                                                      })()}
                                                  </span>
+                                                 {tx.revisionCount === 2 && !tx.isCancelled && tx.status !== "REJECTED" && (
+                                                     <div className="mt-1">
+                                                         <span className="bg-red-500 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm animate-pulse">
+                                                             FINAL ATTEMPT
+                                                         </span>
+                                                     </div>
+                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">

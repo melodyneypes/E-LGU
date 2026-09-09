@@ -1005,7 +1005,7 @@ export default function RequestHubPage() {
             const reqLabels = [
                 "Barangay Clearance/Certification", "Tax Declaration", "Land Title",
                 "Community Tax Certificate", "Latest Tax Receipts",
-                "Adjoining Owners Confirmation", "Locational Clearance", "2 Affidavits",
+                "Adjoining Owners Confirmation", "Zoning Clearance", "2 Affidavits",
                 "Affidavit of Consent", "Affidavit of Adjoining Owners", "Signed & Sealed Plans",
                 "Fire Safety Clearance"
             ];
