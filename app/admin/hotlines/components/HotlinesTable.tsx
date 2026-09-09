@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, Phone, PhoneCall, MapPin } from "lucide-react";
+import { Edit2, Phone, PhoneCall, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -82,7 +82,7 @@ export function HotlinesTable() {
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = (item: Hotline) => {
+    const _handleDelete = (item: Hotline) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Emergency Hotline",
@@ -260,7 +260,8 @@ export function HotlinesTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -274,7 +275,7 @@ export function HotlinesTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete Hotline</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>

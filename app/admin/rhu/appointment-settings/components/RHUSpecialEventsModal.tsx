@@ -103,7 +103,7 @@ export function RHUSpecialEventsModal({
         }
     }, [isOpen, selectedCenterId, loadEvents]);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const _handleOpenFormForDate = (dateString?: string, eventToEdit?: any) => {
         if (!isEditable) {
             toast.error("You are in read-only mode.");

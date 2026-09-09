@@ -499,10 +499,10 @@ export function EvaluationStep({
             className="px-8 py-3 bg-emerald-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-600"
           >
             {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-              ? "AWAITING ENGINEER PAYMENT ENDORSEMENT"
+              ? "AWAITING TREASURY PAYMENT ENDORSEMENT"
               : selectedApplication?.status === "UNPAID"
                 ? "OPEN PAYMENT ENDORSEMENT"
-              : "Next: BFP →"}
+              : "Next: Treasury →"}
           </button>
         )}
       </div>

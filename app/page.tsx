@@ -347,12 +347,12 @@ export default async function Home({
             },
             orderBy: { name: "asc" }
         }),
-        (prisma as any).legislativeDocument.findMany({
+        ((prisma as any).legislativeDocument ? (prisma as any).legislativeDocument.findMany({
             where: {
                 ...(isFiltered ? { barangay: selectedBarangay } : {})
             } as any,
             orderBy: { dateApproved: 'desc' }
-        })
+        }) : Promise.resolve([]))
     ]);
 
     const allAnnouncementsRaw = [...rawAnnouncements, ...rawHealthAnnouncements];

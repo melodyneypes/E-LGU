@@ -192,15 +192,15 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
         } else if (type === "FOR_CLAIM") {
         const docName = serviceName || "Community Tax Certificate - Individual";
         const subjectDocName = serviceName || "Community Tax Certificate - Individual";
-        const isBuildingPermit = docName.trim().toLowerCase() === "building permit";
-        const claimOfficeLabel = isBuildingPermit ? "Municipal Engineer Office" : "Municipal Treasury Office";
-        const claimLocationLabel = isBuildingPermit
+        const isEngineeringPermit = ["building permit", "occupancy permit"].some(name => docName.trim().toLowerCase().includes(name));
+        const claimOfficeLabel = isEngineeringPermit ? "Municipal Engineer Office" : "Municipal Treasury Office";
+        const claimLocationLabel = isEngineeringPermit
             ? `Municipal Engineer Office, ${municipalityName}`
             : `Municipal Treasury Office, ${municipalityName}`;
-        const claimNote = isBuildingPermit
+        const claimNote = isEngineeringPermit
             ? "Please bring a valid ID upon claiming your approved document."
             : "Please bring a valid ID and the exact amount for your payment as computed in the portal.";
-        const footerLabel = isBuildingPermit ? "Engineering Department" : "Treasury Department";
+        const footerLabel = isEngineeringPermit ? "Engineering Department" : "Treasury Department";
         subject = `Ready for Claiming: Your ${subjectDocName} is Prepared - LGU ${municipalityName}`;
         htmlBody = `
         <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
@@ -229,7 +229,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                             <td style="color: #64748b; padding: 4px 0;">Reference:</td>
                             <td style="color: #3b82f6; font-weight: 800; font-family: monospace; padding: 4px 0;">${transactionId || "N/A"}</td>
                         </tr>
-                        ${isBuildingPermit ? "" : `
+                        ${isEngineeringPermit ? "" : `
                         <tr>
                             <td style="color: #64748b; padding: 4px 0;">Amount to Pay:</td>
                             <td style="color: #1e293b; font-weight: 800; padding: 4px 0; font-size: 16px;">₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</td>

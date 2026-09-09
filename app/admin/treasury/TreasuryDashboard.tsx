@@ -161,7 +161,11 @@ export default function TreasuryDashboard() {
         if (isAdminAide) {
             filtered = filtered.filter((t: any) => t.code?.startsWith("BUSINESS_PERMIT"));
         } else if (categoryParam && categoryParam !== "ALL") {
-            filtered = filtered.filter((t: any) => t.category === categoryParam);
+            if (categoryParam === "Building Permit") {
+                filtered = filtered.filter((t: any) => t.category === "Building Permit" || t.category === "Occupancy Permit" || t.code?.startsWith("BUILDING_PERMIT") || t.code?.startsWith("OCCUPANCY_PERMIT"));
+            } else {
+                filtered = filtered.filter((t: any) => t.category === categoryParam);
+            }
         }
         const names = filtered.map((t: any) => t.name).filter(Boolean);
         if (categoryParam === "CEDULA") {
@@ -277,7 +281,7 @@ export default function TreasuryDashboard() {
                             }
 
                             toast.info(`A new request has been submitted by ${applicantName}!`, {
-                                description: `Reference ID: ${newTx.id.slice(-8).toUpperCase()}`,
+                                description: `Application No.: ${newTx.id.slice(-8).toUpperCase()}`,
                                 duration: 7000,
                             });
                         }
@@ -475,7 +479,7 @@ export default function TreasuryDashboard() {
                                     <div className="relative w-full sm:w-[350px]">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                         <Input
-                                            placeholder="Search names or Reference ID..."
+                                            placeholder="Search names or Application No...."
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                             className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-blue-500 rounded-xl"
@@ -560,6 +564,7 @@ export default function TreasuryDashboard() {
                                         <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
                                             <TableRow className="hover:bg-transparent">
                                                 <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">#</TableHead>
+                                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Application No.</TableHead>
                                                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Applicant</TableHead>
                                                 <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">
                                                     <span>Service</span>
@@ -592,7 +597,7 @@ export default function TreasuryDashboard() {
                                             {loading ? (
                                                 Array(5).fill(0).map((_, i) => (
                                                     <TableRow key={i} className="animate-pulse">
-                                                        <TableCell colSpan={7} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
+                                                        <TableCell colSpan={8} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
                                                     </TableRow>
                                                 ))
                                             ) : sortedTransactions.length > 0 ? (
@@ -604,6 +609,11 @@ export default function TreasuryDashboard() {
                                                     >
                                                         <TableCell className="py-4">
                                                             <span className="text-xs font-black font-mono tracking-widest text-primary">{(currentPage - 1) * itemsPerPage + index + 1}</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-[11px] font-mono font-bold text-[#0c4a6e] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-lg border border-blue-100 dark:border-blue-800/30 select-all tracking-wider">
+                                                                {tx.id}
+                                                            </span>
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="flex flex-col">

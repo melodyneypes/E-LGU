@@ -69,7 +69,7 @@ const formatDocLabel = (docName: string, app1Gender: string) => {
 function formatCurrency(amount: number) {
 	try {
 		return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		 
 	} catch (_e) {
 		return `₱${amount.toFixed(2)}`;
 	}

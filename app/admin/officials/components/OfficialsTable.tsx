@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, ShieldCheck, User } from "lucide-react";
+import { Edit2, ShieldCheck, User } from "lucide-react";
 import { toast } from "sonner";
 import { useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ export function OfficialsTable() {
         setIsAddModalOpen(true);
     };
 
-    const handleDelete = (item: any) => {
+    const _handleDelete = (item: any) => {
         setDeleteModalConfig({
             isOpen: true,
             title: "Delete Official Profile",
@@ -212,7 +212,8 @@ export function OfficialsTable() {
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    <TooltipProvider>
+                                    {/* Hide delete action temporarily */}
+                                    {/* <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
@@ -226,7 +227,7 @@ export function OfficialsTable() {
                                             </TooltipTrigger>
                                             <TooltipContent>Delete Profile</TooltipContent>
                                         </Tooltip>
-                                    </TooltipProvider>
+                                    </TooltipProvider> */}
                                 </div>
                             </TableCell>
                         </TableRow>

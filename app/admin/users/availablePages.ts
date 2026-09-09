@@ -11,6 +11,7 @@ export const AVAILABLE_PAGES: AvailablePage[] = [
   { label: "Past Mayors/Captains", path: "/admin/about/past-mayors", category: "Content" },
   { label: "Barangays List", path: "/admin/barangays/list", category: "Infrastructure" },
   { label: "Barangay Admins", path: "/admin/barangays/admins", category: "Infrastructure" },
+  { label: "Road Closures", path: "/admin/road-closures", category: "Infrastructure" },
   { label: "Announcements", path: "/admin/announcements", category: "Content" },
   { label: "Approval of Announcements", path: "/admin/announcements/approvals", category: "Content" },
   { label: "News & Updates", path: "/admin/news", category: "Content" },

@@ -11,7 +11,6 @@ import {
     Search, 
     Plus, 
     Edit2, 
-    Trash2, 
     FileDown, 
     FileText, 
     Calendar,
@@ -447,7 +446,8 @@ export function OrdinancesClient({
                                                 >
                                                     <Edit2 className="w-3.5 h-3.5" />
                                                 </Button>
-                                                <Button
+                                                {/* Hide delete action temporarily */}
+                                                {/* <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => setDocToDelete(item)}
@@ -455,7 +455,7 @@ export function OrdinancesClient({
                                                     title="Delete Document"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
-                                                </Button>
+                                                </Button> */}
                                             </div>
                                         </TableCell>
                                     </TableRow>

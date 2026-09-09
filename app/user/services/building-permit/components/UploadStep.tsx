@@ -165,6 +165,20 @@ export function UploadStep({
         </p>
       </div>
 
+      {selectedApplication?.revisionCount === 2 && (
+        <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 mb-8 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+              Warning: Final Attempt
+            </h4>
+            <p className="text-xs md:text-sm font-medium text-red-600 dark:text-red-300">
+              This is your final attempt to submit these documents. A further rejection will permanently lock this application. Please ensure all documents are correct and complete before submitting.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 mb-8">
         <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
@@ -237,30 +251,79 @@ export function UploadStep({
 
       {/* Document Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-        {(activeDocTab === "REQUIREMENTS"
-          ? [
+        {(() => {
+          if (activeDocTab === "REQUIREMENTS") {
+            const baseItems = [
               ...documentRequirementsList
-                .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-              ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
+                .map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `req_${idx}` })),
+              ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const, key: `req_${documentRequirementsList.length + idx}` }))
             ].filter(({ idx, kind }) => {
               if (kind === "custom") return true;
               return requiredRequirementIndexes.includes(idx);
-            })
-          : [
-              ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-              ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
-            ]
-        ).map(({ docName, idx, kind }) => {
+            });
+
+            const existingKeys = new Set(baseItems.map(item => item.key));
+            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base"; key: string }> = [];
+
+            if (selectedApplication?.additionalData?.revisionRequests) {
+              selectedApplication.additionalData.revisionRequests.forEach((req: any, i: number) => {
+                if (req.type === "REQUIREMENTS" || !req.type) {
+                  const reqKey = req.key || `req_${documentRequirementsList.length + customRequirements.length + i}`;
+                  if (!existingKeys.has(reqKey) && req.name) {
+                    revisionItems.push({
+                      docName: req.name,
+                      idx: documentRequirementsList.length + customRequirements.length + i,
+                      kind: "revision",
+                      key: reqKey
+                    });
+                  }
+                }
+              });
+            }
+
+            return [...baseItems, ...revisionItems];
+          } else {
+            const baseItems = [
+              ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `permit_${idx}` })),
+              ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const, key: `permit_${permitTypesList.length + idx}` }))
+            ];
+
+            const existingKeys = new Set(baseItems.map(item => item.key));
+            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base"; key: string }> = [];
+
+            if (selectedApplication?.additionalData?.revisionRequests) {
+              selectedApplication.additionalData.revisionRequests.forEach((req: any, i: number) => {
+                if (req.type === "PERMITS") {
+                  const reqKey = req.key || `permit_${permitTypesList.length + customPermits.length + i}`;
+                  if (!existingKeys.has(reqKey) && req.name) {
+                    revisionItems.push({
+                      docName: req.name,
+                      idx: permitTypesList.length + customPermits.length + i,
+                      kind: "revision",
+                      key: reqKey
+                    });
+                  }
+                }
+              });
+            }
+
+            return [...baseItems, ...revisionItems];
+          }
+        })().map(({ docName, idx, kind, key: itemKey }) => {
           const isCustomItem = kind === "custom";
-          const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
+          const isRevisionItem = kind === "revision";
+          const key = itemKey || (activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`);
           const fileUrl = clearedKeys.has(key) ? null : effectiveDocuments?.[key];
           const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
           const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-          const isRequired = isCustomItem
-            ? false
-            : (activeDocTab === "PERMITS"
-              ? requiredPermitIndexes.includes(idx)
-              : requiredRequirementIndexes.includes(idx));
+          const isRequestedInRevision = isFieldRequested(key) || isRevisionItem;
+          const isRequired = isRevision
+            ? isRequestedInRevision
+            : (isCustomItem
+              ? false
+              : (activeDocTab === "PERMITS"
+                ? requiredPermitIndexes.includes(idx)
+                : requiredRequirementIndexes.includes(idx)));
           const hasError = showValidationErrors && isRequired && !isUploaded;
           
           const uploadedData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
@@ -358,7 +421,7 @@ export function UploadStep({
                   }}
                   error={hasError}
                   infoText="PDF / Image (Max 15MB)"
-                  disabled={!isEditable || (isRevision && !isFieldRequested(key) && !!fileUrl)}
+                  disabled={!isEditable || (isRevision && !isFieldRequested(key) && !isRevisionItem && !!fileUrl)}
                 />
               </div>
             </div>

@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from "react";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import { getDownloadableForms, type DownloadableForm } from "@/app/admin/engineer/forms/actions";
 import {
   Book,
   CheckCircle,
@@ -456,6 +457,8 @@ export default function BuildingPermitAppointmentPage() {
   const [viewerTitle, setViewerTitle] = useState("");
   const [viewerFile, setViewerFile] = useState<File | null>(null);
 
+  const [downloadableForms, setDownloadableForms] = useState<DownloadableForm[]>([]);
+
   const isEditable = !selectedApplication || isRevision || isZoningRevision;
 
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
@@ -639,7 +642,7 @@ export default function BuildingPermitAppointmentPage() {
     "Community Tax Certificate",
     "Latest Tax Receipts",
     "Adjoining Owners Confirmation",
-    "Locational Clearance",
+    "Zoning Clearance",
     "Affidavit of Consent",
     "Affidavit of Adjoining Owners",
     "Signed & Sealed Plans",
@@ -678,11 +681,12 @@ export default function BuildingPermitAppointmentPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [res, permitsRes, brgyRes, configRes] = await Promise.all([
+        const [res, permitsRes, brgyRes, configRes, formsRes] = await Promise.all([
           getCurrentUserResident(),
           getExistingBuildingPermits(),
           getBarangaysAction(),
-          getEngineeringAppointmentConfig()
+          getEngineeringAppointmentConfig(),
+          getDownloadableForms()
         ]);
         if (res.success && res.data) {
           setResidentData(res.data);
@@ -697,6 +701,9 @@ export default function BuildingPermitAppointmentPage() {
         }
         if (brgyRes.success && brgyRes.data) {
           setBarangayList(brgyRes.data);
+        }
+        if (formsRes.success && formsRes.data) {
+          setDownloadableForms(formsRes.data);
         }
       } catch (err) {
         console.error(err);
@@ -975,21 +982,19 @@ export default function BuildingPermitAppointmentPage() {
         "The Barangay Captain or Secretary will issue the certification after verification."
       ],
       infoType: "time",
-      infoLabel: "Validity",
-      infoText: "Usually valid for 30-60 days. Process within 1 day."
     },
     {
       id: 9,
-      title: "Application for locational clearance",
+      title: "Application for Zoning Clearance",
       office: "Zoning Office / MPDC",
       icon: <MapPin className="w-5 h-5 text-red-500" />,
       steps: [
         "Go to the Municipal Planning & Development Coordinator (MPDC) / Zoning Office.",
-        "Secure and fill out the Locational Clearance application form.",
+        "Secure and fill out the Zoning Clearance application form.",
         "Submit the following: lot plan, vicinity map, and proof of ownership.",
         "The Zoning Officer will check if your project is compliant with the Comprehensive Land Use Plan (CLUP) and zoning ordinance.",
         "Pay the zoning fee (varies based on floor area and classification).",
-        "Claim the Locational Clearance (processing may take 2-5 days)."
+        "Claim the Zoning Clearance (processing may take 2-5 days)."
       ],
       infoType: "note",
       infoLabel: "Note",
@@ -1051,7 +1056,7 @@ export default function BuildingPermitAppointmentPage() {
       steps: [
         "Go to the Zoning Office / MPDC at the Municipal Hall after your initial building permit payment is verified.",
         "Present your building permit payment receipt (Official Receipt) to the Zoning Officer.",
-        "Submit the completed Locational Clearance form along with other required attachments.",
+        "Submit the completed Zoning Clearance form along with other required attachments.",
         "Claim the signed Zoning Clearance certificate."
       ],
       infoType: "important",
@@ -1765,6 +1770,7 @@ export default function BuildingPermitAppointmentPage() {
               <p className="text-slate-500 font-medium italic text-xs md:text-lg uppercase tracking-widest max-w-2xl mx-auto">Review each requirement to see detailed step-by-step instructions.</p>
             </div>
 
+
             <div
               className="space-y-6 max-h-[600px] overflow-y-auto pr-2 md:pr-4 custom-scrollbar"
             >
@@ -1816,6 +1822,41 @@ export default function BuildingPermitAppointmentPage() {
                 </div>
               ))}
             </div>
+
+            {/* Downloadable Forms Section */}
+            {downloadableForms.length > 0 && (
+              <div className="mt-8 mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-red-500" />
+                  <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 dark:text-white">
+                    Downloadable Forms
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {downloadableForms.map((form) => (
+                    <a
+                      key={form.id}
+                      href={form.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center p-4 bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm hover:border-red-500 hover:shadow-md transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                        <FileText className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                          {form.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">
+                          Click to download
+                        </p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Document Catalog Summary */}
             <div className="mt-8 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-[2rem] p-6 md:p-8">

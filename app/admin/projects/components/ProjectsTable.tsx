@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Edit2, Trash2, FolderKanban, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit2, FolderKanban, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
@@ -295,7 +295,8 @@ export function ProjectsTable() {
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                            <TooltipProvider>
+                                            {/* Hide delete action temporarily */}
+                                            {/* <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -309,7 +310,7 @@ export function ProjectsTable() {
                                                     </TooltipTrigger>
                                                     <TooltipContent>Delete Project</TooltipContent>
                                                 </Tooltip>
-                                            </TooltipProvider>
+                                            </TooltipProvider> */}
                                         </div>
                                     </TableCell>
                                 </TableRow>

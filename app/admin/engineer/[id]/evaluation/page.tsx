@@ -318,7 +318,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "Community Tax Certificate",
                 "Latest Tax Receipts",
                 "Adjoining Owners Confirmation",
-                "Locational Clearance",
+                "Zoning Clearance",
                 "Affidavit of Consent",
                 "Affidavit of Adjoining Owners",
                 "Signed & Sealed Plans",
@@ -454,7 +454,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
         if (res.success) {
             toast.success("Inspection scheduled successfully!");
-            router.push(backUrl);
+            router.push(`/admin/engineer/${id}`);
         } else {
             toast.error(res.error || "Failed to schedule inspection");
         }
@@ -1064,6 +1064,19 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-6 py-6">
+                                                {transaction?.revisionCount === 2 && (
+                                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3">
+                                                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+                                                                Final Confirmation
+                                                            </p>
+                                                            <p className="text-xs font-medium text-red-600 dark:text-red-300">
+                                                                You are about to reject this application for the 3rd time. This action will permanently lock the applicant&apos;s submission. Proceed?
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
                                                 <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
                                                 <div className="space-y-3">
@@ -1147,6 +1160,19 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-6 py-6">
+                                                {transaction?.revisionCount === 2 && (
+                                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3">
+                                                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+                                                                Final Confirmation
+                                                            </p>
+                                                            <p className="text-xs font-medium text-red-600 dark:text-red-300">
+                                                                You are about to reject this application for the 3rd time. This action will permanently lock the applicant&apos;s submission. Proceed?
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Reason for Decline *</Label>
                                                 <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
                                             </div>

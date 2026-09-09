@@ -303,7 +303,8 @@ export default function BFPEvaluationPage({ params }: PageProps) {
             const res = await approveBFPTransaction(id);
             if (res.success) {
                 toast.success("BFP acknowledged successfully!");
-                router.push(backUrl);
+                await fetchTransaction();
+                router.refresh();
             } else {
                 toast.error(res.error || "Failed to acknowledge.");
             }
@@ -384,7 +385,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                 "Community Tax Certificate",
                 "Latest Tax Receipts",
                 "Adjoining Owners Confirmation",
-                "Locational Clearance",
+                "Zoning Clearance",
                 "Affidavit of Consent",
                 "Affidavit of Adjoining Owners",
                 "Signed & Sealed Plans",
