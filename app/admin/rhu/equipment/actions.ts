@@ -54,7 +54,7 @@ async function checkWritePermission(user: any) {
         // Operational privileges granted to both Global Admins & BHS Center Staff:
         canFileRO: isGlobalAdmin || hasBHSLocalAccess,
         canReceiveSO: isGlobalAdmin || hasBHSLocalAccess,
-        canRegisterLocalAsset: isGlobalAdmin || hasBHSLocalAccess,
+        canRegisterLocalAsset: false,
         canFileRepair: isGlobalAdmin || hasBHSLocalAccess,
         canUpdateAsset: isGlobalAdmin || hasBHSLocalAccess,
         // Central Procurement & Administrative privileges restricted to Global RHU Admins:
@@ -102,6 +102,43 @@ async function executeRawSafe(query: string, params: any[] = []): Promise<number
     }
 }
 
+// Ensure the Master Equipment Catalog table exists safely and non-destructively
+async function ensureCatalogTable() {
+    try {
+        await executeRawSafe(`
+            CREATE TABLE IF NOT EXISTS "EquipmentCatalogItem" (
+                "id" TEXT PRIMARY KEY,
+                "equipmentName" TEXT NOT NULL UNIQUE,
+                "brand" TEXT,
+                "model" TEXT,
+                "category" "PropertyCategory" NOT NULL DEFAULT 'SEMI_EXPENDABLE',
+                "estimatedCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
+                "description" TEXT,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        // Seed from distinct equipmentNames already in MedicalAsset if table was just created
+        await executeRawSafe(`
+            INSERT INTO "EquipmentCatalogItem" ("id", "equipmentName", "brand", "category", "estimatedCost", "createdAt", "updatedAt")
+            SELECT 
+                md5(random()::text || clock_timestamp()::text),
+                TRIM("equipmentName"),
+                MAX("brand"),
+                MAX("category"),
+                COALESCE(AVG("unitCost"), 0),
+                NOW(),
+                NOW()
+            FROM "MedicalAsset"
+            WHERE "equipmentName" IS NOT NULL AND TRIM("equipmentName") != ''
+            GROUP BY TRIM("equipmentName")
+            ON CONFLICT ("equipmentName") DO NOTHING;
+        `);
+    } catch {
+        // Safe ignore
+    }
+}
+
 // =========================================================================
 // 1. MASTER LEDGER & STATS
 // =========================================================================
@@ -110,8 +147,10 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
     try {
         const auth = await verifyRHUAccess();
         if (!auth.authorized) {
-            return { success: false, error: auth.error, assets: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true };
+            return { success: false, error: auth.error, assets: [], catalogItems: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true };
         }
+
+        await ensureCatalogTable();
 
         const perm = await checkWritePermission(auth.user);
         const matchedCenter = perm.matchedCenter;
@@ -119,8 +158,11 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
         let assetQuery = `SELECT * FROM "MedicalAsset"`;
         const params: any[] = [];
 
-        // Apply facility filter if explicitly specified
-        if (facilityFilter && facilityFilter !== "ALL") {
+        // Center scoping: Health Centers can ONLY see equipment belonging to their own facility
+        if (matchedCenter) {
+            assetQuery += ` WHERE "currentFacility" = $1`;
+            params.push(matchedCenter.name);
+        } else if (facilityFilter && facilityFilter !== "ALL") {
             assetQuery += ` WHERE "currentFacility" = $1`;
             params.push(facilityFilter);
         }
@@ -151,9 +193,15 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
         soQuery += ` ORDER BY "dispatchedAt" DESC`;
         returnsQuery += ` ORDER BY "createdAt" DESC`;
 
-        const [assets, stockroomAssets, rawPOs, poItems, rawROs, roItems, rawSOs, soItems, returns, rawCenters] = await Promise.all([
+        // Health centers do not hold central stockroom assets; only Main RHU Central Stockroom does
+        const stockroomAssetsQuery = matchedCenter
+            ? `SELECT * FROM "MedicalAsset" WHERE 1=0`
+            : `SELECT * FROM "MedicalAsset" WHERE "currentStatus" = 'IN_STOCKROOM' ORDER BY "equipmentName" ASC`;
+
+        const [assets, stockroomAssets, catalogItems, rawPOs, poItems, rawROs, roItems, rawSOs, soItems, returns, rawCenters] = await Promise.all([
             queryRawSafe(assetQuery, params),
-            queryRawSafe(`SELECT * FROM "MedicalAsset" WHERE "currentStatus" = 'IN_STOCKROOM' ORDER BY "equipmentName" ASC`),
+            queryRawSafe(stockroomAssetsQuery),
+            queryRawSafe(`SELECT * FROM "EquipmentCatalogItem" ORDER BY "equipmentName" ASC`),
             queryRawSafe(poQuery),
             queryRawSafe(`SELECT * FROM "EquipmentPOItem"`),
             queryRawSafe(roQuery, roParams),
@@ -184,6 +232,7 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
             success: true,
             assets,
             stockroomAssets,
+            catalogItems,
             pos,
             ros,
             sos,
@@ -201,12 +250,117 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
         };
     } catch (error: any) {
         console.error("[getRHUEquipmentData] Error:", error);
-        return { success: false, error: error.message, assets: [], stockroomAssets: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true, isGlobalAdmin: false, canDispatchSO: false };
+        return { success: false, error: error.message, assets: [], stockroomAssets: [], catalogItems: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true, isGlobalAdmin: false, canDispatchSO: false };
     }
 }
 
 // =========================================================================
-// 2. ASSET CRUD & ONBOARDING GATE
+// 2. MASTER EQUIPMENT CATALOG REGISTRY (Purchasable Items Definition)
+// =========================================================================
+
+export async function registerEquipmentCatalogItem(data: {
+    equipmentName: string;
+    brand?: string;
+    model?: string;
+    category?: "PPE" | "SEMI_EXPENDABLE";
+    estimatedCost?: number;
+    description?: string;
+}) {
+    try {
+        const auth = await verifyRHUAccess();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
+        const perm = await checkWritePermission(auth.user);
+        if (!perm.allowed) {
+            return {
+                success: false,
+                error: "Access Denied: You do not have permission to register equipment catalog items."
+            };
+        }
+
+        const name = sanitize(data.equipmentName);
+        if (!name || !name.trim()) {
+            return { success: false, error: "Equipment Name is required." };
+        }
+
+        await ensureCatalogTable();
+
+        const cost = Number(data.estimatedCost) || 0;
+        const category = data.category || (cost > 50000 ? "PPE" : "SEMI_EXPENDABLE");
+        const brand = data.brand ? sanitize(data.brand) : null;
+        const model = data.model ? sanitize(data.model) : null;
+        const description = data.description ? sanitize(data.description) : null;
+        const id = randomUUID();
+
+        const existing = await queryRawSafe(
+            `SELECT * FROM "EquipmentCatalogItem" WHERE LOWER("equipmentName") = LOWER($1)`,
+            [name.trim()]
+        );
+
+        let catalogItem;
+        if (existing && existing.length > 0) {
+            const updated = await queryRawSafe(`
+                UPDATE "EquipmentCatalogItem"
+                SET "brand" = COALESCE($1, "brand"),
+                    "model" = COALESCE($2, "model"),
+                    "category" = $3::"PropertyCategory",
+                    "estimatedCost" = $4,
+                    "description" = COALESCE($5, "description"),
+                    "updatedAt" = NOW()
+                WHERE id = $6
+                RETURNING *
+            `, [brand, model, category, cost, description, existing[0].id]);
+            catalogItem = updated[0];
+        } else {
+            const inserted = await queryRawSafe(`
+                INSERT INTO "EquipmentCatalogItem" (
+                    id, "equipmentName", "brand", "model", "category",
+                    "estimatedCost", "description", "createdAt", "updatedAt"
+                ) VALUES (
+                    $1, $2, $3, $4, $5::"PropertyCategory",
+                    $6, $7, NOW(), NOW()
+                ) RETURNING *
+            `, [id, name.trim(), brand, model, category, cost, description]);
+            catalogItem = inserted[0];
+        }
+
+        await logActivity({
+            action: "CREATE",
+            entityType: "EquipmentCatalogItem",
+            entityId: catalogItem.id,
+            entityName: catalogItem.equipmentName,
+            description: `Registered equipment catalog specification "${catalogItem.equipmentName}".`
+        });
+
+        revalidatePath("/admin/rhu/equipment");
+        return { success: true, catalogItem };
+    } catch (error: any) {
+        console.error("[registerEquipmentCatalogItem] Error:", error);
+        return { success: false, error: error.message || "Failed to register catalog item" };
+    }
+}
+
+export async function deleteEquipmentCatalogItem(id: string) {
+    try {
+        const auth = await verifyRHUAccess();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
+        const perm = await checkWritePermission(auth.user);
+        if (!perm.isGlobalAdmin) {
+            return { success: false, error: "Access Denied: Only RHU Central Administrators can remove items from the catalog." };
+        }
+
+        await executeRawSafe(`DELETE FROM "EquipmentCatalogItem" WHERE id = $1`, [id]);
+        revalidatePath("/admin/rhu/equipment");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[deleteEquipmentCatalogItem] Error:", error);
+        return { success: false, error: error.message || "Failed to delete catalog item" };
+    }
+}
+
+// =========================================================================
+// 3. PHYSICAL ASSET CRUD & ONBOARDING GATE
 // =========================================================================
 
 export async function saveMedicalAsset(formData: FormData) {
@@ -227,15 +381,25 @@ export async function saveMedicalAsset(formData: FormData) {
         const brand = sanitize(formData.get("brand") as string) || null;
         const serialNo = sanitize(formData.get("serialNo") as string) || "UNKNOWN/NONE";
         const unitCost = parseFloat(formData.get("unitCost") as string) || 0;
-        let currentFacility = sanitize(formData.get("currentFacility") as string) || "Main Rural Health Unit (RHU)";
-        const assignedRoom = sanitize(formData.get("assignedRoom") as string) || "Central Stockroom";
+        let currentFacility = sanitize(formData.get("currentFacility") as string);
+        const assignedRoom = sanitize(formData.get("assignedRoom") as string);
         const accountablePerson = sanitize(formData.get("accountablePerson") as string) || "Unassigned";
         const accountableEmployeeId = sanitize(formData.get("accountableEmployeeId") as string) || null;
-        const acquisitionSource = (formData.get("acquisitionSource") as string) || "STOCKROOM_ISSUANCE";
+        const rawAcquisitionSource = formData.get("acquisitionSource") as string;
+        if (!rawAcquisitionSource || !rawAcquisitionSource.trim()) {
+            return { success: false, error: "Acquisition Source is required." };
+        }
+        const acquisitionSource = sanitize(rawAcquisitionSource);
         const isLegacyBHS = acquisitionSource === "LEGACY_BHS_EXISTING" || acquisitionSource === "DIRECT_DONATION";
 
         const matchedCenter = await getMatchedCenterForUser(auth.user);
         if (matchedCenter) {
+            if (!id) {
+                return {
+                    success: false,
+                    error: "Access Denied: Health Centers are not permitted to register equipment directly. All equipment must be registered and issued by Main RHU."
+                };
+            }
             // Lock facility strictly to the user's matched center
             currentFacility = matchedCenter.name;
         }
@@ -249,6 +413,14 @@ export async function saveMedicalAsset(formData: FormData) {
 
         if (!equipmentName) {
             return { success: false, error: "Equipment name is required." };
+        }
+
+        if (!currentFacility) {
+            return { success: false, error: "Health Facility Location is required." };
+        }
+
+        if (!assignedRoom) {
+            return { success: false, error: "Specific Room Placement is required." };
         }
 
         // COA Property Classification Threshold: > 50,000 = PPE (PAR), <= 50,000 = SEMI_EXPENDABLE (ICS)
@@ -266,6 +438,9 @@ export async function saveMedicalAsset(formData: FormData) {
             if (uploaded) photoUrl = uploaded;
         }
 
+        const rawQty = formData.get("quantity") as string | null;
+        const parsedQty = rawQty && rawQty.trim() !== "" ? Math.max(0, parseInt(rawQty.trim(), 10) || 0) : 0;
+
         let asset: any;
 
         if (id) {
@@ -281,6 +456,8 @@ export async function saveMedicalAsset(formData: FormData) {
                     "accountablePerson" = $8,
                     "accountableEmployeeId" = $9,
                     "acquisitionSource" = $10::"AcquisitionSource",
+                    "quantity" = $11,
+                    "availableQty" = $12,
                     "updatedAt" = NOW()
             `;
             const params: any[] = [
@@ -293,14 +470,16 @@ export async function saveMedicalAsset(formData: FormData) {
                 assignedRoom,
                 accountablePerson,
                 accountableEmployeeId,
-                acquisitionSource
+                acquisitionSource,
+                parsedQty,
+                parsedQty
             ];
 
             if (photoUrl) {
-                updateQuery += `, "photoUrl" = $11 WHERE id = $12 RETURNING *`;
+                updateQuery += `, "photoUrl" = $13 WHERE id = $14 RETURNING *`;
                 params.push(photoUrl, id);
             } else {
-                updateQuery += ` WHERE id = $11 RETURNING *`;
+                updateQuery += ` WHERE id = $13 RETURNING *`;
                 params.push(id);
             }
 
@@ -331,20 +510,20 @@ export async function saveMedicalAsset(formData: FormData) {
             const inserted = await queryRawSafe(`
                 INSERT INTO "MedicalAsset" (
                     id, "assetTagNo", "equipmentName", "brand", "serialNo",
-                    "category", "acquisitionSource", "unitCost", "currentStatus",
+                    "category", "acquisitionSource", "unitCost", "quantity", "availableQty", "currentStatus",
                     "currentFacility", "assignedRoom", "accountablePerson",
                     "accountableEmployeeId", "documentReference", "photoUrl",
                     "createdAt", "updatedAt"
                 ) VALUES (
                     $1, $2, $3, $4, $5,
-                    $6::"PropertyCategory", $7::"AcquisitionSource", $8, $9::"MedicalAssetStatus",
-                    $10, $11, $12,
-                    $13, $14, $15,
+                    $6::"PropertyCategory", $7::"AcquisitionSource", $8, $9, $10, $11::"MedicalAssetStatus",
+                    $12, $13, $14,
+                    $15, $16, $17,
                     NOW(), NOW()
                 ) RETURNING *
             `, [
                 newId, assetTagNo, equipmentName, brand, serialNo,
-                category, acquisitionSource, unitCost, currentStatus,
+                category, acquisitionSource, unitCost, parsedQty, parsedQty, currentStatus,
                 currentFacility, assignedRoom, accountablePerson,
                 accountableEmployeeId, documentReference, photoUrl
             ]);
@@ -454,6 +633,13 @@ export async function fileDefectRepairRequest(formData: FormData) {
 
         const existing = await queryRawSafe(`SELECT * FROM "MedicalAsset" WHERE id = $1`, [assetId]);
         if (!existing[0]) return { success: false, error: "Asset not found." };
+
+        if (perm.matchedCenter && !perm.isGlobalAdmin && existing[0].currentFacility !== perm.matchedCenter.name) {
+            return { 
+                success: false, 
+                error: `Access Denied: You can only file defect requests for equipment deployed at ${perm.matchedCenter.name}.` 
+            };
+        }
 
         const updated = await queryRawSafe(`
             UPDATE "MedicalAsset"
@@ -1087,6 +1273,128 @@ export async function receiveStockTransfer(data: {
     }
 }
 
+export async function createDirectStockReturnTicket(data: {
+    soNumber?: string;
+    bhsFacility: string;
+    returnedBy: string;
+    missingQuantity: number;
+    defectiveQuantity: number;
+    reasonNotes: string;
+    affectedAssetId?: string;
+}) {
+    try {
+        const auth = await verifyRHUAccess();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
+        const perm = await checkWritePermission(auth.user);
+        if (!perm.allowed) {
+            return { success: false, error: "Access Denied: You do not have permission to file return tickets." };
+        }
+
+        const now = new Date();
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const ticketNumber = `SRT-${now.getFullYear()}-${rand}`;
+        const ticketId = randomUUID();
+
+        const soNumber = data.soNumber?.trim() || `SO-MANUAL-${now.getFullYear()}-${rand}`;
+        const missing = Number(data.missingQuantity) || 0;
+        const defective = Number(data.defectiveQuantity) || 0;
+
+        await executeRawSafe(`
+            INSERT INTO "EquipmentStockReturnTicket" (
+                id, "ticketNumber", "soNumber", "bhsFacility", "returnedBy",
+                "missingQuantity", "defectiveQuantity", "reasonNotes", "status",
+                "createdAt", "updatedAt"
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, 'OPEN_INVESTIGATION',
+                NOW(), NOW()
+            )
+        `, [
+            ticketId,
+            ticketNumber,
+            soNumber,
+            data.bhsFacility.trim(),
+            data.returnedBy.trim(),
+            missing,
+            defective,
+            data.reasonNotes.trim()
+        ]);
+
+        if (data.affectedAssetId) {
+            await executeRawSafe(`
+                UPDATE "MedicalAsset"
+                SET "currentStatus" = 'STOCK_RETURN_DISCREPANCY'::"MedicalAssetStatus",
+                    "discrepancyNotes" = $1,
+                    "updatedAt" = NOW()
+                WHERE id = $2
+            `, [`Ticket ${ticketNumber}: ${data.reasonNotes}`, data.affectedAssetId]);
+        }
+
+        const insertedRows = await queryRawSafe(`SELECT * FROM "EquipmentStockReturnTicket" WHERE id = $1`, [ticketId]);
+        const ticket = insertedRows[0];
+
+        await logActivity({
+            action: "CREATE",
+            entityType: "StockReturnTicket",
+            entityId: ticketId,
+            entityName: ticketNumber,
+            description: `Logged Stock Return / Discrepancy Ticket ${ticketNumber} for ${ticket.bhsFacility} (Missing: ${missing}, Defective: ${defective}).`
+        });
+
+        revalidatePath("/admin/rhu/equipment");
+        return { success: true, ticket };
+    } catch (error: any) {
+        console.error("[createDirectStockReturnTicket] Error:", error);
+        return { success: false, error: error.message || "Failed to create return ticket" };
+    }
+}
+
+export async function condemnEquipmentAsset(assetId: string, notes?: string, coaAuditor?: string) {
+    try {
+        const auth = await verifyRHUAccess();
+        if (!auth.authorized) return { success: false, error: auth.error };
+
+        const perm = await checkWritePermission(auth.user);
+        if (!perm.canCondemnAsset) {
+            return { success: false, error: "Access Denied: Condemning and writing off assets is restricted to RHU Central Supply Administrators." };
+        }
+
+        const existing = await queryRawSafe(`SELECT * FROM "MedicalAsset" WHERE id = $1`, [assetId]);
+        if (!existing[0]) return { success: false, error: "Asset not found." };
+
+        const condemnationText = [
+            notes ? `COA IIRUP: ${notes}` : "Officially inspected and condemned under COA IIRUP.",
+            coaAuditor ? `Auditor/Inspector: ${coaAuditor}` : null
+        ].filter(Boolean).join(" | ");
+
+        const updated = await queryRawSafe(`
+            UPDATE "MedicalAsset"
+            SET "currentStatus" = 'CONDEMNED_DISPOSED'::"MedicalAssetStatus",
+                "defectDetails" = $1,
+                "updatedAt" = NOW()
+            WHERE id = $2
+            RETURNING *
+        `, [condemnationText, assetId]);
+
+        const asset = updated[0];
+
+        await logActivity({
+            action: "UPDATE",
+            entityType: "MedicalAsset",
+            entityId: assetId,
+            entityName: asset?.assetTagNo || "Asset",
+            description: `Asset "${asset?.equipmentName}" (${asset?.assetTagNo}) officially condemned and disposed under COA IIRUP.`
+        });
+
+        revalidatePath("/admin/rhu/equipment");
+        return { success: true, asset };
+    } catch (error: any) {
+        console.error("[condemnEquipmentAsset] Error:", error);
+        return { success: false, error: error.message || "Failed to condemn asset" };
+    }
+}
+
 export async function resolveStockReturnTicket(ticketId: string, resolution: "REPLACED_RESOLVED" | "WRITTEN_OFF", notes?: string) {
     try {
         const auth = await verifyRHUAccess();
@@ -1096,6 +1404,9 @@ export async function resolveStockReturnTicket(ticketId: string, resolution: "RE
         if (!perm.allowed) {
             return { success: false, error: "Access Denied: Health center staff accounts have read-only access. Resolving discrepancy tickets is restricted to RHU Supply Administrators." };
         }
+
+        const ticketRows = await queryRawSafe(`SELECT * FROM "EquipmentStockReturnTicket" WHERE id = $1`, [ticketId]);
+        const origTicket = ticketRows[0];
 
         const updated = await queryRawSafe(`
             UPDATE "EquipmentStockReturnTicket"
@@ -1108,6 +1419,27 @@ export async function resolveStockReturnTicket(ticketId: string, resolution: "RE
         `, [resolution, notes?.trim() || null, ticketId]);
 
         const ticket = updated[0];
+
+        // Also update any MedicalAsset records linked to this ticket/SO
+        if (origTicket?.soNumber) {
+            if (resolution === "REPLACED_RESOLVED") {
+                await executeRawSafe(`
+                    UPDATE "MedicalAsset"
+                    SET "currentStatus" = 'DEPLOYED_SERVICEABLE'::"MedicalAssetStatus",
+                        "discrepancyNotes" = $1,
+                        "updatedAt" = NOW()
+                    WHERE "soReferenceNo" = $2 AND "currentStatus" = 'STOCK_RETURN_DISCREPANCY'::"MedicalAssetStatus"
+                `, [`Resolved Ticket ${origTicket.ticketNumber}: Replaced & Deployed`, origTicket.soNumber]);
+            } else {
+                await executeRawSafe(`
+                    UPDATE "MedicalAsset"
+                    SET "currentStatus" = 'CONDEMNED_DISPOSED'::"MedicalAssetStatus",
+                        "discrepancyNotes" = $1,
+                        "updatedAt" = NOW()
+                    WHERE "soReferenceNo" = $2 AND "currentStatus" = 'STOCK_RETURN_DISCREPANCY'::"MedicalAssetStatus"
+                `, [`Written Off Ticket ${origTicket.ticketNumber}: ${notes || "Transit Loss"}`, origTicket.soNumber]);
+            }
+        }
 
         await logActivity({
             action: "UPDATE",
@@ -1124,3 +1456,4 @@ export async function resolveStockReturnTicket(ticketId: string, resolution: "RE
         return { success: false, error: error.message || "Failed to resolve return ticket" };
     }
 }
+

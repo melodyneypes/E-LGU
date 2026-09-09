@@ -2,11 +2,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log("=== RHUAmbulance COLUMNS IN POSTGRES ===");
+    console.log("=== MedicalAsset DEFAULTS ===");
     const cols: any[] = await prisma.$queryRaw`
-        SELECT column_name, data_type, is_nullable
+        SELECT column_name, column_default, is_nullable
         FROM information_schema.columns
-        WHERE table_name = 'RHUAmbulance';
+        WHERE table_name = 'MedicalAsset' AND column_name IN ('quantity', 'availableQty');
     `;
     console.table(cols);
 }
