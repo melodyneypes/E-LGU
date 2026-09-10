@@ -137,21 +137,21 @@ export function exportCOAPDF(assets: any[], options: COAExportOptions = {}) {
     // Signatory 1: Supply Officer
     doc.text("Certified Correct By:", 25, signY);
     doc.setFont("helvetica", "bold");
-    doc.text(options.signatorySupplyOfficer || "JUAN DELA CRUZ", 25, signY + 14);
+    doc.text(options.signatorySupplyOfficer || "____________________________________", 25, signY + 14);
     doc.setFont("helvetica", "normal");
     doc.text("RHU Supply Officer / GSO Custodian", 25, signY + 18);
 
     // Signatory 2: MHO
     doc.text("Approved & Noted By:", 120, signY);
     doc.setFont("helvetica", "bold");
-    doc.text(options.signatoryMHO || "DR. MARIA SANTOS, MD", 120, signY + 14);
+    doc.text(options.signatoryMHO || "____________________________________", 120, signY + 14);
     doc.setFont("helvetica", "normal");
     doc.text("Municipal Health Officer (MHO)", 120, signY + 18);
 
     // Signatory 3: COA Auditor
     doc.text("Audited & Inspected By:", 215, signY);
     doc.setFont("helvetica", "bold");
-    doc.text(options.signatoryAuditor || "COMMISSION ON AUDIT (COA)", 215, signY + 14);
+    doc.text(options.signatoryAuditor || "____________________________________", 215, signY + 14);
     doc.setFont("helvetica", "normal");
     doc.text("COA Resident Auditor Representative", 215, signY + 18);
 

@@ -12,9 +12,10 @@ export default async function RHUEquipmentPage() {
     const data = await getRHUEquipmentData("ALL");
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 w-full max-w-full">
             <EquipmentClient
                 initialAssets={data.assets || []}
+                initialCatalogItems={data.catalogItems || []}
                 initialStockroomAssets={data.stockroomAssets || []}
                 initialPOs={data.pos || []}
                 initialROs={data.ros || []}

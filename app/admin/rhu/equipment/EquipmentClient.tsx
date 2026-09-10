@@ -35,7 +35,8 @@ import {
     ChevronUp,
     History,
     Package,
-    ExternalLink
+    ExternalLink,
+    X
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,19 +76,23 @@ import {
     deleteMedicalAsset,
     fileDefectRepairRequest,
     resolveEquipmentRepair,
+    condemnEquipmentAsset,
     createEquipmentPO,
     intakePOToStockroom,
     createEquipmentRO,
     dispatchStockTransfer,
     receiveStockTransfer,
     resolveStockReturnTicket,
-    getRHUEquipmentData
+    getRHUEquipmentData,
+    registerEquipmentCatalogItem
 } from "./actions";
 import { exportCOAPDF, exportCOAExcel } from "./components/COAReportExporter";
+import { exportPOPDF } from "./components/POReportExporter";
 import { supabase } from "@/lib/supabase";
 
 interface EquipmentClientProps {
     initialAssets: any[];
+    initialCatalogItems?: any[];
     initialStockroomAssets?: any[];
     initialPOs: any[];
     initialROs: any[];
@@ -104,6 +109,7 @@ type TabType = "LEDGER" | "PO" | "RO" | "SO" | "RETURNS" | "MAINTENANCE" | "REPO
 
 export default function EquipmentClient({
     initialAssets,
+    initialCatalogItems = [],
     initialStockroomAssets = [],
     initialPOs,
     initialROs,
@@ -134,6 +140,7 @@ export default function EquipmentClient({
 
     // Data State
     const [assets, setAssets] = useState<any[]>(initialAssets);
+    const [catalogItems, setCatalogItems] = useState<any[]>(initialCatalogItems || []);
     const [stockroomAssets, setStockroomAssets] = useState<any[]>(
         initialStockroomAssets && initialStockroomAssets.length > 0
             ? initialStockroomAssets
@@ -156,7 +163,9 @@ export default function EquipmentClient({
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedFacility, setSelectedFacility] = useState<string>("ALL");
+    const [selectedFacility, setSelectedFacility] = useState<string>(
+        matchedCenter ? matchedCenter.name : "ALL"
+    );
     const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
     const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
 
@@ -165,6 +174,18 @@ export default function EquipmentClient({
     const [pageSize, setPageSize] = useState(15);
 
     // Modals
+    const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+    const [catalogForm, setCatalogForm] = useState({
+        equipmentName: "",
+        brand: "",
+        model: "",
+        category: "SEMI_EXPENDABLE" as "SEMI_EXPENDABLE" | "PPE",
+        estimatedCost: "",
+        description: ""
+    });
+    const [isSavingCatalogItem, setIsSavingCatalogItem] = useState(false);
+    const [hasAttemptedCatalogSubmit, setHasAttemptedCatalogSubmit] = useState(false);
+
     const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
     const [editingAsset, setEditingAsset] = useState<any | null>(null);
     const [isPOModalOpen, setIsPOModalOpen] = useState(false);
@@ -185,6 +206,20 @@ export default function EquipmentClient({
     const [ticketToResolve, setTicketToResolve] = useState<any | null>(null);
     const [ticketResolutionNotes, setTicketResolutionNotes] = useState("");
     const [ticketResolutionType, setTicketResolutionType] = useState<"REPLACED_RESOLVED" | "WRITTEN_OFF">("REPLACED_RESOLVED");
+
+
+    // Direct Defect Filing Modal State
+    const [isDirectDefectModalOpen, setIsDirectDefectModalOpen] = useState(false);
+    const [defectFormAssetId, setDefectFormAssetId] = useState("");
+    const [defectFormDetails, setDefectFormDetails] = useState("");
+    const [defectFormReportedBy, setDefectFormReportedBy] = useState("");
+    const [defectTabFilter, setDefectTabFilter] = useState<"ALL" | "DEFECTIVE" | "CONDEMNATION" | "DISPOSED">("ALL");
+
+    // Condemnation Modal State
+    const [isCondemnModalOpen, setIsCondemnModalOpen] = useState(false);
+    const [assetToCondemn, setAssetToCondemn] = useState<any | null>(null);
+    const [condemnNotes, setCondemnNotes] = useState("");
+    const [condemnAuditor, setCondemnAuditor] = useState("");
 
     // Active Selection for Modals
     const [activePO, setActivePO] = useState<any | null>(null);
@@ -221,20 +256,25 @@ export default function EquipmentClient({
         brand: "",
         serialNo: "",
         unitCost: "",
-        currentFacility: "Main Rural Health Unit (RHU)",
-        assignedRoom: "Central Stockroom",
+        quantity: "",
+        currentFacility: "",
+        assignedRoom: "",
         accountablePerson: "",
         accountableEmployeeId: "",
-        acquisitionSource: "STOCKROOM_ISSUANCE"
+        acquisitionSource: ""
     });
     const [assetPhotoFile, setAssetPhotoFile] = useState<File | null>(null);
     const [isCustomRoom, setIsCustomRoom] = useState(false);
     const [customRoomName, setCustomRoomName] = useState("");
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+    const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
     // Purchase Order Form State
     const [poVendor, setPoVendor] = useState("");
     const [poContact, setPoContact] = useState("");
     const [poNotes, setPoNotes] = useState("");
+    const [poModeOfProcurement, setPoModeOfProcurement] = useState("");
+    const [poDeliveryTerm, setPoDeliveryTerm] = useState("");
     const [poLinkedRoNumber, setPoLinkedRoNumber] = useState<string>("");
     const [poItems, setPoItems] = useState<Array<{ equipmentName: string; brand: string; quantity: number | string; unitCost: number | string }>>([
         { equipmentName: "", brand: "", quantity: "", unitCost: "" }
@@ -254,7 +294,7 @@ export default function EquipmentClient({
     // SO Form State
     const [soTargetFacility, setSoTargetFacility] = useState("BHS Nilombot");
     const [soTargetRoom, setSoTargetRoom] = useState("Treatment & Examination Room");
-    const [soDispatchedBy, setSoDispatchedBy] = useState("RHU Supply Officer");
+    const [soDispatchedBy, setSoDispatchedBy] = useState("");
     const [soNotes, setSoNotes] = useState("");
     const [selectedStockAssetIds, setSelectedStockAssetIds] = useState<string[]>([]);
     const [linkedRoNumber, setLinkedRoNumber] = useState<string>("");
@@ -287,7 +327,8 @@ export default function EquipmentClient({
             (a.poReferenceNo && a.poReferenceNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
             (a.documentReference && a.documentReference.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        const matchesFacility = selectedFacility === "ALL" || a.currentFacility === selectedFacility;
+        const effectiveFacility = matchedCenter ? matchedCenter.name : selectedFacility;
+        const matchesFacility = effectiveFacility === "ALL" || a.currentFacility === effectiveFacility;
         const matchesStatus = selectedStatus === "ALL" || a.currentStatus === selectedStatus;
         const matchesCategory = selectedCategory === "ALL" || a.category === selectedCategory;
 
@@ -330,6 +371,8 @@ export default function EquipmentClient({
             poNumbers: string[];
             brandSummary: string;
             distinctTags: string[];
+            isCatalogOnly?: boolean;
+            catalogItemId?: string;
         }> = [];
 
         groupMap.forEach((batches, groupKey) => {
@@ -346,8 +389,8 @@ export default function EquipmentClient({
             const tags: string[] = [];
 
             batches.forEach(b => {
-                const qty = Number(b.quantity) || 1;
-                const avail = Number(b.availableQty ?? b.quantity) || 1;
+                const qty = b.quantity != null ? Number(b.quantity) : 0;
+                const avail = b.availableQty != null ? Number(b.availableQty) : qty;
                 const cost = Number(b.unitCost) || 0;
 
                 totalQuantity += qty;
@@ -394,24 +437,167 @@ export default function EquipmentClient({
             });
         });
 
+        // Add Catalog items that do not have physical assets in the current filtered view
+        const effectiveFacility = matchedCenter ? matchedCenter.name : selectedFacility;
+        const canShowCatalog = effectiveFacility === "ALL" || effectiveFacility.toLowerCase().includes("main") || effectiveFacility.toLowerCase().includes("stockroom");
+
+        if (canShowCatalog && (selectedStatus === "ALL" || selectedStatus === "CATALOG (UNSTOCKED)")) {
+            const existingNames = new Set(groups.map(g => g.equipmentName.toLowerCase().trim()));
+            catalogItems.forEach(cat => {
+                const normCatName = (cat.equipmentName || "").toLowerCase().trim();
+                if (!normCatName || existingNames.has(normCatName)) return;
+
+                // Match category filter
+                if (selectedCategory !== "ALL" && cat.category !== selectedCategory) return;
+
+                // Match search query
+                if (searchQuery.trim()) {
+                    const q = searchQuery.toLowerCase();
+                    const match =
+                        normCatName.includes(q) ||
+                        (cat.brand && cat.brand.toLowerCase().includes(q)) ||
+                        (cat.model && cat.model.toLowerCase().includes(q)) ||
+                        (cat.description && cat.description.toLowerCase().includes(q));
+                    if (!match) return;
+                }
+
+                const catGroupKey = `catalog:::${cat.id || normCatName}`;
+                const estCost = Number(cat.estimatedCost) || 0;
+
+                groups.push({
+                    groupKey: catGroupKey,
+                    equipmentName: cat.equipmentName,
+                    primaryAsset: {
+                        id: `catalog-${cat.id}`,
+                        assetTagNo: "CATALOG-SPEC",
+                        equipmentName: cat.equipmentName,
+                        brand: cat.brand || "",
+                        model: cat.model || "",
+                        serialNo: "N/A (Catalog Spec)",
+                        currentFacility: "Central Stockroom (Catalog Item)",
+                        assignedRoom: "Catalog Specification",
+                        accountablePerson: "RHU Supply Custodian",
+                        category: cat.category,
+                        currentStatus: "CATALOG (UNSTOCKED)",
+                        unitCost: estCost,
+                        quantity: 0,
+                        availableQty: 0,
+                        documentReference: "CATALOG-SPEC",
+                        isCatalogOnly: true,
+                        catalogItemId: cat.id
+                    },
+                    batches: [],
+                    totalQuantity: 0,
+                    totalAvailableQty: 0,
+                    currentFacility: "Central Stockroom (Catalog Item)",
+                    assignedRoom: "Catalog Specification",
+                    accountablePerson: "RHU Supply Custodian",
+                    category: cat.category,
+                    currentStatus: "CATALOG (UNSTOCKED)",
+                    minUnitCost: estCost,
+                    maxUnitCost: estCost,
+                    totalStockValue: 0,
+                    hasMultipleBatches: false,
+                    poNumbers: [],
+                    brandSummary: cat.brand ? `${cat.brand}${cat.model ? ` (${cat.model})` : ""}` : "N/A",
+                    distinctTags: [],
+                    isCatalogOnly: true,
+                    catalogItemId: cat.id
+                });
+            });
+        }
+
         return groups;
-    }, [filteredAssets]);
+    }, [filteredAssets, catalogItems, matchedCenter, selectedFacility, selectedStatus, selectedCategory, searchQuery]);
+
+    // Unique equipment catalog from Master Ledger for PO procurement autocomplete
+    const ledgerEquipmentList = React.useMemo(() => {
+        const map = new Map<string, {
+            equipmentName: string;
+            brand: string;
+            unitCost: number;
+            totalStock: number;
+        }>();
+
+        // 1. Seed with defined catalog items first
+        catalogItems.forEach(cat => {
+            const name = (cat.equipmentName || "").trim();
+            if (!name) return;
+            map.set(name.toLowerCase(), {
+                equipmentName: name,
+                brand: cat.brand || "",
+                unitCost: Number(cat.estimatedCost) || 0,
+                totalStock: 0
+            });
+        });
+
+        // 2. Overlay physical assets stock and unit values
+        assets.forEach(a => {
+            const name = (a.equipmentName || "").trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            const avail = a.availableQty != null ? Number(a.availableQty) : (a.quantity != null ? Number(a.quantity) : 0);
+            const cost = Number(a.unitCost) || 0;
+            const b = a.brand && a.brand.toLowerCase() !== "none" && a.brand.toLowerCase() !== "n/a" ? a.brand.trim() : "";
+
+            if (!map.has(key)) {
+                map.set(key, {
+                    equipmentName: name,
+                    brand: b,
+                    unitCost: cost,
+                    totalStock: avail
+                });
+            } else {
+                const item = map.get(key)!;
+                item.totalStock += avail;
+                if (!item.brand && b) item.brand = b;
+                if (item.unitCost === 0 && cost > 0) item.unitCost = cost;
+            }
+        });
+
+        return Array.from(map.values()).sort((a, b) => a.equipmentName.localeCompare(b.equipmentName));
+    }, [assets, catalogItems]);
 
     const totalPages = Math.max(1, Math.ceil(consolidatedAssets.length / pageSize));
     const paginatedAssets = consolidatedAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // Counts
-    const totalPhysicalUnits = assets.reduce((sum, a) => sum + (Number(a.quantity) || 1), 0);
-    const inStockroomUnits = stockroomAssets.reduce((sum, a) => sum + (Number(a.availableQty ?? a.quantity) || 1), 0);
+    const totalPhysicalUnits = assets.reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0);
+    const inStockroomUnits = stockroomAssets.reduce((sum, a) => sum + (a.availableQty != null ? Number(a.availableQty) : (a.quantity != null ? Number(a.quantity) : 0)), 0);
     const inStockroomCount = stockroomAssets.length;
     const deployedCount = assets.filter(a => a.currentStatus === "DEPLOYED_SERVICEABLE").length;
     const deployedUnits = assets
         .filter(a => a.currentStatus === "DEPLOYED_SERVICEABLE")
-        .reduce((sum, a) => sum + (Number(a.quantity) || 1), 0);
-    const defectiveCountTotal = assets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
+        .reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0);
+    const repairCountTotal = assets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
+    const condemnationCountTotal = assets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length;
+    const defectiveCountTotal = repairCountTotal + condemnationCountTotal;
     const pendingVerificationCount = assets.filter(a => a.currentStatus === "PENDING_VERIFICATION").length;
     const ppeCount = assets.filter(a => a.category === "PPE").length;
     const semiCount = assets.filter(a => a.category === "SEMI_EXPENDABLE").length;
+
+    // Scoped Assets & Metrics for Maintenance & Defect Filing
+    const maintenanceBaseAssets = React.useMemo(() => {
+        return matchedCenter ? assets.filter(a => a.currentFacility === matchedCenter.name) : assets;
+    }, [assets, matchedCenter]);
+
+    const defectEligibleAssets = React.useMemo(() => {
+        return assets.filter(a => {
+            const isEligible = a.currentStatus !== "DEFECTIVE_FOR_REPAIR" &&
+                               a.currentStatus !== "UNSERVICEABLE_FOR_CONDEMNATION" &&
+                               a.currentStatus !== "CONDEMNED_DISPOSED";
+            if (!isEligible) return false;
+            if (matchedCenter) {
+                return a.currentFacility === matchedCenter.name;
+            }
+            return true;
+        });
+    }, [assets, matchedCenter]);
+
+    const defectAllCount = maintenanceBaseAssets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR" || a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED").length;
+    const defectRepairCount = maintenanceBaseAssets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
+    const defectCondemnCount = maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length;
+    const defectDisposedCount = maintenanceBaseAssets.filter(a => a.currentStatus === "CONDEMNED_DISPOSED").length;
 
     // Status Badge Helpers
     const getStatusBadge = (status: string) => {
@@ -432,6 +618,8 @@ export default function EquipmentClient({
                 return <Badge className="bg-red-600 text-white font-bold">CONDEMNATION (IIRUP)</Badge>;
             case "CONDEMNED_DISPOSED":
                 return <Badge className="bg-slate-500 text-white font-bold">DISPOSED</Badge>;
+            case "CATALOG (UNSTOCKED)":
+                return <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-white/10 font-bold">CATALOG (UNSTOCKED)</Badge>;
             default:
                 return <Badge variant="outline">{status}</Badge>;
         }
@@ -449,6 +637,7 @@ export default function EquipmentClient({
             if (fresh.success) {
                 if (fresh.assets) setAssets(fresh.assets);
                 if (fresh.stockroomAssets) setStockroomAssets(fresh.stockroomAssets);
+                if (fresh.catalogItems) setCatalogItems(fresh.catalogItems);
                 if (fresh.pos) setPos(fresh.pos);
                 if (fresh.ros) setRos(fresh.ros);
                 if (fresh.sos) setSos(fresh.sos);
@@ -512,36 +701,106 @@ export default function EquipmentClient({
     // HANDLERS
     // -------------------------------------------------------------------------
 
+    const handleOpenAddCatalogItem = () => {
+        if (matchedCenter) {
+            toast.error("Health centers are not permitted to register equipment specifications directly.");
+            return;
+        }
+        setCatalogForm({
+            equipmentName: "",
+            brand: "",
+            model: "",
+            category: "SEMI_EXPENDABLE",
+            estimatedCost: "",
+            description: ""
+        });
+        setHasAttemptedCatalogSubmit(false);
+        setIsCatalogModalOpen(true);
+    };
+
+    const handleSaveCatalogItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setHasAttemptedCatalogSubmit(true);
+        if (!catalogForm.equipmentName.trim()) {
+            toast.error("Equipment Name is required.");
+            return;
+        }
+
+        setIsSavingCatalogItem(true);
+        try {
+            const res = await registerEquipmentCatalogItem({
+                equipmentName: catalogForm.equipmentName.trim(),
+                brand: catalogForm.brand.trim() || undefined,
+                model: catalogForm.model.trim() || undefined,
+                category: catalogForm.category,
+                estimatedCost: Number(catalogForm.estimatedCost) || 0,
+                description: catalogForm.description.trim() || undefined
+            });
+
+            if (!res.success) {
+                toast.error(res.error || "Failed to register catalog item.");
+                return;
+            }
+
+            toast.success(`"${catalogForm.equipmentName}" successfully registered to Equipment Catalog!`);
+            setIsCatalogModalOpen(false);
+
+            if (res.catalogItem) {
+                setCatalogItems(prev => {
+                    const filtered = prev.filter(c => c.equipmentName.toLowerCase() !== res.catalogItem.equipmentName.toLowerCase());
+                    return [...filtered, res.catalogItem].sort((a, b) => a.equipmentName.localeCompare(b.equipmentName));
+                });
+            }
+            await refreshEquipmentData(true);
+        } catch (err: any) {
+            toast.error("Failed to save catalog item: " + (err?.message || "Unknown error"));
+        } finally {
+            setIsSavingCatalogItem(false);
+        }
+    };
+
+    const handleQuickCreatePO = (equipmentName: string, brand?: string, unitCost?: number) => {
+        setPoItems([{
+            equipmentName: equipmentName,
+            brand: brand && brand !== "N/A" ? brand : "",
+            quantity: "",
+            unitCost: unitCost || ""
+        }]);
+        setIsPOModalOpen(true);
+    };
+
     const handleOpenAddAsset = (isLegacy = false) => {
+        if (matchedCenter) {
+            toast.error("Health centers are not permitted to register equipment directly.");
+            return;
+        }
         setEditingAsset(null);
         setAssetPhotoFile(null);
-        const defaultFac = matchedCenter
-            ? matchedCenter.name
-            : (isLegacy ? "BHS Pias" : "Main Rural Health Unit (RHU)");
-        const defaultRooms = getRoomsForFacility(defaultFac);
-        const defaultRoom = defaultRooms.includes("Central Stockroom")
-            ? (isLegacy ? "Treatment & Examination Room" : "Central Stockroom")
-            : (defaultRooms[0] || "Treatment & Examination Room");
 
         setAssetForm({
             equipmentName: "",
             brand: "",
             serialNo: "",
             unitCost: "",
-            currentFacility: defaultFac,
-            assignedRoom: defaultRoom,
+            quantity: "",
+            currentFacility: "",
+            assignedRoom: "",
             accountablePerson: "",
             accountableEmployeeId: "",
-            acquisitionSource: isLegacy ? "LEGACY_BHS_EXISTING" : "STOCKROOM_ISSUANCE"
+            acquisitionSource: isLegacy ? "LEGACY_BHS_EXISTING" : ""
         });
         setIsCustomRoom(false);
         setCustomRoomName("");
+        setHasAttemptedSubmit(false);
+        setTouchedFields({});
         setIsAssetModalOpen(true);
     };
 
     const handleOpenEditAsset = (asset: any) => {
         setEditingAsset(asset);
         setAssetPhotoFile(null);
+        setHasAttemptedSubmit(false);
+        setTouchedFields({});
         const standardRooms = getRoomsForFacility(asset.currentFacility);
         const isCustom = Boolean(asset.assignedRoom && !standardRooms.includes(asset.assignedRoom));
         setIsCustomRoom(isCustom);
@@ -552,23 +811,40 @@ export default function EquipmentClient({
             brand: asset.brand || "",
             serialNo: asset.serialNo || "",
             unitCost: String(asset.unitCost || 0),
+            quantity: asset.quantity != null ? String(asset.quantity) : "",
             currentFacility: asset.currentFacility,
             assignedRoom: asset.assignedRoom,
             accountablePerson: asset.accountablePerson || "",
             accountableEmployeeId: asset.accountableEmployeeId || "",
-            acquisitionSource: asset.acquisitionSource || "STOCKROOM_ISSUANCE"
+            acquisitionSource: asset.acquisitionSource || ""
         });
         setIsAssetModalOpen(true);
     };
 
     const handleSaveAsset = async (e: React.FormEvent) => {
         e.preventDefault();
+        setHasAttemptedSubmit(true);
         if (!assetForm.equipmentName.trim()) {
             toast.error("Equipment Name is required.");
             return;
         }
-
-        const finalRoom = (isCustomRoom ? customRoomName.trim() : assetForm.assignedRoom) || "Consultation Area";
+        if (!assetForm.unitCost.trim()) {
+            toast.error("Unit Cost is required.");
+            return;
+        }
+        if (!assetForm.acquisitionSource.trim()) {
+            toast.error("Please select an Acquisition Source.");
+            return;
+        }
+        if (!assetForm.currentFacility.trim()) {
+            toast.error("Please select a Health Facility Location.");
+            return;
+        }
+        const finalRoom = (isCustomRoom ? customRoomName.trim() : assetForm.assignedRoom).trim();
+        if (!finalRoom) {
+            toast.error("Please select or specify a Specific Room Placement.");
+            return;
+        }
 
         const formData = new FormData();
         if (editingAsset?.id) formData.append("id", editingAsset.id);
@@ -576,6 +852,7 @@ export default function EquipmentClient({
         formData.append("brand", assetForm.brand);
         formData.append("serialNo", assetForm.serialNo);
         formData.append("unitCost", assetForm.unitCost || "0");
+        formData.append("quantity", assetForm.quantity || "");
         formData.append("currentFacility", assetForm.currentFacility);
         formData.append("assignedRoom", finalRoom);
         formData.append("accountablePerson", assetForm.accountablePerson);
@@ -688,11 +965,19 @@ export default function EquipmentClient({
                         ? `Purchase Order ${res.po.poNumber} created & linked to ${poLinkedRoNumber}!`
                         : `Purchase Order ${res.po.poNumber} created!`
                 );
+                // Immediately generate and export the official PO PDF for supplier transmittal
+                exportPOPDF(res.po, {
+                    modeOfProcurement: poModeOfProcurement,
+                    deliveryTerm: poDeliveryTerm
+                });
+                toast.info(`Official PO PDF generated for supplier transmittal.`);
                 setPos(prev => [res.po, ...prev]);
                 setIsPOModalOpen(false);
                 setPoVendor("");
                 setPoContact("");
                 setPoNotes("");
+                setPoModeOfProcurement("");
+                setPoDeliveryTerm("");
                 setPoLinkedRoNumber("");
                 setPoItems([{ equipmentName: "", brand: "", quantity: "", unitCost: "" }]);
                 refreshEquipmentData(true);
@@ -846,6 +1131,8 @@ export default function EquipmentClient({
                 setStockroomAssets(prev => prev.filter(a => !selectedStockAssetIds.includes(a.id)));
                 setSelectedStockAssetIds([]);
                 setLinkedRoNumber("");
+                setSoDispatchedBy("");
+                setSoNotes("");
                 setIsSOModalOpen(false);
                 refreshEquipmentData(true);
             } else {
@@ -936,8 +1223,58 @@ export default function EquipmentClient({
         });
     };
 
+    const handleCreateDirectDefect = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!defectFormAssetId || !defectFormDetails.trim()) {
+            toast.error("Please select an equipment and describe the defect.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("assetId", defectFormAssetId);
+        formData.append("defectDetails", defectFormReportedBy.trim() 
+            ? `${defectFormDetails.trim()} (Reported by: ${defectFormReportedBy.trim()})`
+            : defectFormDetails.trim()
+        );
+
+        startTransition(async () => {
+            const res = await fileDefectRepairRequest(formData);
+            if (res.success && res.asset) {
+                toast.success(`Repair ticket filed for ${res.asset.assetTagNo}!`);
+                setAssets(prev => prev.map(a => a.id === res.asset.id ? res.asset : a));
+                setIsDirectDefectModalOpen(false);
+                setDefectFormAssetId("");
+                setDefectFormDetails("");
+                setDefectFormReportedBy("");
+                refreshEquipmentData(true);
+            } else {
+                toast.error(res.error || "Failed to file repair ticket");
+            }
+        });
+    };
+
+    const handleConfirmCondemnation = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!assetToCondemn) return;
+
+        startTransition(async () => {
+            const res = await condemnEquipmentAsset(assetToCondemn.id, condemnNotes, condemnAuditor);
+            if (res.success && res.asset) {
+                toast.success(`Asset ${res.asset.assetTagNo} officially condemned & disposed (COA IIRUP).`);
+                setAssets(prev => prev.map(a => a.id === res.asset.id ? res.asset : a));
+                setIsCondemnModalOpen(false);
+                setAssetToCondemn(null);
+                setCondemnNotes("");
+                setCondemnAuditor("");
+                refreshEquipmentData(true);
+            } else {
+                toast.error(res.error || "Failed to condemn asset");
+            }
+        });
+    };
+
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-20">
+        <div className="space-y-6 w-full max-w-full pb-20">
             {/* Top Header Banner */}
             <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 p-6 md:p-7 shadow-xs transition-colors duration-200">
                 <div 
@@ -998,36 +1335,11 @@ export default function EquipmentClient({
                             <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isRefreshing && "animate-spin text-sky-500")} />
                             {isRefreshing ? "Syncing..." : "Sync"}
                         </Button>
-                        {isReadOnly ? (
+                        {isReadOnly && (
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-400/30 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider shadow-sm">
                                 <Eye className="w-4 h-4 text-amber-500" />
                                 Read-Only Access
                             </div>
-                        ) : matchedCenter ? (
-                            <Button
-                                onClick={() => handleOpenAddAsset(true)}
-                                className="h-10 px-5 rounded-2xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-all hover:scale-105"
-                                style={{ backgroundColor: themeColor }}
-                            >
-                                <Plus className="w-4 h-4 mr-1.5" /> Register Local Asset
-                            </Button>
-                        ) : (
-                            <>
-                                <Button
-                                    onClick={() => handleOpenAddAsset(false)}
-                                    className="h-10 px-4 rounded-2xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-all hover:scale-105"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    <Plus className="w-4 h-4 mr-1.5" /> Register Asset
-                                </Button>
-                                <Button
-                                    onClick={() => handleOpenAddAsset(true)}
-                                    variant="outline"
-                                    className="h-10 px-4 rounded-2xl font-bold text-xs uppercase border-slate-200 dark:border-white/20 bg-slate-50 dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/20 text-slate-700 dark:text-white"
-                                >
-                                    <Building2 className="w-4 h-4 mr-1.5" /> BHS Legacy / Donation
-                                </Button>
-                            </>
                         )}
                     </div>
                 </div>
@@ -1140,11 +1452,13 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             {activeTab === "LEDGER" && (
                 <div className="space-y-4">
-                    {/* Filters Bar */}
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-                            <div className="relative min-w-[240px] flex-1">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    {/* Filters & Actions Bar */}
+                    <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-xs">
+                        {/* Search & Filters Group */}
+                        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                            {/* Search Input */}
+                            <div className="relative flex-1 min-w-[170px] sm:min-w-[210px] max-w-sm">
+                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <Input
                                     value={searchQuery}
                                     onChange={(e) => {
@@ -1152,79 +1466,110 @@ export default function EquipmentClient({
                                         setCurrentPage(1);
                                     }}
                                     placeholder="Search property #, name, brand, custodian..."
-                                    className="h-10 pl-9 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                                    className="h-9 pl-8.5 pr-8 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
                                 />
+                                {searchQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                                        title="Clear search"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
                             </div>
 
-                            {matchedCenter ? (
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <div className="inline-flex rounded-xl p-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setSelectedFacility("ALL"); setCurrentPage(1); }}
-                                            className={cn(
-                                                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                                                selectedFacility === "ALL"
-                                                    ? "bg-white dark:bg-[#161820] text-sky-600 dark:text-sky-400 shadow-xs"
-                                                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                                            )}
-                                        >
-                                            🌐 All Facilities ({assets.length})
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setSelectedFacility(matchedCenter.name); setCurrentPage(1); }}
-                                            className={cn(
-                                                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
-                                                selectedFacility === matchedCenter.name
-                                                    ? "bg-white dark:bg-[#161820] text-sky-600 dark:text-sky-400 shadow-xs"
-                                                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                                            )}
-                                        >
-                                            <Building2 className="w-3 h-3 text-sky-500" />
-                                            <span>{matchedCenter.name}</span>
-                                        </button>
+                            {/* Dropdowns Group: Bound together so they don't break onto separate lines */}
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+                                {matchedCenter ? (
+                                    <div className="inline-flex items-center gap-1.5 px-3 h-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                                        <Building2 className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                        <span>{matchedCenter.name}</span>
                                     </div>
-                                </div>
-                            ) : (
-                                <Select value={selectedFacility} onValueChange={(val) => { setSelectedFacility(val); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-10 w-[200px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5">
-                                        <SelectValue placeholder="All Facilities" />
+                                ) : (
+                                    <Select value={selectedFacility} onValueChange={(val) => { setSelectedFacility(val); setCurrentPage(1); }}>
+                                        <SelectTrigger className="h-9 w-[165px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5 truncate shrink-0">
+                                            <SelectValue placeholder="All Facilities" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
+                                            <SelectItem value="ALL" className="text-xs font-bold">All Registered Centers ({facilityNames.length})</SelectItem>
+                                            {facilityNames.map((f: string) => (
+                                                <SelectItem key={f} value={f} className="text-xs font-bold">{f}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                <Select value={selectedStatus} onValueChange={(val) => { setSelectedStatus(val); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-9 w-[125px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5 shrink-0">
+                                        <SelectValue placeholder="All Statuses" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                        <SelectItem value="ALL" className="text-xs font-bold">All Registered Centers ({facilityNames.length})</SelectItem>
-                                        {facilityNames.map((f: string) => (
-                                            <SelectItem key={f} value={f} className="text-xs font-bold">{f}</SelectItem>
-                                        ))}
+                                        <SelectItem value="ALL" className="text-xs font-bold">All Statuses</SelectItem>
+                                        <SelectItem value="CATALOG (UNSTOCKED)" className="text-xs font-semibold text-slate-500 dark:text-slate-400">Catalog (Unstocked)</SelectItem>
+                                        <SelectItem value="IN_STOCKROOM" className="text-xs font-semibold text-blue-600 dark:text-blue-400">In Stockroom</SelectItem>
+                                        <SelectItem value="DEPLOYED_SERVICEABLE" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Deployed (BHS)</SelectItem>
+                                        <SelectItem value="DEFECTIVE_FOR_REPAIR" className="text-xs font-semibold text-amber-600 dark:text-amber-400">Defective / Repair</SelectItem>
+                                        <SelectItem value="PENDING_VERIFICATION" className="text-xs font-semibold text-purple-600 dark:text-purple-400">Pending Approval</SelectItem>
+                                        <SelectItem value="CONDEMNED_FOR_DISPOSAL" className="text-xs font-semibold text-rose-600 dark:text-rose-400">Condemned</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            )}
 
-                            <Select value={selectedStatus} onValueChange={(val) => { setSelectedStatus(val); setCurrentPage(1); }}>
-                                <SelectTrigger className="h-10 w-[170px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5">
-                                    <SelectValue placeholder="All Statuses" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                    <SelectItem value="ALL" className="text-xs font-bold">All Statuses</SelectItem>
-                                    <SelectItem value="IN_STOCKROOM" className="text-xs">In Stockroom</SelectItem>
-                                    <SelectItem value="DEPLOYED_SERVICEABLE" className="text-xs">Deployed (BHS)</SelectItem>
-                                    <SelectItem value="DEFECTIVE_FOR_REPAIR" className="text-xs">Defective / Repair</SelectItem>
-                                    <SelectItem value="PENDING_VERIFICATION" className="text-xs">Pending Approval</SelectItem>
-                                    <SelectItem value="CONDEMNED_FOR_DISPOSAL" className="text-xs">Condemned</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <Select value={selectedCategory} onValueChange={(val) => { setSelectedCategory(val); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-9 w-[118px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5 shrink-0">
+                                        <SelectValue placeholder="COA Class" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
+                                        <SelectItem value="ALL" className="text-xs font-bold">All COA Class</SelectItem>
+                                        <SelectItem value="PPE" className="text-xs font-bold text-indigo-600 dark:text-indigo-400">PPE (&gt; ₱50k)</SelectItem>
+                                        <SelectItem value="SEMI_EXPENDABLE" className="text-xs font-bold text-teal-600 dark:text-teal-400">Semi-Expendable</SelectItem>
+                                    </SelectContent>
+                                </Select>
 
-                            <Select value={selectedCategory} onValueChange={(val) => { setSelectedCategory(val); setCurrentPage(1); }}>
-                                <SelectTrigger className="h-10 w-[140px] rounded-xl text-xs font-bold bg-slate-50 dark:bg-white/5">
-                                    <SelectValue placeholder="COA Class" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                    <SelectItem value="ALL" className="text-xs font-bold">All COA Class</SelectItem>
-                                    <SelectItem value="PPE" className="text-xs font-bold">PPE (&gt; ₱50k)</SelectItem>
-                                    <SelectItem value="SEMI_EXPENDABLE" className="text-xs font-bold">Semi-Expendable</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                {(selectedFacility !== "ALL" || selectedStatus !== "ALL" || selectedCategory !== "ALL" || searchQuery) && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSelectedFacility("ALL");
+                                            setSelectedStatus("ALL");
+                                            setSelectedCategory("ALL");
+                                            setSearchQuery("");
+                                            setCurrentPage(1);
+                                        }}
+                                        className="h-9 px-2 text-[11px] font-bold text-slate-400 hover:text-rose-500 rounded-xl cursor-pointer shrink-0"
+                                        title="Reset all filters"
+                                    >
+                                        <RotateCcw className="w-3 h-3 mr-1" />
+                                        Reset
+                                    </Button>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Action Buttons */}
+                        {!isReadOnly && !matchedCenter && (
+                            <div className="flex items-center gap-2 shrink-0 self-end xl:self-center">
+                                <Button
+                                    onClick={handleOpenAddCatalogItem}
+                                    className="h-9 px-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shrink-0"
+                                    style={{ backgroundColor: themeColor }}
+                                    title="Add an equipment specification to the master purchasable catalog"
+                                >
+                                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Register Item
+                                </Button>
+                                <Button
+                                    onClick={() => handleOpenAddAsset(true)}
+                                    variant="outline"
+                                    className="h-9 px-3 rounded-xl font-bold text-xs uppercase border-slate-200 dark:border-white/20 bg-slate-50 dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/20 text-slate-700 dark:text-white cursor-pointer shrink-0"
+                                    title="Register pre-existing physical equipment already at health centers or direct donations"
+                                >
+                                    <Building2 className="w-3.5 h-3.5 mr-1.5" /> BHS Legacy / Donation
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Asset Table */}
@@ -1246,7 +1591,7 @@ export default function EquipmentClient({
                                 {paginatedAssets.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={8} className="py-12 text-center text-slate-400 font-bold text-xs uppercase">
-                                            {matchedCenter && selectedFacility === matchedCenter.name ? (
+                                            {matchedCenter ? (
                                                 <div className="space-y-3 max-w-md mx-auto py-2">
                                                     <div className="w-12 h-12 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto">
                                                         <Building2 className="w-6 h-6" />
@@ -1256,18 +1601,10 @@ export default function EquipmentClient({
                                                             No Equipment Assigned to {matchedCenter.name} Yet
                                                         </div>
                                                         <p className="text-[11px] text-slate-400 font-normal normal-case">
-                                                            Newly intaken equipment is currently stored in Central Stockroom ({stockroomAssets.reduce((sum, a) => sum + (Number(a.availableQty ?? a.quantity) || 1), 0)} units ready). Switch to &ldquo;All Facilities&rdquo; to view the Master Ledger, or submit a Request Order (RO) to request items.
+                                                            Equipment dispatched and accepted from Main RHU will appear here in your center&apos;s inventory. You can submit a Request Order (RO) to requisition medical equipment for this facility.
                                                         </p>
                                                     </div>
                                                     <div className="flex items-center justify-center gap-2 pt-1">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => setSelectedFacility("ALL")}
-                                                            className="h-8 text-xs font-bold rounded-xl cursor-pointer"
-                                                        >
-                                                            🌐 View All Facilities ({assets.length})
-                                                        </Button>
                                                         <Button
                                                             size="sm"
                                                             onClick={() => {
@@ -1294,17 +1631,38 @@ export default function EquipmentClient({
 
                                         return (
                                             <React.Fragment key={group.groupKey}>
-                                                <TableRow className={cn("hover:bg-slate-50 dark:hover:bg-white/5 transition-colors", isExpanded && "bg-sky-50/40 dark:bg-sky-950/20")}>
+                                                <TableRow 
+                                                    onClick={(e) => {
+                                                        const target = e.target as HTMLElement;
+                                                        if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("[role=button]")) {
+                                                            return;
+                                                        }
+                                                        toggleExpandGroup(group.groupKey);
+                                                    }}
+                                                    className={cn(
+                                                        "transition-colors cursor-pointer group/row",
+                                                        isExpanded 
+                                                            ? "bg-sky-50/70 dark:bg-sky-950/30" 
+                                                            : "hover:bg-slate-50/80 dark:hover:bg-white/[0.04]"
+                                                    )}
+                                                    title="Click item to view procurement & batch history"
+                                                >
                                                     <TableCell className="font-mono text-xs align-top py-3.5">
                                                         <div className="flex items-center gap-1.5 font-bold">
-                                                            <button
-                                                                onClick={() => { setActiveAsset(primary); setIsQRModalOpen(true); }}
-                                                                className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
-                                                                title="View Primary Tag / QR"
-                                                            >
-                                                                <QrCode className="w-3.5 h-3.5 shrink-0" />
-                                                                <span>{primary.assetTagNo}</span>
-                                                            </button>
+                                                            {group.isCatalogOnly ? (
+                                                                <Badge variant="outline" className="text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border-slate-300 dark:border-white/10">
+                                                                    CATALOG SPEC
+                                                                </Badge>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => { setActiveAsset(primary); setIsQRModalOpen(true); }}
+                                                                    className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                                                                    title="View Primary Tag / QR"
+                                                                >
+                                                                    <QrCode className="w-3.5 h-3.5 shrink-0" />
+                                                                    <span>{primary.assetTagNo}</span>
+                                                                </button>
+                                                            )}
                                                         </div>
 
                                                         {/* Multi-Batch / PO History Dropdown Toggle */}
@@ -1334,17 +1692,37 @@ export default function EquipmentClient({
                                                                 <span>{primary.poReferenceNo}</span>
                                                                 {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
                                                             </button>
+                                                        ) : group.isCatalogOnly ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleExpandGroup(group.groupKey)}
+                                                                className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-600 dark:text-sky-400 hover:underline mt-1 cursor-pointer"
+                                                                title="Click to view catalog specification & PO options"
+                                                            >
+                                                                <span>No PO yet</span>
+                                                                {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                                                            </button>
                                                         ) : null}
                                                     </TableCell>
 
                                                     <TableCell className="align-top py-3.5">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                                                            <span className="font-bold text-xs text-slate-900 dark:text-white group-hover/row:text-sky-600 dark:group-hover/row:text-sky-400 transition-colors flex items-center gap-1.5">
                                                                 {group.equipmentName}
+                                                                {isExpanded ? (
+                                                                    <ChevronUp className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                                                ) : (
+                                                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover/row:text-sky-500 shrink-0 transition-colors" />
+                                                                )}
                                                             </span>
                                                             {hasMultiple && (
                                                                 <Badge variant="outline" className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shrink-0">
                                                                     Consolidated
+                                                                </Badge>
+                                                            )}
+                                                            {group.isCatalogOnly && (
+                                                                <Badge variant="outline" className="text-[9px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-white/10 shrink-0">
+                                                                    Catalog Spec
                                                                 </Badge>
                                                             )}
                                                         </div>
@@ -1389,8 +1767,12 @@ export default function EquipmentClient({
 
                                                     <TableCell className="align-top py-3.5 font-mono text-xs">
                                                         {/* Current Stock Tag */}
-                                                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-bold text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-700/40">
-                                                            <Package className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-bold text-xs ${
+                                                            group.totalAvailableQty > 0
+                                                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-700/40"
+                                                                : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10"
+                                                        }`}>
+                                                            <Package className={`w-3 h-3 shrink-0 ${group.totalAvailableQty > 0 ? "text-emerald-500" : "text-slate-400"}`} />
                                                             <span>{group.totalAvailableQty} pcs in stock</span>
                                                         </div>
 
@@ -1401,6 +1783,11 @@ export default function EquipmentClient({
                                                             ) : (
                                                                 <span title={`Batches range from ₱${group.minUnitCost.toLocaleString()} to ₱${group.maxUnitCost.toLocaleString()}`}>
                                                                     ₱{group.minUnitCost.toLocaleString()} – ₱{group.maxUnitCost.toLocaleString()}
+                                                                </span>
+                                                            )}
+                                                            {group.isCatalogOnly && (
+                                                                <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                                                    (Est.)
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1417,80 +1804,77 @@ export default function EquipmentClient({
 
                                                     <TableCell className="align-top py-3.5 text-right">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            {/* PO History Dropdown Button */}
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => toggleExpandGroup(group.groupKey)}
-                                                                className={cn(
-                                                                    "h-7 px-2 rounded-lg text-xs font-bold gap-1 cursor-pointer transition-all",
-                                                                    isExpanded
-                                                                        ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
-                                                                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"
-                                                                )}
-                                                                title="View Purchase Order History"
-                                                            >
-                                                                <History className="w-3.5 h-3.5 text-sky-500" />
-                                                                <span className="text-[10px] font-bold hidden xl:inline">PO History</span>
-                                                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                                            </Button>
-
-                                                            {/* Primary Tag QR Modal */}
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => { setActiveAsset(primary); setIsQRModalOpen(true); }}
-                                                                className="h-7 w-7 p-0 rounded-lg text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer"
-                                                                title="View Property Tag / QR"
-                                                            >
-                                                                <QrCode className="w-3.5 h-3.5" />
-                                                            </Button>
-
-                                                            {!isReadOnly && (
+                                                            {group.isCatalogOnly ? (
+                                                                !isReadOnly && !matchedCenter && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        onClick={() => handleQuickCreatePO(group.equipmentName, group.brandSummary, group.minUnitCost)}
+                                                                        className="h-7 px-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[10px] uppercase cursor-pointer"
+                                                                        title="Create Purchase Order for this item"
+                                                                    >
+                                                                        <ShoppingCart className="w-3 h-3 mr-1" /> Order PO
+                                                                    </Button>
+                                                                )
+                                                            ) : (
                                                                 <>
-                                                                    {group.currentStatus === "PENDING_VERIFICATION" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => handleVerifyAsset(primary.id)}
-                                                                            className="h-7 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase cursor-pointer"
-                                                                        >
-                                                                            <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
-                                                                        </Button>
-                                                                    )}
+                                                                    {/* Primary Tag QR Modal */}
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => { setActiveAsset(primary); setIsQRModalOpen(true); }}
+                                                                        className="h-7 w-7 p-0 rounded-lg text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer"
+                                                                        title="View Property Tag / QR"
+                                                                    >
+                                                                        <QrCode className="w-3.5 h-3.5" />
+                                                                    </Button>
 
-                                                                    {group.currentStatus === "DEPLOYED_SERVICEABLE" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            onClick={() => { setActiveAsset(primary); setIsRepairModalOpen(true); }}
-                                                                            className="h-7 px-2 rounded-lg text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 font-bold text-[10px] uppercase cursor-pointer"
-                                                                            title="Report Defect"
-                                                                        >
-                                                                            <Wrench className="w-3 h-3" />
-                                                                        </Button>
-                                                                    )}
+                                                                    {!isReadOnly && (
+                                                                        <>
+                                                                            {group.currentStatus === "PENDING_VERIFICATION" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => handleVerifyAsset(primary.id)}
+                                                                                    className="h-7 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase cursor-pointer"
+                                                                                >
+                                                                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                                                                                </Button>
+                                                                            )}
 
-                                                                    {group.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => { setActiveAsset(primary); setIsResolveRepairModalOpen(true); }}
-                                                                            className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase cursor-pointer"
-                                                                            title="Resolve Repair"
-                                                                        >
-                                                                            Resolve
-                                                                        </Button>
-                                                                    )}
+                                                                            {group.currentStatus === "DEPLOYED_SERVICEABLE" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    onClick={() => { setActiveAsset(primary); setIsRepairModalOpen(true); }}
+                                                                                    className="h-7 px-2 rounded-lg text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 font-bold text-[10px] uppercase cursor-pointer"
+                                                                                    title="Report Defect"
+                                                                                >
+                                                                                    <Wrench className="w-3 h-3" />
+                                                                                </Button>
+                                                                            )}
 
-                                                                    {(!matchedCenter || primary.currentFacility === matchedCenter.name) && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            onClick={() => handleOpenEditAsset(primary)}
-                                                                            className="h-7 w-7 p-0 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white cursor-pointer"
-                                                                            title="Edit Asset"
-                                                                        >
-                                                                            <Edit3 className="w-3.5 h-3.5" />
-                                                                        </Button>
+                                                                            {group.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => { setActiveAsset(primary); setIsResolveRepairModalOpen(true); }}
+                                                                                    className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase cursor-pointer"
+                                                                                    title="Resolve Repair"
+                                                                                >
+                                                                                    Resolve
+                                                                                </Button>
+                                                                            )}
+
+                                                                            {(!matchedCenter || primary.currentFacility === matchedCenter.name) && (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    onClick={() => handleOpenEditAsset(primary)}
+                                                                                    className="h-7 w-7 p-0 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                                                                                    title="Edit Asset"
+                                                                                >
+                                                                                    <Edit3 className="w-3.5 h-3.5" />
+                                                                                </Button>
+                                                                            )}
+                                                                        </>
                                                                     )}
                                                                 </>
                                                             )}
@@ -1520,118 +1904,184 @@ export default function EquipmentClient({
                                                                             </p>
                                                                         </div>
                                                                     </div>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() => {
-                                                                            setPoHistoryGroup(group);
-                                                                            setIsPOHistoryModalOpen(true);
-                                                                        }}
-                                                                        className="h-7 text-[10px] font-bold text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-lg cursor-pointer shrink-0"
-                                                                    >
-                                                                        <ExternalLink className="w-3 h-3 mr-1" />
-                                                                        Full Audit Dialog
-                                                                    </Button>
+                                                                    {group.batches.length > 0 && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            onClick={() => {
+                                                                                setPoHistoryGroup(group);
+                                                                                setIsPOHistoryModalOpen(true);
+                                                                            }}
+                                                                            className="h-7 text-[10px] font-bold text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-lg cursor-pointer shrink-0"
+                                                                        >
+                                                                            <ExternalLink className="w-3 h-3 mr-1" />
+                                                                            Full Audit Dialog
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
 
-                                                                {/* Batches Table */}
-                                                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] shadow-xs">
-                                                                    <table className="w-full text-left text-xs">
-                                                                        <thead className="bg-slate-100/70 dark:bg-white/5 text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200/60 dark:border-white/5">
-                                                                            <tr>
-                                                                                <th className="py-2.5 px-3">Batch / PO #</th>
-                                                                                <th className="py-2.5 px-3">Property Tag / QR</th>
-                                                                                <th className="py-2.5 px-3">COA Doc Ref</th>
-                                                                                <th className="py-2.5 px-3">Brand &amp; Serial</th>
-                                                                                <th className="py-2.5 px-3">Intake Date</th>
-                                                                                <th className="py-2.5 px-3 text-right">Unit Value</th>
-                                                                                <th className="py-2.5 px-3 text-center">Batch Stock</th>
-                                                                                <th className="py-2.5 px-3 text-right">Subtotal</th>
-                                                                                <th className="py-2.5 px-3 text-right">Actions</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                                                            {group.batches.map((batch: any, bIdx: number) => {
-                                                                                const bAvail = Number(batch.availableQty ?? batch.quantity) || 1;
-                                                                                const bCost = Number(batch.unitCost) || 0;
-                                                                                const bSubtotal = bAvail * bCost;
+                                                                {/* If Catalog Only with 0 Batches: Show Clear Explanation & Create PO CTA */}
+                                                                {group.batches.length === 0 ? (
+                                                                    <div className="p-3.5 sm:p-4 rounded-xl border border-sky-200/80 dark:border-sky-800/60 bg-white dark:bg-[#161a24] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                                        <div className="flex items-center gap-2.5">
+                                                                            <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
+                                                                                <ShoppingCart className="w-3.5 h-3.5" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <h5 className="text-xs font-black uppercase text-slate-900 dark:text-white">
+                                                                                    No Purchase Orders On File — Item Not Yet Procured
+                                                                                </h5>
+                                                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                                                    Registered in catalog. Create a Purchase Order to intake physical stock and batches.
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                        {!isReadOnly && !matchedCenter && (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                onClick={() => handleQuickCreatePO(group.equipmentName, group.brandSummary, group.minUnitCost)}
+                                                                                className="h-8 px-3 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-xs shrink-0 cursor-pointer"
+                                                                            >
+                                                                                <Plus className="w-3.5 h-3.5 mr-1" /> Create Purchase Order
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    /* Batches Table */
+                                                                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] shadow-xs">
+                                                                        <table className="w-full text-left text-xs">
+                                                                            <thead className="bg-slate-100/70 dark:bg-white/5 text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200/60 dark:border-white/5">
+                                                                                <tr>
+                                                                                    <th className="py-2.5 px-3">Batch / PO #</th>
+                                                                                    <th className="py-2.5 px-3">Property Tag &amp; Ref</th>
+                                                                                    <th className="py-2.5 px-3">Current Location / Placement</th>
+                                                                                    <th className="py-2.5 px-3">Custodian</th>
+                                                                                    <th className="py-2.5 px-3">Status</th>
+                                                                                    <th className="py-2.5 px-3">Brand &amp; Serial</th>
+                                                                                    <th className="py-2.5 px-3">Intake Date</th>
+                                                                                    <th className="py-2.5 px-3 text-right">Unit Value</th>
+                                                                                    <th className="py-2.5 px-3 text-center">Batch Stock</th>
+                                                                                    <th className="py-2.5 px-3 text-right">Subtotal</th>
+                                                                                    <th className="py-2.5 px-3 text-right">Actions</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                                                                {group.batches.map((batch: any, bIdx: number) => {
+                                                                                    const bAvail = batch.availableQty != null ? Number(batch.availableQty) : (batch.quantity != null ? Number(batch.quantity) : 0);
+                                                                                    const bCost = Number(batch.unitCost) || 0;
+                                                                                    const bSubtotal = bAvail * bCost;
+                                                                                    const hasRealPO = Boolean(batch.poReferenceNo);
 
-                                                                                return (
-                                                                                    <tr key={batch.id} className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors">
-                                                                                        <td className="py-2.5 px-3">
-                                                                                            <div className="font-mono font-bold text-xs text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
-                                                                                                <ShoppingCart className="w-3 h-3 text-slate-400" />
-                                                                                                {batch.poReferenceNo || `Manual Entry #${bIdx + 1}`}
-                                                                                            </div>
-                                                                                            <span className="text-[10px] text-slate-400 block">
-                                                                                                Batch #{group.batches.length - bIdx}
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={() => { setActiveAsset(batch); setIsQRModalOpen(true); }}
-                                                                                                className="flex items-center gap-1 font-mono font-bold text-xs text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 hover:underline cursor-pointer"
-                                                                                            >
-                                                                                                <QrCode className="w-3.5 h-3.5 text-sky-500" />
-                                                                                                {batch.assetTagNo}
-                                                                                            </button>
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
-                                                                                            {batch.documentReference || "—"}
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3">
-                                                                                            <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-                                                                                                {batch.brand || "N/A"}
-                                                                                            </span>
-                                                                                            <span className="text-[10px] text-slate-400 block font-mono">
-                                                                                                SN: {batch.serialNo || "NONE"}
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 text-[11px] text-slate-500">
-                                                                                            {batch.createdAt ? new Date(batch.createdAt).toLocaleDateString() : "—"}
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 font-mono font-semibold text-right text-slate-700 dark:text-slate-300">
-                                                                                            ₱{bCost.toLocaleString()}
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 text-center">
-                                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/50">
-                                                                                                {bAvail} pcs
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 font-mono font-bold text-right text-slate-900 dark:text-white">
-                                                                                            ₱{bSubtotal.toLocaleString()}
-                                                                                        </td>
-                                                                                        <td className="py-2.5 px-3 text-right">
-                                                                                            <div className="flex items-center justify-end gap-1">
-                                                                                                <Button
-                                                                                                    size="sm"
-                                                                                                    variant="ghost"
+                                                                                    return (
+                                                                                        <tr key={batch.id} className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors">
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                {hasRealPO ? (
+                                                                                                    <div>
+                                                                                                        <div className="font-mono font-bold text-xs text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                                                                                                            <ShoppingCart className="w-3 h-3 text-sky-500" />
+                                                                                                            {batch.poReferenceNo}
+                                                                                                        </div>
+                                                                                                        <span className="text-[10px] text-slate-400 block">
+                                                                                                            PO Batch #{group.batches.length - bIdx}
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div>
+                                                                                                        <div className="font-semibold text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                                                                                                            <Building2 className="w-3 h-3 text-slate-400" />
+                                                                                                            Pre-existing Inventory
+                                                                                                        </div>
+                                                                                                        <span className="text-[9px] text-slate-400 block">
+                                                                                                            BHS Legacy / Direct Donation
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                <button
+                                                                                                    type="button"
                                                                                                     onClick={() => { setActiveAsset(batch); setIsQRModalOpen(true); }}
-                                                                                                    className="h-6 w-6 p-0 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-sky-600"
-                                                                                                    title="View QR Code"
+                                                                                                    className="flex items-center gap-1 font-mono font-bold text-xs text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 hover:underline cursor-pointer"
                                                                                                 >
-                                                                                                    <QrCode className="w-3 h-3" />
-                                                                                                </Button>
-                                                                                                {!isReadOnly && (
+                                                                                                    <QrCode className="w-3.5 h-3.5 text-sky-500" />
+                                                                                                    {batch.assetTagNo}
+                                                                                                </button>
+                                                                                                <span className="text-[10px] text-slate-400 block font-mono">
+                                                                                                    {batch.documentReference || "—"}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                <div className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200 text-xs">
+                                                                                                    <Building2 className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                                                                                    <span className="truncate max-w-[150px]">{batch.currentFacility || "Central Stockroom"}</span>
+                                                                                                </div>
+                                                                                                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                                                                                    <DoorClosed className="w-3 h-3 text-slate-400 shrink-0" />
+                                                                                                    <span className="truncate max-w-[140px]">{batch.assignedRoom || "Central Stockroom"}</span>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                <div className="flex items-center gap-1 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                                                                                                    <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                                                    <span className="truncate max-w-[140px]">{batch.accountablePerson || "RHU Supply Custodian"}</span>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                {getStatusBadge(batch.currentStatus)}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3">
+                                                                                                <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                                                                                                    {batch.brand || "N/A"}
+                                                                                                </span>
+                                                                                                <span className="text-[10px] text-slate-400 block font-mono">
+                                                                                                    SN: {batch.serialNo || "NONE"}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3 text-[11px] text-slate-500">
+                                                                                                {batch.createdAt ? new Date(batch.createdAt).toLocaleDateString() : "—"}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3 font-mono font-semibold text-right text-slate-700 dark:text-slate-300">
+                                                                                                ₱{bCost.toLocaleString()}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3 text-center">
+                                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/50">
+                                                                                                    {bAvail} pcs
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3 font-mono font-bold text-right text-slate-900 dark:text-white">
+                                                                                                ₱{bSubtotal.toLocaleString()}
+                                                                                            </td>
+                                                                                            <td className="py-2.5 px-3 text-right">
+                                                                                                <div className="flex items-center justify-end gap-1">
                                                                                                     <Button
                                                                                                         size="sm"
                                                                                                         variant="ghost"
-                                                                                                        onClick={() => handleOpenEditAsset(batch)}
-                                                                                                        className="h-6 w-6 p-0 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700"
-                                                                                                        title="Edit Batch Asset"
+                                                                                                        onClick={() => { setActiveAsset(batch); setIsQRModalOpen(true); }}
+                                                                                                        className="h-6 w-6 p-0 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-sky-600"
+                                                                                                        title="View QR Code"
                                                                                                     >
-                                                                                                        <Edit3 className="w-3 h-3" />
+                                                                                                        <QrCode className="w-3 h-3" />
                                                                                                     </Button>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
+                                                                                                    {!isReadOnly && (
+                                                                                                        <Button
+                                                                                                            size="sm"
+                                                                                                            variant="ghost"
+                                                                                                            onClick={() => handleOpenEditAsset(batch)}
+                                                                                                            className="h-6 w-6 p-0 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700"
+                                                                                                            title="Edit Batch Asset"
+                                                                                                        >
+                                                                                                            <Edit3 className="w-3 h-3" />
+                                                                                                        </Button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
@@ -1651,7 +2101,7 @@ export default function EquipmentClient({
                                 <span className="font-bold text-slate-900 dark:text-white">{consolidatedAssets.length}</span> unique equipment
                                 {filteredAssets.length !== consolidatedAssets.length && (
                                     <span className="text-slate-400 ml-1">
-                                        ({filteredAssets.reduce((sum, a) => sum + (Number(a.quantity) || 1), 0)} total units across {filteredAssets.length} PO batches)
+                                        ({filteredAssets.reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0)} total units across {filteredAssets.length} PO batches)
                                     </span>
                                 )}
                             </div>
@@ -1859,6 +2309,22 @@ export default function EquipmentClient({
 
                                                 <TableCell className="align-top py-3.5 text-right">
                                                     <div className="flex items-center justify-end gap-2">
+                                                        {!isIntakeDone && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    exportPOPDF(po);
+                                                                    toast.success(`Exporting Purchase Order ${po.poNumber} PDF...`);
+                                                                }}
+                                                                className="h-8 px-2.5 rounded-xl border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-bold text-xs cursor-pointer transition-all shrink-0"
+                                                                title="Export / Print Official LGU Purchase Order PDF"
+                                                            >
+                                                                <Download className="w-3.5 h-3.5 mr-1 text-sky-500" />
+                                                                Export PO PDF
+                                                            </Button>
+                                                        )}
+
                                                         {isIntakeDone && (
                                                             <Button
                                                                 size="sm"
@@ -1867,7 +2333,7 @@ export default function EquipmentClient({
                                                                     setViewingPO(po);
                                                                     setIsViewPOModalOpen(true);
                                                                 }}
-                                                                className="h-8 px-2.5 rounded-xl border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 font-bold text-xs cursor-pointer text-slate-700 dark:text-slate-200"
+                                                                className="h-8 px-2.5 rounded-xl border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 font-bold text-xs cursor-pointer text-slate-700 dark:text-slate-200 shrink-0"
                                                                 title="View Inspection & Intake Details"
                                                             >
                                                                 <Eye className="w-3.5 h-3.5 mr-1 text-sky-500" />
@@ -1879,7 +2345,7 @@ export default function EquipmentClient({
                                                             <Button
                                                                 size="sm"
                                                                 onClick={() => handleOpenIntakeModal(po)}
-                                                                className="h-8 px-3 rounded-xl font-bold text-xs uppercase shadow-sm cursor-pointer transition-all bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                                className="h-8 px-3 rounded-xl font-bold text-xs uppercase shadow-sm cursor-pointer transition-all bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
                                                             >
                                                                 <Boxes className="w-3.5 h-3.5 mr-1.5" />
                                                                 Confirm Intake
@@ -2223,26 +2689,61 @@ export default function EquipmentClient({
                                                 </TableCell>
 
                                                 <TableCell className="align-top py-3.5 text-right">
-                                                    {!isReadOnly && isDispatched ? (
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setActiveSO(so);
-                                                                setReceivingBy("");
-                                                                setIsFullAcceptance(true);
-                                                                setActualReceivedCount("");
-                                                                setMissingCount("");
-                                                                setDefectiveCount("");
-                                                                setReceivingDiscrepancyNotes("");
-                                                                setIsReceiveModalOpen(true);
-                                                            }}
-                                                            className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
-                                                        >
-                                                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Receiving Inspection
-                                                        </Button>
+                                                    {isDispatched ? (
+                                                        (matchedCenter && matchedCenter.name.toLowerCase().trim() === (so.targetFacility || "").toLowerCase().trim()) ? (
+                                                            /* Destination BHS Center: Inspect and receive item */
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setActiveSO(so);
+                                                                    setReceivingBy("");
+                                                                    setIsFullAcceptance(true);
+                                                                    setActualReceivedCount("");
+                                                                    setMissingCount("");
+                                                                    setDefectiveCount("");
+                                                                    setReceivingDiscrepancyNotes("");
+                                                                    setIsReceiveModalOpen(true);
+                                                                }}
+                                                                className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
+                                                            >
+                                                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Receiving Inspection
+                                                            </Button>
+                                                        ) : isGlobalAdmin ? (
+                                                            /* RHU Administrator: Monitoring mode with Awaiting BHS Receiving status */
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-cyan-600 dark:text-cyan-400 uppercase bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                                                                    <Clock className="w-3 h-3" /> Awaiting BHS Receiving
+                                                                </span>
+                                                                <span className="text-[9px] text-slate-400 font-medium">
+                                                                    Pending inspection at {so.targetFacility}
+                                                                </span>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        setActiveSO(so);
+                                                                        setReceivingBy("");
+                                                                        setIsFullAcceptance(true);
+                                                                        setActualReceivedCount("");
+                                                                        setMissingCount("");
+                                                                        setDefectiveCount("");
+                                                                        setReceivingDiscrepancyNotes("");
+                                                                        setIsReceiveModalOpen(true);
+                                                                    }}
+                                                                    className="h-5 px-1.5 text-[9px] font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded cursor-pointer"
+                                                                    title="RHU Admin Override: inspect and receive on behalf of center if needed"
+                                                                >
+                                                                    Admin Override Receive
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">
+                                                                In Transit to {so.targetFacility}
+                                                            </span>
+                                                        )
                                                     ) : (
                                                         <span className="text-[10px] text-slate-400 font-bold uppercase">
-                                                            {!isDispatched ? "Received & Pinned" : "—"}
+                                                            Received &amp; Pinned
                                                         </span>
                                                     )}
                                                 </TableCell>
@@ -2286,8 +2787,12 @@ export default function EquipmentClient({
                             <TableBody>
                                 {returns.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-40 text-center text-slate-400 font-bold text-xs uppercase">
-                                            No discrepancy return tickets logged. All shipments verified cleanly.
+                                        <TableCell colSpan={6} className="py-12 text-center text-slate-400 font-bold text-xs">
+                                            <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                                <RotateCcw className="w-8 h-8 text-slate-300 dark:text-slate-700 stroke-[1.5]" />
+                                                <p className="uppercase text-slate-600 dark:text-slate-300 font-black">No discrepancy return tickets logged.</p>
+                                                <p className="text-[11px] font-normal text-slate-400">All dispatches and deliveries have been accepted cleanly, or no transit discrepancies reported.</p>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -2327,6 +2832,11 @@ export default function EquipmentClient({
                                                     <p className="text-xs text-slate-600 dark:text-slate-300 italic">
                                                         &ldquo;{ticket.reasonNotes || "No notes provided"}&rdquo;
                                                     </p>
+                                                    {ticket.resolutionNotes && (
+                                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
+                                                            Resolution: {ticket.resolutionNotes}
+                                                        </span>
+                                                    )}
                                                 </TableCell>
 
                                                 <TableCell className="align-top py-3.5">
@@ -2376,52 +2886,204 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             {activeTab === "MAINTENANCE" && (
                 <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800">
-                        <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white">Defect Tickets &amp; COA Condemnation Queue (IIRUP)</h3>
-                        <p className="text-xs text-slate-400">Track equipment undergoing repairs and unrepairable units awaiting COA audit write-off.</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div>
+                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                                <Wrench className="w-4 h-4 text-amber-500" />
+                                Defect Tickets &amp; COA Condemnation Queue (IIRUP) ({defectAllCount})
+                            </h3>
+                            <p className="text-xs text-slate-400">
+                                {matchedCenter 
+                                    ? `Track malfunctioning equipment, repairs, and condemnation queue for ${matchedCenter.name}.`
+                                    : "Track malfunctioning equipment under repair, route unrepairable units to COA condemnation, and finalize official IIRUP write-offs."
+                                }
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED").length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        const unserviceable = maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED");
+                                        exportCOAPDF(unserviceable, {
+                                            reportType: "IIRUP",
+                                            signatorySupplyOfficer: sigSupplyOfficer,
+                                            signatoryMHO: sigMHO,
+                                            signatoryAuditor: sigAuditor
+                                        });
+                                        toast.success("Exporting COA IIRUP Condemnation Report PDF...");
+                                    }}
+                                    className="h-9 px-3 rounded-xl border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 font-bold text-xs uppercase cursor-pointer"
+                                >
+                                    <Download className="w-3.5 h-3.5 mr-1.5" /> Export IIRUP PDF
+                                </Button>
+                            )}
+                            {!isReadOnly && (
+                                <Button
+                                    onClick={() => {
+                                        setDefectFormAssetId(defectEligibleAssets.length > 0 ? defectEligibleAssets[0].id : "");
+                                        setDefectFormDetails("");
+                                        setDefectFormReportedBy("");
+                                        setIsDirectDefectModalOpen(true);
+                                    }}
+                                    className="h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer shrink-0"
+                                >
+                                    <Plus className="w-3.5 h-3.5 mr-1.5" /> File Repair / Defect Ticket
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
-                    <Card className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] overflow-hidden">
+                    {/* Sub-Filters / Status Navigation */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {[
+                            { id: "ALL", label: `All Items (${defectAllCount})` },
+                            { id: "DEFECTIVE", label: `Under Repair (${defectRepairCount})` },
+                            { id: "CONDEMNATION", label: `COA Condemnation Queue (${defectCondemnCount})` },
+                            { id: "DISPOSED", label: `Officially Disposed (${defectDisposedCount})` },
+                        ].map(sub => (
+                            <Button
+                                key={sub.id}
+                                size="sm"
+                                variant={defectTabFilter === sub.id ? "default" : "outline"}
+                                onClick={() => setDefectTabFilter(sub.id as any)}
+                                className={cn(
+                                    "h-8 px-3 rounded-xl text-xs font-bold cursor-pointer transition-all",
+                                    defectTabFilter === sub.id
+                                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                )}
+                            >
+                                {sub.label}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <Card className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] overflow-hidden shadow-sm">
                         <Table>
                             <TableHeader className="bg-slate-50 dark:bg-white/5">
                                 <TableRow>
-                                    <TableHead className="text-[10px] font-black uppercase">Asset Tag</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase">Asset Tag &amp; QR</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Equipment Name</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Facility / Room</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Defect Details</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase">Defect / Condemnation Details</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {assets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR" || a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="py-12 text-center text-slate-400 font-bold text-xs uppercase">
-                                            No equipment currently logged under repair or condemnation.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    assets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR" || a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").map(asset => (
-                                        <TableRow key={asset.id}>
-                                            <TableCell className="font-mono font-bold text-xs">{asset.assetTagNo}</TableCell>
-                                            <TableCell className="font-bold text-xs">{asset.equipmentName}</TableCell>
-                                            <TableCell className="text-xs">{asset.currentFacility} ({asset.assignedRoom})</TableCell>
-                                            <TableCell className="text-xs text-amber-600 font-semibold">{asset.defectDetails || "Under inspection"}</TableCell>
-                                            <TableCell>{getStatusBadge(asset.currentStatus)}</TableCell>
-                                            <TableCell className="text-right">
+                                {(() => {
+                                    const queueAssets = maintenanceBaseAssets.filter(a => {
+                                        if (defectTabFilter === "DEFECTIVE") return a.currentStatus === "DEFECTIVE_FOR_REPAIR";
+                                        if (defectTabFilter === "CONDEMNATION") return a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION";
+                                        if (defectTabFilter === "DISPOSED") return a.currentStatus === "CONDEMNED_DISPOSED";
+                                        return a.currentStatus === "DEFECTIVE_FOR_REPAIR" || a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED";
+                                    });
+
+                                    if (queueAssets.length === 0) {
+                                        return (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="py-12 text-center text-slate-400 font-bold text-xs">
+                                                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                                        <Wrench className="w-8 h-8 text-slate-300 dark:text-slate-700 stroke-[1.5]" />
+                                                        <p className="uppercase text-slate-600 dark:text-slate-300 font-black">
+                                                            {matchedCenter 
+                                                                ? `No defect or condemnation records for ${matchedCenter.name}.`
+                                                                : "No equipment currently logged under repair or condemnation."
+                                                            }
+                                                        </p>
+                                                        <p className="text-[11px] font-normal text-slate-400">All medical equipment is currently serviceable, or no defects have been filed yet.</p>
+                                                        {!isReadOnly && (
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setDefectFormAssetId(defectEligibleAssets.length > 0 ? defectEligibleAssets[0].id : "");
+                                                                    setDefectFormDetails("");
+                                                                    setDefectFormReportedBy("");
+                                                                    setIsDirectDefectModalOpen(true);
+                                                                }}
+                                                                variant="outline"
+                                                                className="mt-2 h-8 px-3 rounded-xl border-amber-300 text-amber-600 hover:bg-amber-50 text-xs font-bold uppercase cursor-pointer"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5 mr-1" /> File A Repair Request
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    }
+
+                                    return queueAssets.map(asset => (
+                                        <TableRow key={asset.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                                            <TableCell className="align-top py-3.5">
+                                                <span className="font-mono font-bold text-xs text-slate-900 dark:text-white block">{asset.assetTagNo}</span>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => { setActiveAsset(asset); setIsQRModalOpen(true); }}
+                                                    className="h-6 px-1.5 mt-1 text-[10px] text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-50 cursor-pointer"
+                                                >
+                                                    <QrCode className="w-3 h-3 mr-1" /> View Tag
+                                                </Button>
+                                            </TableCell>
+                                            <TableCell className="align-top py-3.5">
+                                                <span className="font-bold text-xs text-slate-900 dark:text-white block">{asset.equipmentName}</span>
+                                                <span className="text-[10px] text-slate-400 block">{asset.brand ? `Brand: ${asset.brand} • ` : ""}SN: {asset.serialNo || "NONE"}</span>
+                                            </TableCell>
+                                            <TableCell className="align-top py-3.5 text-xs">
+                                                <span className="font-semibold block">{asset.currentFacility}</span>
+                                                <span className="text-[10px] text-slate-400 block">Room: {asset.assignedRoom}</span>
+                                            </TableCell>
+                                            <TableCell className="align-top py-3.5 text-xs max-w-xs">
+                                                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium italic">
+                                                    &ldquo;{asset.defectDetails || "Under technical inspection"}&rdquo;
+                                                </p>
+                                                {asset.lastRepairDate && (
+                                                    <span className="text-[10px] text-slate-400 block mt-1">
+                                                        Last action: {new Date(asset.lastRepairDate).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="align-top py-3.5">
+                                                {getStatusBadge(asset.currentStatus)}
+                                            </TableCell>
+                                            <TableCell className="align-top py-3.5 text-right space-x-1.5">
                                                 {!isReadOnly && asset.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
                                                     <Button
                                                         size="sm"
                                                         onClick={() => { setActiveAsset(asset); setIsResolveRepairModalOpen(true); }}
-                                                        className="h-7 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase"
+                                                        className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
                                                     >
-                                                        Resolve Ticket
+                                                        <Wrench className="w-3.5 h-3.5 mr-1" /> Resolve Ticket
                                                     </Button>
+                                                )}
+
+                                                {!isReadOnly && asset.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" && (
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setAssetToCondemn(asset);
+                                                            setCondemnNotes("Unrepairable equipment inspected and verified beyond economical repair.");
+                                                            setCondemnAuditor(sigAuditor || "COA Resident Auditor");
+                                                            setIsCondemnModalOpen(true);
+                                                        }}
+                                                        className="h-8 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
+                                                    >
+                                                        <XCircle className="w-3.5 h-3.5 mr-1" /> Execute COA Condemnation
+                                                    </Button>
+                                                )}
+
+                                                {asset.currentStatus === "CONDEMNED_DISPOSED" && (
+                                                    <Badge variant="outline" className="text-slate-500 font-bold text-[10px]">
+                                                        Disposed &amp; Written Off
+                                                    </Badge>
                                                 )}
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                                )}
+                                    ));
+                                })()}
                             </TableBody>
                         </Table>
                     </Card>
@@ -2438,7 +3100,7 @@ export default function EquipmentClient({
                         <p className="text-xs text-slate-400">Generate formatted PDF count sheets with official signature blocks, Excel ledgers, and clipboard checklists.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <Card className="p-6 rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] space-y-4">
                             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-black">
                                 <FileText className="w-6 h-6" />
@@ -2454,7 +3116,7 @@ export default function EquipmentClient({
                                     signatoryMHO: sigMHO,
                                     signatoryAuditor: sigAuditor
                                 })}
-                                className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider"
+                                className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export RPCPPE (PDF)
                             </Button>
@@ -2475,9 +3137,34 @@ export default function EquipmentClient({
                                     signatoryMHO: sigMHO,
                                     signatoryAuditor: sigAuditor
                                 })}
-                                className="w-full h-11 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider"
+                                className="w-full h-11 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export RPCSP (PDF)
+                            </Button>
+                        </Card>
+
+                        <Card className="p-6 rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-600 flex items-center justify-center font-black">
+                                <FileText className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-sm uppercase">IIRUP Report (PDF)</h4>
+                                <p className="text-xs text-slate-400 mt-1">Inspection &amp; Report of Unserviceable Property for COA audit condemnation and property disposal.</p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    const unserviceable = assets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED");
+                                    exportCOAPDF(unserviceable, {
+                                        reportType: "IIRUP",
+                                        signatorySupplyOfficer: sigSupplyOfficer,
+                                        signatoryMHO: sigMHO,
+                                        signatoryAuditor: sigAuditor
+                                    });
+                                    toast.success("Exporting COA IIRUP Condemnation Report PDF...");
+                                }}
+                                className="w-full h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
+                            >
+                                <Download className="w-4 h-4 mr-2" /> Export IIRUP (PDF)
                             </Button>
                         </Card>
 
@@ -2491,7 +3178,7 @@ export default function EquipmentClient({
                             </div>
                             <Button
                                 onClick={() => exportCOAExcel(assets)}
-                                className="w-full h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider"
+                                className="w-full h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export Excel (.XLSX)
                             </Button>
@@ -2535,28 +3222,198 @@ export default function EquipmentClient({
             )}
 
             {/* ========================================================================= */}
+            {/* MODAL: REGISTER EQUIPMENT SPECIFICATION (CATALOG) */}
+            {/* ========================================================================= */}
+            <Dialog open={isCatalogModalOpen} onOpenChange={(open) => {
+                setIsCatalogModalOpen(open);
+                if (!open) {
+                    setHasAttemptedCatalogSubmit(false);
+                }
+            }}>
+                <DialogContent className="sm:max-w-[560px] max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-3xl bg-white dark:bg-[#161820] p-6">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                                <Boxes className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-black italic uppercase">
+                                    Register Equipment Item
+                                </DialogTitle>
+                                <DialogDescription className="text-xs font-semibold text-slate-400">
+                                    Define an equipment specification available for procurement.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="p-3 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 text-xs text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5 mb-1">
+                            <ShoppingCart className="w-3.5 h-3.5" /> How Procurement Works:
+                        </span>
+                        Registering an item here lists it in the municipality&apos;s purchasable master catalog. Physical inventory batches, serial numbers, and COA property tags are created only when ordered and received via <b>Purchase Orders</b>.
+                    </div>
+
+                    <form onSubmit={handleSaveCatalogItem} className="space-y-4 py-1" noValidate>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Equipment Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                            </Label>
+                            <Input
+                                value={catalogForm.equipmentName}
+                                onChange={(e) => setCatalogForm({ ...catalogForm, equipmentName: e.target.value })}
+                                placeholder="e.g. Digital Sphygmomanometer, Emergency Crash Cart, ECG Machine"
+                                className={cn(
+                                    "h-11 rounded-xl text-xs font-bold transition-all",
+                                    (hasAttemptedCatalogSubmit && !catalogForm.equipmentName.trim())
+                                        ? "border-red-500 ring-1 ring-red-500/30"
+                                        : ""
+                                )}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Brand / Manufacturer</Label>
+                                <Input
+                                    value={catalogForm.brand}
+                                    onChange={(e) => setCatalogForm({ ...catalogForm, brand: e.target.value })}
+                                    placeholder="e.g. Omron, Welch Allyn, GE"
+                                    className="h-11 rounded-xl text-xs font-bold"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Model / Specifications</Label>
+                                <Input
+                                    value={catalogForm.model}
+                                    onChange={(e) => setCatalogForm({ ...catalogForm, model: e.target.value })}
+                                    placeholder="e.g. HEM-7120, 12-Lead"
+                                    className="h-11 rounded-xl text-xs font-bold"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    COA Property Classification <span className="text-red-500 font-bold ml-0.5">*</span>
+                                </Label>
+                                <Select
+                                    value={catalogForm.category}
+                                    onValueChange={(val: "SEMI_EXPENDABLE" | "PPE") => setCatalogForm({ ...catalogForm, category: val })}
+                                >
+                                    <SelectTrigger className="h-11 rounded-xl text-xs font-bold">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SEMI_EXPENDABLE">
+                                            <div className="text-xs text-left">
+                                                <span className="font-bold text-teal-600 dark:text-teal-400">Semi-Expendable (ICS)</span>
+                                                <span className="block text-[10px] text-slate-400">Items &lt; ₱50,000 threshold</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="PPE">
+                                            <div className="text-xs text-left">
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">Property, Plant &amp; Equip (PAR)</span>
+                                                <span className="block text-[10px] text-slate-400">Capital assets &ge; ₱50,000 threshold</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    Estimated Unit Cost (₱ PHP)
+                                </Label>
+                                <Input
+                                    type="number"
+                                    value={catalogForm.estimatedCost}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        const cost = Number(val) || 0;
+                                        setCatalogForm(prev => ({
+                                            ...prev,
+                                            estimatedCost: val,
+                                            category: cost >= 50000 ? "PPE" : "SEMI_EXPENDABLE"
+                                        }));
+                                    }}
+                                    placeholder="e.g. 15000"
+                                    className="h-11 rounded-xl text-xs font-bold font-mono"
+                                />
+                                <span className="text-[9px] font-semibold text-slate-400 block truncate">
+                                    Reference cost for PO budget estimation
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Description / Clinical Purpose</Label>
+                            <Textarea
+                                value={catalogForm.description}
+                                onChange={(e) => setCatalogForm({ ...catalogForm, description: e.target.value })}
+                                placeholder="e.g. Used for blood pressure monitoring in triage and immunization rooms."
+                                className="rounded-xl text-xs min-h-[70px] resize-none"
+                            />
+                        </div>
+
+                        <DialogFooter className="pt-3 gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsCatalogModalOpen(false)}
+                                className="h-10 rounded-xl text-xs font-bold"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSavingCatalogItem}
+                                className="h-10 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white"
+                            >
+                                {isSavingCatalogItem ? "Registering..." : "Add to Catalog"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
             {/* MODAL: ADD / EDIT ASSET */}
             {/* ========================================================================= */}
-            <Dialog open={isAssetModalOpen} onOpenChange={setIsAssetModalOpen}>
+            <Dialog open={isAssetModalOpen} onOpenChange={(open) => {
+                setIsAssetModalOpen(open);
+                if (!open) {
+                    setHasAttemptedSubmit(false);
+                    setTouchedFields({});
+                }
+            }}>
                 <DialogContent className="sm:max-w-[560px] max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-3xl bg-white dark:bg-[#161820] p-6">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black italic uppercase">
-                            {editingAsset ? "Edit Medical Asset" : "Register Medical Equipment"}
+                            {editingAsset ? "Edit Medical Asset" : "Register Physical Legacy Asset / Donation"}
                         </DialogTitle>
                         <DialogDescription className="text-xs font-bold uppercase text-slate-400">
-                            Physical equipment location, room assignment, custodian, and property classification.
+                            Physical equipment location, room assignment, custodian, and property classification for existing clinic assets.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleSaveAsset} className="space-y-4 py-2">
+                    <form onSubmit={handleSaveAsset} className="space-y-4 py-2" noValidate>
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">Equipment Name *</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Equipment Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                            </Label>
                             <Input
                                 value={assetForm.equipmentName}
                                 onChange={(e) => setAssetForm({ ...assetForm, equipmentName: e.target.value })}
+                                onBlur={() => setTouchedFields(prev => ({ ...prev, equipmentName: true }))}
                                 placeholder="e.g. Automated External Defibrillator (AED), BP Apparatus"
-                                className="h-11 rounded-xl text-xs font-bold"
-                                required
+                                className={cn(
+                                    "h-11 rounded-xl text-xs font-bold transition-all",
+                                    ((hasAttemptedSubmit || touchedFields.equipmentName) && !assetForm.equipmentName.trim())
+                                        ? "border-red-500 dark:border-red-500 focus-visible:ring-red-500/30 ring-1 ring-red-500/30"
+                                        : ""
+                                )}
                             />
                         </div>
 
@@ -2581,30 +3438,62 @@ export default function EquipmentClient({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Unit Cost (₱ PHP) *</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    Unit Cost (₱ PHP) <span className="text-red-500 font-bold ml-0.5">*</span>
+                                </Label>
                                 <Input
                                     type="number"
                                     value={assetForm.unitCost}
                                     onChange={(e) => setAssetForm({ ...assetForm, unitCost: e.target.value })}
+                                    onBlur={() => setTouchedFields(prev => ({ ...prev, unitCost: true }))}
                                     placeholder="e.g. 65000"
-                                    className="h-11 rounded-xl text-xs font-bold font-mono"
-                                    required
+                                    className={cn(
+                                        "h-11 rounded-xl text-xs font-bold font-mono transition-all",
+                                        ((hasAttemptedSubmit || touchedFields.unitCost) && !assetForm.unitCost.trim())
+                                            ? "border-red-500 dark:border-red-500 focus-visible:ring-red-500/30 ring-1 ring-red-500/30"
+                                            : ""
+                                    )}
                                 />
-                                <span className="text-[9px] font-semibold text-slate-400">
-                                    {Number(assetForm.unitCost || 0) > 50000 ? "→ Auto-classified as PPE (PAR Form)" : "→ Auto-classified as Semi-Expendable (ICS Form)"}
+                                <span className="text-[9px] font-semibold text-slate-400 block truncate">
+                                    {Number(assetForm.unitCost || 0) > 50000 ? "→ PPE (PAR Form)" : "→ Semi-Expendable (ICS)"}
                                 </span>
                             </div>
 
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Acquisition Source</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Quantity (Optional)</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    value={assetForm.quantity}
+                                    onChange={(e) => setAssetForm({ ...assetForm, quantity: e.target.value })}
+                                    placeholder="e.g. 1"
+                                    className="h-11 rounded-xl text-xs font-bold font-mono"
+                                />
+                                <span className="text-[9px] font-semibold text-slate-400 block truncate">
+                                    No default (optional)
+                                </span>
+                            </div>
+
+                            <div className="space-y-1.5 min-w-0">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    Acquisition Source <span className="text-red-500 font-bold ml-0.5">*</span>
+                                </Label>
                                 <Select
                                     value={assetForm.acquisitionSource}
-                                    onValueChange={(val) => setAssetForm({ ...assetForm, acquisitionSource: val })}
+                                    onValueChange={(val) => {
+                                        setTouchedFields(prev => ({ ...prev, acquisitionSource: true }));
+                                        setAssetForm({ ...assetForm, acquisitionSource: val });
+                                    }}
                                 >
-                                    <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold [&>span]:truncate">
-                                        <SelectValue />
+                                    <SelectTrigger className={cn(
+                                        "h-11 w-full min-w-0 rounded-xl text-xs font-bold [&>span]:truncate transition-all",
+                                        ((hasAttemptedSubmit || touchedFields.acquisitionSource) && !assetForm.acquisitionSource.trim())
+                                            ? "border-red-500 dark:border-red-500 ring-1 ring-red-500/30"
+                                            : ""
+                                    )}>
+                                        <SelectValue placeholder="Select Acquisition Source..." />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
                                         <SelectItem value="STOCKROOM_ISSUANCE" className="text-xs font-bold">RHU Central Stockroom Issuance</SelectItem>
@@ -2617,7 +3506,9 @@ export default function EquipmentClient({
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Health Facility Location</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    Health Facility Location <span className="text-red-500 font-bold ml-0.5">*</span>
+                                </Label>
                                 {matchedCenter ? (
                                     <div className="h-11 px-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between text-slate-700 dark:text-slate-300 min-w-0">
                                         <div className="flex items-center gap-1.5 truncate min-w-0">
@@ -2630,14 +3521,19 @@ export default function EquipmentClient({
                                     <Select
                                         value={assetForm.currentFacility}
                                         onValueChange={(val) => {
-                                            const rooms = getRoomsForFacility(val);
+                                            setTouchedFields(prev => ({ ...prev, currentFacility: true }));
                                             setIsCustomRoom(false);
                                             setCustomRoomName("");
-                                            setAssetForm({ ...assetForm, currentFacility: val, assignedRoom: rooms[0] || "Consultation Room" });
+                                            setAssetForm({ ...assetForm, currentFacility: val, assignedRoom: "" });
                                         }}
                                     >
-                                        <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate">
-                                            <SelectValue />
+                                        <SelectTrigger className={cn(
+                                            "h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate transition-all",
+                                            ((hasAttemptedSubmit || touchedFields.currentFacility) && !assetForm.currentFacility.trim())
+                                                ? "border-red-500 dark:border-red-500 ring-1 ring-red-500/30"
+                                                : ""
+                                        )}>
+                                            <SelectValue placeholder="Select Health Facility..." />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl bg-white dark:bg-[#161820] max-h-56">
                                             {facilityNames.map((f: string) => (
@@ -2649,10 +3545,14 @@ export default function EquipmentClient({
                             </div>
 
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Specific Room Placement</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">
+                                    Specific Room Placement <span className="text-red-500 font-bold ml-0.5">*</span>
+                                </Label>
                                 <Select
+                                    disabled={!assetForm.currentFacility}
                                     value={isCustomRoom ? "OTHER" : assetForm.assignedRoom}
                                     onValueChange={(val) => {
+                                        setTouchedFields(prev => ({ ...prev, assignedRoom: true }));
                                         if (val === "OTHER") {
                                             setIsCustomRoom(true);
                                             setAssetForm({ ...assetForm, assignedRoom: customRoomName.trim() || "" });
@@ -2663,11 +3563,16 @@ export default function EquipmentClient({
                                         }
                                     }}
                                 >
-                                    <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate">
-                                        <SelectValue placeholder="Select specific room..." />
+                                    <SelectTrigger className={cn(
+                                        "h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate transition-all",
+                                        ((hasAttemptedSubmit || touchedFields.assignedRoom) && !(isCustomRoom ? customRoomName.trim() : assetForm.assignedRoom.trim()))
+                                            ? "border-red-500 dark:border-red-500 ring-1 ring-red-500/30"
+                                            : ""
+                                    )}>
+                                        <SelectValue placeholder={assetForm.currentFacility ? "Select specific room..." : "Select facility first..."} />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                        {getRoomsForFacility(assetForm.currentFacility).map(r => (
+                                        {assetForm.currentFacility && getRoomsForFacility(assetForm.currentFacility).map(r => (
                                             <SelectItem key={r} value={r} className="text-xs font-bold">{r}</SelectItem>
                                         ))}
                                         <SelectItem value="OTHER" className="text-xs font-bold text-sky-600 dark:text-sky-400">
@@ -2684,9 +3589,14 @@ export default function EquipmentClient({
                                                 setCustomRoomName(e.target.value);
                                                 setAssetForm({ ...assetForm, assignedRoom: e.target.value });
                                             }}
+                                            onBlur={() => setTouchedFields(prev => ({ ...prev, assignedRoom: true }))}
                                             placeholder="Enter custom room / area name (e.g. Isolation Ward, Ambulance Bay)..."
-                                            className="h-11 rounded-xl text-xs font-bold border-sky-400/50 focus:border-sky-500 bg-sky-50/50 dark:bg-sky-950/20"
-                                            required
+                                            className={cn(
+                                                "h-11 rounded-xl text-xs font-bold transition-all",
+                                                ((hasAttemptedSubmit || touchedFields.assignedRoom) && !customRoomName.trim())
+                                                    ? "border-red-500 dark:border-red-500 ring-1 ring-red-500/30 bg-red-50/20 dark:bg-red-950/20"
+                                                    : "border-sky-400/50 focus:border-sky-500 bg-sky-50/50 dark:bg-sky-950/20"
+                                            )}
                                             autoFocus
                                         />
                                     </div>
@@ -2790,6 +3700,27 @@ export default function EquipmentClient({
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Mode of Procurement</Label>
+                                <Input
+                                    value={poModeOfProcurement}
+                                    onChange={(e) => setPoModeOfProcurement(e.target.value)}
+                                    placeholder="e.g. Small Value Procurement (Sec. 53.9)"
+                                    className="h-10 rounded-xl text-xs font-bold"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Delivery Term</Label>
+                                <Input
+                                    value={poDeliveryTerm}
+                                    onChange={(e) => setPoDeliveryTerm(e.target.value)}
+                                    placeholder="e.g. Within 15 - 30 Calendar Days"
+                                    className="h-10 rounded-xl text-xs font-bold"
+                                />
+                            </div>
+                        </div>
+
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <div>
@@ -2843,23 +3774,34 @@ export default function EquipmentClient({
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                                                <div className="sm:col-span-4 space-y-1">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400">Equipment Name *</Label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                                                <div className="sm:col-span-4 space-y-1.5">
+                                                    <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                        Equipment Name <span className="text-red-500">*</span>
+                                                    </Label>
                                                     <Input
+                                                        list="po-master-ledger-equipment-list"
                                                         value={item.equipmentName}
                                                         onChange={(e) => {
+                                                            const val = e.target.value;
                                                             const copy = [...poItems];
-                                                            copy[idx].equipmentName = e.target.value;
+                                                            copy[idx].equipmentName = val;
+                                                            const matched = ledgerEquipmentList.find(x => x.equipmentName.toLowerCase() === val.toLowerCase().trim());
+                                                            if (matched) {
+                                                                copy[idx].brand = matched.brand || copy[idx].brand;
+                                                                copy[idx].unitCost = matched.unitCost || copy[idx].unitCost;
+                                                            }
                                                             setPoItems(copy);
                                                         }}
-                                                        placeholder="e.g. Nebulizer Machine"
+                                                        placeholder="e.g. Nebulizer Machine..."
                                                         className="h-10 text-xs font-bold rounded-xl"
                                                         required
                                                     />
                                                 </div>
-                                                <div className="sm:col-span-3 space-y-1">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400">Brand / Model</Label>
+                                                <div className="sm:col-span-3 space-y-1.5">
+                                                    <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                        Brand / Model
+                                                    </Label>
                                                     <Input
                                                         value={item.brand}
                                                         onChange={(e) => {
@@ -2871,8 +3813,10 @@ export default function EquipmentClient({
                                                         className="h-10 text-xs rounded-xl"
                                                     />
                                                 </div>
-                                                <div className="sm:col-span-2 space-y-1">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400">Quantity</Label>
+                                                <div className="sm:col-span-2 space-y-1.5">
+                                                    <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                        Quantity <span className="text-red-500">*</span>
+                                                    </Label>
                                                     <div className="relative">
                                                         <Input
                                                             type="number"
@@ -2892,8 +3836,10 @@ export default function EquipmentClient({
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <div className="sm:col-span-3 space-y-1">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400">Unit Cost (PHP)</Label>
+                                                <div className="sm:col-span-3 space-y-1.5">
+                                                    <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                        Unit Cost (PHP) <span className="text-red-500">*</span>
+                                                    </Label>
                                                     <div className="relative">
                                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
                                                             ₱
@@ -2917,6 +3863,20 @@ export default function EquipmentClient({
                                         </div>
                                     );
                                 })}
+
+                                {ledgerEquipmentList.length > 0 && (
+                                    <datalist id="po-master-ledger-equipment-list">
+                                        {ledgerEquipmentList.map((eq) => (
+                                            <option
+                                                key={eq.equipmentName}
+                                                value={eq.equipmentName}
+                                                label={`${eq.brand ? eq.brand + " • " : ""}₱${eq.unitCost.toLocaleString()} (${eq.totalStock} in stock)`}
+                                            >
+                                                {eq.brand ? `${eq.brand} • ` : ""}₱{eq.unitCost.toLocaleString()} ({eq.totalStock} pcs in stock)
+                                            </option>
+                                        ))}
+                                    </datalist>
+                                )}
                             </div>
 
                             {/* Live PO Total Summary */}
@@ -3302,15 +4262,31 @@ export default function EquipmentClient({
                                 </div>
 
                                 <DialogFooter className="pt-2 border-t flex justify-between sm:justify-between items-center">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => window.print()}
-                                        className="h-9 px-3 rounded-xl font-bold text-xs"
-                                    >
-                                        <Printer className="w-3.5 h-3.5 mr-1.5" /> Print Summary
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                if (viewingPO) {
+                                                    exportPOPDF(viewingPO);
+                                                    toast.success(`Exporting Purchase Order ${viewingPO.poNumber} PDF...`);
+                                                }
+                                            }}
+                                            className="h-9 px-3 rounded-xl font-bold text-xs text-sky-600 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/10 cursor-pointer"
+                                        >
+                                            <Download className="w-3.5 h-3.5 mr-1.5 text-sky-500" /> Export Official PO PDF
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.print()}
+                                            className="h-9 px-3 rounded-xl font-bold text-xs"
+                                        >
+                                            <Printer className="w-3.5 h-3.5 mr-1.5" /> Print Summary
+                                        </Button>
+                                    </div>
                                     <Button
                                         type="button"
                                         onClick={() => setIsViewPOModalOpen(false)}
@@ -4012,23 +4988,33 @@ export default function EquipmentClient({
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                                            <div className="sm:col-span-6 space-y-1">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400">Equipment / Supply Description *</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                                            <div className="sm:col-span-6 space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                    Equipment / Supply Description <span className="text-red-500">*</span>
+                                                </Label>
                                                 <Input
+                                                    list="ro-equipment-catalog-list"
                                                     value={item.equipmentName}
                                                     onChange={(e) => {
+                                                        const val = e.target.value;
                                                         const copy = [...roItems];
-                                                        copy[idx].equipmentName = e.target.value;
+                                                        copy[idx].equipmentName = val;
+                                                        const matched = ledgerEquipmentList.find(x => x.equipmentName.toLowerCase() === val.toLowerCase().trim());
+                                                        if (matched && matched.unitCost) {
+                                                            copy[idx].estimatedUnitCost = matched.unitCost;
+                                                        }
                                                         setRoItems(copy);
                                                     }}
-                                                    placeholder="e.g. Suction Machine, Digital BP"
+                                                    placeholder="e.g. Suction Machine, Digital BP..."
                                                     className="h-10 text-xs font-bold rounded-xl"
                                                     required
                                                 />
                                             </div>
-                                            <div className="sm:col-span-3 space-y-1">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400">Quantity</Label>
+                                            <div className="sm:col-span-3 space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                    Quantity <span className="text-red-500">*</span>
+                                                </Label>
                                                 <div className="relative">
                                                     <Input
                                                         type="number"
@@ -4048,8 +5034,10 @@ export default function EquipmentClient({
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="sm:col-span-3 space-y-1">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400">Priority Level</Label>
+                                            <div className="sm:col-span-3 space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
+                                                    Priority Level
+                                                </Label>
                                                 <Select
                                                     value={item.urgency || "NORMAL"}
                                                     onValueChange={(val) => {
@@ -4071,6 +5059,20 @@ export default function EquipmentClient({
                                         </div>
                                     </div>
                                 ))}
+
+                                {ledgerEquipmentList.length > 0 && (
+                                    <datalist id="ro-equipment-catalog-list">
+                                        {ledgerEquipmentList.map((eq) => (
+                                            <option
+                                                key={eq.equipmentName}
+                                                value={eq.equipmentName}
+                                                label={`${eq.brand ? eq.brand + " • " : ""}${eq.totalStock > 0 ? `${eq.totalStock} in RHU stock` : "In Catalog"}${eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}`}
+                                            >
+                                                {eq.brand ? `${eq.brand} • ` : ""}{eq.totalStock > 0 ? `${eq.totalStock} in RHU stock` : "In Catalog"}{eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}
+                                            </option>
+                                        ))}
+                                    </datalist>
+                                )}
                             </div>
                         </div>
 
@@ -4239,6 +5241,182 @@ export default function EquipmentClient({
                 </DialogContent>
             </Dialog>
 
+
+
+            {/* ========================================================================= */}
+            {/* MODAL: DIRECT DEFECT & REPAIR REQUEST */}
+            {/* ========================================================================= */}
+            <Dialog open={isDirectDefectModalOpen} onOpenChange={setIsDirectDefectModalOpen}>
+                <DialogContent className="sm:max-w-xl w-full max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black italic uppercase flex items-center gap-2">
+                            <Wrench className="w-5 h-5 text-amber-500 shrink-0" />
+                            File Defect &amp; Repair Request
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-bold uppercase text-slate-400">
+                            Flag malfunctioning medical apparatus, recalibration needs, or equipment physical damage.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateDirectDefect} className="space-y-4 py-2 w-full min-w-0 max-w-full">
+                        {/* Reporting Facility Scope */}
+                        <div className="space-y-1.5 w-full min-w-0">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Reporting Facility / Clinic</Label>
+                            {matchedCenter ? (
+                                <div className="h-11 px-3.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between text-slate-700 dark:text-slate-200">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Building2 className="w-4 h-4 text-sky-500 shrink-0" />
+                                        <span className="truncate font-black">{matchedCenter.name}</span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[9px] uppercase font-black tracking-wider shrink-0 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                                        My Center
+                                    </Badge>
+                                </div>
+                            ) : (
+                                <div className="h-11 px-3.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between text-slate-700 dark:text-slate-200">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                                        <span className="truncate font-black">All Facilities (RHU Central Admin)</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5 w-full min-w-0 max-w-full">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Select Equipment to Flag *</Label>
+                                {matchedCenter && (
+                                    <span className="text-[10px] font-semibold text-slate-400">
+                                        {defectEligibleAssets.length} {defectEligibleAssets.length === 1 ? "asset" : "assets"} in {matchedCenter.name}
+                                    </span>
+                                )}
+                            </div>
+                            <Select
+                                value={defectFormAssetId}
+                                onValueChange={(val) => setDefectFormAssetId(val)}
+                            >
+                                <SelectTrigger className="h-11 w-full min-w-0 max-w-full rounded-xl text-xs font-bold overflow-hidden justify-between [&_[data-slot=select-value]]:!block [&_[data-slot=select-value]]:!truncate [&_[data-slot=select-value]]:!text-left [&_[data-slot=select-value]]:!overflow-hidden [&_[data-slot=select-value]]:!min-w-0 [&_[data-slot=select-value]]:!flex-1">
+                                    <SelectValue placeholder={
+                                        defectEligibleAssets.length > 0 
+                                            ? "Choose equipment to flag..." 
+                                            : `No operational equipment in ${matchedCenter ? matchedCenter.name : "facility"}`
+                                    } />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl bg-white dark:bg-[#161820] max-h-60 max-w-[calc(100vw-3rem)] sm:max-w-[490px]">
+                                    {defectEligibleAssets.length > 0 ? (
+                                        defectEligibleAssets.map(asset => (
+                                            <SelectItem key={asset.id} value={asset.id} className="text-xs font-bold truncate">
+                                                {asset.assetTagNo} — {asset.equipmentName} {asset.assignedRoom ? `(${asset.assignedRoom})` : (!matchedCenter ? `(${asset.currentFacility})` : "")}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-center text-xs text-slate-400 font-semibold">
+                                            No operational equipment found in {matchedCenter ? matchedCenter.name : "facility"}.
+                                        </div>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1.5 w-full min-w-0">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Malfunction / Defect Description *</Label>
+                            <Textarea
+                                value={defectFormDetails}
+                                onChange={(e) => setDefectFormDetails(e.target.value)}
+                                placeholder="e.g. Inaccurate digital reading, battery not holding charge, pump pressure failure, torn pneumatic tubing..."
+                                className="h-24 text-xs rounded-xl resize-none w-full min-w-0"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1.5 w-full min-w-0">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Reported By (Nurse / Midwife Name)</Label>
+                            <Input
+                                value={defectFormReportedBy}
+                                onChange={(e) => setDefectFormReportedBy(e.target.value)}
+                                placeholder="e.g. Nurse Sarah Cruz, RN"
+                                className="h-11 rounded-xl text-xs font-bold w-full min-w-0"
+                            />
+                        </div>
+
+                        <DialogFooter className="pt-3 flex flex-row items-center justify-end gap-2.5 shrink-0 border-t border-slate-100 dark:border-white/5 mt-4 w-full min-w-0">
+                            <Button type="button" variant="outline" onClick={() => setIsDirectDefectModalOpen(false)} className="rounded-xl font-bold text-xs h-10 px-4 shrink-0">Cancel</Button>
+                            <Button type="submit" disabled={isPending || !defectFormAssetId || defectEligibleAssets.length === 0} className="h-10 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase cursor-pointer shrink-0 shadow-sm">
+                                {isPending ? "Filing..." : "Submit Repair Ticket"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL: EXECUTE COA CONDEMNATION & DISPOSAL (IIRUP) */}
+            {/* ========================================================================= */}
+            <Dialog open={isCondemnModalOpen} onOpenChange={setIsCondemnModalOpen}>
+                <DialogContent className="sm:max-w-xl w-full max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black italic uppercase flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-600 shrink-0" />
+                            Official COA Condemnation (IIRUP)
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-bold uppercase text-slate-400">
+                            Officially condemn and write off unserviceable equipment from the municipal ledger.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {assetToCondemn && (
+                        <form onSubmit={handleConfirmCondemnation} className="space-y-4 py-2 w-full min-w-0 max-w-full">
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5 text-xs w-full min-w-0">
+                                <div className="flex justify-between font-bold">
+                                    <span className="text-slate-400 font-normal">Asset Tag:</span>
+                                    <span className="font-mono text-red-600">{assetToCondemn.assetTagNo}</span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                    <span className="text-slate-400 font-normal">Equipment:</span>
+                                    <span className="truncate max-w-[260px] text-right">{assetToCondemn.equipmentName}</span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                    <span className="text-slate-400 font-normal">Location:</span>
+                                    <span className="truncate max-w-[260px] text-right">{assetToCondemn.currentFacility} ({assetToCondemn.assignedRoom})</span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                    <span className="text-slate-400 font-normal">Recorded Cost:</span>
+                                    <span>₱{(assetToCondemn.unitCost || 0).toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 w-full min-w-0">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">COA Resident Auditor / Inspector Name</Label>
+                                <Input
+                                    value={condemnAuditor}
+                                    onChange={(e) => setCondemnAuditor(e.target.value)}
+                                    placeholder="e.g. COA Resident Auditor"
+                                    className="h-11 rounded-xl text-xs font-bold w-full min-w-0"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5 w-full min-w-0">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Inspection Findings &amp; Condemnation Notes *</Label>
+                                <Textarea
+                                    value={condemnNotes}
+                                    onChange={(e) => setCondemnNotes(e.target.value)}
+                                    placeholder="Verified irreparable. Destroyed / scavenged for parts pursuant to COA IIRUP rules..."
+                                    className="h-20 text-xs rounded-xl resize-none w-full min-w-0"
+                                    required
+                                />
+                            </div>
+
+                            <DialogFooter className="pt-3 flex flex-row items-center justify-end gap-2.5 shrink-0 border-t border-slate-100 dark:border-white/5 mt-4 w-full min-w-0">
+                                <Button type="button" variant="outline" onClick={() => setIsCondemnModalOpen(false)} className="rounded-xl font-bold text-xs h-10 px-4 shrink-0">Cancel</Button>
+                                <Button type="submit" disabled={isPending} className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase cursor-pointer shrink-0 shadow-sm">
+                                    {isPending ? "Processing..." : "Confirm & Write-Off Asset"}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             {/* ========================================================================= */}
             {/* MODAL: PURCHASE ORDER INTAKE HISTORY AUDIT DIALOG */}
             {/* ========================================================================= */}
@@ -4277,68 +5455,123 @@ export default function EquipmentClient({
                                 </div>
                             </div>
 
-                            {/* Batches Detailed List */}
+                            {/* Batches Detailed List or Catalog Unstocked Notice */}
                             <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
-                                {poHistoryGroup.batches.map((batch: any, idx: number) => {
-                                    const bAvail = Number(batch.availableQty ?? batch.quantity) || 1;
-                                    const bCost = Number(batch.unitCost) || 0;
-                                    const bTotal = bAvail * bCost;
+                                {poHistoryGroup.batches.length === 0 ? (
+                                    <div className="p-8 text-center space-y-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10">
+                                        <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto">
+                                            <ShoppingCart className="w-6 h-6" />
+                                        </div>
+                                        <div className="max-w-md mx-auto">
+                                            <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                                                Catalog Item — Not Yet Procured
+                                            </h4>
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                Registered in catalog. Create a Purchase Order to intake physical stock and batches.
+                                            </p>
+                                        </div>
+                                        {!isReadOnly && !matchedCenter && (
+                                            <Button
+                                                onClick={() => {
+                                                    setIsPOHistoryModalOpen(false);
+                                                    handleQuickCreatePO(poHistoryGroup.equipmentName, poHistoryGroup.brandSummary, poHistoryGroup.minUnitCost);
+                                                }}
+                                                className="text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-xs cursor-pointer"
+                                            >
+                                                <Plus className="w-3.5 h-3.5 mr-1.5" /> Create Purchase Order
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    poHistoryGroup.batches.map((batch: any, idx: number) => {
+                                        const bAvail = batch.availableQty != null ? Number(batch.availableQty) : (batch.quantity != null ? Number(batch.quantity) : 0);
+                                        const bCost = Number(batch.unitCost) || 0;
+                                        const bTotal = bAvail * bCost;
+                                        const hasRealPO = Boolean(batch.poReferenceNo);
 
-                                    return (
-                                        <div key={batch.id} className="p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Badge className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 font-mono font-bold text-xs">
-                                                        {batch.poReferenceNo || `Intake Batch #${poHistoryGroup.batches.length - idx}`}
-                                                    </Badge>
-                                                    <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-                                                        {batch.assetTagNo}
+                                        return (
+                                            <div key={batch.id} className="p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        {hasRealPO ? (
+                                                            <Badge className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 font-mono font-bold text-xs">
+                                                                <ShoppingCart className="w-3 h-3 mr-1 inline" />
+                                                                {batch.poReferenceNo} (PO Batch #{poHistoryGroup.batches.length - idx})
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="font-semibold text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-white/10">
+                                                                <Building2 className="w-3 h-3 mr-1 inline text-slate-400" />
+                                                                Pre-existing Inventory / Direct Donation
+                                                            </Badge>
+                                                        )}
+                                                        <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                            {batch.assetTagNo}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-xs font-mono text-slate-400">
+                                                        {batch.createdAt ? new Date(batch.createdAt).toLocaleDateString() : ""}
                                                     </span>
                                                 </div>
-                                                <span className="text-xs font-mono text-slate-400">
-                                                    {batch.createdAt ? new Date(batch.createdAt).toLocaleDateString() : ""}
-                                                </span>
-                                            </div>
 
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-slate-200/60 dark:border-white/5">
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Quantity</span>
-                                                    <span className="font-mono font-bold text-emerald-600">{bAvail} pcs</span>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-slate-200/60 dark:border-white/5">
+                                                    <div>
+                                                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Quantity</span>
+                                                        <span className="font-mono font-bold text-emerald-600">{bAvail} pcs</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Unit Cost</span>
+                                                        <span className="font-mono font-semibold">₱{bCost.toLocaleString()}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Batch Total</span>
+                                                        <span className="font-mono font-bold">₱{bTotal.toLocaleString()}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Document Ref</span>
+                                                        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">{batch.documentReference || "—"}</span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Unit Cost</span>
-                                                    <span className="font-mono font-semibold">₱{bCost.toLocaleString()}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Batch Total</span>
-                                                    <span className="font-mono font-bold">₱{bTotal.toLocaleString()}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Document Ref</span>
-                                                    <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">{batch.documentReference || "—"}</span>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                                                <span>Brand: <b>{batch.brand || "N/A"}</b> • Serial: <span className="font-mono">{batch.serialNo || "NONE"}</span></span>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => {
-                                                            setIsPOHistoryModalOpen(false);
-                                                            setActiveAsset(batch);
-                                                            setIsQRModalOpen(true);
-                                                        }}
-                                                        className="h-6 text-[10px] font-bold text-sky-600 px-2 cursor-pointer"
-                                                    >
-                                                        <QrCode className="w-3 h-3 mr-1" /> View Tag &amp; QR
-                                                    </Button>
+                                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1.5 border-t border-slate-200/60 dark:border-white/5 bg-slate-100/60 dark:bg-white/[0.02] p-2 rounded-xl">
+                                                    <div className="flex flex-wrap items-center gap-3">
+                                                        <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                                                            <Building2 className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                                            <span>{batch.currentFacility || "Central Stockroom"}</span>
+                                                            <span className="text-slate-400 font-normal">({batch.assignedRoom || "General Area"})</span>
+                                                        </div>
+                                                        {batch.accountablePerson && (
+                                                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                                                                <User className="w-3 h-3 text-slate-400 shrink-0" />
+                                                                <span>{batch.accountablePerson}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        {getStatusBadge(batch.currentStatus)}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                                                    <span>Brand: <b>{batch.brand || "N/A"}</b> • Serial: <span className="font-mono">{batch.serialNo || "NONE"}</span></span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => {
+                                                                setIsPOHistoryModalOpen(false);
+                                                                setActiveAsset(batch);
+                                                                setIsQRModalOpen(true);
+                                                            }}
+                                                            className="h-6 text-[10px] font-bold text-sky-600 px-2 cursor-pointer"
+                                                        >
+                                                            <QrCode className="w-3 h-3 mr-1" /> View Tag &amp; QR
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })
+                                )}
                             </div>
 
                             <DialogFooter className="pt-2 border-t">
