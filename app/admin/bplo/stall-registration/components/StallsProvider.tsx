@@ -13,6 +13,8 @@ export interface StallItem {
     monthlyRate: number;
     dailyRateOverdueFee: number;
     monthlyRateOverdueFee: number;
+    latitude?: number | null;
+    longitude?: number | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     stallType: {

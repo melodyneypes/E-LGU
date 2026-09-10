@@ -239,9 +239,11 @@ export function EmergencyReport({
                 {/* Emergency Hotlines Section */}
                 <div className="space-y-6 md:space-y-8">
                     <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
-                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Emergency Hotlines</h2>
+                        <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-6 px-6 md:mx-0 md:px-0 md:pt-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-3 md:mb-2">
+                            <div className="flex items-center gap-3">
+                                <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
+                                <h2 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">Emergency Hotlines</h2>
+                            </div>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-lg text-xs md:text-base">
                             In case of emergency, please contact the appropriate department immediately. 
@@ -367,10 +369,30 @@ export function EmergencyReport({
             {/* AMBULANCE FLEET & DISPATCH STATUS SECTION (BELOW REPORTS) */}
             {/* ======================================================== */}
             <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-slate-200 dark:border-white/10 relative z-10 scroll-mt-28">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-xl dark:shadow-2xl relative overflow-hidden">
-                    {/* Section Header */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-slate-200 dark:border-white/10 relative z-10">
-                        <div className="space-y-3">
+                {/* Sticky Header Title on Mobile (Hoisted to container level so it sticks for the ENTIRE ambulance section) */}
+                <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-6 px-6 md:mx-0 md:px-0 md:pt-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none space-y-1.5 text-left mb-4 md:mb-0">
+                    <div 
+                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] md:text-[10px] font-black uppercase tracking-widest"
+                        style={{
+                            backgroundColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}1a` : `color-mix(in srgb, ${resolvedTheme} 10%, transparent)`,
+                            borderColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}33` : `color-mix(in srgb, ${resolvedTheme} 20%, transparent)`,
+                            color: resolvedTheme
+                        }}
+                    >
+                        <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                            Ambulance Fleet & Dispatch
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="bg-transparent md:bg-white md:dark:bg-slate-900 border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-[2.5rem] p-0 md:p-8 lg:p-12 shadow-none md:shadow-xl md:dark:shadow-2xl relative overflow-visible md:overflow-hidden">
+                    {/* Section Header Controls & Subtitle */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-6 md:mb-10 pb-5 md:pb-6 border-b border-slate-200/80 dark:border-white/10 relative z-10">
+                        {/* Hidden on mobile, visible on desktop inside the card */}
+                        <div className="hidden md:block space-y-3">
                             <div 
                                 className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest"
                                 style={{
@@ -382,7 +404,7 @@ export function EmergencyReport({
                                 <Truck className="w-3.5 h-3.5" /> Municipal Emergency Fleet Status
                             </div>
                             <div className="flex items-center gap-3">
-                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
                                     Ambulance Fleet & Dispatch
                                 </h3>
                             </div>
@@ -391,15 +413,20 @@ export function EmergencyReport({
                             </p>
                         </div>
 
+                        {/* Mobile description text */}
+                        <p className="block md:hidden text-xs font-medium italic text-slate-500 dark:text-slate-400 max-w-xl">
+                            Real-time readiness monitoring for Mapandan Rural Health Unit ambulances and rapid emergency response teams.
+                        </p>
+
                         {/* Summary Badges & Link */}
-                        <div className="flex flex-wrap items-center gap-3 shrink-0">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
+                            <span className="inline-flex items-center gap-1.5 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                 {activeCount} Active
                             </span>
                             <Link
                                 href="/user/services/rural-health-unit"
-                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white border px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-black/10 hover:opacity-90"
+                                className="inline-flex items-center gap-1.5 text-[9.5px] sm:text-[10px] font-black uppercase tracking-widest text-white border px-3.5 sm:px-4 py-1.5 rounded-xl transition-all active:scale-95 shadow-md shadow-black/10 hover:opacity-90"
                                 style={{
                                     backgroundColor: resolvedTheme,
                                     borderColor: resolvedTheme.startsWith("#") ? `${resolvedTheme}33` : `color-mix(in srgb, ${resolvedTheme} 20%, transparent)`

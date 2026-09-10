@@ -119,25 +119,53 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
     const showViewAll = totalItems > paginatedDocs.length;
 
     return (
-        <section id="ordinances" className="py-10 md:py-12 px-6 bg-slate-50 dark:bg-[#070b16] text-slate-900 dark:text-white relative overflow-hidden">
-            {/* Ambient background glows */}
-            <div 
-                className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl -z-10 pointer-events-none opacity-5"
-                style={{ backgroundColor: activeTheme }}
-            />
-            <div 
-                className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-3xl -z-10 pointer-events-none opacity-5"
-                style={{ backgroundColor: activeTheme }}
-            />
+        <section id="ordinances" className="py-10 md:py-12 px-4 sm:px-6 bg-slate-50 dark:bg-[#070b16] text-slate-900 dark:text-white relative">
+            {/* Ambient background glows isolated in overflow-hidden container */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+                <div 
+                    className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl opacity-5"
+                    style={{ backgroundColor: activeTheme }}
+                />
+                <div 
+                    className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-3xl opacity-5"
+                    style={{ backgroundColor: activeTheme }}
+                />
+            </div>
 
             <div className="max-w-7xl mx-auto">
-                {/* Main Container Card */}
-                <div className="bg-white dark:bg-[#0b101f] rounded-[2.5rem] border border-slate-200 dark:border-slate-800/80 shadow-xl dark:shadow-2xl p-6 md:p-8 space-y-4 relative">
-                    {/* Header Layout */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center border-b border-slate-200 dark:border-slate-800/80 pb-4">
-                        {/* Title and Gavel Illustration */}
-                        <div className="lg:col-span-7 flex flex-col items-start gap-3">
-                            {/* Title text */}
+                {/* Sticky Section Header on Mobile (Only Title and Badge stick, subtitle scrolls naturally) */}
+                <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 md:pt-0 bg-slate-50/95 dark:bg-[#070b16]/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-3 md:mb-0">
+                    <div className="flex flex-col items-start gap-1.5 text-left">
+                        <div 
+                            className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full border shadow-sm"
+                            style={{
+                                backgroundColor: `${activeTheme}15`,
+                                borderColor: `${activeTheme}30`,
+                                color: activeTheme
+                            }}
+                        >
+                            <Scale className="w-3 h-3" style={{ color: activeTheme }} />
+                            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: activeTheme }}>
+                                LGU MAPANDAN
+                            </span>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">
+                            Ordinance &<br className="hidden md:inline" /> Resolution Portal
+                        </h2>
+                    </div>
+                </div>
+
+                {/* Subtitle description on mobile (scrolls normally with content, doesn't eat screen space) */}
+                <p className="block md:hidden text-[11px] text-slate-500 dark:text-slate-400 font-medium italic mb-4 px-1 leading-relaxed">
+                    Transparent and instant access to approved local ordinances, resolutions, and legislative decisions.
+                </p>
+
+                {/* Main Container: On mobile it is uncarded/clean, on desktop it retains the enclosed card design */}
+                <div className="bg-transparent md:bg-white md:dark:bg-[#0b101f] rounded-none md:rounded-[2.5rem] border-0 md:border md:border-slate-200 md:dark:border-slate-800/80 shadow-none md:shadow-xl md:dark:shadow-2xl p-0 md:p-8 space-y-5 md:space-y-4 relative">
+                    {/* Header Layout for Controls / Desktop Header info */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6 items-center border-b border-slate-200/80 dark:border-slate-800/80 pb-5 md:pb-4">
+                        {/* Hidden on mobile since mobile uses the sticky header above; visible on desktop for unified card grid layout */}
+                        <div className="hidden md:flex lg:col-span-7 flex-col items-start gap-3">
                             <div className="space-y-2.5 text-left">
                                 <div 
                                     className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border shadow-sm"
@@ -162,7 +190,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                         </div>
 
                         {/* Search & Controls */}
-                        <div className="lg:col-span-5 space-y-2.5">
+                        <div className="lg:col-span-5 space-y-2.5 w-full">
                             {/* Search bar */}
                             <div className="relative w-full">
                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
@@ -251,7 +279,7 @@ function OrdinancesSectionContent({ documents, themeColor }: OrdinancesSectionPr
                                     initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     key={doc.id}
-                                    className="bg-slate-50/80 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800/80 p-5 hover:border-slate-300 dark:hover:border-slate-700/80 transition-all flex flex-col justify-between group shadow-sm hover:shadow-md duration-300"
+                                    className="bg-white dark:bg-[#0b101f] md:bg-slate-50/80 md:dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800/80 p-4 sm:p-5 hover:border-slate-300 dark:hover:border-slate-700/80 transition-all flex flex-col justify-between group shadow-sm hover:shadow-md duration-300"
                                 >
                                     <div className="space-y-3">
                                         {/* Top badge row */}

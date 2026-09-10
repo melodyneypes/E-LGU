@@ -4,7 +4,7 @@ import React from "react";
 import { useStalls, StallItem } from "./StallsProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Store, User, Edit, Trash2, Tag, ChevronLeft, ChevronRight } from "lucide-react";
+import { Store, User, Edit, Trash2, Tag, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -119,9 +119,16 @@ export function StallsTable() {
                                 >
                                     {/* Stall # */}
                                     <TableCell className="pl-8 py-4">
-                                        <span className="font-black text-slate-900 dark:text-white text-xs uppercase italic tracking-wider">
-                                            {item.stallNumber}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="font-black text-slate-900 dark:text-white text-xs uppercase italic tracking-wider">
+                                                {item.stallNumber}
+                                            </span>
+                                            {item.latitude && item.longitude && (
+                                                <span title={`Pinned GPS: ${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`}>
+                                                    <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 shrink-0" />
+                                                </span>
+                                            )}
+                                        </div>
                                     </TableCell>
 
                                     {/* Section */}

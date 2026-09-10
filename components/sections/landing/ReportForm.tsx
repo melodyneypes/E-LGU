@@ -146,7 +146,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-10 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 text-center gap-6 shadow-xl dark:shadow-2xl"
+                className="flex flex-col items-center justify-center p-6 md:p-10 bg-transparent md:bg-white md:dark:bg-white/5 rounded-none md:rounded-[2.5rem] border-0 md:border md:border-slate-200 md:dark:border-white/10 text-center gap-6 shadow-none md:shadow-xl md:dark:shadow-2xl"
             >
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center">
                     <AlertCircle className="w-8 h-8 text-amber-500" />
@@ -161,9 +161,9 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
 
     if (status === "loading") {
         return (
-            <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl dark:shadow-2xl">
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 bg-transparent md:bg-white md:dark:bg-white/5 rounded-none md:rounded-[2.5rem] border-0 md:border md:border-slate-200 md:dark:border-white/10 shadow-none md:shadow-xl md:dark:shadow-2xl">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-                <p className="text-slate-505 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Setting up...</p>
+                <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Setting up...</p>
             </div>
         );
     }
@@ -173,14 +173,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-10 bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 text-center gap-6 shadow-xl dark:shadow-2xl"
+                className="flex flex-col items-center justify-center p-6 md:p-10 bg-transparent md:bg-white md:dark:bg-white/5 rounded-none md:rounded-[2.5rem] border-0 md:border md:border-slate-200 md:dark:border-white/10 text-center gap-6 shadow-none md:shadow-xl md:dark:shadow-2xl"
             >
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
                     <AlertCircle className="w-8 h-8 text-primary" />
                 </div>
                 <div className="space-y-2">
                     <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Sign In Required</h4>
-                    <p className="text-slate-550 dark:text-slate-400 text-sm font-medium italic max-w-xs">You need to be signed in to submit a local concern or report an issue.</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic max-w-xs">You need to be signed in to submit a local concern or report an issue.</p>
                 </div>
                 <Button 
                     onClick={() => window.location.href = "/auth/login"}
@@ -193,16 +193,23 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
     }
 
     return (
-        <div className="bg-white dark:bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/10 p-8 shadow-xl dark:shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <h3 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Report <span className="text-primary">an Issue</span></h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">Your concerns help us maintain a better Mapandan.</p>
+        <div className="bg-transparent md:bg-white md:dark:bg-white/5 rounded-none md:rounded-[2.5rem] border-0 md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-8 shadow-none md:shadow-xl md:dark:shadow-2xl backdrop-blur-none md:backdrop-blur-sm overflow-visible md:overflow-hidden transition-all duration-500">
+            <div className="space-y-4 md:space-y-6">
+                {/* Sticky Header Title on Mobile */}
+                <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-6 px-6 md:mx-0 md:px-0 md:pt-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-2 md:mb-0">
+                    <h3 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                        Report <span className="text-primary">an Issue</span>
+                    </h3>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div id="barangay-select-container" className="space-y-2 relative">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Select Barangay</label>
+                {/* Subtitle (scrolls naturally with content on mobile) */}
+                <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
+                    Your concerns help us maintain a better Mapandan.
+                </p>
+
+                <form onSubmit={handleSubmit} className="space-y-3.5 md:space-y-4">
+                    <div id="barangay-select-container" className="space-y-1.5 md:space-y-2 relative">
+                        <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Select Barangay</label>
                         <input type="hidden" name="barangayId" value={selectedBarangay} required />
                         <button
                             type="button"
@@ -211,14 +218,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                 if (showBrgyError) setShowBrgyError(false);
                             }}
                             className={cn(
-                                "w-full h-14 bg-slate-50 dark:bg-white/5 border rounded-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-primary text-slate-800 dark:text-white italic text-left px-5 flex items-center justify-between",
+                                "w-full h-11 sm:h-12 md:h-14 bg-slate-50 dark:bg-white/5 border rounded-xl md:rounded-2xl font-bold transition-all focus:outline-none focus:ring-1 focus:ring-primary text-slate-800 dark:text-white italic text-left px-4 md:px-5 flex items-center justify-between text-xs sm:text-sm",
                                 showBrgyError ? "border-red-500 ring-1 ring-red-500" : "border-slate-200 dark:border-white/10"
                             )}
                         >
-                            <span className={cn(!selectedBarangay && "text-slate-400 dark:text-slate-500")}>
+                            <span className={cn(!selectedBarangay && "text-slate-400 dark:text-slate-500 text-xs sm:text-sm")}>
                                 {barangays.find(b => b.id === selectedBarangay)?.name || "Select Barangay"}
                             </span>
-                            <span className="text-xs text-slate-400">▼</span>
+                            <span className="text-[10px] sm:text-xs text-slate-400">▼</span>
                         </button>
 
                         {isBrgyDropdownOpen && (
@@ -227,14 +234,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                     setIsBrgyDropdownOpen(false);
                                     setBrgySearchQuery("");
                                 }} />
-                                <div className="absolute z-[120] top-full left-0 right-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-2 max-h-60 overflow-hidden">
+                                <div className="absolute z-[120] top-full left-0 right-0 mt-2 p-2.5 sm:p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-2 max-h-60 overflow-hidden">
                                     <div className="relative flex-shrink-0">
                                         <input
                                             type="text"
                                             placeholder="Search barangay..."
                                             value={brgySearchQuery}
                                             onChange={(e) => setBrgySearchQuery(e.target.value)}
-                                            className="w-full h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary italic placeholder:text-slate-450 dark:placeholder:text-slate-500"
+                                            className="w-full h-9 sm:h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold text-xs focus:outline-none focus:ring-1 focus:ring-primary italic placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                         />
                                     </div>
 
@@ -256,7 +263,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                                                 setBrgySearchQuery("");
                                                                 setShowBrgyError(false);
                                                             }}
-                                                            className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                                            className="w-full text-left p-2.5 sm:p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-colors"
                                                         >
                                                             {b.name}
                                                         </button>
@@ -268,8 +275,8 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                         )}
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Issue Category</label>
+                    <div className="space-y-1.5 md:space-y-2">
+                        <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Issue Category</label>
                         <AnimatePresence mode="wait">
                             {selectedCategory !== "Others" ? (
                                 <motion.div
@@ -280,16 +287,16 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                     transition={{ duration: 0.2 }}
                                 >
                                     <Select name="category" required onValueChange={setSelectedCategory} value={selectedCategory}>
-                                        <SelectTrigger className="h-14 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl font-bold transition-all focus:ring-primary text-slate-800 dark:text-white italic">
+                                        <SelectTrigger className="h-11 sm:h-12 md:h-14 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl font-bold transition-all focus:ring-primary text-slate-800 dark:text-white italic text-xs sm:text-sm px-4 md:px-5">
                                             <SelectValue placeholder="Select Category" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white rounded-2xl">
-                                            <SelectItem value="Road Repair" className="font-bold italic py-3 cursor-pointer">Road Repair</SelectItem>
-                                            <SelectItem value="Waste Management" className="font-bold italic py-3 cursor-pointer">Waste Management</SelectItem>
-                                            <SelectItem value="Street Lights" className="font-bold italic py-3 cursor-pointer">Street Lights</SelectItem>
-                                            <SelectItem value="Drainage Issue" className="font-bold italic py-3 cursor-pointer">Drainage Issue</SelectItem>
-                                            <SelectItem value="Public Safety" className="font-bold italic py-3 cursor-pointer">Public Safety</SelectItem>
-                                            <SelectItem value="Others" className="font-bold italic py-3 cursor-pointer">Others</SelectItem>
+                                            <SelectItem value="Road Repair" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Road Repair</SelectItem>
+                                            <SelectItem value="Waste Management" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Waste Management</SelectItem>
+                                            <SelectItem value="Street Lights" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Street Lights</SelectItem>
+                                            <SelectItem value="Drainage Issue" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Drainage Issue</SelectItem>
+                                            <SelectItem value="Public Safety" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Public Safety</SelectItem>
+                                            <SelectItem value="Others" className="font-bold italic py-2.5 sm:py-3 cursor-pointer text-xs sm:text-sm">Others</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </motion.div>
@@ -307,8 +314,8 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                             name="customCategory"
                                             required
                                             autoFocus
-                                            placeholder="Please specify the issue category..."
-                                            className="w-full h-14 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-2xl px-5 font-bold text-slate-800 dark:text-white italic text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                                            placeholder="Specify issue category..."
+                                            className="w-full h-11 sm:h-12 md:h-14 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl md:rounded-2xl px-4 md:px-5 font-bold text-slate-800 dark:text-white italic text-xs sm:text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
                                         />
                                         <input type="hidden" name="category" value="Others" />
                                     </div>
@@ -316,33 +323,33 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                         type="button"
                                         variant="outline"
                                         onClick={() => setSelectedCategory("")}
-                                        className="h-14 w-14 rounded-2xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-550 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 p-0"
+                                        className="h-11 sm:h-12 md:h-14 w-11 sm:w-12 md:w-14 rounded-xl md:rounded-2xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 p-0"
                                         title="Back to categories"
                                     >
-                                        <X className="w-5 h-5" />
+                                        <X className="w-4 h-4 md:w-5 md:h-5" />
                                     </Button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Detail Description</label>
+                    <div className="space-y-1.5 md:space-y-2">
+                        <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Detail Description</label>
                         <Textarea 
                             name="description"
                             required
                             placeholder="What's the issue? Give us the details..." 
-                            className="min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 font-bold transition-all focus:ring-primary text-slate-800 dark:text-white placeholder:text-slate-455 dark:placeholder:text-slate-505 italic resize-none"
+                            className="min-h-[85px] sm:min-h-[95px] md:min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl p-3.5 md:p-4 font-bold transition-all focus:ring-primary text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 italic resize-none text-xs sm:text-sm leading-relaxed"
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                         {/* Compact Photo Attachment Area */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Attach Photos</label>
+                        <div className="space-y-1.5 md:space-y-2">
+                            <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Attach Photos</label>
                             
                             <div 
-                                className="relative h-[150px] w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 overflow-hidden group/upload"
+                                className="relative h-[130px] sm:h-[140px] md:h-[150px] w-full rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 overflow-hidden group/upload"
                             >
                                 <input 
                                     type="file" 
@@ -356,14 +363,14 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                 {previews.length === 0 ? (
                                     <div 
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="w-full h-full border border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 hover:bg-slate-100/50 dark:hover:bg-white/5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300 group"
+                                        className="w-full h-full border border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 hover:bg-slate-100/50 dark:hover:bg-white/5 flex flex-col items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-all duration-300 group p-2 text-center"
                                     >
-                                        <div className="p-3 bg-slate-100 dark:bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
-                                            <ImageIcon className="w-5 h-5 text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors" />
+                                        <div className="p-2 sm:p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
+                                            <ImageIcon className="w-4 h-4 md:w-5 md:h-5 text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors" />
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white">Upload Photos</p>
-                                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">Click to browse files</p>
+                                            <p className="text-[9.5px] sm:text-[10px] md:text-[11px] font-black uppercase tracking-wider md:tracking-widest text-slate-700 dark:text-white leading-tight">Upload Photos</p>
+                                            <p className="text-[8px] sm:text-[8.5px] md:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">Click to browse</p>
                                         </div>
                                     </div>
                                 ) : (
@@ -384,7 +391,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                                         <img src={preview} alt="preview" className="w-full h-full object-cover" />
                                                         {isLastCell && hasMore && (
                                                             <div className="absolute inset-0 bg-black/70 flex items-center justify-center pointer-events-none">
-                                                                <span className="text-xs font-black text-white">+{previews.length - 3}</span>
+                                                                <span className="text-[10px] md:text-xs font-black text-white">+{previews.length - 3}</span>
                                                             </div>
                                                         )}
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center">
@@ -394,9 +401,9 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                                                     e.stopPropagation();
                                                                     removeImage(i);
                                                                 }}
-                                                                className="w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                                                                className="w-6 h-6 md:w-7 md:h-7 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
                                                             >
-                                                                <X className="w-3.5 h-3.5" />
+                                                                <X className="w-3 h-3 md:w-3.5 md:h-3.5" />
                                                             </button>
                                                         </div>
                                                     </div>
@@ -411,10 +418,10 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                                                 e.stopPropagation();
                                                 fileInputRef.current?.click();
                                             }}
-                                            className="absolute bottom-2 right-2 w-8 h-8 bg-primary hover:opacity-90 text-white rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 z-30"
+                                            className="absolute bottom-2 right-2 w-7 h-7 sm:w-8 sm:h-8 bg-primary hover:opacity-90 text-white rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 z-30"
                                             title="Add more photos"
                                         >
-                                            <Plus className="w-4 h-4" />
+                                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                         </button>
                                     </div>
                                 )}
@@ -422,9 +429,9 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                         </div>
 
                         {/* Pinned Map Location Section */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Pin Location</label>
-                            <div className="relative h-[150px] w-full rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-950">
+                        <div className="space-y-1.5 md:space-y-2">
+                            <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1 opacity-70 dark:opacity-50">Pin Location</label>
+                            <div className="relative h-[130px] sm:h-[140px] md:h-[150px] w-full rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-950">
                                 <LocationPicker 
                                     value={location}
                                     onSelect={handleLocationSelect}
@@ -434,23 +441,23 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
                         </div>
                     </div>
 
-                    <div className="pt-2 flex flex-col gap-3">
+                    <div className="pt-1.5 md:pt-2 flex flex-col gap-2.5 sm:gap-3">
                         <Button 
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full py-4 h-auto bg-primary hover:opacity-90 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] italic shadow-xl shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-3.5 sm:py-4 h-auto bg-primary hover:opacity-90 text-white rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9.5px] sm:text-[10px] italic shadow-xl shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-2.5 sm:gap-3 disabled:opacity-50"
                         >
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {isSubmitting ? <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                             {isSubmitting ? "Submitting Report..." : "Submit Report"}
                         </Button>
 
                         <Button
                             asChild
                             variant="outline"
-                            className="w-full py-4 h-auto border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white text-slate-600 dark:text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] italic transition-all active:scale-95 flex items-center justify-center gap-3"
+                            className="w-full py-3.5 sm:py-4 h-auto border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white text-slate-600 dark:text-slate-300 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9.5px] sm:text-[10px] italic transition-all active:scale-95 flex items-center justify-center gap-2.5 sm:gap-3"
                         >
                             <Link href="/user/reports">
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                 View My Reports
                             </Link>
                         </Button>

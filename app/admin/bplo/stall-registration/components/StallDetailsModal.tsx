@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useStalls } from "./StallsProvider";
-import { User, X, CheckCircle2, ShieldAlert, Loader2 } from "lucide-react";
+import { User, X, CheckCircle2, ShieldAlert, Loader2, MapPin, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getStallDetails } from "../actions/stalls.actions";
@@ -121,6 +121,40 @@ export function StallDetailsModal() {
                             </div>
                         ) : (
                             <p className="text-sm font-bold text-slate-400 italic">No vendor assigned to this stall.</p>
+                        )}
+                    </div>
+
+                    {/* Geospatial Map Pin Location Card */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider">
+                                <MapPin size={14} className="text-rose-500" /> Geospatial Location Pin
+                            </div>
+                            {detailData.latitude && detailData.longitude && (
+                                <a
+                                    href={`https://www.google.com/maps?q=${detailData.latitude},${detailData.longitude}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600 hover:underline"
+                                >
+                                    <span>Open in Google Maps</span>
+                                    <ExternalLink size={12} />
+                                </a>
+                            )}
+                        </div>
+                        {detailData.latitude && detailData.longitude ? (
+                            <div className="flex items-center gap-4 text-xs font-medium">
+                                <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] flex-1">
+                                    <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Latitude</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{Number(detailData.latitude).toFixed(6)}</span>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] flex-1">
+                                    <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Longitude</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{Number(detailData.longitude).toFixed(6)}</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-xs font-bold text-slate-400 italic">No GPS coordinates pinned for this stall yet.</p>
                         )}
                     </div>
 
