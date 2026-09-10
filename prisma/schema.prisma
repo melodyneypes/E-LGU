@@ -1255,12 +1255,12 @@ model Stall {
   monthlyRate           Float             @default(0)
   dailyRateOverdueFee   Float             @default(0)
   monthlyRateOverdueFee Float             @default(0)
-  latitude              Float?
-  longitude             Float?
   createdAt             DateTime          @default(now())
   createdBy             String?
   updatedAt             DateTime          @updatedAt
   updatedBy             String?
+  latitude              Float?
+  longitude             Float?
   stallType             StallType         @relation(fields: [stallTypeId], references: [id])
   vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
   collections           StallCollection[]
@@ -1661,6 +1661,30 @@ model EquipmentStockReturnTicket {
   @@index([soNumber])
 }
 
+model RoadClosure {
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  status           RoadClosureStatus   @default(CLOSED)
+  severity         RoadClosureSeverity @default(HIGH)
+  barangay         String?
+  roadName         String?
+  startLocation    Json
+  endLocation      Json
+  detourAdvice     String?
+  startDate        DateTime            @default(now())
+  endDate          DateTime?
+  isActive         Boolean             @default(true)
+  createdById      String?
+  createdByRole    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  routeCoordinates Json?
+
+  @@index([isActive, status])
+  @@index([barangay])
+}
+
 enum InventoryCategory {
   MEDICINE
   MEDICAL_SUPPLY
@@ -1850,28 +1874,4 @@ enum RoadClosureSeverity {
   MODERATE
   HIGH
   CRITICAL
-}
-
-model RoadClosure {
-  id             String               @id @default(cuid())
-  title          String
-  description    String?
-  status         RoadClosureStatus    @default(CLOSED)
-  severity       RoadClosureSeverity  @default(HIGH)
-  barangay       String?
-  roadName       String?
-  startLocation    Json
-  endLocation      Json
-  routeCoordinates Json?
-  detourAdvice     String?
-  startDate      DateTime             @default(now())
-  endDate        DateTime?
-  isActive       Boolean              @default(true)
-  createdById    String?
-  createdByRole  String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-
-  @@index([isActive, status])
-  @@index([barangay])
 }
