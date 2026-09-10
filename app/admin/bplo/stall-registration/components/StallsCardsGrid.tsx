@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useStalls } from "./StallsProvider";
-import { Store, User, Edit, Trash2, Eye, Tag } from "lucide-react";
+import { Store, User, Edit, Trash2, Eye, Tag, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -93,9 +93,16 @@ export function StallsCardsGrid() {
                     {/* Header: Stall # & Status */}
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-3">
-                            <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-[#1a202c] text-slate-900 dark:text-white font-black text-xs uppercase tracking-wider border border-slate-200 dark:border-[#2a3040]">
-                                {item.stallNumber}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-[#1a202c] text-slate-900 dark:text-white font-black text-xs uppercase tracking-wider border border-slate-200 dark:border-[#2a3040]">
+                                    {item.stallNumber}
+                                </span>
+                                {item.latitude && item.longitude && (
+                                    <span title={`Pinned GPS: ${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`}>
+                                        <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 shrink-0" />
+                                    </span>
+                                )}
+                            </div>
                             {getStatusBadge(item.status)}
                         </div>
 

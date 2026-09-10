@@ -1255,6 +1255,8 @@ model Stall {
   monthlyRate           Float             @default(0)
   dailyRateOverdueFee   Float             @default(0)
   monthlyRateOverdueFee Float             @default(0)
+  latitude              Float?
+  longitude             Float?
   createdAt             DateTime          @default(now())
   createdBy             String?
   updatedAt             DateTime          @updatedAt
@@ -1518,6 +1520,21 @@ model MedicalAsset {
   @@index([currentStatus])
   @@index([category])
   @@index([assetTagNo])
+}
+
+model EquipmentCatalogItem {
+  id            String           @id @default(cuid())
+  equipmentName String           @unique
+  brand         String?
+  model         String?
+  category      PropertyCategory @default(SEMI_EXPENDABLE)
+  estimatedCost Float            @default(0)
+  description   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+
+  @@index([equipmentName])
+  @@index([category])
 }
 
 model EquipmentPurchaseOrder {
