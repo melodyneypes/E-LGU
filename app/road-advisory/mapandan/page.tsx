@@ -6,7 +6,8 @@ import {
     ShieldAlert,
     RotateCcw,
     Building2,
-    Compass
+    Compass,
+    ShieldCheck
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -74,32 +75,32 @@ export default function RoadAdvisoryPublicPage() {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
-            {/* Top Municipal Navigation Header (Clean, no borders, no hotline buttons) */}
+            {/* Top Municipal Navigation Header (Clean, responsive, no borders) */}
             <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl shadow-2xl">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    <div className="flex items-center space-x-3 cursor-pointer">
+                <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5 sm:space-x-3 cursor-pointer">
                         {loadingData ? (
-                            <Skeleton className="w-11 h-11 rounded-xl bg-slate-800" />
+                            <Skeleton className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-slate-800" />
                         ) : settings.siteLogo ? (
-                            <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-slate-800 shadow-md">
+                            <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl overflow-hidden bg-slate-800 shadow-md shrink-0">
                                 <Image
                                     src={settings.siteLogo}
                                     alt="Mapandan Seal"
                                     fill
                                     className="object-contain p-1"
-                                    sizes="44px"
+                                    sizes="(max-width: 640px) 36px, 44px"
                                 />
                             </div>
                         ) : (
-                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-lg shadow-amber-500/20">
-                                <ShieldAlert className="w-6 h-6 stroke-[2.5]" />
+                            <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-lg shadow-amber-500/20 shrink-0">
+                                <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                             </div>
                         )}
-                        <div>
-                            <span className="text-[10px] sm:text-xs font-black tracking-widest uppercase text-amber-500 italic block">
+                        <div className="min-w-0">
+                            <span className="text-[9px] sm:text-xs font-black tracking-widest uppercase text-amber-500 italic block truncate">
                                 MUNICIPALITY OF MAPANDAN
                             </span>
-                            <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase italic">
+                            <h1 className="text-sm sm:text-lg font-black tracking-tight text-white uppercase italic truncate">
                                 Road Closures & Traffic Advisory
                             </h1>
                         </div>
@@ -107,15 +108,15 @@ export default function RoadAdvisoryPublicPage() {
                 </div>
             </header>
 
-            {/* Hero Section with Clean Modern Layout (No borders) */}
-            <section className="relative overflow-hidden pt-10 sm:pt-14 pb-8 sm:pb-12 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950">
+            {/* Hero Section with Clean Modern Layout (Responsive) */}
+            <section className="relative overflow-hidden pt-6 sm:pt-14 pb-6 sm:pb-12 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
 
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10 text-center sm:text-left">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-2 max-w-2xl">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-black uppercase tracking-widest italic">
-                                <Compass className="w-4 h-4" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5 sm:space-y-6 relative z-10">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+                        <div className="space-y-2 max-w-2xl text-left">
+                            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest italic">
+                                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                                 <span>Real-Time Mapandan Traffic & Public Safety Monitor</span>
                             </div>
                             <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
@@ -124,24 +125,24 @@ export default function RoadAdvisoryPublicPage() {
                                     Alternative Detour Routes
                                 </span>
                             </h2>
-                            <p className="text-xs sm:text-sm text-slate-400 font-medium italic">
+                            <p className="text-xs sm:text-sm text-slate-400 font-medium italic leading-relaxed">
                                 Stay informed on ongoing infrastructure projects, culvert repairs, and emergency road closures across all 15 barangays.
                             </p>
                         </div>
 
-                        {/* Summary Badges Box (No borders) */}
-                        <div className="grid grid-cols-3 gap-3 bg-slate-900/80 p-4 rounded-3xl backdrop-blur-xl sm:min-w-[320px] shadow-lg">
-                            <div className="p-3 rounded-2xl bg-rose-500/10 text-center">
-                                <span className="text-xl sm:text-2xl font-black text-rose-400 block">{stats.closed}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed</span>
+                        {/* Summary Badges Box (Responsive Grid on Mobile) */}
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-slate-900/80 p-3 sm:p-4 rounded-2xl sm:rounded-3xl backdrop-blur-xl sm:min-w-[320px] shadow-lg">
+                            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-rose-500/10 text-center">
+                                <span className="text-lg sm:text-2xl font-black text-rose-400 block">{stats.closed}</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed</span>
                             </div>
-                            <div className="p-3 rounded-2xl bg-amber-500/10 text-center">
-                                <span className="text-xl sm:text-2xl font-black text-amber-400 block">{stats.partial}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Partial</span>
+                            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-amber-500/10 text-center">
+                                <span className="text-lg sm:text-2xl font-black text-amber-400 block">{stats.partial}</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Partial</span>
                             </div>
-                            <div className="p-3 rounded-2xl bg-purple-500/10 text-center">
-                                <span className="text-xl sm:text-2xl font-black text-purple-400 block">{stats.detour}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Detour</span>
+                            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-purple-500/10 text-center">
+                                <span className="text-lg sm:text-2xl font-black text-purple-400 block">{stats.detour}</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Detour</span>
                             </div>
                         </div>
                     </div>
@@ -151,8 +152,8 @@ export default function RoadAdvisoryPublicPage() {
             {/* Main Content Area: Split Interactive Map & Advisory Cards (No borders) */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    {/* Left Column: Interactive Map (Sticky on Desktop) */}
-                    <div className="lg:col-span-7 sticky top-28 space-y-4">
+                    {/* Left Column: Interactive Map (Sticky ONLY on Desktop >= lg) */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-28 space-y-4">
                         <PublicRoadMap
                             advisories={advisories}
                             selectedId={selectedAdvisoryId}
@@ -198,7 +199,7 @@ export default function RoadAdvisoryPublicPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-4 max-h-[850px] overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="space-y-4 max-h-none lg:max-h-[850px] lg:overflow-y-auto lg:pr-2 lg:custom-scrollbar">
                                 {advisories.map((advisory) => (
                                     <div key={advisory.id} id={`advisory-card-${advisory.id}`}>
                                         <AdvisoryCard
@@ -208,6 +209,19 @@ export default function RoadAdvisoryPublicPage() {
                                         />
                                     </div>
                                 ))}
+
+                                {/* Public Safety Note & Tagline Below Last Card */}
+                                <div className="p-4 rounded-2xl bg-slate-900/40 text-center space-y-2 pt-5 pb-4">
+                                    <div className="flex items-center justify-center gap-1.5 text-amber-400">
+                                        <ShieldCheck className="w-4 h-4" />
+                                        <span className="text-[11px] font-black uppercase tracking-wider italic">
+                                            Ingat sa Bawat Biyahe, Ka-Mapandan!
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 font-medium italic max-w-sm mx-auto leading-relaxed">
+                                        Traffic advisories are monitored in real-time by MDRRMO & POSO Mapandan. Please follow on-site road signs and detour marshals.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
