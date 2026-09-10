@@ -65,6 +65,8 @@ export async function getStallDetails(id: string) {
                 monthlyRate: true,
                 dailyRateOverdueFee: true,
                 monthlyRateOverdueFee: true,
+                latitude: true,
+                longitude: true,
                 createdAt: true,
                 updatedAt: true,
                 createdBy: true,
