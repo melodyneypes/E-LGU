@@ -639,13 +639,13 @@ export default function BuildingPermitPage() {
 
   const rel = formData.propertyRelationship;
   const isNotOwner = formData.isLotOwner === "No";
-  
+
   const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
   const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
     .filter(index => {
       // Always skip these as per existing logic
       if ([2, 5, 8].includes(index)) return false;
-      
+
       // If user is owner or hasn't selected a relationship yet
       if (!isNotOwner) {
         if ([7, 10, 11, 12, 13, 14].includes(index)) return false;
@@ -660,12 +660,12 @@ export default function BuildingPermitPage() {
         } else {
           // Lessee, Representative, Buyer
           if ([13, 14].includes(index)) return false; // Skip Death/Birth certs
-          
+
           if (rel === "Representative" && [10].includes(index)) return false; // Skip Lease/Sale
           if (rel !== "Representative" && [7].includes(index)) return false; // Skip Consent/SPA if not rep
-          
+
           // Skip applicant's ID for these, require owner's ID (which is index 11, 12 and already kept)
-          if ([21, 22].includes(index)) return false; 
+          if ([21, 22].includes(index)) return false;
         }
       }
 
@@ -754,11 +754,11 @@ export default function BuildingPermitPage() {
         }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
-          
+
           const urlParams = new URLSearchParams(window.location.search);
           const targetId = urlParams.get("id");
           let autoSelected = false;
-          
+
           if (targetId) {
             const targetApp = permitsRes.data.find((app: any) => app.id === targetId);
             if (targetApp) {
@@ -777,7 +777,7 @@ export default function BuildingPermitPage() {
               autoSelected = true;
             }
           }
-          
+
           if (!autoSelected) {
             setCurrentStep("EXISTING");
           }
