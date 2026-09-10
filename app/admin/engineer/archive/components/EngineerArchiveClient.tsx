@@ -178,10 +178,6 @@ export default function EngineerArchiveClient({
         permitNumber: "",
         firstName: "",
         lastName: "",
-        occupation: "",
-        citizenship: "Filipino",
-        civilStatus: "Single",
-        placeOfBirth: "",
         province: "Pangasinan",
         municipality: "Mapandan",
         barangay: "Poblacion",
@@ -333,10 +329,6 @@ export default function EngineerArchiveClient({
             permitNumber: "",
             firstName: "",
             lastName: "",
-            occupation: "",
-            citizenship: "Filipino",
-            civilStatus: "Single",
-            placeOfBirth: "",
             province: "Pangasinan",
             municipality: "Mapandan",
             barangay: "Poblacion",
@@ -713,62 +705,7 @@ export default function EngineerArchiveClient({
                                                      />
                                                  </div>
 
-                                                 {/* Occupation, Citizenship & Civil Status */}
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Occupation
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Engineer / Entrepreneur"
-                                                         value={formData.occupation}
-                                                         onChange={e => setFormData({ ...formData, occupation: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
 
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Citizenship
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Filipino"
-                                                         value={formData.citizenship}
-                                                         onChange={e => setFormData({ ...formData, citizenship: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Civil Status
-                                                     </Label>
-                                                     <Select
-                                                         value={formData.civilStatus}
-                                                         onValueChange={val => setFormData({ ...formData, civilStatus: val })}
-                                                     >
-                                                         <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
-                                                             <SelectValue placeholder="Select Civil Status" />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                             <SelectItem value="Single">Single</SelectItem>
-                                                             <SelectItem value="Married">Married</SelectItem>
-                                                             <SelectItem value="Widowed">Widowed</SelectItem>
-                                                             <SelectItem value="Separated">Separated</SelectItem>
-                                                         </SelectContent>
-                                                     </Select>
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Place of Birth
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Municipality, Province"
-                                                         value={formData.placeOfBirth}
-                                                         onChange={e => setFormData({ ...formData, placeOfBirth: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
 
                                                  {/* Contact Number & Email */}
                                                  <div className="space-y-1.5">
