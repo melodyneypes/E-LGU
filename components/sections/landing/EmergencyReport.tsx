@@ -239,9 +239,11 @@ export function EmergencyReport({
                 {/* Emergency Hotlines Section */}
                 <div className="space-y-6 md:space-y-8">
                     <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
-                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Emergency Hotlines</h2>
+                        <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-3 pt-3 -mx-6 px-6 md:mx-0 md:px-0 md:pt-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-3 md:mb-2">
+                            <div className="flex items-center gap-3">
+                                <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
+                                <h2 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">Emergency Hotlines</h2>
+                            </div>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-lg text-xs md:text-base">
                             In case of emergency, please contact the appropriate department immediately. 
@@ -367,7 +369,7 @@ export function EmergencyReport({
             {/* AMBULANCE FLEET & DISPATCH STATUS SECTION (BELOW REPORTS) */}
             {/* ======================================================== */}
             <div id="ambulance" className="max-w-7xl mx-auto mt-16 md:mt-24 pt-12 md:pt-16 border-t border-slate-200 dark:border-white/10 relative z-10 scroll-mt-28">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-6 sm:p-8 md:p-12 shadow-xl dark:shadow-2xl relative overflow-hidden">
+                <div className="bg-transparent md:bg-white md:dark:bg-slate-900 border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-[2.5rem] p-0 md:p-8 lg:p-12 shadow-none md:shadow-xl md:dark:shadow-2xl relative overflow-visible md:overflow-hidden">
                     {/* Section Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-10 pb-6 border-b border-slate-200 dark:border-white/10 relative z-10">
                         <div className="space-y-3">
