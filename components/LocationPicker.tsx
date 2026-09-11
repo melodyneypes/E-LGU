@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap, LayersControl, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, GeoJSON } from "react-leaflet";
 import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -52,13 +52,13 @@ function LocationMarker({ lat, lng, onChange, borderPolygon }: LocationPickerPro
         }
     }, [lat, lng, borderPolygon, onChange]);
 
-    // If coordinates are updated from parent, center the map there at zoom 18 for building detail
+    // If coordinates are updated from parent, center the map there
     useEffect(() => {
         if (lat && lng && map) {
             const center = map.getCenter();
             const threshold = 0.00005;
-            if (Math.abs(center.lat - lat) > threshold || Math.abs(center.lng - lng) > threshold || map.getZoom() < 17) {
-                map.setView([lat, lng], 18);
+            if (Math.abs(center.lat - lat) > threshold || Math.abs(center.lng - lng) > threshold || map.getZoom() < 16) {
+                map.setView([lat, lng], 17);
             }
         }
     }, [lat, lng, map]);
@@ -150,24 +150,18 @@ export default function LocationPicker({ lat, lng, onChange }: LocationPickerPro
         <div className="h-full w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg z-0 relative group">
             <MapContainer
                 center={initialCenter as [number, number]}
-                zoom={lat && lng ? 18 : 15}
+                zoom={lat && lng ? 17 : 15}
+                maxZoom={20}
                 className="h-full w-full"
                 scrollWheelZoom={true}
             >
-                <LayersControl position="topright">
-                    <LayersControl.BaseLayer checked name="Street View">
-                        <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                    </LayersControl.BaseLayer>
-                    <LayersControl.BaseLayer name="Satellite View">
-                        <TileLayer
-                            attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
-                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                        />
-                    </LayersControl.BaseLayer>
-                </LayersControl>
+                {/* Default High-Resolution Satellite View with digital stretch zoom beyond level 18 */}
+                <TileLayer
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    maxNativeZoom={18}
+                    maxZoom={20}
+                />
 
                 {/* Broken / Dashed Line Marking Mapandan Municipal Boundary */}
                 {geoJsonData && (

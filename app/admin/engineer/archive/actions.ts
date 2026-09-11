@@ -317,10 +317,6 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
-        const occupation = (formData.get("occupation") as string)?.trim() || "";
-        const citizenship = (formData.get("citizenship") as string)?.trim() || "Filipino";
-        const civilStatus = (formData.get("civilStatus") as string)?.trim() || "Single";
-        const placeOfBirth = (formData.get("placeOfBirth") as string)?.trim() || "";
         const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
         const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
         const barangay = (formData.get("barangay") as string)?.trim() || "Amanoaoac";
@@ -411,10 +407,6 @@ export async function createArchivedBuildingPermit(formData: FormData) {
             barangay,
             municipality,
             province,
-            occupation,
-            citizenship,
-            civilStatus,
-            placeOfBirth,
             contactNumber,
             email,
             houseNumber,

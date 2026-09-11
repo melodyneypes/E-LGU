@@ -16,6 +16,7 @@ interface DocumentViewerModalProps {
     documents?: { url?: string | null; label: string }[];
     initialIndex?: number;
     showPrint?: boolean;
+    onSaveRotatedFile?: (newFile: File, newPreviewUrl: string) => void;
 }
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
@@ -48,7 +49,8 @@ export default function DocumentViewerModal({
     themeColor = "var(--primary-theme)",
     documents,
     initialIndex,
-    showPrint = false
+    showPrint = false,
+    onSaveRotatedFile,
 }: DocumentViewerModalProps) {
 
     // Lock document.body background scrolling when modal is open
@@ -66,6 +68,7 @@ export default function DocumentViewerModal({
     const [fetchedType, setFetchedType] = React.useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = React.useState(0);
     const [pdfDataUrl, setPdfDataUrl] = React.useState<string | null>(null);
+    const [isRotatingPersist, setIsRotatingPersist] = React.useState(false);
 
     const docxContainerRef = React.useRef<HTMLDivElement>(null);
     const [docxRendering, setDocxRendering] = React.useState(false);
@@ -350,6 +353,66 @@ export default function DocumentViewerModal({
         setPosition({ x: 0, y: 0 });
     };
 
+    // Commit physical image rotation via in-memory HTML5 Canvas
+    const handleCommitRotation = async (targetAngleDeg: number) => {
+        if (!activeUrl || !onSaveRotatedFile) return;
+        setIsRotatingPersist(true);
+
+        try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+
+            await new Promise((resolve, reject) => {
+                img.onload = () => resolve(true);
+                img.onerror = (e) => reject(e);
+                img.src = activeUrl;
+            });
+
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("Could not acquire 2D canvas context");
+
+            const normalizedDeg = ((targetAngleDeg % 360) + 360) % 360;
+
+            if (normalizedDeg === 90 || normalizedDeg === 270) {
+                canvas.width = img.height;
+                canvas.height = img.width;
+            } else {
+                canvas.width = img.width;
+                canvas.height = img.height;
+            }
+
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((normalizedDeg * Math.PI) / 180);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+            const mimeType = file?.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
+            const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob((b) => resolve(b), mimeType, 0.95)
+            );
+
+            if (!blob) throw new Error("Canvas to Blob conversion failed");
+
+            const fileName = file?.name || `${activeTitle || "scanned-permit"}.jpg`;
+            const rotatedFile = new File([blob], fileName, {
+                type: mimeType,
+                lastModified: Date.now(),
+            });
+
+            const newPreviewUrl = URL.createObjectURL(rotatedFile);
+
+            // Pass rotated file & preview back to parent caller
+            onSaveRotatedFile(rotatedFile, newPreviewUrl);
+
+            // Reset visual viewport rotation back to 0 since canvas permanently rotated the pixels
+            setRotation(0);
+        } catch (err: any) {
+            console.error("Failed to commit image rotation:", err);
+        } finally {
+            setIsRotatingPersist(false);
+        }
+    };
+
     const handleDownload = async () => {
         if (!activeUrl) return;
         try {
@@ -569,13 +632,27 @@ export default function DocumentViewerModal({
                                             <RotateCcw className="w-4.5 h-4.5" />
                                         </Button>
                                         <Button
-                                            onClick={() => setRotation(prev => prev + 90)}
+                                            onClick={() => {
+                                                if (onSaveRotatedFile) {
+                                                    handleCommitRotation(90);
+                                                } else {
+                                                    setRotation(prev => prev + 90);
+                                                }
+                                            }}
+                                            disabled={isRotatingPersist}
                                             variant="ghost"
                                             size="icon"
-                                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                                            title="Rotate Clockwise"
+                                            className={cn(
+                                                "w-7 h-7 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-200",
+                                                onSaveRotatedFile && "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100"
+                                            )}
+                                            title={onSaveRotatedFile ? "Rotate 90° & Save Orientation" : "Rotate Clockwise"}
                                         >
-                                            <RotateCw className="w-4.5 h-4.5" />
+                                            {isRotatingPersist ? (
+                                                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                                            ) : (
+                                                <RotateCw className="w-4.5 h-4.5" />
+                                            )}
                                         </Button>
                                         <Button
                                             onClick={handleReset}

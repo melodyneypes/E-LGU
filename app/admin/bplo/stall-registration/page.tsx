@@ -50,6 +50,8 @@ export default async function StallsPage() {
                 monthlyRate: true,
                 dailyRateOverdueFee: true,
                 monthlyRateOverdueFee: true,
+                latitude: true,
+                longitude: true,
                 stallType: { select: { id: true, code: true, name: true } },
                 vendor: { select: { id: true, name: true, email: true } },
                 otherFees: { select: { id: true, name: true, amount: true, feeType: true, remarks: true } },

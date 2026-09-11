@@ -21,8 +21,16 @@ import {
     Loader2,
     Coins,
     Landmark,
-    Filter
+    Filter,
+    Printer,
+    ZoomIn,
+    Info,
+    HelpCircle,
+    FolderSearch,
+    Clock,
+    FileUp
 } from "lucide-react";
+import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -84,6 +92,69 @@ const CLASSIFICATIONS = [
     { value: "SPECIAL", label: "Special / Exempt (10% Default)" },
 ];
 
+const ASSESSOR_DOCUMENT_PRESETS = [
+    "Land Title (OCT / TCT)",
+    "Field Appraisal Sheet (FAAS)",
+    "Deed of Absolute Sale",
+    "Cadastral Survey / Lot Plan",
+    "Tax Clearance / Official Receipt",
+    "Barangay Certification",
+];
+
+export interface AssessorAttachmentItem {
+    id: string;
+    label: string;
+    file: File | null;
+    previewUrl?: string;
+    isImage: boolean;
+    isPdf: boolean;
+    fileSizeFormatted?: string;
+    scannedAt?: number;
+}
+
+function formatFileSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function formatScanTimeAgo(timestamp?: number): string {
+    if (!timestamp) return "";
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 10) return "Just scanned now";
+    if (seconds < 60) return `Scanned ${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Scanned ${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Scanned ${hours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+}
+
+function guessAssessorDocumentLabel(fileName: string, pageIndex: number): string {
+    const lower = fileName.toLowerCase();
+    if (lower.includes("title") || lower.includes("tct") || lower.includes("oct") || lower.includes("transfer")) {
+        return "Land Title (OCT / TCT)";
+    }
+    if (lower.includes("faas") || lower.includes("appraisal") || lower.includes("sheet")) {
+        return "Field Appraisal Sheet (FAAS)";
+    }
+    if (lower.includes("deed") || lower.includes("sale") || lower.includes("conveyance") || lower.includes("dos")) {
+        return "Deed of Absolute Sale";
+    }
+    if (lower.includes("tax") || lower.includes("clearance") || lower.includes("receipt") || lower.includes("rpt")) {
+        return "Tax Clearance / Official Receipt";
+    }
+    if (lower.includes("survey") || lower.includes("lot") || lower.includes("cadastral") || lower.includes("subdivision")) {
+        return "Cadastral Survey / Lot Plan";
+    }
+    if (lower.includes("cert") || lower.includes("barangay") || lower.includes("brgy")) {
+        return "Barangay Certification";
+    }
+    return `Supplementary Document (Page ${pageIndex + 2})`;
+}
+
 export default function AssessorArchiveClient({
     themeColor = "#2563eb",
 }: {
@@ -123,6 +194,7 @@ export default function AssessorArchiveClient({
     // Create Modal State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
 
     // Form inputs state for physical encoding
     const [formData, setFormData] = useState({
@@ -148,13 +220,79 @@ export default function AssessorArchiveClient({
         physicalLocationNotes: "",
     });
 
+    // Primary Tax Dec File & Instant Preview
     const [mainTaxDecFile, setMainTaxDecFile] = useState<File | null>(null);
-    const [additionalAttachments, setAdditionalAttachments] = useState<
-        { label: string; file: File | null }[]
-    >([
-        { label: "Land Title (OCT / TCT)", file: null },
-        { label: "Field Appraisal Sheet (FAAS)", file: null },
+    const [mainTaxDecPreview, setMainTaxDecPreview] = useState<string | null>(null);
+    const [mainTaxDecScannedAt, setMainTaxDecScannedAt] = useState<number | null>(null);
+
+    // Supplementary Attachments with rich metadata & previews
+    const [additionalAttachments, setAdditionalAttachments] = useState<AssessorAttachmentItem[]>([
+        {
+            id: "preset-title",
+            label: "Land Title (OCT / TCT)",
+            file: null,
+            isImage: false,
+            isPdf: false,
+        },
+        {
+            id: "preset-faas",
+            label: "Field Appraisal Sheet (FAAS)",
+            file: null,
+            isImage: false,
+            isPdf: false,
+        },
     ]);
+
+    // Local Inspection Lightbox State for Newly Selected Draft Files
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [activeDraftPreview, setActiveDraftPreview] = useState<{
+        url: string;
+        title: string;
+        isPdf: boolean;
+        targetType?: "main" | "attachment";
+        targetId?: string;
+        file?: File | null;
+    } | null>(null);
+
+    // Scanner Station Quick Ingestion State
+    const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
+    const scannerFolderInputRef = React.useRef<HTMLInputElement | null>(null);
+
+    // Clean up created object URLs on unmount or form reset
+    const cleanupAttachmentUrls = useCallback(() => {
+        if (mainTaxDecPreview) {
+            URL.revokeObjectURL(mainTaxDecPreview);
+        }
+        additionalAttachments.forEach(att => {
+            if (att.previewUrl) {
+                URL.revokeObjectURL(att.previewUrl);
+            }
+        });
+    }, [mainTaxDecPreview, additionalAttachments]);
+
+    useEffect(() => {
+        return () => {
+            cleanupAttachmentUrls();
+        };
+    }, [cleanupAttachmentUrls]);
+
+    // Helper for main tax dec change
+    const handleMainTaxDecChange = (file: File | null, timestamp?: number) => {
+        if (mainTaxDecPreview) {
+            URL.revokeObjectURL(mainTaxDecPreview);
+        }
+        if (!file) {
+            setMainTaxDecFile(null);
+            setMainTaxDecPreview(null);
+            setMainTaxDecScannedAt(null);
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setMainTaxDecFile(file);
+        setMainTaxDecPreview(previewUrl);
+        setMainTaxDecScannedAt(timestamp || file.lastModified || Date.now());
+    };
 
     // Auto calculate Assessed Value when Market Value or Assessment Level changes
     useEffect(() => {
@@ -226,6 +364,7 @@ export default function AssessorArchiveClient({
 
     // Reset form helper
     const resetForm = () => {
+        cleanupAttachmentUrls();
         setFormData({
             tdn: "",
             pin: "",
@@ -249,23 +388,150 @@ export default function AssessorArchiveClient({
             physicalLocationNotes: "",
         });
         setMainTaxDecFile(null);
+        setMainTaxDecPreview(null);
+        setMainTaxDecScannedAt(null);
         setAdditionalAttachments([
-            { label: "Land Title (OCT / TCT)", file: null },
-            { label: "Field Appraisal Sheet (FAAS)", file: null },
+            {
+                id: `init-${Date.now()}-1`,
+                label: "Land Title (OCT / TCT)",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+            {
+                id: `init-${Date.now()}-2`,
+                label: "Field Appraisal Sheet (FAAS)",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
         ]);
     };
 
     // Add Attachment row
-    const handleAddAttachmentRow = () => {
-        setAdditionalAttachments(prev => [...prev, { label: "", file: null }]);
+    const handleAddAttachmentRow = (defaultLabel = "") => {
+        setAdditionalAttachments(prev => [
+            ...prev,
+            {
+                id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                label: defaultLabel,
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+        ]);
     };
 
     // Remove Attachment row
-    const handleRemoveAttachmentRow = (index: number) => {
-        setAdditionalAttachments(prev => prev.filter((_, idx) => idx !== index));
+    const handleRemoveAttachmentRow = (id: string) => {
+        setAdditionalAttachments(prev => {
+            const target = prev.find(item => item.id === id);
+            if (target?.previewUrl) {
+                URL.revokeObjectURL(target.previewUrl);
+            }
+            return prev.filter(item => item.id !== id);
+        });
     };
 
-    // Handle Create Physical Archive Submission
+    // Handle file selection for a specific supplementary row
+    const handleAttachmentFileChange = (id: string, file: File | null) => {
+        setAdditionalAttachments(prev =>
+            prev.map(item => {
+                if (item.id !== id) return item;
+
+                if (item.previewUrl) {
+                    URL.revokeObjectURL(item.previewUrl);
+                }
+
+                if (!file) {
+                    return {
+                        ...item,
+                        file: null,
+                        previewUrl: undefined,
+                        isImage: false,
+                        isPdf: false,
+                        fileSizeFormatted: undefined,
+                    };
+                }
+
+                const isImg = file.type.startsWith("image/");
+                const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+                const previewUrl = URL.createObjectURL(file);
+
+                return {
+                    ...item,
+                    file,
+                    previewUrl,
+                    isImage: isImg,
+                    isPdf,
+                    fileSizeFormatted: formatFileSize(file.size),
+                };
+            })
+        );
+    };
+
+    // Open quick preview inspector
+    const handleInspectDraftFile = (
+        title: string,
+        file: File | null,
+        previewUrl?: string,
+        targetType?: "main" | "attachment",
+        targetId?: string
+    ) => {
+        if (!file || !previewUrl) return;
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        setActiveDraftPreview({
+            url: previewUrl,
+            title,
+            isPdf,
+            targetType,
+            targetId,
+            file,
+        });
+        setPreviewModalOpen(true);
+    };
+
+    // Callback when staff rotates image 90° in the inspection lightbox
+    const handleSaveRotatedDraftFile = (newFile: File, newPreviewUrl: string) => {
+        if (!activeDraftPreview) return;
+
+        const oldPreviewUrl = activeDraftPreview.url;
+
+        if (activeDraftPreview.targetType === "main") {
+            setMainTaxDecFile(newFile);
+            setMainTaxDecPreview(newPreviewUrl);
+            setActiveDraftPreview(prev => (prev ? { ...prev, url: newPreviewUrl, file: newFile } : null));
+
+            if (oldPreviewUrl && oldPreviewUrl !== newPreviewUrl) {
+                URL.revokeObjectURL(oldPreviewUrl);
+            }
+            toast.success("Main Tax Declaration scan rotated 90° and saved!");
+        } else if (activeDraftPreview.targetType === "attachment" && activeDraftPreview.targetId) {
+            const targetId = activeDraftPreview.targetId;
+            setAdditionalAttachments(prev =>
+                prev.map(att => {
+                    if (att.id !== targetId) return att;
+                    if (att.previewUrl && att.previewUrl !== newPreviewUrl) {
+                        URL.revokeObjectURL(att.previewUrl);
+                    }
+                    return {
+                        ...att,
+                        file: newFile,
+                        previewUrl: newPreviewUrl,
+                        fileSizeFormatted: formatFileSize(newFile.size),
+                    };
+                })
+            );
+            setActiveDraftPreview(prev => (prev ? { ...prev, url: newPreviewUrl, file: newFile } : null));
+
+            if (oldPreviewUrl && oldPreviewUrl !== newPreviewUrl) {
+                URL.revokeObjectURL(oldPreviewUrl);
+            }
+            toast.success("Supplementary document rotated 90° and saved!");
+        }
+    };
+
+    // Handle Create Physical Archive Submission with Auto-Compression
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -285,16 +551,25 @@ export default function AssessorArchiveClient({
                 data.append(key, val);
             });
 
+            // Client-side Auto-Compression for 300 DPI Scanner Imports
+            // Preserves dry seals, signatures, and fine typography while cutting 10MB-20MB scans to ~800KB
+            setIsCompressing(true);
+
             if (mainTaxDecFile) {
-                data.append("mainTaxDecFile", mainTaxDecFile);
+                const optimizedMain = await compressDocumentScan(mainTaxDecFile);
+                data.append("mainTaxDecFile", optimizedMain);
             }
 
-            additionalAttachments.forEach((att) => {
+            for (let idx = 0; idx < additionalAttachments.length; idx++) {
+                const att = additionalAttachments[idx];
                 if (att.file) {
-                    data.append("attachedFiles", att.file);
-                    data.append("attachedLabels", att.label || "Supplementary Document");
+                    const optimizedAttachment = await compressDocumentScan(att.file);
+                    data.append("attachedFiles", optimizedAttachment);
+                    data.append("attachedLabels", att.label.trim() || `Supplementary Document ${idx + 1}`);
                 }
-            });
+            }
+
+            setIsCompressing(false);
 
             const res = await createArchivedAssessorRecord(data);
 
@@ -306,9 +581,11 @@ export default function AssessorArchiveClient({
             } else {
                 toast.error(res.error || "Failed to create archive record.");
             }
-        } catch {
-            toast.error("An error occurred while uploading documents.");
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "An error occurred while uploading documents.");
         } finally {
+            setIsCompressing(false);
             setIsSubmitting(false);
         }
     };
@@ -433,7 +710,20 @@ export default function AssessorArchiveClient({
                                 </Button>
                             </DialogTrigger>
 
-                            <DialogContent className="sm:max-w-[95vw] lg:max-w-7xl w-[95vw] h-[92vh] max-h-[92vh] p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] flex flex-col shadow-2xl">
+                            <DialogContent
+                                onPointerDownOutside={e => {
+                                    // Prevent dismissing the archive dialog if draft preview viewer is active or closing
+                                    if (previewModalOpen || activeDraftPreview) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                onInteractOutside={e => {
+                                    if (previewModalOpen || activeDraftPreview) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                className="sm:max-w-[95vw] lg:max-w-7xl w-[95vw] h-[92vh] max-h-[92vh] p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#0f1422] border-slate-200 dark:border-[#2a3040] flex flex-col shadow-2xl"
+                            >
                                 {/* Modal Header */}
                                 <div className="p-6 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex items-center justify-between shrink-0">
                                     <div className="flex items-center gap-3.5">
@@ -745,74 +1035,320 @@ export default function AssessorArchiveClient({
                                         </div>
 
                                         {/* Right Column: Scanned Documents & Uploads (5 Cols) */}
-                                        <div className="lg:col-span-5 flex flex-col">
-                                            <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm flex flex-col">
-                                                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-[#2a3040] shrink-0">
+                                        <div className="lg:col-span-5 flex flex-col space-y-4">
+                                            {/* Phase 1: Direct Scanner Ingestion Bar */}
+                                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/10 border border-blue-500/20 shadow-sm shrink-0 space-y-2.5">
+                                                <div className="flex items-center justify-between gap-2">
                                                     <div className="flex items-center gap-2">
-                                                        <FileText className="w-4 h-4 text-blue-600" />
-                                                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                                            Scanned Documents
-                                                        </h3>
+                                                        <div className="p-1.5 rounded-lg bg-blue-600 text-white shadow-sm">
+                                                            <Printer className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                                <span>Scanner Station</span>
+                                                                <span className="text-[9px] px-2 py-0.2 rounded-full font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                                    Direct Ingest
+                                                                </span>
+                                                            </h4>
+                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                                                Quickly import newly scanned paper Tax Declarations from your office scanner.
+                                                            </p>
+                                                        </div>
                                                     </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                                                        title="Office Scanner Setup Guide"
+                                                    >
+                                                        <HelpCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 pt-0.5">
+                                                    {/* Hidden File Input for Scanner Folder Trigger */}
+                                                    <input
+                                                        ref={scannerFolderInputRef}
+                                                        type="file"
+                                                        multiple
+                                                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                        onChange={(e) => {
+                                                            const rawFiles = Array.from(e.target.files || []);
+                                                            if (rawFiles.length === 0) return;
+
+                                                            // Auto-detect and filter valid scanner documents (.pdf, .jpg, .jpeg, .png)
+                                                            const validScannerFiles = rawFiles.filter((file) => {
+                                                                const name = file.name.toLowerCase();
+                                                                const type = file.type.toLowerCase();
+                                                                return (
+                                                                    name.endsWith(".pdf") ||
+                                                                    name.endsWith(".jpg") ||
+                                                                    name.endsWith(".jpeg") ||
+                                                                    name.endsWith(".png") ||
+                                                                    type === "application/pdf" ||
+                                                                    type.startsWith("image/")
+                                                                );
+                                                            });
+
+                                                            if (validScannerFiles.length === 0) {
+                                                                toast.error("No valid scanner files found (.pdf, .jpg, .jpeg, .png required).");
+                                                                e.target.value = "";
+                                                                return;
+                                                            }
+
+                                                            // Sort by newest scan timestamp first (latest scan is first)
+                                                            const sortedFiles = validScannerFiles.sort((a, b) => b.lastModified - a.lastModified);
+                                                            const newestFile = sortedFiles[0];
+
+                                                            // Automatically slot the first/newest scan as the Primary Tax Dec
+                                                            handleMainTaxDecChange(newestFile, newestFile.lastModified);
+
+                                                            // Slot supplementary pages as Titles, FAAS, or Deeds
+                                                            if (sortedFiles.length > 1) {
+                                                                const additionalScans = sortedFiles.slice(1);
+                                                                setAdditionalAttachments((prev) => {
+                                                                    const updated = [...prev];
+                                                                    additionalScans.forEach((scanFile, idx) => {
+                                                                        const isPdf = scanFile.type === "application/pdf" || scanFile.name.toLowerCase().endsWith(".pdf");
+                                                                        const isImage = scanFile.type.startsWith("image/");
+                                                                        const previewUrl = URL.createObjectURL(scanFile);
+                                                                        const smartLabel = guessAssessorDocumentLabel(scanFile.name, idx);
+
+                                                                        // Fill existing empty preset row if available, otherwise append new scan row
+                                                                        const firstEmptyIdx = updated.findIndex((item) => !item.file);
+                                                                        const newAttachment: AssessorAttachmentItem = {
+                                                                            id: `scan-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+                                                                            label: smartLabel,
+                                                                            file: scanFile,
+                                                                            previewUrl,
+                                                                            isPdf,
+                                                                            isImage,
+                                                                            fileSizeFormatted: formatFileSize(scanFile.size),
+                                                                            scannedAt: scanFile.lastModified,
+                                                                        };
+
+                                                                        if (firstEmptyIdx !== -1) {
+                                                                            updated[firstEmptyIdx] = {
+                                                                                ...updated[firstEmptyIdx],
+                                                                                label: updated[firstEmptyIdx].label.trim() ? updated[firstEmptyIdx].label : smartLabel,
+                                                                                file: scanFile,
+                                                                                previewUrl,
+                                                                                isPdf,
+                                                                                isImage,
+                                                                                fileSizeFormatted: formatFileSize(scanFile.size),
+                                                                                scannedAt: scanFile.lastModified,
+                                                                            };
+                                                                        } else {
+                                                                            updated.push(newAttachment);
+                                                                        }
+                                                                    });
+                                                                    return updated;
+                                                                });
+
+                                                                toast.success(
+                                                                    `Auto-sorted ${sortedFiles.length} scans! Newest slotted as Primary Tax Dec, ${sortedFiles.length - 1} slotted as attachments.`
+                                                                );
+                                                            } else {
+                                                                toast.success(`Imported newest scan "${newestFile.name}" as Certified Tax Declaration!`);
+                                                            }
+
+                                                            e.target.value = "";
+                                                        }}
+                                                        className="hidden"
+                                                    />
+
                                                     <Button
                                                         type="button"
-                                                        onClick={handleAddAttachmentRow}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer"
+                                                        onClick={() => scannerFolderInputRef.current?.click()}
+                                                        className="flex-1 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all"
                                                     >
-                                                        <Plus className="w-3.5 h-3.5 mr-1" /> Add File
+                                                        <FolderSearch className="w-4 h-4" />
+                                                        <span>Fetch from Scanner Folder</span>
+                                                    </Button>
+
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="h-9 px-3 rounded-xl border-blue-500/30 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-xs font-bold shrink-0 cursor-pointer"
+                                                    >
+                                                        <Info className="w-3.5 h-3.5 mr-1" />
+                                                        <span>Guide</span>
                                                     </Button>
                                                 </div>
+                                            </div>
 
-                                                {/* Primary Signed Tax Dec Upload Box */}
-                                                <div className="p-4 rounded-2xl bg-blue-500/5 border-2 border-dashed border-blue-500/30 space-y-2.5 shrink-0">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-[11px] font-black uppercase tracking-wider text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                                                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Certified Tax Declaration (Primary)
-                                                        </Label>
-                                                        {mainTaxDecFile && (
-                                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                                                ✓ File Selected
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <Input
-                                                        type="file"
-                                                        accept="image/*,application/pdf"
-                                                        onChange={e => setMainTaxDecFile(e.target.files?.[0] || null)}
-                                                        className="bg-white dark:bg-[#121622] rounded-xl cursor-pointer text-xs"
-                                                    />
-                                                    <p className="text-[10px] text-slate-400 font-medium">
-                                                        Upload high-res scan of the official signed Tax Declaration certificate.
-                                                    </p>
+                                            {/* Primary Signed Tax Dec Upload Box with Live Preview */}
+                                            <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3 shrink-0">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+                                                        <CheckCircle2 className="w-4 h-4 text-blue-600" /> Certified Tax Declaration (Primary)
+                                                    </Label>
+                                                    {mainTaxDecFile && (
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                                            <CheckCircle2 className="w-3 h-3" /> Ready
+                                                        </span>
+                                                    )}
                                                 </div>
 
-                                                {/* Supplementary Attachments List - Capped with internal scrollbar */}
-                                                <div className="space-y-3 flex flex-col">
-                                                    <div className="flex items-center justify-between shrink-0">
-                                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                {mainTaxDecFile ? (
+                                                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040]">
+                                                        {mainTaxDecFile.type.startsWith("image/") && mainTaxDecPreview ? (
+                                                            <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shrink-0 group">
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={mainTaxDecPreview}
+                                                                    alt="Tax Dec Scan"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleInspectDraftFile("Certified Tax Declaration", mainTaxDecFile, mainTaxDecPreview, "main")}
+                                                                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                                    title="Inspect Image"
+                                                                >
+                                                                    <ZoomIn className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-14 h-14 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                <FileText className="w-6 h-6" />
+                                                                <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                    {mainTaxDecFile.name}
+                                                                </p>
+                                                                {mainTaxDecScannedAt && (
+                                                                    <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                        {formatScanTimeAgo(mainTaxDecScannedAt)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 font-medium">
+                                                                {formatFileSize(mainTaxDecFile.size)} • High-Res Official Scan
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            {mainTaxDecPreview && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleInspectDraftFile("Certified Tax Declaration", mainTaxDecFile, mainTaxDecPreview, "main")}
+                                                                    className="h-8 w-8 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer"
+                                                                    title="Preview scan"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleMainTaxDecChange(null)}
+                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                title="Remove file"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#121622] border border-dashed border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/5 transition-all cursor-pointer group">
+                                                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                            <UploadCloud className="w-5 h-5" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                                                Choose Certified Tax Declaration Scan
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                PDF, JPG, PNG (Click to browse file)
+                                                            </p>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*,application/pdf"
+                                                            onChange={e => handleMainTaxDecChange(e.target.files?.[0] || null)}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
+                                                )}
+                                                <p className="text-[10px] text-slate-400 font-medium">
+                                                    Upload clear scanned image or PDF copy of the official signed Tax Declaration certificate.
+                                                </p>
+                                            </div>
+
+                                            {/* Supplementary Attachments List */}
+                                            <div className="space-y-3 flex flex-col flex-1">
+                                                {/* Phase 2: Quick Preset Additions Toolbar */}
+                                                <div className="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        Quick Preset Additions:
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {ASSESSOR_DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                            const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                            return (
+                                                                <button
+                                                                    key={pIdx}
+                                                                    type="button"
+                                                                    disabled={isAlreadyAdded}
+                                                                    onClick={() => handleAddAttachmentRow(preset)}
+                                                                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                        isAlreadyAdded
+                                                                            ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                            : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-blue-500/50 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs cursor-pointer"
+                                                                    }`}
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> {preset}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between shrink-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <FileText className="w-3.5 h-3.5 text-blue-600" />
+                                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                             Supplementary Deeds, Titles & Clearances ({additionalAttachments.length})
                                                         </p>
                                                     </div>
+                                                </div>
 
-                                                    {additionalAttachments.length === 0 ? (
-                                                        <div
-                                                            onClick={handleAddAttachmentRow}
-                                                            className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer text-center min-h-[160px]"
-                                                        >
-                                                            <UploadCloud className="w-8 h-8 text-blue-400/80 mb-2 animate-bounce" />
-                                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">No Supplementary Files Added</span>
-                                                            <span className="text-[10px] text-slate-400 mt-1">Click here or &ldquo;+ Add File&rdquo; to attach Land Titles, Deeds, or FAAS sheets</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
-                                                            {additionalAttachments.map((att, idx) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200 dark:border-[#2a3040] space-y-2 shadow-sm"
-                                                                >
-                                                                    <div className="flex items-center justify-between gap-2">
+                                                {additionalAttachments.length === 0 ? (
+                                                    <div
+                                                        onClick={() => handleAddAttachmentRow("")}
+                                                        className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-white/40 dark:bg-[#121622]/40 text-slate-400 hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer text-center min-h-[220px]"
+                                                    >
+                                                        <UploadCloud className="w-8 h-8 text-blue-400/80 mb-2" />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                            No Supplementary Documents
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">
+                                                            Select one of the presets above or click here to add a custom attachment
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1.5 custom-scrollbar">
+                                                        {additionalAttachments.map((att, idx) => (
+                                                            <div
+                                                                key={att.id || idx}
+                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-2.5 shadow-2xs transition-all hover:border-blue-500/30"
+                                                            >
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                        <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                                                            {idx + 1}
+                                                                        </span>
                                                                         <Input
                                                                             placeholder="Document Label (e.g. Land Title OCT/TCT)"
                                                                             value={att.label}
@@ -821,34 +1357,124 @@ export default function AssessorArchiveClient({
                                                                                 updated[idx].label = e.target.value;
                                                                                 setAdditionalAttachments(updated);
                                                                             }}
-                                                                            className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b]"
+                                                                            className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]"
                                                                         />
-                                                                        <Button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveAttachmentRow(idx)}
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
-                                                                            title="Remove file"
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </Button>
                                                                     </div>
-                                                                    <Input
-                                                                        type="file"
-                                                                        accept="image/*,application/pdf"
-                                                                        onChange={e => {
-                                                                            const updated = [...additionalAttachments];
-                                                                            updated[idx].file = e.target.files?.[0] || null;
-                                                                            setAdditionalAttachments(updated);
-                                                                        }}
-                                                                        className="h-9 rounded-lg text-xs cursor-pointer bg-slate-50 dark:bg-[#151b2b]"
-                                                                    />
+                                                                    <Button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveAttachmentRow(att.id)}
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
+                                                                        title="Remove item"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </Button>
                                                                 </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
+
+                                                                {att.file ? (
+                                                                    <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
+                                                                        {att.isImage && att.previewUrl ? (
+                                                                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
+                                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                                <img
+                                                                                    src={att.previewUrl}
+                                                                                    alt="Preview"
+                                                                                    className="w-full h-full object-cover"
+                                                                                />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                                                    title="View Image"
+                                                                                >
+                                                                                    <ZoomIn className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-12 h-12 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                                <FileText className="w-5 h-5" />
+                                                                                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                                    {att.file.name}
+                                                                                </p>
+                                                                                {att.scannedAt && (
+                                                                                    <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                                        {formatScanTimeAgo(att.scannedAt)}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-[10px] text-slate-400 font-medium">
+                                                                                {att.fileSizeFormatted} • {att.isImage ? "Image Scan" : "PDF Document"}
+                                                                            </p>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-1 shrink-0">
+                                                                            {att.previewUrl && (
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    className="h-7 w-7 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer"
+                                                                                    title="Inspect Document"
+                                                                                >
+                                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                                </Button>
+                                                                            )}
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => handleAttachmentFileChange(att.id, null)}
+                                                                                className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                                title="Change file"
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <label className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/60 dark:bg-[#151b2b]/60 border border-dashed border-slate-300 dark:border-[#2a3040] hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group">
+                                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                                            <FileUp className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                                                                Choose Document / Deed
+                                                                            </p>
+                                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                                PDF, PNG, JPG (Click to browse file)
+                                                                            </p>
+                                                                        </div>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*,application/pdf"
+                                                                            onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
+                                                                            className="hidden"
+                                                                        />
+                                                                    </label>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {/* Prominent Bottom Add Custom Button */}
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => handleAddAttachmentRow("")}
+                                                            variant="outline"
+                                                            className="w-full h-10 rounded-xl border-dashed border-2 border-blue-500/30 hover:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all mt-1"
+                                                        >
+                                                            <Plus className="w-4 h-4" /> Add Another Document
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -877,7 +1503,8 @@ export default function AssessorArchiveClient({
                                     >
                                         {isSubmitting ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" /> Digitizing & Uploading...
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : "Digitizing & Uploading..."}</span>
                                             </>
                                         ) : (
                                             <>
@@ -1126,12 +1753,12 @@ export default function AssessorArchiveClient({
                                     {/* Source Badge */}
                                     <TableCell className="py-3.5">
                                         {r.isPhysicalArchive ? (
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                                                Physical
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm">
+                                                Paper Archive
                                             </span>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                                Online
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                                Online Portal
                                             </span>
                                         )}
                                     </TableCell>
@@ -1307,6 +1934,105 @@ export default function AssessorArchiveClient({
                 title={viewerTitle}
                 showPrint={true}
             />
+
+            {/* Quick Inspection Modal for Newly Selected Draft Files with In-Browser Rotate Support */}
+            {activeDraftPreview && (
+                <DocumentViewerModal
+                    isOpen={previewModalOpen}
+                    onClose={() => {
+                        setPreviewModalOpen(false);
+                        setTimeout(() => {
+                            setActiveDraftPreview(null);
+                        }, 200);
+                    }}
+                    file={activeDraftPreview.file || null}
+                    fileUrl={activeDraftPreview.url}
+                    title={activeDraftPreview.title}
+                    themeColor={themeColor}
+                    documents={[{ url: activeDraftPreview.url, label: activeDraftPreview.title }]}
+                    showPrint={false}
+                    onSaveRotatedFile={handleSaveRotatedDraftFile}
+                />
+            )}
+
+            {/* Office Scanner Station Setup Guide Dialog */}
+            <Dialog open={scannerGuideOpen} onOpenChange={setScannerGuideOpen}>
+                <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                <Printer className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                    Assessor Scanner Setup Guide
+                                </DialogTitle>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    3 simple steps to scan Tax Declarations & Titles directly into EMapandan
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                            {/* Step 1 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    1
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Set Scanner Output Folder
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        In your Epson Scan 2 or scanner software, set the target save folder to:
+                                        <code className="block mt-1 font-mono text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-bold">
+                                            C:\Scanned_Permits or C:\Scanned_TaxDecs
+                                        </code>
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    2
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Scan Physical Documents as JPEG or PDF
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Place the Tax Dec, Title, or FAAS sheet on the flatbed scanner and press <strong className="text-slate-700 dark:text-slate-300">Scan</strong>. Recommended setting: <strong>200–300 DPI (JPEG / Color)</strong> for instant rotation & fastest processing.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    3
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Click &quot;Fetch from Scanner Folder&quot;
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Click the button in this modal and select your scanned folder. EMapandan will automatically designate the newest scan as the Certified Tax Dec and auto-label supplementary titles or deeds!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Button
+                            type="button"
+                            onClick={() => setScannerGuideOpen(false)}
+                            className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
+                        >
+                            Understood, Got it!
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
