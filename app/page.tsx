@@ -30,6 +30,7 @@ const Services = nextDynamic(() => import("@/components/sections/landing/Service
 const EmergencyReport = nextDynamic(() => import("@/components/sections/landing/EmergencyReport").then(m => m.EmergencyReport), { loading: () => <EmergencyReportSkeleton /> });
 const ParishCorner = nextDynamic(() => import("../components/sections/landing/ParishCorner"), { loading: () => <ParishCornerSkeleton /> });
 const AppDownloadSection = nextDynamic(() => import("@/components/sections/landing/AppDownloadSection").then(m => m.AppDownloadSection));
+const CivicSafetyHub = nextDynamic(() => import("@/components/sections/landing/CivicSafetyHub").then(m => m.CivicSafetyHub));
 const OrdinancesSection = nextDynamic(() => import("@/components/sections/landing/OrdinancesSection").then(m => m.OrdinancesSection));
 import prisma from "@/lib/db/prisma";
 import { getMultipleSystemSettings } from "@/lib/settings";
@@ -503,6 +504,10 @@ export default async function Home({
 
             <ClientOnly delay={1000} fallback={<HeroSkeleton />}>
                 <Hero slides={slides} themeColor={themeColor} isMaintenanceActive={maintenance} />
+            </ClientOnly>
+
+            <ClientOnly delay={1000}>
+                <CivicSafetyHub themeColor={themeColor} />
             </ClientOnly>
 
             {showAppDownload && (
