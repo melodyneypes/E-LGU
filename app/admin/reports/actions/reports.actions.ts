@@ -21,13 +21,21 @@ interface SessionUser {
  * Enforces role clearances: ADMIN (LGU), MAYOR, MDRRMO, BARANGAY_ADMIN, or custom accessiblePages
  */
 export async function verifyReportAccess(): Promise<{
-    user: SessionUser;
+    authorized: boolean;
+    error: string | null;
+    user: SessionUser | null;
     isBarangayAdmin: boolean;
     managedBarangay: string | null;
 }> {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-        throw new Error("Unauthorized access. Please sign in.");
+        return {
+            authorized: false,
+            error: "Unauthorized access. Please sign in.",
+            user: null,
+            isBarangayAdmin: false,
+            managedBarangay: null
+        };
     }
 
     const user = session.user as SessionUser;
@@ -42,10 +50,18 @@ export async function verifyReportAccess(): Promise<{
     const hasPageAccess = accessiblePages.includes("/admin/reports");
 
     if (!isLguAdmin && !isMayor && !isMdrrmo && !isBarangayAdmin && !hasPageAccess) {
-        throw new Error("Forbidden: You do not have permissions to manage community incident reports.");
+        return {
+            authorized: false,
+            error: "Forbidden: You do not have permissions to manage community incident reports.",
+            user,
+            isBarangayAdmin: false,
+            managedBarangay: null
+        };
     }
 
     return {
+        authorized: true,
+        error: null,
         user,
         isBarangayAdmin,
         managedBarangay: user.managedBarangay || null
@@ -63,7 +79,20 @@ export async function getAdminReports(params?: {
     barangay?: string;
 }) {
     try {
-        const { isBarangayAdmin, managedBarangay } = await verifyReportAccess();
+        const auth = await verifyReportAccess();
+        if (!auth.authorized) {
+            return {
+                success: false,
+                error: auth.error || "Unauthorized access.",
+                reports: [],
+                totalCount: 0,
+                totalPages: 0,
+                currentPage: 1,
+                stats: { total: 0, pending: 0, inProgress: 0, completed: 0, rejected: 0 }
+            };
+        }
+
+        const { isBarangayAdmin, managedBarangay } = auth;
 
         const page = Math.max(1, params?.page ?? 1);
         const limit = Math.max(1, params?.limit ?? 10);
@@ -186,7 +215,12 @@ export async function getReportById(id: string) {
             return { success: false, error: "Report ID is required." };
         }
 
-        const { isBarangayAdmin, managedBarangay } = await verifyReportAccess();
+        const auth = await verifyReportAccess();
+        if (!auth.authorized) {
+            return { success: false, error: auth.error || "Unauthorized access." };
+        }
+
+        const { isBarangayAdmin, managedBarangay } = auth;
 
         const report = await (prisma as any).report.findUnique({
             where: { id },
@@ -241,7 +275,12 @@ export async function updateReportStatus(id: string, status: string, adminCommen
             return { success: false, error: "Report ID is required." };
         }
 
-        const { isBarangayAdmin, managedBarangay } = await verifyReportAccess();
+        const auth = await verifyReportAccess();
+        if (!auth.authorized) {
+            return { success: false, error: auth.error || "Unauthorized access." };
+        }
+
+        const { isBarangayAdmin, managedBarangay } = auth;
 
         const existing = await (prisma as any).report.findUnique({
             where: { id },
@@ -316,7 +355,12 @@ export async function deleteReport(id: string) {
             return { success: false, error: "Report ID is required." };
         }
 
-        const { isBarangayAdmin, managedBarangay } = await verifyReportAccess();
+        const auth = await verifyReportAccess();
+        if (!auth.authorized) {
+            return { success: false, error: auth.error || "Unauthorized access." };
+        }
+
+        const { isBarangayAdmin, managedBarangay } = auth;
 
         const existing = await (prisma as any).report.findUnique({
             where: { id },

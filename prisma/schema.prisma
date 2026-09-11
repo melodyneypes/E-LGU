@@ -1259,6 +1259,8 @@ model Stall {
   createdBy             String?
   updatedAt             DateTime          @updatedAt
   updatedBy             String?
+  latitude              Float?
+  longitude             Float?
   stallType             StallType         @relation(fields: [stallTypeId], references: [id])
   vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
   collections           StallCollection[]
@@ -1520,6 +1522,21 @@ model MedicalAsset {
   @@index([assetTagNo])
 }
 
+model EquipmentCatalogItem {
+  id            String           @id @default(cuid())
+  equipmentName String           @unique
+  brand         String?
+  model         String?
+  category      PropertyCategory @default(SEMI_EXPENDABLE)
+  estimatedCost Float            @default(0)
+  description   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+
+  @@index([equipmentName])
+  @@index([category])
+}
+
 model EquipmentPurchaseOrder {
   id              String            @id @default(cuid())
   poNumber        String            @unique
@@ -1642,6 +1659,30 @@ model EquipmentStockReturnTicket {
 
   @@index([ticketNumber])
   @@index([soNumber])
+}
+
+model RoadClosure {
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  status           RoadClosureStatus   @default(CLOSED)
+  severity         RoadClosureSeverity @default(HIGH)
+  barangay         String?
+  roadName         String?
+  startLocation    Json
+  endLocation      Json
+  detourAdvice     String?
+  startDate        DateTime            @default(now())
+  endDate          DateTime?
+  isActive         Boolean             @default(true)
+  createdById      String?
+  createdByRole    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  routeCoordinates Json?
+
+  @@index([isActive, status])
+  @@index([barangay])
 }
 
 enum InventoryCategory {
@@ -1833,28 +1874,4 @@ enum RoadClosureSeverity {
   MODERATE
   HIGH
   CRITICAL
-}
-
-model RoadClosure {
-  id             String               @id @default(cuid())
-  title          String
-  description    String?
-  status         RoadClosureStatus    @default(CLOSED)
-  severity       RoadClosureSeverity  @default(HIGH)
-  barangay       String?
-  roadName       String?
-  startLocation    Json
-  endLocation      Json
-  routeCoordinates Json?
-  detourAdvice     String?
-  startDate      DateTime             @default(now())
-  endDate        DateTime?
-  isActive       Boolean              @default(true)
-  createdById    String?
-  createdByRole  String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-
-  @@index([isActive, status])
-  @@index([barangay])
 }

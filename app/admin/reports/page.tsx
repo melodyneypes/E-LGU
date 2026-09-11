@@ -1,10 +1,18 @@
-import { getAdminReports } from "./actions/reports.actions";
+import { redirect } from "next/navigation";
+import { verifyReportAccess, getAdminReports } from "./actions/reports.actions";
 import { ReportsTable } from "./components/ReportsTable";
 import { getSystemSetting } from "@/lib/settings";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminReportsPage() {
+    const auth = await verifyReportAccess();
+    if (!auth.authorized) {
+        redirect("/auth/login");
+    }
+
     const res = await getAdminReports({ page: 1, limit: 10 });
     const reports = res?.reports || [];
     const totalCount = res?.totalCount || 0;

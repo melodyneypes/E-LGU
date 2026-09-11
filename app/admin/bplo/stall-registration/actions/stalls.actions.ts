@@ -65,6 +65,8 @@ export async function getStallDetails(id: string) {
                 monthlyRate: true,
                 dailyRateOverdueFee: true,
                 monthlyRateOverdueFee: true,
+                latitude: true,
+                longitude: true,
                 createdAt: true,
                 updatedAt: true,
                 createdBy: true,
@@ -99,6 +101,8 @@ export async function createStall(data: {
     dailyRateOverdueFee: number;
     monthlyRateOverdueFee: number;
     imageUrl?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     otherFees?: {
         name: string;
         amount: number;
@@ -128,6 +132,8 @@ export async function createStall(data: {
                 monthlyRate: Number(data.monthlyRate) || 0,
                 dailyRateOverdueFee: Number(data.dailyRateOverdueFee) || 0,
                 monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) || 0,
+                latitude: data.latitude !== undefined && data.latitude !== null && !isNaN(Number(data.latitude)) ? Number(data.latitude) : null,
+                longitude: data.longitude !== undefined && data.longitude !== null && !isNaN(Number(data.longitude)) ? Number(data.longitude) : null,
                 createdBy: userName,
                 updatedBy: userName,
                 ...(data.otherFees && data.otherFees.length > 0 && {
@@ -194,6 +200,8 @@ export async function updateStall(
         monthlyRate?: number;
         dailyRateOverdueFee?: number;
         monthlyRateOverdueFee?: number;
+        latitude?: number | null;
+        longitude?: number | null;
         otherFees?: {
             id?: string;
             name: string;
@@ -239,6 +247,8 @@ export async function updateStall(
                     ...(data.monthlyRate !== undefined && { monthlyRate: Number(data.monthlyRate) }),
                     ...(data.dailyRateOverdueFee !== undefined && { dailyRateOverdueFee: Number(data.dailyRateOverdueFee) }),
                     ...(data.monthlyRateOverdueFee !== undefined && { monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) }),
+                    ...(data.latitude !== undefined && { latitude: data.latitude === null ? null : (isNaN(Number(data.latitude)) ? null : Number(data.latitude)) }),
+                    ...(data.longitude !== undefined && { longitude: data.longitude === null ? null : (isNaN(Number(data.longitude)) ? null : Number(data.longitude)) }),
                     updatedBy: userName,
                 },
                 include: {
