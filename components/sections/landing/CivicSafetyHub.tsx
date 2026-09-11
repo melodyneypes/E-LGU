@@ -7,10 +7,6 @@ import {
     Compass, 
     ShieldAlert, 
     ArrowUpRight, 
-    QrCode, 
-    AlertTriangle, 
-    Car,
-    FileCheck2,
     ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
