@@ -274,7 +274,6 @@ export function RoadClosureModal({
                                             <SelectItem value={RoadClosureStatus.CLOSED}>🛑 CLOSED</SelectItem>
                                             <SelectItem value={RoadClosureStatus.PARTIALLY_CLOSED}>⚠️ PARTIAL</SelectItem>
                                             <SelectItem value={RoadClosureStatus.DETOUR_ONLY}>↪️ DETOUR ONLY</SelectItem>
-                                            <SelectItem value={RoadClosureStatus.REOPENED}>✅ REOPENED</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
