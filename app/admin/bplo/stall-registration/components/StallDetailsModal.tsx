@@ -1,11 +1,23 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useStalls } from "./StallsProvider";
-import { User, X, CheckCircle2, ShieldAlert, Loader2, MapPin, ExternalLink } from "lucide-react";
+import { User, X, CheckCircle2, ShieldAlert, Loader2, MapPin, ExternalLink, Tag } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getStallDetails } from "../actions/stalls.actions";
+
+// Dynamic import for Leaflet LocationPicker (must run client-side only)
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+    ssr: false,
+    loading: () => (
+        <div className="h-full w-full min-h-[360px] bg-slate-100 dark:bg-[#10141d] rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2 border border-slate-200 dark:border-[#2a3040]">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+            <span className="text-xs font-bold uppercase tracking-wider">Loading Mapandan Map...</span>
+        </div>
+    ),
+});
 
 export function StallDetailsModal() {
     const { selectedStall, setSelectedStall } = useStalls();
@@ -49,6 +61,9 @@ export function StallDetailsModal() {
     if (!selectedStall) return null;
     const detailData = fullDetails || selectedStall;
 
+    const latNum = detailData.latitude ? parseFloat(String(detailData.latitude)) : null;
+    const lngNum = detailData.longitude ? parseFloat(String(detailData.longitude)) : null;
+
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "OCCUPIED":
@@ -71,19 +86,21 @@ export function StallDetailsModal() {
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-2xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors cursor-default"
+                className="relative w-full max-w-5xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors cursor-default"
             >
                 {/* Header Banner */}
                 <div className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] space-y-3 bg-slate-50/50 dark:bg-[#1a202c]/50 relative">
                     <button
                         onClick={() => setSelectedStall(null)}
-                        className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-200/60 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        className="absolute top-4 right-4 p-2 rounded-full bg-slate-200/60 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                        title="Close Modal"
                     >
                         <X size={16} />
                     </button>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[10px] font-black uppercase italic tracking-widest">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[10px] font-black uppercase italic tracking-widest">
+                            <Tag size={12} className="shrink-0" />
                             {selectedStall.stallType.name}
                         </span>
                         {getStatusBadge(selectedStall.status)}
@@ -103,145 +120,155 @@ export function StallDetailsModal() {
                     </TooltipProvider>
                 </div>
 
-                {/* Body Details */}
-                <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800 dark:text-slate-200 custom-scrollbar pr-3">
-                    {/* Assigned Vendor Profile Card */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider mb-2">
-                            <User size={14} className="text-blue-500" /> Assigned Vendor / Occupant
-                        </div>
-                        {detailData.vendor ? (
-                            <div>
-                                <p className="text-base font-bold text-slate-900 dark:text-white">
-                                    {detailData.vendor.name || "Anonymous Vendor"}
-                                </p>
-                                <p className="text-xs text-slate-400 font-medium italic mt-0.5">
-                                    {detailData.vendor.email || "No email provided"}
-                                </p>
-                            </div>
-                        ) : (
-                            <p className="text-sm font-bold text-slate-400 italic">No vendor assigned to this stall.</p>
-                        )}
-                    </div>
-
-                    {/* Geospatial Map Pin Location Card */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider">
-                                <MapPin size={14} className="text-rose-500" /> Geospatial Location & Address
-                            </div>
-                            {detailData.latitude && detailData.longitude && (
-                                <a
-                                    href={`https://www.google.com/maps?q=${detailData.latitude},${detailData.longitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600 hover:underline"
-                                >
-                                    <span>Open in Google Maps</span>
-                                    <ExternalLink size={12} />
-                                </a>
-                            )}
-                        </div>
-
-                        {/* Physical Address Field */}
-                        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040]">
-                            <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider mb-0.5">
-                                Physical Address / Landmark
-                            </span>
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">
-                                {detailData.address || <em className="text-slate-400 font-normal italic">Public Market, Poblacion (No specific section address provided)</em>}
-                            </p>
-                        </div>
-                        {detailData.latitude && detailData.longitude ? (
-                            <div className="flex items-center gap-4 text-xs font-medium">
-                                <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] flex-1">
-                                    <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Latitude</span>
-                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{Number(detailData.latitude).toFixed(6)}</span>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] flex-1">
-                                    <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Longitude</span>
-                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{Number(detailData.longitude).toFixed(6)}</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-xs font-bold text-slate-400 italic">No GPS coordinates pinned for this stall yet.</p>
-                        )}
-                    </div>
-
-                    {/* Financial Rates 2-Column Grid */}
-                    <div>
-                        <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400 mb-3">
-                            Rental Fee Structure
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Body Details - 2-Column Grid Layout */}
+                <div className="p-6 overflow-y-auto flex-1 text-slate-800 dark:text-slate-200 custom-scrollbar pr-3">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* LEFT COLUMN: Stall Details, Vendor, Rates, Fees (7 cols) */}
+                        <div className="lg:col-span-7 space-y-5">
+                            {/* Assigned Vendor Profile Card */}
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Daily Base Rate</span>
-                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.dailyRate?.toLocaleString()}</p>
-                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.dailyRateOverdueFee?.toLocaleString()} / day</span>
-                            </div>
-
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Monthly Base Rate</span>
-                                <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.monthlyRate?.toLocaleString()}</p>
-                                <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.monthlyRateOverdueFee?.toLocaleString()} / month</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Custom Fees Section */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400">
-                                Attached Custom Stall Fees
-                            </h4>
-                            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />}
-                        </div>
-
-                        {detailData.otherFees && detailData.otherFees.length > 0 ? (
-                            <div className="space-y-2">
-                                {detailData.otherFees.map((fee: any) => (
-                                    <div
-                                        key={fee.id}
-                                        className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] flex items-center justify-between"
-                                    >
-                                        <div>
-                                            <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                                                {fee.name}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 font-medium italic">
-                                                {fee.feeType || "DAILY"} {fee.remarks && `· ${fee.remarks}`}
-                                            </span>
-                                        </div>
-                                        <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
-                                            ₱{fee.amount?.toLocaleString()}
-                                        </span>
+                                <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider mb-2">
+                                    <User size={14} className="text-blue-500" /> Assigned Vendor / Occupant
+                                </div>
+                                {detailData.vendor ? (
+                                    <div>
+                                        <p className="text-base font-bold text-slate-900 dark:text-white">
+                                            {detailData.vendor.name || "Anonymous Vendor"}
+                                        </p>
+                                        <p className="text-xs text-slate-400 font-medium italic mt-0.5">
+                                            {detailData.vendor.email || "No email provided"}
+                                        </p>
                                     </div>
-                                ))}
+                                ) : (
+                                    <p className="text-sm font-bold text-slate-400 italic">No vendor assigned to this stall.</p>
+                                )}
                             </div>
-                        ) : loading ? (
-                            <div className="p-4 flex items-center justify-center text-xs font-bold text-slate-400 gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin" /> Loading custom stall fees...
-                            </div>
-                        ) : (
-                            <p className="text-xs text-slate-400 italic font-medium p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
-                                No additional custom fees attached to this stall.
-                            </p>
-                        )}
-                    </div>
 
-                    {/* Metadata Timestamps */}
-                    <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-400 pt-2 border-t border-slate-100 dark:border-[#2a3040]">
-                        <div>
-                            <span className="block text-[9px] font-black uppercase tracking-wider">Registered On</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {detailData.createdAt ? format(new Date(detailData.createdAt), "MMMM d, yyyy") : "N/A"}
-                            </span>
+                            {/* Financial Rates 2-Column Grid */}
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400">
+                                    Rental Fee Structure
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Daily Base Rate</span>
+                                        <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.dailyRate?.toLocaleString()}</p>
+                                        <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.dailyRateOverdueFee?.toLocaleString()} / day</span>
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Monthly Base Rate</span>
+                                        <p className="text-lg font-black text-slate-900 dark:text-white">₱{detailData.monthlyRate?.toLocaleString()}</p>
+                                        <span className="text-[10px] text-slate-400 font-medium italic">Overdue Fee: ₱{detailData.monthlyRateOverdueFee?.toLocaleString()} / month</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Custom Fees Section */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-black uppercase italic tracking-widest text-slate-400">
+                                        Attached Custom Stall Fees
+                                    </h4>
+                                    {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />}
+                                </div>
+
+                                {detailData.otherFees && detailData.otherFees.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {detailData.otherFees.map((fee: any) => (
+                                            <div
+                                                key={fee.id}
+                                                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] flex items-center justify-between"
+                                            >
+                                                <div>
+                                                    <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                                                        {fee.name}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 font-medium italic">
+                                                        {fee.feeType || "DAILY"} {fee.remarks && `· ${fee.remarks}`}
+                                                    </span>
+                                                </div>
+                                                <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                                    ₱{fee.amount?.toLocaleString()}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : loading ? (
+                                    <div className="p-4 flex items-center justify-center text-xs font-bold text-slate-400 gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" /> Loading custom stall fees...
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 italic font-medium p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                        No additional custom fees attached to this stall.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Metadata Timestamps */}
+                            <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-400 pt-3 border-t border-slate-100 dark:border-[#2a3040]">
+                                <div>
+                                    <span className="block text-[9px] font-black uppercase tracking-wider">Registered On</span>
+                                    <span className="text-slate-700 dark:text-slate-300 font-bold">
+                                        {detailData.createdAt ? format(new Date(detailData.createdAt), "MMMM d, yyyy") : "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-[9px] font-black uppercase tracking-wider">Last Updated By</span>
+                                    <span className="text-slate-700 dark:text-slate-300 font-bold">
+                                        {detailData.updatedBy || detailData.createdBy || "System"}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <span className="block text-[9px] font-black uppercase tracking-wider">Last Updated By</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {detailData.updatedBy || detailData.createdBy || "System"}
-                            </span>
+
+                        {/* RIGHT COLUMN: Address & Embedded Interactive Map (5 cols) */}
+                        <div className="lg:col-span-5 flex flex-col space-y-3">
+                            <div className="flex items-center justify-between pb-1">
+                                <div className="flex items-center gap-1.5">
+                                    <MapPin className="w-4 h-4 text-rose-500" />
+                                    <div>
+                                        <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">
+                                            Market Location Pin
+                                        </h4>
+                                        <p className="text-[10px] text-slate-400 font-medium italic">
+                                            {latNum && lngNum ? "Pinned location inside Mapandan." : "No pin location set yet."}
+                                        </p>
+                                    </div>
+                                </div>
+                                {latNum && lngNum && (
+                                    <a
+                                        href={`https://www.google.com/maps?q=${latNum},${lngNum}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600 hover:underline"
+                                    >
+                                        <span>Open in Google Maps</span>
+                                        <ExternalLink size={12} />
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Physical Address Field */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
+                                <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider mb-0.5">
+                                    Specific Location / Stall Address
+                                </span>
+                                <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {detailData.address || <em className="text-slate-400 font-normal italic">No specific address provided</em>}
+                                </p>
+                            </div>
+
+                            {/* Embedded Persistent Map */}
+                            <div className="h-[380px] w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] shadow-sm relative">
+                                <LocationPicker
+                                    lat={latNum}
+                                    lng={lngNum}
+                                    onChange={() => {
+                                        // Read-only view in details modal
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -146,10 +146,10 @@ export function StallsTable() {
 
                                     {/* Location / Address */}
                                     <TableCell>
-                                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 max-w-[220px] truncate" title={item.address || "Public Market"}>
+                                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 max-w-[220px] truncate" title={item.address || "No address"}>
                                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                             <span className="truncate">
-                                                {item.address || <em className="text-slate-400 font-normal italic">Public Market</em>}
+                                                {item.address || <em className="text-slate-400 font-normal italic">No address</em>}
                                             </span>
                                         </div>
                                     </TableCell>

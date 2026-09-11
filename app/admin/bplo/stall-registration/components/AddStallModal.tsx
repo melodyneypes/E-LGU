@@ -309,7 +309,7 @@ export function AddStallModal() {
                                 <Input
                                     value={address}
                                     onChange={(e) => setAddress(e.target.value)}
-                                    placeholder="e.g. Dry Goods Section, Gate 2, Public Market"
+                                    placeholder="e.g. Dry Goods Section, Gate 2, Building A"
                                     className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-medium"
                                 />
                             </div>
@@ -338,7 +338,7 @@ export function AddStallModal() {
                                 </div>
 
                                 {otherFees.length > 0 && (
-                                    <div className="space-y-2 bg-slate-50 dark:bg-[#10141d] p-3 rounded-2xl border border-slate-200/60 dark:border-[#2a3040] max-h-48 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
                                         {otherFees.map((fee) => (
                                             <div key={fee.id} className="grid grid-cols-12 gap-2 items-center">
                                                 <div className="col-span-4">
@@ -391,9 +391,9 @@ export function AddStallModal() {
                             </div>
                         </div>
 
-                        {/* RIGHT COLUMN: Persistent Map & Coordinates (5 cols) */}
-                        <div className="lg:col-span-5 flex flex-col space-y-3 bg-slate-50 dark:bg-[#10141d] p-4 rounded-3xl border border-slate-200 dark:border-[#2a3040]">
-                            <div className="flex items-center justify-between">
+                        {/* RIGHT COLUMN: Persistent Map & Pin Location (5 cols) */}
+                        <div className="lg:col-span-5 flex flex-col space-y-2">
+                            <div className="flex items-center justify-between pb-1">
                                 <div className="flex items-center gap-1.5">
                                     <MapPin className="w-4 h-4 text-rose-500" />
                                     <div>
@@ -419,34 +419,8 @@ export function AddStallModal() {
                                 )}
                             </div>
 
-                            {/* Coordinates readouts/inputs */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Latitude</label>
-                                    <Input
-                                        type="number"
-                                        step="any"
-                                        value={latitude}
-                                        onChange={(e) => setLatitude(e.target.value)}
-                                        placeholder="e.g. 16.0245"
-                                        className="h-9 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-mono"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Longitude</label>
-                                    <Input
-                                        type="number"
-                                        step="any"
-                                        value={longitude}
-                                        onChange={(e) => setLongitude(e.target.value)}
-                                        placeholder="e.g. 120.4520"
-                                        className="h-9 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-mono"
-                                    />
-                                </div>
-                            </div>
-
                             {/* Embedded Persistent Map */}
-                            <div className="flex-1 min-h-[320px] rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] shadow-inner relative">
+                            <div className="flex-1 min-h-[380px] rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] shadow-sm relative">
                                 <LocationPicker
                                     lat={latitude ? parseFloat(latitude) : null}
                                     lng={longitude ? parseFloat(longitude) : null}
