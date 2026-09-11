@@ -13,6 +13,63 @@ export interface POExportOptions {
     paymentTerm?: string;
     vendorAddress?: string;
     vendorTIN?: string;
+    logoUrl?: string;
+}
+
+/**
+ * Loads the official Mapandan municipality logo for PDF header embedding.
+ */
+async function loadLogoImage(logoUrl?: string): Promise<string | null> {
+    if (typeof window === "undefined") return null;
+
+    const urlsToTry: string[] = [
+        logoUrl,
+        "/images/mapandan-logo.png",
+        "https://ntanbjizlavyokjdauag.supabase.co/storage/v1/object/public/system-assets/logos/logo-1787803174016.png"
+    ].filter(Boolean) as string[];
+
+    for (const url of urlsToTry) {
+        if (url.startsWith("data:image/")) return url;
+
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                const blob = await res.blob();
+                const dataUrl = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+                if (dataUrl) return dataUrl;
+            }
+        } catch {}
+
+        try {
+            const dataUrl = await new Promise<string | null>((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        const ctx = canvas.getContext("2d");
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0);
+                            resolve(canvas.toDataURL("image/png"));
+                            return;
+                        }
+                    } catch {}
+                    resolve(null);
+                };
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+            if (dataUrl) return dataUrl;
+        } catch {}
+    }
+    return null;
 }
 
 /**
@@ -60,7 +117,7 @@ export function numberToPesosWords(amount: number): string {
     if (tempWhole === 0) {
         parts.push("ZERO");
     } else {
-        while (tempWhole > 0 && scaleIdx < scales.length) {
+        while (tempWhole > 0) {
             const chunk = tempWhole % 1000;
             if (chunk > 0) {
                 const chunkStr = convertGroup(chunk);
@@ -72,18 +129,18 @@ export function numberToPesosWords(amount: number): string {
         }
     }
 
-    const words = parts.join(" ").trim();
+    const pesosPart = parts.join(" ").trim() + (whole === 1 ? " PESO" : " PESOS");
     if (cents > 0) {
-        return `PESOS: ${words} AND ${cents}/100 ONLY`;
+        return `${pesosPart} & ${cents.toString().padStart(2, "0")}/100 ONLY`;
     }
-    return `PESOS: ${words} ONLY`;
+    return `${pesosPart} ONLY`;
 }
 
 /**
  * Generates and downloads an official Philippine Government / LGU Mapandan
  * Purchase Order (PO) PDF for medical equipment and clinic supplies.
  */
-export function exportPOPDF(po: any, options: POExportOptions = {}) {
+export async function exportPOPDF(po: any, options: POExportOptions = {}) {
     if (!po) return;
 
     const doc = new jsPDF({
@@ -99,6 +156,16 @@ export function exportPOPDF(po: any, options: POExportOptions = {}) {
     // =========================================================================
     // 1. OFFICIAL LGU HEADER
     // =========================================================================
+    // Official Mapandan Municipal Logo (Left)
+    const logoDataUrl = await loadLogoImage(options.logoUrl);
+    if (logoDataUrl) {
+        try {
+            doc.addImage(logoDataUrl, "PNG", margin + 1, 10, 20, 20);
+        } catch (e) {
+            console.warn("[POReportExporter] Failed to embed official logo:", e);
+        }
+    }
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(50, 50, 50);

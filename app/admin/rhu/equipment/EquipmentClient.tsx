@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useTransition, useRef } from "react";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compression";
 import {
     Activity,
     Boxes,
@@ -36,6 +37,7 @@ import {
     History,
     Package,
     ExternalLink,
+    Camera,
     X
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -103,6 +105,8 @@ interface EquipmentClientProps {
     isReadOnly?: boolean;
     isGlobalAdmin?: boolean;
     canDispatchSO?: boolean;
+    canFileRO?: boolean;
+    siteLogo?: string;
 }
 
 type TabType = "LEDGER" | "PO" | "RO" | "SO" | "RETURNS" | "MAINTENANCE" | "REPORTS";
@@ -119,8 +123,13 @@ export default function EquipmentClient({
     matchedCenter = null,
     isReadOnly = false,
     isGlobalAdmin = false,
-    canDispatchSO = false
+    canDispatchSO = false,
+    canFileRO,
+    siteLogo = ""
 }: EquipmentClientProps) {
+    const userCanFileRO = canFileRO !== undefined ? canFileRO : (Boolean(matchedCenter) && !isGlobalAdmin);
+    const resolvedLogo = siteLogo || "/images/mapandan-logo.png";
+
     let themeColor = "#0284c7";
     try {
         const sys = useSystemTheme();
@@ -215,6 +224,17 @@ export default function EquipmentClient({
     const [defectFormReportedBy, setDefectFormReportedBy] = useState("");
     const [defectTabFilter, setDefectTabFilter] = useState<"ALL" | "DEFECTIVE" | "CONDEMNATION" | "DISPOSED">("ALL");
 
+    // Asset Details Modal State (BHS Inventory Portal)
+    const [isAssetDetailModalOpen, setIsAssetDetailModalOpen] = useState(false);
+    const [assetForDetail, setAssetForDetail] = useState<any | null>(null);
+
+    // Defect Verification Photo State
+    const [repairPhotoFile, setRepairPhotoFile] = useState<File | null>(null);
+    const [repairPhotoPreview, setRepairPhotoPreview] = useState<string | null>(null);
+    const [defectPhotoFile, setDefectPhotoFile] = useState<File | null>(null);
+    const [defectPhotoPreview, setDefectPhotoPreview] = useState<string | null>(null);
+    const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+
     // Condemnation Modal State
     const [isCondemnModalOpen, setIsCondemnModalOpen] = useState(false);
     const [assetToCondemn, setAssetToCondemn] = useState<any | null>(null);
@@ -281,8 +301,8 @@ export default function EquipmentClient({
     ]);
 
     // Request Order Form State
-    const [roFacility, setRoFacility] = useState(matchedCenter ? matchedCenter.name : (nonMainFacilities[0] || "BHS Nilombot"));
-    const [roRoom, setRoRoom] = useState("Treatment & Examination Room");
+    const [roFacility, setRoFacility] = useState(matchedCenter ? matchedCenter.name : "");
+    const [roRoom, setRoRoom] = useState("");
     const [isCustomRoRoom, setIsCustomRoRoom] = useState(false);
     const [customRoRoomName, setCustomRoRoomName] = useState("");
     const [roRequestedBy, setRoRequestedBy] = useState("");
@@ -292,11 +312,12 @@ export default function EquipmentClient({
     ]);
 
     // SO Form State
-    const [soTargetFacility, setSoTargetFacility] = useState("BHS Nilombot");
+    const [soTargetFacility, setSoTargetFacility] = useState("");
     const [soTargetRoom, setSoTargetRoom] = useState("Treatment & Examination Room");
     const [soDispatchedBy, setSoDispatchedBy] = useState("");
     const [soNotes, setSoNotes] = useState("");
     const [selectedStockAssetIds, setSelectedStockAssetIds] = useState<string[]>([]);
+    const [dispatchQuantities, setDispatchQuantities] = useState<Record<string, number | string>>({});
     const [linkedRoNumber, setLinkedRoNumber] = useState<string>("");
 
     // Receiving Form State
@@ -310,11 +331,56 @@ export default function EquipmentClient({
     // Repair Form State
     const [repairIssueNotes, setRepairIssueNotes] = useState("");
     const [repairResolutionNotes, setRepairResolutionNotes] = useState("");
+    const [repairDefectQty, setRepairDefectQty] = useState<number | string>(1);
+    const [directDefectQty, setDirectDefectQty] = useState<number | string>(1);
 
     // Signatories for COA Reports (Empty initial state with placeholders)
     const [sigSupplyOfficer, setSigSupplyOfficer] = useState("");
     const [sigMHO, setSigMHO] = useState("");
     const [sigAuditor, setSigAuditor] = useState("");
+
+    // Form Reset Helpers
+    const resetPOForm = useCallback(() => {
+        setPoVendor("");
+        setPoContact("");
+        setPoNotes("");
+        setPoModeOfProcurement("");
+        setPoDeliveryTerm("");
+        setPoLinkedRoNumber("");
+        setPoItems([{ equipmentName: "", brand: "", quantity: "", unitCost: "" }]);
+    }, []);
+
+    const resetROForm = useCallback(() => {
+        setRoFacility(matchedCenter ? matchedCenter.name : "");
+        setRoRoom("");
+        setIsCustomRoRoom(false);
+        setCustomRoRoomName("");
+        setRoRequestedBy("");
+        setRoJustification("");
+        setRoItems([{ equipmentName: "", quantity: "", estimatedUnitCost: 0, urgency: "NORMAL" }]);
+    }, [matchedCenter]);
+
+    const resetSOForm = useCallback(() => {
+        setSoTargetFacility("");
+        setSoTargetRoom("");
+        setSoDispatchedBy("");
+        setSoNotes("");
+        setSelectedStockAssetIds([]);
+        setDispatchQuantities({});
+        setLinkedRoNumber("");
+    }, []);
+
+    const resetCatalogForm = useCallback(() => {
+        setCatalogForm({
+            equipmentName: "",
+            brand: "",
+            model: "",
+            category: "SEMI_EXPENDABLE",
+            estimatedCost: "",
+            description: ""
+        });
+        setHasAttemptedCatalogSubmit(false);
+    }, []);
 
     // Filtered Assets
     const filteredAssets = assets.filter(a => {
@@ -329,7 +395,13 @@ export default function EquipmentClient({
 
         const effectiveFacility = matchedCenter ? matchedCenter.name : selectedFacility;
         const matchesFacility = effectiveFacility === "ALL" || a.currentFacility === effectiveFacility;
-        const matchesStatus = selectedStatus === "ALL" || a.currentStatus === selectedStatus;
+
+        // Official COA Master Ledger: Unverified items (PENDING_VERIFICATION) do NOT appear 
+        // on the official municipal Master Ledger until the Main RHU Supply Officer clicks [VERIFY & APPROVE ASSET].
+        const matchesStatus = selectedStatus === "ALL"
+            ? a.currentStatus !== "PENDING_VERIFICATION"
+            : a.currentStatus === selectedStatus;
+
         const matchesCategory = selectedCategory === "ALL" || a.category === selectedCategory;
 
         return matchesSearch && matchesFacility && matchesStatus && matchesCategory;
@@ -390,12 +462,13 @@ export default function EquipmentClient({
 
             batches.forEach(b => {
                 const qty = b.quantity != null ? Number(b.quantity) : 0;
-                const avail = b.availableQty != null ? Number(b.availableQty) : qty;
+                const isInactiveStatus = b.currentStatus === "CONDEMNED_DISPOSED" || b.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || b.currentStatus === "DEFECTIVE_FOR_REPAIR";
+                const avail = isInactiveStatus ? 0 : (b.availableQty != null ? Number(b.availableQty) : qty);
                 const cost = Number(b.unitCost) || 0;
 
                 totalQuantity += qty;
                 totalAvailableQty += avail;
-                totalStockValue += avail * cost;
+                totalStockValue += isInactiveStatus ? 0 : (avail * cost);
 
                 if (cost < minUnitCost) minUnitCost = cost;
                 if (cost > maxUnitCost) maxUnitCost = cost;
@@ -558,23 +631,64 @@ export default function EquipmentClient({
         return Array.from(map.values()).sort((a, b) => a.equipmentName.localeCompare(b.equipmentName));
     }, [assets, catalogItems]);
 
+    // Filtered Central Stockroom Equipment for BHS RO Requisitions (only physically available in stockroom)
+    const stockroomEquipmentList = React.useMemo(() => {
+        const map = new Map<string, {
+            equipmentName: string;
+            brand: string;
+            unitCost: number;
+            totalStock: number;
+        }>();
+
+        stockroomAssets.forEach(a => {
+            if (a.currentStatus !== "IN_STOCKROOM") return;
+            const avail = a.availableQty != null ? Number(a.availableQty) : (a.quantity != null ? Number(a.quantity) : 0);
+            if (avail <= 0) return;
+
+            const name = (a.equipmentName || "").trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            const cost = Number(a.unitCost) || 0;
+            const b = a.brand && a.brand.toLowerCase() !== "none" && a.brand.toLowerCase() !== "n/a" ? a.brand.trim() : "";
+
+            if (!map.has(key)) {
+                map.set(key, {
+                    equipmentName: name,
+                    brand: b,
+                    unitCost: cost,
+                    totalStock: avail
+                });
+            } else {
+                const item = map.get(key)!;
+                item.totalStock += avail;
+                if (!item.brand && b) item.brand = b;
+                if (item.unitCost === 0 && cost > 0) item.unitCost = cost;
+            }
+        });
+
+        return Array.from(map.values()).sort((a, b) => a.equipmentName.localeCompare(b.equipmentName));
+    }, [stockroomAssets]);
+
     const totalPages = Math.max(1, Math.ceil(consolidatedAssets.length / pageSize));
     const paginatedAssets = consolidatedAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+    // Verified official assets for physical counts (Excludes PENDING_VERIFICATION until approved)
+    const verifiedAssets = React.useMemo(() => assets.filter(a => a.currentStatus !== "PENDING_VERIFICATION"), [assets]);
+
     // Counts
-    const totalPhysicalUnits = assets.reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0);
+    const totalPhysicalUnits = verifiedAssets.reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0);
     const inStockroomUnits = stockroomAssets.reduce((sum, a) => sum + (a.availableQty != null ? Number(a.availableQty) : (a.quantity != null ? Number(a.quantity) : 0)), 0);
     const inStockroomCount = stockroomAssets.length;
-    const deployedCount = assets.filter(a => a.currentStatus === "DEPLOYED_SERVICEABLE").length;
-    const deployedUnits = assets
+    const deployedCount = verifiedAssets.filter(a => a.currentStatus === "DEPLOYED_SERVICEABLE").length;
+    const deployedUnits = verifiedAssets
         .filter(a => a.currentStatus === "DEPLOYED_SERVICEABLE")
         .reduce((sum, a) => sum + (a.quantity != null ? Number(a.quantity) : 0), 0);
-    const repairCountTotal = assets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
-    const condemnationCountTotal = assets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length;
+    const repairCountTotal = verifiedAssets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
+    const condemnationCountTotal = verifiedAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length;
     const defectiveCountTotal = repairCountTotal + condemnationCountTotal;
     const pendingVerificationCount = assets.filter(a => a.currentStatus === "PENDING_VERIFICATION").length;
-    const ppeCount = assets.filter(a => a.category === "PPE").length;
-    const semiCount = assets.filter(a => a.category === "SEMI_EXPENDABLE").length;
+    const ppeCount = verifiedAssets.filter(a => a.category === "PPE").length;
+    const semiCount = verifiedAssets.filter(a => a.category === "SEMI_EXPENDABLE").length;
 
     // Scoped Assets & Metrics for Maintenance & Defect Filing
     const maintenanceBaseAssets = React.useMemo(() => {
@@ -598,6 +712,46 @@ export default function EquipmentClient({
     const defectRepairCount = maintenanceBaseAssets.filter(a => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
     const defectCondemnCount = maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION").length;
     const defectDisposedCount = maintenanceBaseAssets.filter(a => a.currentStatus === "CONDEMNED_DISPOSED").length;
+
+    // Realtime Notification & Actionable Counts for Tabs
+    const pendingROCount = React.useMemo(() => {
+        // Pending action on ROs belongs exclusively to Central RHU Administrators who review and fulfill requisitions.
+        // For BHS Health Centers (matchedCenter), ROs are requisitions submitted by the clinic itself awaiting RHU dispatch.
+        if (matchedCenter) return 0;
+
+        return ros.filter((r: any) => {
+            const st = (r.status || "").toUpperCase();
+            return st === "SUBMITTED" || st === "PENDING" || st === "PENDING_APPROVAL";
+        }).length;
+    }, [ros, matchedCenter]);
+
+    const inTransitCount = React.useMemo(() => {
+        if (matchedCenter) {
+            return sos.filter((s: any) => s.status === "DISPATCHED" && s.targetFacility?.toLowerCase().trim() === matchedCenter.name.toLowerCase().trim()).length;
+        }
+        return sos.filter((s: any) => s.status === "DISPATCHED").length;
+    }, [sos, matchedCenter]);
+
+    const dispatchedSOCount = React.useMemo(() => {
+        // Dispatched Stock Transfers require Receiving Inspection by the destination Health Center (matchedCenter).
+        // Central RHU Administrator dispatched the SO and is awaiting BHS receiving, so it is not a pending action for RHU Admin.
+        if (!matchedCenter) return 0;
+
+        return sos.filter((s: any) => 
+            s.status === "DISPATCHED" && 
+            s.targetFacility?.toLowerCase().trim() === matchedCenter.name.toLowerCase().trim()
+        ).length;
+    }, [sos, matchedCenter]);
+
+    const openReturnsCount = React.useMemo(() => {
+        // Only Central RHU Administrators investigate and execute stock return replacements.
+        if (matchedCenter) return 0;
+        return returns.filter((r: any) => r.status === "OPEN_INVESTIGATION").length;
+    }, [returns, matchedCenter]);
+
+    const activeDefectsCount = React.useMemo(() => {
+        return maintenanceBaseAssets.filter((a: any) => a.currentStatus === "DEFECTIVE_FOR_REPAIR").length;
+    }, [maintenanceBaseAssets]);
 
     // Status Badge Helpers
     const getStatusBadge = (status: string) => {
@@ -642,6 +796,9 @@ export default function EquipmentClient({
                 if (fresh.ros) setRos(fresh.ros);
                 if (fresh.sos) setSos(fresh.sos);
                 if (fresh.returns) setReturns(fresh.returns);
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("rhu-equipment-updated"));
+                }
             }
         } catch (err) {
             console.warn("Failed to refresh equipment data in realtime:", err);
@@ -685,7 +842,7 @@ export default function EquipmentClient({
             if (typeof document !== "undefined" && document.visibilityState === "visible") {
                 refreshEquipmentData(true);
             }
-        }, 8000);
+        }, 30000); // 30s background heartbeat (Realtime WebSocket handles immediate updates)
 
         return () => {
             if (debounceTimer) clearTimeout(debounceTimer);
@@ -881,8 +1038,8 @@ export default function EquipmentClient({
         startTransition(async () => {
             const res = await verifyLegacyAsset(assetId);
             if (res.success && res.asset) {
-                toast.success("Asset verified and approved into official master ledger!");
-                setAssets(prev => prev.map(a => a.id === assetId ? res.asset : a));
+                toast.success(`Asset "${res.asset.equipmentName || "Item"}" verified & approved into official municipal COA Master Ledger!`);
+                setAssets(prev => prev.map(a => a.id === res.asset.id ? res.asset : a));
                 refreshEquipmentData(true);
             } else {
                 toast.error(res.error || "Verification failed");
@@ -968,7 +1125,8 @@ export default function EquipmentClient({
                 // Immediately generate and export the official PO PDF for supplier transmittal
                 exportPOPDF(res.po, {
                     modeOfProcurement: poModeOfProcurement,
-                    deliveryTerm: poDeliveryTerm
+                    deliveryTerm: poDeliveryTerm,
+                    logoUrl: resolvedLogo
                 });
                 toast.info(`Official PO PDF generated for supplier transmittal.`);
                 setPos(prev => [res.po, ...prev]);
@@ -1110,9 +1268,30 @@ export default function EquipmentClient({
     // Stock Transfer Handlers
     const handleDispatchSO = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!soTargetFacility) {
+            toast.error("Please select a destination BHS center.");
+            return;
+        }
         if (selectedStockAssetIds.length === 0) {
             toast.error("Please select at least one item from the stockroom to dispatch.");
             return;
+        }
+
+        const formattedQuantities: Record<string, number> = {};
+        for (const assetId of selectedStockAssetIds) {
+            const asset = stockroomAssets.find(a => a.id === assetId);
+            const available = asset?.availableQty != null ? Number(asset.availableQty) : (asset?.quantity != null ? Number(asset.quantity) : 1);
+            const rawVal = dispatchQuantities[assetId];
+            const qty = rawVal === "" || rawVal == null ? 1 : Number(rawVal);
+            if (isNaN(qty) || qty <= 0) {
+                toast.error(`Please enter a valid transfer quantity for ${asset?.equipmentName || "selected item"}.`);
+                return;
+            }
+            if (qty > available) {
+                toast.error(`Transfer quantity for ${asset?.equipmentName} cannot exceed available stock (${available} pcs).`);
+                return;
+            }
+            formattedQuantities[assetId] = qty;
         }
 
         startTransition(async () => {
@@ -1122,15 +1301,32 @@ export default function EquipmentClient({
                 targetRoom: soTargetRoom,
                 dispatchedBy: soDispatchedBy,
                 notes: soNotes,
-                selectedAssetIds: selectedStockAssetIds
+                selectedAssetIds: selectedStockAssetIds,
+                dispatchQuantities: formattedQuantities
             });
 
             if (res.success && res.so) {
                 toast.success(`Stock Transfer ${res.so.soNumber} dispatched!`);
                 setSos(prev => [res.so, ...prev]);
-                setStockroomAssets(prev => prev.filter(a => !selectedStockAssetIds.includes(a.id)));
+                setStockroomAssets(prev => {
+                    return prev.map(a => {
+                        if (selectedStockAssetIds.includes(a.id)) {
+                            const transferQty = formattedQuantities[a.id] || 1;
+                            const available = a.availableQty != null ? Number(a.availableQty) : (a.quantity != null ? Number(a.quantity) : 1);
+                            if (transferQty >= available) return null;
+                            return {
+                                ...a,
+                                quantity: available - transferQty,
+                                availableQty: available - transferQty
+                            };
+                        }
+                        return a;
+                    }).filter(Boolean) as any[];
+                });
                 setSelectedStockAssetIds([]);
+                setDispatchQuantities({});
                 setLinkedRoNumber("");
+                setSoTargetFacility("");
                 setSoDispatchedBy("");
                 setSoNotes("");
                 setIsSOModalOpen(false);
@@ -1191,7 +1387,16 @@ export default function EquipmentClient({
 
         const formData = new FormData();
         formData.append("assetId", activeAsset.id);
+        formData.append("defectQuantity", String(repairDefectQty || 1));
         formData.append("defectDetails", repairIssueNotes);
+        if (repairPhotoFile) {
+            try {
+                const compressed = await compressImage(repairPhotoFile, 1200, 0.75);
+                formData.append("photoFile", compressed);
+            } catch {
+                formData.append("photoFile", repairPhotoFile);
+            }
+        }
 
         startTransition(async () => {
             const res = await fileDefectRepairRequest(formData);
@@ -1200,6 +1405,9 @@ export default function EquipmentClient({
                 setAssets(prev => prev.map(a => a.id === res.asset.id ? res.asset : a));
                 setIsRepairModalOpen(false);
                 setRepairIssueNotes("");
+                setRepairDefectQty(1);
+                setRepairPhotoFile(null);
+                setRepairPhotoPreview(null);
                 refreshEquipmentData(true);
             } else {
                 toast.error(res.error || "Failed to file repair");
@@ -1232,10 +1440,19 @@ export default function EquipmentClient({
 
         const formData = new FormData();
         formData.append("assetId", defectFormAssetId);
+        formData.append("defectQuantity", String(directDefectQty || 1));
         formData.append("defectDetails", defectFormReportedBy.trim() 
             ? `${defectFormDetails.trim()} (Reported by: ${defectFormReportedBy.trim()})`
             : defectFormDetails.trim()
         );
+        if (defectPhotoFile) {
+            try {
+                const compressed = await compressImage(defectPhotoFile, 1200, 0.75);
+                formData.append("photoFile", compressed);
+            } catch {
+                formData.append("photoFile", defectPhotoFile);
+            }
+        }
 
         startTransition(async () => {
             const res = await fileDefectRepairRequest(formData);
@@ -1244,8 +1461,11 @@ export default function EquipmentClient({
                 setAssets(prev => prev.map(a => a.id === res.asset.id ? res.asset : a));
                 setIsDirectDefectModalOpen(false);
                 setDefectFormAssetId("");
+                setDirectDefectQty(1);
                 setDefectFormDetails("");
                 setDefectFormReportedBy("");
+                setDefectPhotoFile(null);
+                setDefectPhotoPreview(null);
                 refreshEquipmentData(true);
             } else {
                 toast.error(res.error || "Failed to file repair ticket");
@@ -1405,31 +1625,89 @@ export default function EquipmentClient({
                     className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100 dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none scroll-smooth w-full px-8 sm:px-9"
                 >
                     {[
-                        { id: "LEDGER", label: "Master Ledger & Rooms", icon: Boxes },
-                        { id: "PO", label: `Purchase Orders (${pos.length})`, icon: ShoppingCart },
-                        { id: "RO", label: `Requisitions (${ros.length})`, icon: ClipboardCheck },
-                        { id: "SO", label: `Stock Transfers (${sos.length})`, icon: Truck },
-                        { id: "RETURNS", label: `Receiving & Returns (${returns.length})`, icon: RotateCcw },
-                        { id: "MAINTENANCE", label: `Defects & IIRUP (${defectiveCountTotal})`, icon: Wrench },
-                        { id: "REPORTS", label: "COA Audit Reports", icon: FileSpreadsheet },
+                        { id: "LEDGER", label: "Master Ledger & Rooms", icon: Boxes, count: null, newCount: 0 },
+                        { 
+                            id: "PO", 
+                            label: "Purchase Orders", 
+                            icon: ShoppingCart, 
+                            count: pos.length,
+                            newCount: 0,
+                            countColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                        },
+                        { 
+                            id: "RO", 
+                            label: "Requisitions", 
+                            icon: ClipboardCheck, 
+                            count: ros.length,
+                            newCount: pendingROCount,
+                            countColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                        },
+                        { 
+                            id: "SO", 
+                            label: "Stock Transfers", 
+                            icon: Truck, 
+                            count: sos.length,
+                            newCount: dispatchedSOCount,
+                            countColor: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                        },
+                        { 
+                            id: "RETURNS", 
+                            label: "Receiving & Returns", 
+                            icon: RotateCcw, 
+                            count: returns.length,
+                            newCount: openReturnsCount,
+                            countColor: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                        },
+                        { 
+                            id: "MAINTENANCE", 
+                            label: "Defects & IIRUP", 
+                            icon: Wrench, 
+                            count: defectiveCountTotal,
+                            newCount: activeDefectsCount,
+                            countColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        },
+                        { id: "REPORTS", label: "COA Audit Reports", icon: FileSpreadsheet, count: null, newCount: 0 },
                     ].map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
+                        const hasNewNotification = (tab.newCount || 0) > 0;
+
                         return (
                             <button
                                 key={tab.id}
                                 type="button"
                                 onClick={() => setActiveTab(tab.id as TabType)}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer",
+                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer select-none",
                                     isActive
                                         ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm scale-102"
-                                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50"
+                                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50",
+                                    hasNewNotification && !isActive && "ring-1 ring-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-400"
                                 )}
-                                style={isActive ? { borderBottom: `2px solid ${themeColor}` } : {}}
+                                style={isActive ? { borderBottom: `2px solid ${hasNewNotification ? "#f43f5e" : themeColor}` } : {}}
                             >
-                                <Icon className="w-4 h-4 shrink-0" style={isActive ? { color: themeColor } : {}} />
-                                {tab.label}
+                                <Icon className={cn("w-4 h-4 shrink-0", hasNewNotification && "text-rose-500")} style={isActive && !hasNewNotification ? { color: themeColor } : {}} />
+                                <span className={cn(hasNewNotification && "text-rose-600 dark:text-rose-400")}>{tab.label}</span>
+                                {tab.count !== null && (
+                                    <div className="flex items-center gap-1 ml-0.5">
+                                        {hasNewNotification ? (
+                                            /* Glowing Notification Badge with Action Count */
+                                            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-md ring-2 ring-rose-500/40 animate-pulse">
+                                                {tab.newCount}
+                                            </span>
+                                        ) : (
+                                            /* Standard Count Pill with Color Accent */
+                                            <span className={cn(
+                                                "px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors",
+                                                tab.count > 0 
+                                                    ? tab.countColor
+                                                    : "bg-slate-200/60 dark:bg-white/5 text-slate-400 dark:text-slate-500"
+                                            )}>
+                                                {tab.count}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </button>
                         );
                     })}
@@ -1506,12 +1784,14 @@ export default function EquipmentClient({
                                         <SelectValue placeholder="All Statuses" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                        <SelectItem value="ALL" className="text-xs font-bold">All Statuses</SelectItem>
+                                        <SelectItem value="ALL" className="text-xs font-bold">All Official Items</SelectItem>
                                         <SelectItem value="CATALOG (UNSTOCKED)" className="text-xs font-semibold text-slate-500 dark:text-slate-400">Catalog (Unstocked)</SelectItem>
                                         <SelectItem value="IN_STOCKROOM" className="text-xs font-semibold text-blue-600 dark:text-blue-400">In Stockroom</SelectItem>
                                         <SelectItem value="DEPLOYED_SERVICEABLE" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Deployed (BHS)</SelectItem>
                                         <SelectItem value="DEFECTIVE_FOR_REPAIR" className="text-xs font-semibold text-amber-600 dark:text-amber-400">Defective / Repair</SelectItem>
-                                        <SelectItem value="PENDING_VERIFICATION" className="text-xs font-semibold text-purple-600 dark:text-purple-400">Pending Approval</SelectItem>
+                                        <SelectItem value="PENDING_VERIFICATION" className="text-xs font-semibold text-purple-600 dark:text-purple-400">
+                                            Pending Verification{pendingVerificationCount > 0 ? ` (${pendingVerificationCount})` : ""}
+                                        </SelectItem>
                                         <SelectItem value="CONDEMNED_FOR_DISPOSAL" className="text-xs font-semibold text-rose-600 dark:text-rose-400">Condemned</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -1571,6 +1851,30 @@ export default function EquipmentClient({
                             </div>
                         )}
                     </div>
+
+                    {/* Unverified Items Alert Banner for Main RHU Supply Officer */}
+                    {pendingVerificationCount > 0 && isGlobalAdmin && (
+                        <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-purple-700 dark:text-purple-300">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
+                                    <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-wider">Unverified Items Queue</p>
+                                    <p className="text-xs text-purple-700/80 dark:text-purple-300/80 mt-0.5">
+                                        {pendingVerificationCount} newly registered item(s) are awaiting Supply Officer inspection. These items do not appear on the official municipal COA Master Ledger until you click <span className="font-bold underline">[VERIFY &amp; APPROVE ASSET]</span>.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                size="sm"
+                                onClick={() => setSelectedStatus(selectedStatus === "PENDING_VERIFICATION" ? "ALL" : "PENDING_VERIFICATION")}
+                                className="h-8 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase cursor-pointer shrink-0 shadow-sm"
+                            >
+                                {selectedStatus === "PENDING_VERIFICATION" ? "Show Official Ledger" : `Review Queue (${pendingVerificationCount})`}
+                            </Button>
+                        </div>
+                    )}
 
                     {/* Asset Table */}
                     <Card className="rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] overflow-hidden shadow-sm">
@@ -1768,12 +2072,24 @@ export default function EquipmentClient({
                                                     <TableCell className="align-top py-3.5 font-mono text-xs">
                                                         {/* Current Stock Tag */}
                                                         <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-bold text-xs ${
-                                                            group.totalAvailableQty > 0
+                                                            group.currentStatus === "CONDEMNED_DISPOSED"
+                                                                ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300/40 dark:border-rose-700/40"
+                                                                : group.totalAvailableQty > 0
                                                                 ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-700/40"
                                                                 : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10"
                                                         }`}>
-                                                            <Package className={`w-3 h-3 shrink-0 ${group.totalAvailableQty > 0 ? "text-emerald-500" : "text-slate-400"}`} />
-                                                            <span>{group.totalAvailableQty} pcs in stock</span>
+                                                            <Package className={`w-3 h-3 shrink-0 ${
+                                                                group.currentStatus === "CONDEMNED_DISPOSED" ? "text-rose-500" : (group.totalAvailableQty > 0 ? "text-emerald-500" : "text-slate-400")
+                                                            }`} />
+                                                            <span>
+                                                                {group.currentStatus === "CONDEMNED_DISPOSED"
+                                                                    ? `${group.totalQuantity} pcs disposed`
+                                                                    : group.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION"
+                                                                    ? `${group.totalQuantity} pcs unserviceable`
+                                                                    : group.currentStatus === "DEFECTIVE_FOR_REPAIR"
+                                                                    ? `${group.totalQuantity} pcs in repair`
+                                                                    : `${group.totalAvailableQty} pcs in stock`}
+                                                            </span>
                                                         </div>
 
                                                         {/* Unit Cost / Valuation */}
@@ -1821,6 +2137,16 @@ export default function EquipmentClient({
                                                                     <Button
                                                                         size="sm"
                                                                         variant="ghost"
+                                                                        onClick={() => { setAssetForDetail(primary); setIsAssetDetailModalOpen(true); }}
+                                                                        className="h-7 w-7 p-0 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
+                                                                        title="View Asset Details"
+                                                                    >
+                                                                        <Eye className="w-3.5 h-3.5" />
+                                                                    </Button>
+
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
                                                                         onClick={() => { setActiveAsset(primary); setIsQRModalOpen(true); }}
                                                                         className="h-7 w-7 p-0 rounded-lg text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer"
                                                                         title="View Property Tag / QR"
@@ -1834,9 +2160,10 @@ export default function EquipmentClient({
                                                                                 <Button
                                                                                     size="sm"
                                                                                     onClick={() => handleVerifyAsset(primary.id)}
-                                                                                    className="h-7 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase cursor-pointer"
+                                                                                    className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-sm cursor-pointer whitespace-nowrap"
+                                                                                    title="Verify and approve item for inclusion in official municipal COA Master Ledger"
                                                                                 >
-                                                                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                                                                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> VERIFY &amp; APPROVE ASSET
                                                                                 </Button>
                                                                             )}
 
@@ -1844,15 +2171,22 @@ export default function EquipmentClient({
                                                                                 <Button
                                                                                     size="sm"
                                                                                     variant="outline"
-                                                                                    onClick={() => { setActiveAsset(primary); setIsRepairModalOpen(true); }}
-                                                                                    className="h-7 px-2 rounded-lg text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 font-bold text-[10px] uppercase cursor-pointer"
-                                                                                    title="Report Defect"
+                                                                                    onClick={() => { 
+                                                                                        setActiveAsset(primary); 
+                                                                                        setRepairIssueNotes("");
+                                                                                        setRepairDefectQty(1);
+                                                                                        setRepairPhotoFile(null);
+                                                                                        setRepairPhotoPreview(null);
+                                                                                        setIsRepairModalOpen(true); 
+                                                                                    }}
+                                                                                    className="h-7 px-2.5 rounded-lg text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 font-bold text-[10px] uppercase cursor-pointer whitespace-nowrap shadow-xs"
+                                                                                    title="File Repair Request"
                                                                                 >
-                                                                                    <Wrench className="w-3 h-3" />
+                                                                                    <Wrench className="w-3 h-3 mr-1" /> Defect
                                                                                 </Button>
                                                                             )}
 
-                                                                            {group.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
+                                                                            {group.currentStatus === "DEFECTIVE_FOR_REPAIR" && isGlobalAdmin && !matchedCenter && (
                                                                                 <Button
                                                                                     size="sm"
                                                                                     onClick={() => { setActiveAsset(primary); setIsResolveRepairModalOpen(true); }}
@@ -1967,7 +2301,8 @@ export default function EquipmentClient({
                                                                             </thead>
                                                                             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                                                                                 {group.batches.map((batch: any, bIdx: number) => {
-                                                                                    const bAvail = batch.availableQty != null ? Number(batch.availableQty) : (batch.quantity != null ? Number(batch.quantity) : 0);
+                                                                                    const isInactiveStatus = batch.currentStatus === "CONDEMNED_DISPOSED" || batch.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || batch.currentStatus === "DEFECTIVE_FOR_REPAIR";
+                                                                                    const bAvail = isInactiveStatus ? 0 : (batch.availableQty != null ? Number(batch.availableQty) : (batch.quantity != null ? Number(batch.quantity) : 0));
                                                                                     const bCost = Number(batch.unitCost) || 0;
                                                                                     const bSubtotal = bAvail * bCost;
                                                                                     const hasRealPO = Boolean(batch.poReferenceNo);
@@ -2044,15 +2379,38 @@ export default function EquipmentClient({
                                                                                                 ₱{bCost.toLocaleString()}
                                                                                             </td>
                                                                                             <td className="py-2.5 px-3 text-center">
-                                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/50">
-                                                                                                    {bAvail} pcs
-                                                                                                </span>
+                                                                                                {batch.currentStatus === "CONDEMNED_DISPOSED" ? (
+                                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/50">
+                                                                                                        Disposed ({batch.quantity || 1} pcs)
+                                                                                                    </span>
+                                                                                                ) : batch.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" ? (
+                                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/50">
+                                                                                                        For Disposal ({batch.quantity || 1} pcs)
+                                                                                                    </span>
+                                                                                                ) : batch.currentStatus === "DEFECTIVE_FOR_REPAIR" ? (
+                                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/50">
+                                                                                                        In Repair ({batch.quantity || 1} pcs)
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/50">
+                                                                                                        {bAvail} pcs
+                                                                                                    </span>
+                                                                                                )}
                                                                                             </td>
                                                                                             <td className="py-2.5 px-3 font-mono font-bold text-right text-slate-900 dark:text-white">
                                                                                                 ₱{bSubtotal.toLocaleString()}
                                                                                             </td>
                                                                                             <td className="py-2.5 px-3 text-right">
-                                                                                                <div className="flex items-center justify-end gap-1">
+                                                                                <div className="flex items-center justify-end gap-1">
+                                                                                                    <Button
+                                                                                                        size="sm"
+                                                                                                        variant="ghost"
+                                                                                                        onClick={() => { setAssetForDetail(batch); setIsAssetDetailModalOpen(true); }}
+                                                                                                        className="h-6 w-6 p-0 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700"
+                                                                                                        title="View Asset Details"
+                                                                                                    >
+                                                                                                        <Eye className="w-3 h-3" />
+                                                                                                    </Button>
                                                                                                     <Button
                                                                                                         size="sm"
                                                                                                         variant="ghost"
@@ -2062,6 +2420,34 @@ export default function EquipmentClient({
                                                                                                     >
                                                                                                         <QrCode className="w-3 h-3" />
                                                                                                     </Button>
+                                                                                                    {!isReadOnly && batch.currentStatus === "PENDING_VERIFICATION" && (
+                                                                                                        <Button
+                                                                                                            size="sm"
+                                                                                                            onClick={() => handleVerifyAsset(batch.id)}
+                                                                                                            className="h-6 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase cursor-pointer whitespace-nowrap shadow-xs"
+                                                                                                            title="Verify & approve asset for official municipal COA Master Ledger"
+                                                                                                        >
+                                                                                                            <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> VERIFY
+                                                                                                        </Button>
+                                                                                                    )}
+                                                                                                    {!isReadOnly && batch.currentStatus === "DEPLOYED_SERVICEABLE" && (
+                                                                                                        <Button
+                                                                                                            size="sm"
+                                                                                                            variant="outline"
+                                                                                                            onClick={() => { 
+                                                                                                                setActiveAsset(batch); 
+                                                                                                                setRepairIssueNotes("");
+                                                                                                                setRepairDefectQty(1);
+                                                                                                                setRepairPhotoFile(null);
+                                                                                                                setRepairPhotoPreview(null);
+                                                                                                                setIsRepairModalOpen(true); 
+                                                                                                            }}
+                                                                                                            className="h-6 px-1.5 rounded text-amber-600 border-amber-300 hover:bg-amber-50 font-bold text-[9px] uppercase cursor-pointer whitespace-nowrap"
+                                                                                                            title="File Repair Request"
+                                                                                                        >
+                                                                                                            <Wrench className="w-2.5 h-2.5 mr-0.5" /> Defect
+                                                                                                        </Button>
+                                                                                                    )}
                                                                                                     {!isReadOnly && (
                                                                                                         <Button
                                                                                                             size="sm"
@@ -2163,13 +2549,19 @@ export default function EquipmentClient({
                         <div>
                             <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
                                 <ShoppingCart className="w-4 h-4 text-sky-500" />
-                                Procurement Purchase Orders ({pos.length})
+                                <span>Procurement Purchase Orders</span>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                    {pos.length} Total
+                                </span>
                             </h3>
                             <p className="text-xs text-slate-400">Generate POs for supplier transmittal, print PDF, and intake arrived goods to Central Stockroom.</p>
                         </div>
                         {isGlobalAdmin && (
                             <Button
-                                onClick={() => setIsPOModalOpen(true)}
+                                onClick={() => {
+                                    resetPOForm();
+                                    setIsPOModalOpen(true);
+                                }}
                                 className="h-10 px-4 rounded-xl font-bold text-xs uppercase text-white shadow-md cursor-pointer shrink-0 transition-transform hover:scale-105"
                                 style={{ backgroundColor: themeColor }}
                             >
@@ -2314,7 +2706,7 @@ export default function EquipmentClient({
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => {
-                                                                    exportPOPDF(po);
+                                                                    exportPOPDF(po, { logoUrl: resolvedLogo });
                                                                     toast.success(`Exporting Purchase Order ${po.poNumber} PDF...`);
                                                                 }}
                                                                 className="h-8 px-2.5 rounded-xl border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-bold text-xs cursor-pointer transition-all shrink-0"
@@ -2374,15 +2766,31 @@ export default function EquipmentClient({
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div>
-                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                                 <ClipboardCheck className="w-4 h-4 text-sky-500" />
-                                Barangay Health Station Request Orders (RO) ({ros.length})
+                                <span>{matchedCenter ? `${matchedCenter.name} Request Orders (RO)` : "Barangay Health Station Request Orders (RO)"}</span>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                                    {ros.length} Total
+                                </span>
+                                {pendingROCount > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs animate-pulse ring-2 ring-rose-500/20">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
+                                        {pendingROCount} Pending Action
+                                    </span>
+                                )}
                             </h3>
-                            <p className="text-xs text-slate-400">Requisitions submitted by BHS nurses/midwives awaiting RHU Stock Transfer dispatch.</p>
+                            <p className="text-xs text-slate-400">
+                                {matchedCenter 
+                                    ? "Requisitions submitted to Main RHU Central Stockroom awaiting fulfillment and dispatch." 
+                                    : "Requisitions submitted by BHS nurses/midwives awaiting RHU Stock Transfer dispatch."}
+                            </p>
                         </div>
-                        {!isReadOnly && (
+                        {userCanFileRO && !isReadOnly && (
                             <Button
-                                onClick={() => setIsROModalOpen(true)}
+                                onClick={() => {
+                                    resetROForm();
+                                    setIsROModalOpen(true);
+                                }}
                                 className="h-10 px-4 rounded-xl font-bold text-xs uppercase text-white shadow-md cursor-pointer shrink-0 transition-transform hover:scale-105"
                                 style={{ backgroundColor: themeColor }}
                             >
@@ -2407,7 +2815,9 @@ export default function EquipmentClient({
                                 {ros.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-40 text-center text-slate-400 font-bold text-xs uppercase">
-                                            No active request orders from Barangay Health Stations. Click &quot;Create Request Order (RO)&quot; to begin.
+                                            {userCanFileRO
+                                                ? "No active request orders for this health station. Click \"Create Request Order (RO)\" to begin."
+                                                : "No active request orders from Barangay Health Stations."}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -2519,7 +2929,7 @@ export default function EquipmentClient({
                                                         </div>
                                                     ) : hasSufficientStock ? (
                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase">
-                                                            <CheckCircle2 className="w-3 h-3" /> Stock Ready for SO
+                                                            <CheckCircle2 className="w-3 h-3" /> {matchedCenter ? "Awaiting RHU Dispatch" : "Stock Ready for SO"}
                                                         </span>
                                                     ) : (
                                                         <div className="space-y-1">
@@ -2543,6 +2953,7 @@ export default function EquipmentClient({
                                                                     setSoTargetFacility(ro.requestingFacility);
                                                                     setSoTargetRoom(ro.requestedRoom);
                                                                     setSelectedStockAssetIds([]);
+                                                                    setDispatchQuantities({});
                                                                     setIsSOModalOpen(true);
                                                                 }}
                                                                 className={cn(
@@ -2568,7 +2979,7 @@ export default function EquipmentClient({
                                                         </div>
                                                     ) : (
                                                         <span className="text-[10px] text-slate-400 font-bold uppercase">
-                                                            {isConverted ? "Transferred" : "—"}
+                                                            {isConverted ? "Transferred" : (matchedCenter ? "Awaiting RHU" : "—")}
                                                         </span>
                                                     )}
                                                 </TableCell>
@@ -2589,16 +3000,24 @@ export default function EquipmentClient({
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div>
-                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                                 <Truck className="w-4 h-4 text-sky-500" />
-                                Stock Transfers / Orders (SO) ({sos.length})
+                                <span>Stock Transfers / Orders (SO)</span>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                                    {sos.length} Total
+                                </span>
+                                {inTransitCount > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400">
+                                        {inTransitCount} In-Transit
+                                    </span>
+                                )}
                             </h3>
                             <p className="text-xs text-slate-400">Dispatches from Main RHU Central Stockroom to Barangay Health Stations with auto-deduction and PAR/ICS generation.</p>
                         </div>
                         {(isGlobalAdmin || canDispatchSO) && (
                             <Button
                                 onClick={() => {
-                                    setLinkedRoNumber("");
+                                    resetSOForm();
                                     setIsSOModalOpen(true);
                                 }}
                                 className="h-10 px-4 rounded-xl font-bold text-xs uppercase text-white shadow-md cursor-pointer shrink-0 transition-transform hover:scale-105"
@@ -2764,9 +3183,18 @@ export default function EquipmentClient({
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#161a24] border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div>
-                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                                 <RotateCcw className="w-4 h-4 text-rose-500" />
-                                Stock Return / Discrepancy Investigation Tickets ({returns.length})
+                                <span>Stock Return / Discrepancy Investigation Tickets</span>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                                    {returns.length} Total
+                                </span>
+                                {openReturnsCount > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs animate-pulse ring-2 ring-rose-500/20">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
+                                        {openReturnsCount} Open Investigation
+                                    </span>
+                                )}
                             </h3>
                             <p className="text-xs text-slate-400">Items flagged as missing, damaged, or defective during BHS shipment receiving.</p>
                         </div>
@@ -2776,12 +3204,12 @@ export default function EquipmentClient({
                         <Table>
                             <TableHeader className="bg-slate-50 dark:bg-white/5">
                                 <TableRow>
-                                    <TableHead className="text-[10px] font-black uppercase">Ticket # &amp; Date</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Facility &amp; SO Ref</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Discrepancy Breakdown</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Damage / Reason Narrative</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Ticket # &amp; Date</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Facility &amp; SO Ref</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Discrepancy Breakdown</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase min-w-[240px] max-w-[340px]">Damage / Reason Narrative</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Status</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase text-right whitespace-nowrap min-w-[140px]">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2801,7 +3229,7 @@ export default function EquipmentClient({
 
                                         return (
                                             <TableRow key={ticket.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                                                <TableCell className="align-top py-3.5">
+                                                <TableCell className="align-top py-3.5 whitespace-nowrap">
                                                     <span className="font-mono font-black text-xs text-rose-600 dark:text-rose-400 block">
                                                         {ticket.ticketNumber}
                                                     </span>
@@ -2811,7 +3239,7 @@ export default function EquipmentClient({
                                                     </span>
                                                 </TableCell>
 
-                                                <TableCell className="align-top py-3.5">
+                                                <TableCell className="align-top py-3.5 whitespace-normal">
                                                     <span className="font-bold text-xs text-slate-900 dark:text-white block">
                                                         {ticket.bhsFacility}
                                                     </span>
@@ -2820,7 +3248,7 @@ export default function EquipmentClient({
                                                     </span>
                                                 </TableCell>
 
-                                                <TableCell className="align-top py-3.5">
+                                                <TableCell className="align-top py-3.5 whitespace-normal">
                                                     <div className="space-y-0.5 text-xs font-bold">
                                                         <span className="text-rose-600 block">Missing: {ticket.missingQuantity || 0} pcs</span>
                                                         <span className="text-amber-600 block">Defective: {ticket.defectiveQuantity || 0} pcs</span>
@@ -2828,18 +3256,20 @@ export default function EquipmentClient({
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell className="align-top py-3.5 max-w-xs">
-                                                    <p className="text-xs text-slate-600 dark:text-slate-300 italic">
-                                                        &ldquo;{ticket.reasonNotes || "No notes provided"}&rdquo;
-                                                    </p>
-                                                    {ticket.resolutionNotes && (
-                                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
-                                                            Resolution: {ticket.resolutionNotes}
-                                                        </span>
-                                                    )}
+                                                <TableCell className="align-top py-3.5 text-xs whitespace-normal break-words max-w-[340px]">
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs text-slate-600 dark:text-slate-300 italic break-words leading-relaxed whitespace-normal">
+                                                            &ldquo;{ticket.reasonNotes || "No notes provided"}&rdquo;
+                                                        </p>
+                                                        {ticket.resolutionNotes && (
+                                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
+                                                                Resolution: {ticket.resolutionNotes}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
 
-                                                <TableCell className="align-top py-3.5">
+                                                <TableCell className="align-top py-3.5 whitespace-nowrap min-w-[150px]">
                                                     {isOpen ? (
                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase animate-pulse">
                                                             <AlertTriangle className="w-3 h-3" /> Open Investigation
@@ -2900,19 +3330,20 @@ export default function EquipmentClient({
                             </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            {maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED").length > 0 && (
+                            {!matchedCenter && isGlobalAdmin && maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED").length > 0 && (
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
                                         const unserviceable = maintenanceBaseAssets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED");
+                                        toast.success("Exporting COA IIRUP Condemnation Report PDF...");
                                         exportCOAPDF(unserviceable, {
                                             reportType: "IIRUP",
                                             signatorySupplyOfficer: sigSupplyOfficer,
                                             signatoryMHO: sigMHO,
-                                            signatoryAuditor: sigAuditor
+                                            signatoryAuditor: sigAuditor,
+                                            logoUrl: resolvedLogo
                                         });
-                                        toast.success("Exporting COA IIRUP Condemnation Report PDF...");
                                     }}
                                     className="h-9 px-3 rounded-xl border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 font-bold text-xs uppercase cursor-pointer"
                                 >
@@ -2964,12 +3395,12 @@ export default function EquipmentClient({
                         <Table>
                             <TableHeader className="bg-slate-50 dark:bg-white/5">
                                 <TableRow>
-                                    <TableHead className="text-[10px] font-black uppercase">Asset Tag &amp; QR</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Equipment Name</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Facility / Room</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Defect / Condemnation Details</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[170px]">Asset Tag &amp; QR</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[160px]">Equipment Name</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Facility / Room</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase min-w-[240px] max-w-[340px]">Defect / Condemnation Details</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase whitespace-nowrap min-w-[150px]">Status</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase text-right whitespace-nowrap min-w-[150px]">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -3017,7 +3448,7 @@ export default function EquipmentClient({
 
                                     return queueAssets.map(asset => (
                                         <TableRow key={asset.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                                            <TableCell className="align-top py-3.5">
+                                            <TableCell className="align-top py-3.5 whitespace-nowrap">
                                                 <span className="font-mono font-bold text-xs text-slate-900 dark:text-white block">{asset.assetTagNo}</span>
                                                 <Button
                                                     size="sm"
@@ -3028,51 +3459,80 @@ export default function EquipmentClient({
                                                     <QrCode className="w-3 h-3 mr-1" /> View Tag
                                                 </Button>
                                             </TableCell>
-                                            <TableCell className="align-top py-3.5">
+                                            <TableCell className="align-top py-3.5 whitespace-normal">
                                                 <span className="font-bold text-xs text-slate-900 dark:text-white block">{asset.equipmentName}</span>
                                                 <span className="text-[10px] text-slate-400 block">{asset.brand ? `Brand: ${asset.brand} • ` : ""}SN: {asset.serialNo || "NONE"}</span>
                                             </TableCell>
-                                            <TableCell className="align-top py-3.5 text-xs">
-                                                <span className="font-semibold block">{asset.currentFacility}</span>
+                                            <TableCell className="align-top py-3.5 text-xs whitespace-normal">
+                                                <span className="font-semibold block text-slate-800 dark:text-slate-200">{asset.currentFacility}</span>
                                                 <span className="text-[10px] text-slate-400 block">Room: {asset.assignedRoom}</span>
                                             </TableCell>
-                                            <TableCell className="align-top py-3.5 text-xs max-w-xs">
-                                                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium italic">
-                                                    &ldquo;{asset.defectDetails || "Under technical inspection"}&rdquo;
-                                                </p>
-                                                {asset.lastRepairDate && (
-                                                    <span className="text-[10px] text-slate-400 block mt-1">
-                                                        Last action: {new Date(asset.lastRepairDate).toLocaleDateString()}
-                                                    </span>
-                                                )}
+                                            <TableCell className="align-top py-3.5 text-xs whitespace-normal break-words max-w-[340px]">
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-amber-700 dark:text-amber-400 font-medium italic break-words leading-relaxed whitespace-normal">
+                                                        &ldquo;{asset.defectDetails || "Under technical inspection"}&rdquo;
+                                                    </p>
+                                                    {asset.photoUrl && (
+                                                        <div className="pt-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPreviewPhotoUrl(asset.photoUrl)}
+                                                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 cursor-pointer transition-all shadow-xs"
+                                                                title="Click to view verification photo attached by BHS staff"
+                                                            >
+                                                                <Camera className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                                <span>Verification Photo</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {asset.lastRepairDate && (
+                                                        <span className="text-[10px] text-slate-400 block mt-1">
+                                                            Last action: {new Date(asset.lastRepairDate).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </TableCell>
-                                            <TableCell className="align-top py-3.5">
-                                                {getStatusBadge(asset.currentStatus)}
+                                            <TableCell className="align-top py-3.5 whitespace-nowrap min-w-[150px]">
+                                                <div className="inline-flex items-center">
+                                                    {getStatusBadge(asset.currentStatus)}
+                                                </div>
                                             </TableCell>
-                                            <TableCell className="align-top py-3.5 text-right space-x-1.5">
+                                            <TableCell className="align-top py-3.5 text-right whitespace-nowrap min-w-[150px] space-x-1.5">
                                                 {!isReadOnly && asset.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => { setActiveAsset(asset); setIsResolveRepairModalOpen(true); }}
-                                                        className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
-                                                    >
-                                                        <Wrench className="w-3.5 h-3.5 mr-1" /> Resolve Ticket
-                                                    </Button>
+                                                    isGlobalAdmin && !matchedCenter ? (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => { setActiveAsset(asset); setIsResolveRepairModalOpen(true); }}
+                                                            className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
+                                                        >
+                                                            <Wrench className="w-3.5 h-3.5 mr-1" /> Resolve Ticket
+                                                        </Button>
+                                                    ) : (
+                                                        <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-[10px] font-bold py-1 px-2.5 whitespace-nowrap">
+                                                            Awaiting RHU Technician
+                                                        </Badge>
+                                                    )
                                                 )}
 
                                                 {!isReadOnly && asset.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" && (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setAssetToCondemn(asset);
-                                                            setCondemnNotes("Unrepairable equipment inspected and verified beyond economical repair.");
-                                                            setCondemnAuditor(sigAuditor || "COA Resident Auditor");
-                                                            setIsCondemnModalOpen(true);
-                                                        }}
-                                                        className="h-8 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
-                                                    >
-                                                        <XCircle className="w-3.5 h-3.5 mr-1" /> Execute COA Condemnation
-                                                    </Button>
+                                                    isGlobalAdmin && !matchedCenter ? (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setAssetToCondemn(asset);
+                                                                setCondemnNotes("Unrepairable equipment inspected and verified beyond economical repair.");
+                                                                setCondemnAuditor(sigAuditor || "COA Resident Auditor");
+                                                                setIsCondemnModalOpen(true);
+                                                            }}
+                                                            className="h-8 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase shadow-sm cursor-pointer"
+                                                        >
+                                                            <XCircle className="w-3.5 h-3.5 mr-1" /> Execute COA Condemnation
+                                                        </Button>
+                                                    ) : (
+                                                        <Badge variant="outline" className="text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 text-[10px] font-bold py-1 px-2.5 whitespace-nowrap">
+                                                            In COA Disposal Queue
+                                                        </Badge>
+                                                    )
                                                 )}
 
                                                 {asset.currentStatus === "CONDEMNED_DISPOSED" && (
@@ -3107,15 +3567,19 @@ export default function EquipmentClient({
                             </div>
                             <div>
                                 <h4 className="font-black text-sm uppercase">RPCPPE Report (PDF)</h4>
-                                <p className="text-xs text-slate-400 mt-1">Property, Plant and Equipment valued &gt; ₱50,000.00 (PAR). Includes official 3-signature blocks.</p>
+                                <p className="text-xs text-slate-400 mt-1">Property, Plant and Equipment valued &gt; PHP 50,000.00 (PAR). Includes official 3-signature blocks.</p>
                             </div>
                             <Button
-                                onClick={() => exportCOAPDF(assets.filter(a => a.category === "PPE"), {
-                                    reportType: "RPCPPE",
-                                    signatorySupplyOfficer: sigSupplyOfficer,
-                                    signatoryMHO: sigMHO,
-                                    signatoryAuditor: sigAuditor
-                                })}
+                                onClick={() => {
+                                    toast.success("Generating COA RPCPPE Report PDF...");
+                                    exportCOAPDF(verifiedAssets.filter(a => a.category === "PPE"), {
+                                        reportType: "RPCPPE",
+                                        signatorySupplyOfficer: sigSupplyOfficer,
+                                        signatoryMHO: sigMHO,
+                                        signatoryAuditor: sigAuditor,
+                                        logoUrl: resolvedLogo
+                                    });
+                                }}
                                 className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export RPCPPE (PDF)
@@ -3128,15 +3592,19 @@ export default function EquipmentClient({
                             </div>
                             <div>
                                 <h4 className="font-black text-sm uppercase">RPCSP Report (PDF)</h4>
-                                <p className="text-xs text-slate-400 mt-1">Semi-Expendable Properties valued ₱50,000.00 &amp; below (ICS). Includes official signature lines.</p>
+                                <p className="text-xs text-slate-400 mt-1">Semi-Expendable Properties valued PHP 50,000.00 &amp; below (ICS). Includes official signature lines.</p>
                             </div>
                             <Button
-                                onClick={() => exportCOAPDF(assets.filter(a => a.category === "SEMI_EXPENDABLE"), {
-                                    reportType: "RPCSP",
-                                    signatorySupplyOfficer: sigSupplyOfficer,
-                                    signatoryMHO: sigMHO,
-                                    signatoryAuditor: sigAuditor
-                                })}
+                                onClick={() => {
+                                    toast.success("Generating COA RPCSP Report PDF...");
+                                    exportCOAPDF(verifiedAssets.filter(a => a.category === "SEMI_EXPENDABLE"), {
+                                        reportType: "RPCSP",
+                                        signatorySupplyOfficer: sigSupplyOfficer,
+                                        signatoryMHO: sigMHO,
+                                        signatoryAuditor: sigAuditor,
+                                        logoUrl: resolvedLogo
+                                    });
+                                }}
                                 className="w-full h-11 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export RPCSP (PDF)
@@ -3154,13 +3622,14 @@ export default function EquipmentClient({
                             <Button
                                 onClick={() => {
                                     const unserviceable = assets.filter(a => a.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" || a.currentStatus === "CONDEMNED_DISPOSED");
+                                    toast.success("Exporting COA IIRUP Condemnation Report PDF...");
                                     exportCOAPDF(unserviceable, {
                                         reportType: "IIRUP",
                                         signatorySupplyOfficer: sigSupplyOfficer,
                                         signatoryMHO: sigMHO,
-                                        signatoryAuditor: sigAuditor
+                                        signatoryAuditor: sigAuditor,
+                                        logoUrl: resolvedLogo
                                     });
-                                    toast.success("Exporting COA IIRUP Condemnation Report PDF...");
                                 }}
                                 className="w-full h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
@@ -3174,10 +3643,10 @@ export default function EquipmentClient({
                             </div>
                             <div>
                                 <h4 className="font-black text-sm uppercase">Excel Ledger (.xlsx)</h4>
-                                <p className="text-xs text-slate-400 mt-1">Full multi-column spreadsheet of all assets across all 16 health centers for accounting audits.</p>
+                                <p className="text-xs text-slate-400 mt-1">Full multi-column spreadsheet of all assets across all health facilities for accounting audits.</p>
                             </div>
                             <Button
-                                onClick={() => exportCOAExcel(assets)}
+                                onClick={() => exportCOAExcel(verifiedAssets)}
                                 className="w-full h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer"
                             >
                                 <Download className="w-4 h-4 mr-2" /> Export Excel (.XLSX)
@@ -3187,14 +3656,17 @@ export default function EquipmentClient({
 
                     {/* Signatories Configuration */}
                     <Card className="p-6 rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161a24] space-y-4">
-                        <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Report Signatory Names</h4>
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Report Signatory Names (Optional)</h4>
+                            <span className="text-[10px] text-slate-400">Leave blank to print official blank lines for hand-signing</span>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Supply Officer</Label>
                                 <Input
                                     value={sigSupplyOfficer}
                                     onChange={(e) => setSigSupplyOfficer(e.target.value)}
-                                    placeholder="e.g. JUAN DELA CRUZ"
+                                    placeholder="Leave blank or enter name..."
                                     className="h-10 rounded-xl text-xs font-bold"
                                 />
                             </div>
@@ -3203,7 +3675,7 @@ export default function EquipmentClient({
                                 <Input
                                     value={sigMHO}
                                     onChange={(e) => setSigMHO(e.target.value)}
-                                    placeholder="e.g. DR. MARIA SANTOS, MD"
+                                    placeholder="Leave blank or enter name..."
                                     className="h-10 rounded-xl text-xs font-bold"
                                 />
                             </div>
@@ -3212,7 +3684,7 @@ export default function EquipmentClient({
                                 <Input
                                     value={sigAuditor}
                                     onChange={(e) => setSigAuditor(e.target.value)}
-                                    placeholder="e.g. COA AUDIT TEAM"
+                                    placeholder="Leave blank or enter name..."
                                     className="h-10 rounded-xl text-xs font-bold"
                                 />
                             </div>
@@ -3226,9 +3698,7 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             <Dialog open={isCatalogModalOpen} onOpenChange={(open) => {
                 setIsCatalogModalOpen(open);
-                if (!open) {
-                    setHasAttemptedCatalogSubmit(false);
-                }
+                if (!open) resetCatalogForm();
             }}>
                 <DialogContent className="sm:max-w-[560px] max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-3xl bg-white dark:bg-[#161820] p-6">
                     <DialogHeader>
@@ -3640,7 +4110,7 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             <Dialog open={isPOModalOpen} onOpenChange={(open) => {
                 setIsPOModalOpen(open);
-                if (!open) setPoLinkedRoNumber("");
+                if (!open) resetPOForm();
             }}>
                 <DialogContent className="sm:max-w-[600px] max-h-[88vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6">
                     <DialogHeader>
@@ -3891,7 +4361,7 @@ export default function EquipmentClient({
                         </div>
 
                         <DialogFooter className="pt-3 border-t">
-                            <Button type="button" variant="outline" onClick={() => setIsPOModalOpen(false)}>Cancel</Button>
+                            <Button type="button" variant="outline" onClick={() => { setIsPOModalOpen(false); resetPOForm(); }}>Cancel</Button>
                             <Button type="submit" disabled={isPending} className="bg-sky-600 hover:bg-sky-700 text-white font-bold">
                                 {isPending ? "Generating PO..." : "Save Purchase Order"}
                             </Button>
@@ -4269,7 +4739,7 @@ export default function EquipmentClient({
                                             size="sm"
                                             onClick={() => {
                                                 if (viewingPO) {
-                                                    exportPOPDF(viewingPO);
+                                                    exportPOPDF(viewingPO, { logoUrl: resolvedLogo });
                                                     toast.success(`Exporting Purchase Order ${viewingPO.poNumber} PDF...`);
                                                 }
                                             }}
@@ -4304,7 +4774,10 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             {/* MODAL: DISPATCH STOCK TRANSFER (SO) */}
             {/* ========================================================================= */}
-            <Dialog open={isSOModalOpen} onOpenChange={setIsSOModalOpen}>
+            <Dialog open={isSOModalOpen} onOpenChange={(open) => {
+                setIsSOModalOpen(open);
+                if (!open) resetSOForm();
+            }}>
                 <DialogContent className="sm:max-w-[580px] max-h-[88vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black italic uppercase">Dispatch Stock Transfer (SO)</DialogTitle>
@@ -4316,16 +4789,16 @@ export default function EquipmentClient({
                     <form onSubmit={handleDispatchSO} className="space-y-4 py-2">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Destination BHS Center *</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Destination Center / Facility *</Label>
                                 <Select
                                     value={soTargetFacility}
                                     onValueChange={(val) => setSoTargetFacility(val)}
                                 >
                                     <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select Destination Center..." />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                        {(nonMainFacilities.length > 0 ? nonMainFacilities : facilityNames).map((f: string) => (
+                                        {facilityNames.map((f: string) => (
                                             <SelectItem key={f} value={f} className="text-xs font-bold">{f}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -4549,35 +5022,109 @@ export default function EquipmentClient({
                                 ) : (
                                     stockroomAssets.map(asset => {
                                         const isSelected = selectedStockAssetIds.includes(asset.id);
+                                        const availableStock = asset.availableQty != null ? Number(asset.availableQty) : (asset.quantity != null ? Number(asset.quantity) : 1);
+                                        const currentQty = dispatchQuantities[asset.id] !== undefined ? dispatchQuantities[asset.id] : "";
+                                        const numQty = typeof currentQty === "number" ? currentQty : (parseInt(String(currentQty), 10) || 0);
+
                                         return (
                                             <div
                                                 key={asset.id}
                                                 onClick={() => {
                                                     if (isSelected) {
                                                         setSelectedStockAssetIds(prev => prev.filter(id => id !== asset.id));
+                                                        setDispatchQuantities(prev => {
+                                                            const copy = { ...prev };
+                                                            delete copy[asset.id];
+                                                            return copy;
+                                                        });
                                                     } else {
                                                         setSelectedStockAssetIds(prev => [...prev, asset.id]);
+                                                        setDispatchQuantities(prev => ({
+                                                            ...prev,
+                                                            [asset.id]: linkedRoNumber ? (() => {
+                                                                const matchedRo = ros.find(r => r.roNumber === linkedRoNumber);
+                                                                const item = matchedRo?.items?.find((i: any) => i.equipmentName?.toLowerCase() === asset.equipmentName?.toLowerCase());
+                                                                return item ? Math.min(Number(item.quantity) || 1, availableStock) : (availableStock > 1 ? 1 : availableStock);
+                                                            })() : (availableStock > 1 ? 1 : availableStock)
+                                                        }));
                                                     }
                                                 }}
                                                 className={cn(
-                                                    "flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all",
-                                                    isSelected ? "bg-sky-50 dark:bg-sky-950/40 border-sky-500 font-bold" : "hover:bg-slate-100"
+                                                    "p-2.5 rounded-xl border text-xs cursor-pointer transition-all",
+                                                    isSelected ? "bg-sky-50 dark:bg-sky-950/40 border-sky-500 font-bold" : "hover:bg-slate-100 dark:hover:bg-white/5 border-slate-200 dark:border-slate-800"
                                                 )}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <input type="checkbox" checked={isSelected} readOnly className="rounded" />
-                                                    <div>
-                                                        <span className="font-semibold">{asset.equipmentName}</span>
-                                                        <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({asset.assetTagNo})</span>
-                                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 ml-1.5 font-mono">
-                                                            ({asset.availableQty ?? asset.quantity} pcs)
-                                                        </span>
-                                                        {asset.poReferenceNo && (
-                                                            <span className="text-[9px] text-slate-400 ml-1 font-mono">[{asset.poReferenceNo}]</span>
-                                                        )}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <input type="checkbox" checked={isSelected} readOnly className="rounded pointer-events-none" />
+                                                        <div>
+                                                            <span className="font-semibold">{asset.equipmentName}</span>
+                                                            <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({asset.assetTagNo})</span>
+                                                            <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 ml-1.5 font-mono">
+                                                                ({availableStock} pcs)
+                                                            </span>
+                                                            {asset.poReferenceNo && (
+                                                                <span className="text-[9px] text-slate-400 ml-1 font-mono">[{asset.poReferenceNo}]</span>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    <span className="font-mono">₱{(asset.unitCost || 0).toLocaleString()}</span>
                                                 </div>
-                                                <span className="font-mono">₱{(asset.unitCost || 0).toLocaleString()}</span>
+
+                                                {isSelected && (
+                                                    <div
+                                                        className="mt-2.5 pt-2 border-t border-sky-200 dark:border-sky-800/60 flex flex-wrap items-center justify-between gap-2"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
+                                                                Transfer Qty:
+                                                            </Label>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Input
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={availableStock}
+                                                                    value={currentQty}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        if (val === "") {
+                                                                            setDispatchQuantities(prev => ({ ...prev, [asset.id]: "" }));
+                                                                            return;
+                                                                        }
+                                                                        const parsed = parseInt(val, 10);
+                                                                        const clamped = isNaN(parsed) ? 1 : Math.max(1, Math.min(availableStock, parsed));
+                                                                        setDispatchQuantities(prev => ({ ...prev, [asset.id]: clamped }));
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        if (!numQty || numQty < 1) {
+                                                                            setDispatchQuantities(prev => ({ ...prev, [asset.id]: 1 }));
+                                                                        }
+                                                                    }}
+                                                                    className="h-8 w-24 text-center font-mono font-bold text-xs rounded-lg bg-white dark:bg-black/30 border-sky-300 dark:border-sky-700"
+                                                                />
+                                                                <span className="text-[10px] text-slate-400 font-mono">/ {availableStock} pcs</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => {
+                                                                    setDispatchQuantities(prev => ({ ...prev, [asset.id]: availableStock }));
+                                                                }}
+                                                                className="h-6 px-2 text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/40 rounded-md cursor-pointer"
+                                                            >
+                                                                All ({availableStock})
+                                                            </Button>
+                                                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                                                Stock Left: <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{Math.max(0, availableStock - (numQty || 0))}</span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })
@@ -4607,9 +5154,15 @@ export default function EquipmentClient({
                         </div>
 
                         <DialogFooter className="pt-3 border-t">
-                            <Button type="button" variant="outline" onClick={() => setIsSOModalOpen(false)}>Cancel</Button>
+                            <Button type="button" variant="outline" onClick={() => { setIsSOModalOpen(false); resetSOForm(); }}>Cancel</Button>
                             <Button type="submit" disabled={isPending || selectedStockAssetIds.length === 0} className="bg-sky-600 text-white font-bold">
-                                {isPending ? "Dispatching..." : `Dispatch ${selectedStockAssetIds.length} Items`}
+                                {isPending ? "Dispatching..." : (() => {
+                                    const totalUnits = selectedStockAssetIds.reduce((sum, id) => {
+                                        const raw = dispatchQuantities[id];
+                                        return sum + (raw === "" || raw == null ? 1 : Number(raw) || 1);
+                                    }, 0);
+                                    return `Dispatch ${totalUnits} Units (${selectedStockAssetIds.length} Item${selectedStockAssetIds.length > 1 ? 's' : ''})`;
+                                })()}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -4750,6 +5303,44 @@ export default function EquipmentClient({
                     </DialogHeader>
 
                     <form onSubmit={handleFileRepair} className="space-y-4 py-2">
+                        {(() => {
+                            const activeStock = activeAsset 
+                                ? (activeAsset.availableQty != null ? Number(activeAsset.availableQty) : (activeAsset.quantity != null ? Number(activeAsset.quantity) : 1))
+                                : 1;
+                            if (activeStock <= 1) return null;
+                            return (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Defective Quantity to Pull Out *</Label>
+                                        <span className="text-[10px] font-bold text-slate-500">
+                                            Available: {activeStock} pcs
+                                        </span>
+                                    </div>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={activeStock}
+                                        value={repairDefectQty}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 1;
+                                            setRepairDefectQty(Math.max(1, Math.min(activeStock, val)));
+                                        }}
+                                        className="h-10 text-xs font-bold rounded-xl"
+                                        required
+                                    />
+                                    {Number(repairDefectQty) < activeStock ? (
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                            💡 {repairDefectQty} of {activeStock} units will be isolated for repair. The remaining {activeStock - Number(repairDefectQty)} units will remain active and serviceable.
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-slate-400 font-medium">
+                                            The entire batch of {activeStock} units will be flagged for repair.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-black uppercase text-slate-400">Malfunction / Defect Description *</Label>
                             <Textarea
@@ -4759,6 +5350,70 @@ export default function EquipmentClient({
                                 className="h-24 text-xs rounded-xl"
                                 required
                             />
+                        </div>
+
+                        {/* Attach Verification Photo */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
+                                <span>Verification Photo (Damage / Malfunction)</span>
+                                <span className="text-[9px] text-slate-400 font-normal">Optional</span>
+                            </Label>
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center justify-center gap-2 h-10 px-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                    <Camera className="w-4 h-4 text-amber-500" />
+                                    <span>{repairPhotoFile ? "Change Photo" : "Upload Verification Photo"}</span>
+                                    <input
+                                         type="file"
+                                         accept="image/*"
+                                         className="hidden"
+                                         onChange={async (e) => {
+                                             const file = e.target.files?.[0] || null;
+                                             if (file) {
+                                                 try {
+                                                     const compressed = await compressImage(file, 1200, 0.75);
+                                                     setRepairPhotoFile(compressed);
+                                                     setRepairPhotoPreview(URL.createObjectURL(compressed));
+                                                 } catch {
+                                                     setRepairPhotoFile(file);
+                                                     setRepairPhotoPreview(URL.createObjectURL(file));
+                                                 }
+                                             } else {
+                                                 setRepairPhotoFile(null);
+                                                 setRepairPhotoPreview(null);
+                                             }
+                                         }}
+                                    />
+                                </label>
+                                {repairPhotoFile && (
+                                    <div className="flex items-center gap-2">
+                                        {repairPhotoPreview && (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                                src={repairPhotoPreview}
+                                                alt="Defect Preview"
+                                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                                            />
+                                        )}
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+                                                    {repairPhotoFile.name}
+                                                </p>
+                                                <Badge variant="outline" className="text-[8px] uppercase font-black px-1.5 py-0.5 tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shrink-0">
+                                                    WEBP
+                                                </Badge>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setRepairPhotoFile(null); setRepairPhotoPreview(null); }}
+                                                className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <DialogFooter>
@@ -4815,6 +5470,202 @@ export default function EquipmentClient({
             </Dialog>
 
             {/* ========================================================================= */}
+            {/* MODAL: ASSET DETAILS (BHS Inventory Portal) */}
+            {/* ========================================================================= */}
+            <Dialog open={isAssetDetailModalOpen} onOpenChange={setIsAssetDetailModalOpen}>
+                <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                            <span className="font-mono font-black text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800">
+                                {assetForDetail?.assetTagNo}
+                            </span>
+                            {assetForDetail?.currentStatus && getStatusBadge(assetForDetail.currentStatus)}
+                        </div>
+                        <DialogTitle className="text-xl font-black uppercase text-slate-900 dark:text-white">
+                            {assetForDetail?.equipmentName}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-400 font-semibold">
+                            {assetForDetail?.currentFacility} • {assetForDetail?.assignedRoom}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* Equipment Photo or Verification Photo */}
+                        {assetForDetail?.photoUrl && (
+                            <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-black/20 max-h-56 flex items-center justify-center relative group">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={assetForDetail.photoUrl}
+                                    alt={assetForDetail.equipmentName}
+                                    className="w-full h-48 object-contain cursor-pointer"
+                                    onClick={() => setPreviewPhotoUrl(assetForDetail.photoUrl)}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewPhotoUrl(assetForDetail.photoUrl)}
+                                    className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Eye className="w-3 h-3" /> Zoom
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Defect Alert (if defective) */}
+                        {assetForDetail?.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
+                            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 space-y-1">
+                                <div className="flex items-center gap-1.5 font-black text-xs uppercase">
+                                    <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Equipment Flagged as Malfunctioning / Defective</span>
+                                </div>
+                                <p className="text-xs italic pl-5 font-medium leading-relaxed">
+                                    &ldquo;{assetForDetail.defectDetails || "Under technical inspection"}&rdquo;
+                                </p>
+                                {assetForDetail.lastRepairDate && (
+                                    <span className="text-[10px] text-amber-700/80 dark:text-amber-400 block pl-5">
+                                        Action Date: {new Date(assetForDetail.lastRepairDate).toLocaleDateString()}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Unserviceable Alert (if condemnation) */}
+                        {assetForDetail?.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION" && (
+                            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 space-y-1">
+                                <div className="flex items-center gap-1.5 font-black text-xs uppercase">
+                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                    <span>Unserviceable — Enqueued for COA Condemnation (IIRUP)</span>
+                                </div>
+                                <p className="text-xs italic pl-5 font-medium leading-relaxed">
+                                    &ldquo;{assetForDetail.defectDetails || "Flagged unserviceable beyond economical repair"}&rdquo;
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Specification Matrix */}
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">Brand / Model</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">{assetForDetail?.brand || "Generic / None"}</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">Serial Number</span>
+                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{assetForDetail?.serialNo || "UNKNOWN/NONE"}</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">COA Classification</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {assetForDetail?.category === "PPE" ? "Property, Plant & Equipment (PAR)" : "Semi-Expendable Property (ICS)"}
+                                </span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">Acquisition Value</span>
+                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₱{(assetForDetail?.unitCost || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">Assigned Custodian</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">{assetForDetail?.accountablePerson || "Unassigned"}</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <span className="text-[10px] font-black uppercase text-slate-400 block">PO / Reference No</span>
+                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{assetForDetail?.poReferenceNo || assetForDetail?.documentReference || "N/A"}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-3 border-t border-slate-100 dark:border-white/5 mt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                const a = assetForDetail;
+                                setIsAssetDetailModalOpen(false);
+                                setActiveAsset(a);
+                                setIsQRModalOpen(true);
+                            }}
+                            className="rounded-xl font-bold text-xs h-10 px-3.5 w-full sm:w-auto"
+                        >
+                            <QrCode className="w-3.5 h-3.5 mr-1.5 text-sky-500" /> View QR Tag
+                        </Button>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setIsAssetDetailModalOpen(false)}
+                                className="rounded-xl font-bold text-xs h-10 px-4"
+                            >
+                                Close
+                            </Button>
+
+                            {!isReadOnly && assetForDetail?.currentStatus === "DEPLOYED_SERVICEABLE" && (
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        const a = assetForDetail;
+                                        setIsAssetDetailModalOpen(false);
+                                        setActiveAsset(a);
+                                        setRepairIssueNotes("");
+                                        setRepairDefectQty(1);
+                                        setRepairPhotoFile(null);
+                                        setRepairPhotoPreview(null);
+                                        setIsRepairModalOpen(true);
+                                    }}
+                                    className="h-10 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs uppercase shadow-sm cursor-pointer w-full sm:w-auto"
+                                >
+                                    <Wrench className="w-3.5 h-3.5 mr-1.5" /> File Repair Request
+                                </Button>
+                            )}
+
+                            {!isReadOnly && assetForDetail?.currentStatus === "DEFECTIVE_FOR_REPAIR" && (
+                                isGlobalAdmin && !matchedCenter ? (
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            const a = assetForDetail;
+                                            setIsAssetDetailModalOpen(false);
+                                            setActiveAsset(a);
+                                            setRepairResolutionNotes("");
+                                            setIsResolveRepairModalOpen(true);
+                                        }}
+                                        className="h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase shadow-sm cursor-pointer w-full sm:w-auto"
+                                    >
+                                        <Wrench className="w-3.5 h-3.5 mr-1.5" /> Resolve Repair Ticket
+                                    </Button>
+                                ) : (
+                                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-[10px] font-bold py-1.5 px-3">
+                                        Awaiting RHU / GSO Technician Action
+                                    </Badge>
+                                )
+                            )}
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL: VERIFICATION PHOTO LIGHTBOX PREVIEW */}
+            {/* ========================================================================= */}
+            <Dialog open={Boolean(previewPhotoUrl)} onOpenChange={(open) => { if (!open) setPreviewPhotoUrl(null); }}>
+                <DialogContent className="sm:max-w-2xl rounded-3xl bg-black/95 p-4 border border-white/10 text-white shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm font-bold uppercase tracking-wider text-slate-300 pr-8">
+                            Equipment Verification Photo
+                        </DialogTitle>
+                    </DialogHeader>
+                    {previewPhotoUrl && (
+                        <div className="flex items-center justify-center p-2 max-h-[70vh] overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={previewPhotoUrl}
+                                alt="Verification Photo"
+                                className="max-w-full max-h-[68vh] object-contain rounded-xl shadow-lg"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
             {/* MODAL: QR & ASSET PROPERTY TAG */}
             {/* ========================================================================= */}
             <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
@@ -4850,7 +5701,11 @@ export default function EquipmentClient({
             {/* ========================================================================= */}
             {/* MODAL: CREATE REQUEST ORDER (RO) */}
             {/* ========================================================================= */}
-            <Dialog open={isROModalOpen} onOpenChange={setIsROModalOpen}>
+            {userCanFileRO && (
+                <Dialog open={isROModalOpen} onOpenChange={(open) => {
+                    setIsROModalOpen(open);
+                    if (!open) resetROForm();
+                }}>
                 <DialogContent className="sm:max-w-[560px] max-h-[88vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#161820] p-6">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black italic uppercase">Create BHS Request Order (RO)</DialogTitle>
@@ -4874,13 +5729,18 @@ export default function EquipmentClient({
                                 ) : (
                                     <Select
                                         value={roFacility}
-                                        onValueChange={(val) => setRoFacility(val)}
+                                        onValueChange={(val) => {
+                                            setRoFacility(val);
+                                            setRoRoom("");
+                                            setIsCustomRoRoom(false);
+                                            setCustomRoRoomName("");
+                                        }}
                                     >
                                         <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate">
-                                            <SelectValue />
+                                            <SelectValue placeholder="Select requesting facility..." />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
-                                            {(nonMainFacilities.length > 0 ? nonMainFacilities : facilityNames).map((f: string) => (
+                                            {(nonMainFacilities && nonMainFacilities.length > 0 ? nonMainFacilities : facilityNames).map((f: string) => (
                                                 <SelectItem key={f} value={f} className="text-xs font-bold">{f}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -4904,7 +5764,7 @@ export default function EquipmentClient({
                                     }}
                                 >
                                     <SelectTrigger className="h-11 w-full min-w-0 rounded-xl text-xs font-bold truncate [&>span]:truncate">
-                                        <SelectValue placeholder="Select room placement" />
+                                        <SelectValue placeholder="Select room placement..." />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl bg-white dark:bg-[#161820]">
                                         {getRoomsForFacility(matchedCenter ? matchedCenter.name : roFacility).map(r => (
@@ -4963,6 +5823,13 @@ export default function EquipmentClient({
                             </div>
 
                             <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                                {stockroomEquipmentList.length === 0 && (
+                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                                        <span>No equipment is currently available in the RHU Central Stockroom. Requisitions are fulfilled from central stockroom inventory.</span>
+                                    </div>
+                                )}
+
                                 {roItems.map((item, idx) => (
                                     <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-2.5 shadow-xs">
                                         <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-white/5">
@@ -5000,16 +5867,45 @@ export default function EquipmentClient({
                                                         const val = e.target.value;
                                                         const copy = [...roItems];
                                                         copy[idx].equipmentName = val;
-                                                        const matched = ledgerEquipmentList.find(x => x.equipmentName.toLowerCase() === val.toLowerCase().trim());
+                                                        const matched = stockroomEquipmentList.find(x => x.equipmentName.toLowerCase() === val.toLowerCase().trim());
                                                         if (matched && matched.unitCost) {
                                                             copy[idx].estimatedUnitCost = matched.unitCost;
                                                         }
                                                         setRoItems(copy);
                                                     }}
-                                                    placeholder="e.g. Suction Machine, Digital BP..."
+                                                    placeholder="Select equipment in stockroom..."
                                                     className="h-10 text-xs font-bold rounded-xl"
                                                     required
                                                 />
+                                                {(() => {
+                                                    const matched = stockroomEquipmentList.find(x => x.equipmentName.toLowerCase() === item.equipmentName.toLowerCase().trim());
+                                                    if (matched) {
+                                                        const isOverStock = item.quantity !== "" && Number(item.quantity) > matched.totalStock;
+                                                        return (
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold mt-1">
+                                                                {isOverStock ? (
+                                                                    <span className="text-amber-500 flex items-center gap-1">
+                                                                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                                                                        Exceeds stockroom inventory ({matched.totalStock.toLocaleString()} in stock)
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                                                        {matched.totalStock.toLocaleString()} in RHU stockroom {matched.unitCost > 0 ? `• ₱${matched.unitCost.toLocaleString()}/pc` : ""}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    } else if (item.equipmentName.trim().length > 0) {
+                                                        return (
+                                                            <div className="flex items-center gap-1 text-[10px] text-amber-500 font-medium mt-1">
+                                                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                                                <span>Item not found in central stockroom inventory</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </div>
                                             <div className="sm:col-span-3 space-y-1.5">
                                                 <Label className="text-[9px] font-black uppercase text-slate-400 block h-4 truncate leading-4">
@@ -5060,15 +5956,15 @@ export default function EquipmentClient({
                                     </div>
                                 ))}
 
-                                {ledgerEquipmentList.length > 0 && (
+                                {stockroomEquipmentList.length > 0 && (
                                     <datalist id="ro-equipment-catalog-list">
-                                        {ledgerEquipmentList.map((eq) => (
+                                        {stockroomEquipmentList.map((eq) => (
                                             <option
                                                 key={eq.equipmentName}
                                                 value={eq.equipmentName}
-                                                label={`${eq.brand ? eq.brand + " • " : ""}${eq.totalStock > 0 ? `${eq.totalStock} in RHU stock` : "In Catalog"}${eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}`}
+                                                label={`${eq.brand ? eq.brand + " • " : ""}${eq.totalStock} in RHU stockroom${eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}`}
                                             >
-                                                {eq.brand ? `${eq.brand} • ` : ""}{eq.totalStock > 0 ? `${eq.totalStock} in RHU stock` : "In Catalog"}{eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}
+                                                {eq.brand ? `${eq.brand} • ` : ""}{eq.totalStock} in RHU stockroom{eq.unitCost > 0 ? ` • ₱${eq.unitCost.toLocaleString()}` : ""}
                                             </option>
                                         ))}
                                     </datalist>
@@ -5087,7 +5983,7 @@ export default function EquipmentClient({
                         </div>
 
                         <DialogFooter className="pt-3 border-t">
-                            <Button type="button" variant="outline" onClick={() => setIsROModalOpen(false)}>Cancel</Button>
+                            <Button type="button" variant="outline" onClick={() => { setIsROModalOpen(false); resetROForm(); }}>Cancel</Button>
                             <Button type="submit" disabled={isPending} className="bg-sky-600 text-white font-bold">
                                 {isPending ? "Submitting..." : "Submit Request Order"}
                             </Button>
@@ -5095,6 +5991,7 @@ export default function EquipmentClient({
                     </form>
                 </DialogContent>
             </Dialog>
+            )}
 
             {/* ========================================================================= */}
             {/* MODAL: DELETE CONFIRMATION DIALOG */}
@@ -5293,7 +6190,10 @@ export default function EquipmentClient({
                             </div>
                             <Select
                                 value={defectFormAssetId}
-                                onValueChange={(val) => setDefectFormAssetId(val)}
+                                onValueChange={(val) => {
+                                    setDefectFormAssetId(val);
+                                    setDirectDefectQty(1);
+                                }}
                             >
                                 <SelectTrigger className="h-11 w-full min-w-0 max-w-full rounded-xl text-xs font-bold overflow-hidden justify-between [&_[data-slot=select-value]]:!block [&_[data-slot=select-value]]:!truncate [&_[data-slot=select-value]]:!text-left [&_[data-slot=select-value]]:!overflow-hidden [&_[data-slot=select-value]]:!min-w-0 [&_[data-slot=select-value]]:!flex-1">
                                     <SelectValue placeholder={
@@ -5318,6 +6218,45 @@ export default function EquipmentClient({
                             </Select>
                         </div>
 
+                        {(() => {
+                            const selectedDirectAsset = defectEligibleAssets.find(a => a.id === defectFormAssetId);
+                            const directStock = selectedDirectAsset 
+                                ? (selectedDirectAsset.availableQty != null ? Number(selectedDirectAsset.availableQty) : (selectedDirectAsset.quantity != null ? Number(selectedDirectAsset.quantity) : 1))
+                                : 1;
+                            if (!selectedDirectAsset || directStock <= 1) return null;
+                            return (
+                                <div className="space-y-1.5 w-full min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Defective Quantity to Pull Out *</Label>
+                                        <span className="text-[10px] font-bold text-slate-500">
+                                            In Stock: {directStock} pcs
+                                        </span>
+                                    </div>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={directStock}
+                                        value={directDefectQty}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 1;
+                                            setDirectDefectQty(Math.max(1, Math.min(directStock, val)));
+                                        }}
+                                        className="h-10 text-xs font-bold rounded-xl"
+                                        required
+                                    />
+                                    {Number(directDefectQty) < directStock ? (
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                            💡 {directDefectQty} of {directStock} units will be isolated for repair. The remaining {directStock - Number(directDefectQty)} units will remain active and serviceable.
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-slate-400 font-medium">
+                                            The entire batch of {directStock} units will be flagged for repair.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         <div className="space-y-1.5 w-full min-w-0">
                             <Label className="text-[10px] font-black uppercase text-slate-400">Malfunction / Defect Description *</Label>
                             <Textarea
@@ -5327,6 +6266,70 @@ export default function EquipmentClient({
                                 className="h-24 text-xs rounded-xl resize-none w-full min-w-0"
                                 required
                             />
+                        </div>
+
+                        {/* Attach Verification Photo */}
+                        <div className="space-y-1.5 w-full min-w-0">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
+                                <span>Verification Photo (Damage / Malfunction)</span>
+                                <span className="text-[9px] text-slate-400 font-normal">Optional</span>
+                            </Label>
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center justify-center gap-2 h-10 px-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                    <Camera className="w-4 h-4 text-amber-500" />
+                                    <span>{defectPhotoFile ? "Change Photo" : "Upload Verification Photo"}</span>
+                                    <input
+                                         type="file"
+                                         accept="image/*"
+                                         className="hidden"
+                                         onChange={async (e) => {
+                                             const file = e.target.files?.[0] || null;
+                                             if (file) {
+                                                 try {
+                                                     const compressed = await compressImage(file, 1200, 0.75);
+                                                     setDefectPhotoFile(compressed);
+                                                     setDefectPhotoPreview(URL.createObjectURL(compressed));
+                                                 } catch {
+                                                     setDefectPhotoFile(file);
+                                                     setDefectPhotoPreview(URL.createObjectURL(file));
+                                                 }
+                                             } else {
+                                                 setDefectPhotoFile(null);
+                                                 setDefectPhotoPreview(null);
+                                             }
+                                         }}
+                                     />
+                                </label>
+                                {defectPhotoFile && (
+                                    <div className="flex items-center gap-2">
+                                        {defectPhotoPreview && (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                                src={defectPhotoPreview}
+                                                alt="Defect Preview"
+                                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                                            />
+                                        )}
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[150px]">
+                                                    {defectPhotoFile.name}
+                                                </p>
+                                                <Badge variant="outline" className="text-[8px] uppercase font-black px-1.5 py-0.5 tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shrink-0">
+                                                    WEBP
+                                                </Badge>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setDefectPhotoFile(null); setDefectPhotoPreview(null); }}
+                                                className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-1.5 w-full min-w-0">
