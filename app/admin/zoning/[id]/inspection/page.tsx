@@ -217,12 +217,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                             <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
                         </Button>
                     </Link>
-                    <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-                    <Link href={`/admin/zoning/${id}/evaluation?view=true`} prefetch={false}>
-                        <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
-                            <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
-                        </Button>
-                    </Link>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">

@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
-import { getEngineeringPermitCitizenRoute, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -312,12 +312,7 @@ export default function UserServiceRequestsPage() {
                             <div 
                                 key={req.id} 
                                 onClick={() => {
-                                    const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
-                                    if (engineeringPermitRoute) {
-                                        router.push(`${engineeringPermitRoute}?id=${req.id}`);
-                                    } else {
-                                        router.push(`/user/services/requests/${req.id}`);
-                                    }
+                                    router.push(`/user/services/requests/${req.id}`);
                                 }}
                                 className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-3 md:p-5 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row items-center gap-4 md:gap-8"
                             >

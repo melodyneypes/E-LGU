@@ -463,10 +463,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         { id: "ENGINEERING", label: "ENGINEERING" },
         { id: "ZONING", label: "ZONING CLEARANCE" },
         { id: "ENGINEER_REVIEW", label: "ENGINEER REVIEW" },
-        { id: "BFP", label: "BFP ACKNOWLEDGMENT" },
-        { id: "PAYMENT", label: "PAYMENT" }
+        { id: "BFP", label: "BFP ACKNOWLEDGMENT" }
     ];
-    
+
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
     
     const getStepIndex = () => {
@@ -476,23 +475,18 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             return 0; // Engineering
         }
         
-        if (transaction.status === "EVALUATED" || transaction.status === "UNPAID" || transaction.status === "PAYMENT_SUBMITTED" || transaction.status === "PAID") {
+        if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
             const feeAssessment = transaction.additionalData?.feeAssessment;
             const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
             const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
             const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
-            const isEndorsed = feeAssessment?.endorsed === true;
             
-            if (isEndorsed || ["UNPAID", "PAYMENT_SUBMITTED", "PAID"].includes(transaction.status)) return 4; // Payment
-            if (bfpSubmitted && !isEndorsed) return 3; // BFP Acknowledgment
+            if (bfpSubmitted || feeAssessment?.endorsed === true || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) return 3; // BFP Acknowledgment
             if (zoningEndorsed && !bfpSubmitted) return 2; // Engineer Review
             if (engineerEndorsedToZoning && !zoningEndorsed) return 1; // Zoning Clearance
-            return 0; // Engineering (Assessing initially)
+            return 0; // Engineering
         }
         
-        if (["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
-            return 4; // Payment (or beyond)
-        }
         return -1;
     };
     
