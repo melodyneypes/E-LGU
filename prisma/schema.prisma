@@ -1261,6 +1261,7 @@ model Stall {
   updatedBy             String?
   latitude              Float?
   longitude             Float?
+  address               String?
   stallType             StallType         @relation(fields: [stallTypeId], references: [id])
   vendor                User?             @relation("VendorStalls", fields: [vendorId], references: [id])
   collections           StallCollection[]

@@ -32,7 +32,8 @@ export function StallsTable() {
         const matchesSearch =
             stall.stallNumber.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             (stall.vendor?.name && stall.vendor.name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-            stall.stallType.name.toLowerCase().includes(debouncedSearch.toLowerCase());
+            stall.stallType.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            (stall.address && stall.address.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
         const matchesStatus =
             selectedStatus === "ALL" || stall.status === selectedStatus;
@@ -68,11 +69,14 @@ export function StallsTable() {
                 <Table>
                     <TableHeader className="bg-slate-50/50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
                         <TableRow>
-                            <TableHead className="w-[120px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
+                            <TableHead className="w-[110px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
                                 Stall #
                             </TableHead>
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Section / Category
+                            </TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                Location / Address
                             </TableHead>
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Vendor Occupant
@@ -92,9 +96,10 @@ export function StallsTable() {
                         {isSearching || isRefreshing ? (
                             Array.from({ length: 5 }).map((_, idx) => (
                                 <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040]">
-                                    <TableCell className="pl-8 py-4"><Skeleton className="h-4 w-20 rounded-md" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                                    <TableCell className="pl-8 py-4"><Skeleton className="h-4 w-16 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24 rounded-md" /></TableCell>
                                     <TableCell className="pr-8 text-right"><Skeleton className="h-8 w-20 rounded-xl ml-auto" /></TableCell>
@@ -102,7 +107,7 @@ export function StallsTable() {
                             ))
                         ) : paginatedStalls.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-48 text-center">
+                                <TableCell colSpan={7} className="h-48 text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-400">
                                         <Store className="w-10 h-10 mb-2 stroke-1 opacity-50" />
                                         <p className="text-sm font-bold uppercase tracking-wider">No Stalls Found</p>
@@ -136,6 +141,16 @@ export function StallsTable() {
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
                                             <Tag className="w-3.5 h-3.5 text-purple-500" />
                                             <span>{item.stallType.name}</span>
+                                        </div>
+                                    </TableCell>
+
+                                    {/* Location / Address */}
+                                    <TableCell>
+                                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 max-w-[220px] truncate" title={item.address || "Public Market"}>
+                                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span className="truncate">
+                                                {item.address || <em className="text-slate-400 font-normal italic">Public Market</em>}
+                                            </span>
                                         </div>
                                     </TableCell>
 

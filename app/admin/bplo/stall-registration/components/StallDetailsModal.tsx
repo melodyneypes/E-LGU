@@ -125,10 +125,10 @@ export function StallDetailsModal() {
                     </div>
 
                     {/* Geospatial Map Pin Location Card */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040]">
-                        <div className="flex items-center justify-between mb-2">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] space-y-3">
+                        <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase italic tracking-wider">
-                                <MapPin size={14} className="text-rose-500" /> Geospatial Location Pin
+                                <MapPin size={14} className="text-rose-500" /> Geospatial Location & Address
                             </div>
                             {detailData.latitude && detailData.longitude && (
                                 <a
@@ -141,6 +141,16 @@ export function StallDetailsModal() {
                                     <ExternalLink size={12} />
                                 </a>
                             )}
+                        </div>
+
+                        {/* Physical Address Field */}
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040]">
+                            <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider mb-0.5">
+                                Physical Address / Landmark
+                            </span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                {detailData.address || <em className="text-slate-400 font-normal italic">Public Market, Poblacion (No specific section address provided)</em>}
+                            </p>
                         </div>
                         {detailData.latitude && detailData.longitude ? (
                             <div className="flex items-center gap-4 text-xs font-medium">

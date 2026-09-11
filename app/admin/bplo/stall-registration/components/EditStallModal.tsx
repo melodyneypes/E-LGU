@@ -38,6 +38,7 @@ export function EditStallModal() {
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
     const [latitude, setLatitude] = useState<string>("");
     const [longitude, setLongitude] = useState<string>("");
+    const [address, setAddress] = useState<string>("");
     const [dailyRate, setDailyRate] = useState("0");
     const [monthlyRate, setMonthlyRate] = useState("0");
     const [dailyRateOverdueFee, setDailyRateOverdueFee] = useState("0");
@@ -53,6 +54,7 @@ export function EditStallModal() {
         setStatus(editingStall.status);
         setLatitude(editingStall.latitude !== null && editingStall.latitude !== undefined ? editingStall.latitude.toString() : "");
         setLongitude(editingStall.longitude !== null && editingStall.longitude !== undefined ? editingStall.longitude.toString() : "");
+        setAddress(editingStall.address || "");
         setDailyRate(editingStall.dailyRate.toString());
         setMonthlyRate(editingStall.monthlyRate.toString());
         setDailyRateOverdueFee(editingStall.dailyRateOverdueFee.toString());
@@ -102,6 +104,7 @@ export function EditStallModal() {
             status,
             latitude: parsedLat,
             longitude: parsedLng,
+            address: address.trim() || null,
             dailyRate: parseFloat(dailyRate) || 0,
             monthlyRate: parseFloat(monthlyRate) || 0,
             dailyRateOverdueFee: parseFloat(dailyRateOverdueFee) || 0,
@@ -261,6 +264,19 @@ export function EditStallModal() {
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Specific Physical Address / Location */}
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                    Specific Location / Stall Address
+                                </label>
+                                <Input
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    placeholder="e.g. Dry Goods Section, Gate 2, Public Market"
+                                    className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-medium"
+                                />
                             </div>
 
                             {/* Dynamic StallOtherFee Section */}
