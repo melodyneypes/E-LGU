@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getRHUEquipmentNotificationCount } from "@/app/admin/rhu/equipment/actions";
 
 interface CacheEntry {
     data: {
         pendingReportsCount: number;
         pendingResidentsCount: number;
         pendingTransactionsCount: number;
+        pendingAnnouncementsCount?: number;
         unviewedLcrCounts: Record<string, number>;
+        rhuEquipmentNotificationCount?: number;
     };
     timestamp: number;
 }
@@ -27,7 +30,9 @@ export async function GET() {
         const isBarangayAdmin = user.role === "BARANGAY_ADMIN";
         const managedBarangay = user.managedBarangay;
 
-        const cacheKey = isBarangayAdmin && managedBarangay ? managedBarangay : "GLOBAL_ADMIN";
+        const cacheKey = isBarangayAdmin && managedBarangay 
+            ? managedBarangay 
+            : (user.email || user.id || "GLOBAL_ADMIN").toLowerCase();
         const now = Date.now();
 
         if (cacheStore[cacheKey] && (now - cacheStore[cacheKey].timestamp < CACHE_TTL)) {
@@ -101,12 +106,23 @@ export async function GET() {
             pendingAnnouncementsCount = 0;
         }
 
+        let rhuEquipmentNotificationCount = 0;
+        try {
+            const rhuRes = await getRHUEquipmentNotificationCount();
+            if (rhuRes?.success) {
+                rhuEquipmentNotificationCount = rhuRes.count;
+            }
+        } catch {
+            rhuEquipmentNotificationCount = 0;
+        }
+
         const responseData = {
             pendingReportsCount,
             pendingResidentsCount,
             pendingTransactionsCount,
             pendingAnnouncementsCount,
-            unviewedLcrCounts
+            unviewedLcrCounts,
+            rhuEquipmentNotificationCount
         };
 
         cacheStore[cacheKey] = {

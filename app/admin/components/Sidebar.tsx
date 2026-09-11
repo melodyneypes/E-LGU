@@ -18,6 +18,7 @@ import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes, getSystemSettingsAction } from "@/app/admin/transactions/actions";
 import { getPendingReportsCount } from "@/app/admin/actions";
+import { getRHUEquipmentNotificationCount } from "@/app/admin/rhu/equipment/actions";
 import { supabase } from "@/lib/supabase";
 
 interface SidebarProps {
@@ -42,6 +43,7 @@ interface SidebarProps {
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
     rhuCenterName?: string | null;
+    rhuEquipmentCount?: number;
 }
 
 export function Sidebar({
@@ -56,7 +58,8 @@ export function Sidebar({
     pendingTransactionsCount = 0,
     pendingAnnouncementsCount = 0,
     unviewedLcrCounts = {},
-    rhuCenterName = null
+    rhuCenterName = null,
+    rhuEquipmentCount = 0
 }: SidebarProps) {
     const rhuLabel = React.useMemo(() => {
         if (!rhuCenterName) return "Rural Health Unit";
@@ -91,6 +94,11 @@ export function Sidebar({
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [livePendingAnnouncementsCount, setLivePendingAnnouncementsCount] = React.useState(pendingAnnouncementsCount);
+    const [liveRhuEquipmentCount, setLiveRhuEquipmentCount] = React.useState(rhuEquipmentCount);
+
+    React.useEffect(() => {
+        setLiveRhuEquipmentCount(rhuEquipmentCount);
+    }, [rhuEquipmentCount]);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/bplo/stall-registration"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
@@ -326,6 +334,92 @@ export function Sidebar({
         };
     }, [fetchReportsCount]);
 
+    const fetchRhuEquipmentCount = React.useCallback(async () => {
+        try {
+            const res = await getRHUEquipmentNotificationCount();
+            if (res && res.success) {
+                setLiveRhuEquipmentCount(res.count ?? 0);
+            }
+        } catch (err) {
+            console.error("[Sidebar RHU Realtime] Error fetching count:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        fetchRhuEquipmentCount();
+    }, [pathname, fetchRhuEquipmentCount]);
+
+    React.useEffect(() => {
+        const handleUpdate = () => {
+            fetchRhuEquipmentCount();
+        };
+        window.addEventListener("rhu-equipment-updated", handleUpdate);
+        return () => window.removeEventListener("rhu-equipment-updated", handleUpdate);
+    }, [fetchRhuEquipmentCount]);
+
+    React.useEffect(() => {
+        if (!supabase) return;
+        let channel: any;
+        let debounceTimer: NodeJS.Timeout | null = null;
+
+        try {
+            channel = supabase
+                .channel("sidebar-rhu-equipment-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "EquipmentStockTransfer",
+                    },
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchRhuEquipmentCount();
+                        }, 500);
+                    }
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "EquipmentRequestOrder",
+                    },
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchRhuEquipmentCount();
+                        }, 500);
+                    }
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "EquipmentStockReturnTicket",
+                    },
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchRhuEquipmentCount();
+                        }, 500);
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.warn("[Sidebar RHU Realtime] Setup error:", error);
+        }
+
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchRhuEquipmentCount]);
+
     React.useEffect(() => {
         // Background polling fallback every 20 seconds to keep counts in sync
         const interval = setInterval(() => {
@@ -334,10 +428,11 @@ export function Sidebar({
                 fetchBploCount();
             }
             fetchLcrCounts();
+            fetchRhuEquipmentCount();
         }, 20000);
 
         return () => clearInterval(interval);
-    }, [fetchBploCount, fetchLcrCounts, role]);
+    }, [fetchBploCount, fetchLcrCounts, fetchRhuEquipmentCount, role]);
 
     React.useEffect(() => {
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
@@ -520,6 +615,7 @@ export function Sidebar({
             category: rhuCategory,
             isDropdown: true,
             isOpen: isRHUOpen,
+            badge: liveRhuEquipmentCount > 0 && !isRHUOpen ? liveRhuEquipmentCount : undefined,
             onToggle: () => {
                 if (isRHUOpen) {
                     setIsRHUOpen(false);
@@ -543,7 +639,8 @@ export function Sidebar({
             href: "/admin/rhu/equipment",
             label: "Medical Equipment & Assets",
             icon: Boxes,
-            category: rhuCategory
+            category: rhuCategory,
+            badge: liveRhuEquipmentCount > 0 ? liveRhuEquipmentCount : undefined
         },
         {
             href: "/admin/rhu/purchase-orders",
@@ -1037,7 +1134,7 @@ export function Sidebar({
                                                         </span>
                                                     )}
                                                     {typeof item.badge === "number" && item.badge > 0 && (
-                                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
                                                             {item.badge}
                                                         </span>
                                                     )}
@@ -1170,8 +1267,8 @@ export function Sidebar({
                                             </div>
                                             {item.badge && (
                                                 <span className={cn(
-                                                    "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                                                    isActive ? "bg-white" : "bg-red-500 text-white"
+                                                    "text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm",
+                                                    isActive ? "bg-white" : "bg-rose-500 text-white"
                                                 )} style={{ color: isActive ? resolvedThemeColor : undefined }}>
                                                     {item.badge}
                                                 </span>

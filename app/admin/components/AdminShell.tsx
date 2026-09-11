@@ -28,6 +28,7 @@ interface AdminShellProps {
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
     rhuCenterName?: string | null;
+    rhuEquipmentCount?: number;
 }
 
 export function AdminShell({
@@ -43,6 +44,7 @@ export function AdminShell({
     pendingAnnouncementsCount: initialPendingAnnouncementsCount = 0,
     unviewedLcrCounts: initialUnviewedLcrCounts = {},
     rhuCenterName = null,
+    rhuEquipmentCount: initialRhuEquipmentCount = 0,
 }: AdminShellProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -52,6 +54,7 @@ export function AdminShell({
     const [transactionsCount, setTransactionsCount] = React.useState(initialPendingTransactionsCount);
     const [announcementsCount, setAnnouncementsCount] = React.useState(initialPendingAnnouncementsCount);
     const [lcrCounts, setLcrCounts] = React.useState<Record<string, number>>(initialUnviewedLcrCounts);
+    const [rhuEquipmentCount, setRhuEquipmentCount] = React.useState(initialRhuEquipmentCount);
 
     React.useEffect(() => {
         let active = true;
@@ -66,6 +69,9 @@ export function AdminShell({
                         setTransactionsCount(data.pendingTransactionsCount || 0);
                         setAnnouncementsCount(data.pendingAnnouncementsCount || 0);
                         setLcrCounts(data.unviewedLcrCounts || {});
+                        if (data.rhuEquipmentNotificationCount !== undefined) {
+                            setRhuEquipmentCount(data.rhuEquipmentNotificationCount);
+                        }
                     }
                 }
             } catch (err: any) {
@@ -277,6 +283,7 @@ export function AdminShell({
                 pendingAnnouncementsCount={announcementsCount}
                 unviewedLcrCounts={lcrCounts}
                 rhuCenterName={rhuCenterName}
+                rhuEquipmentCount={rhuEquipmentCount}
             />
             <div className="flex-1 flex flex-col min-w-0 relative">
                 <TopNav

@@ -5,6 +5,7 @@ import { AdminShell } from "./components/AdminShell";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import prisma from "@/lib/db/prisma";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
+import { getRHUEquipmentNotificationCount } from "@/app/admin/rhu/equipment/actions";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 export const dynamic = "force-dynamic";
 export default async function AdminLayout({
@@ -132,6 +133,14 @@ export default async function AdminLayout({
         }
     }
 
+    let rhuEquipmentCount = 0;
+    try {
+        const rhuNotificationRes = await getRHUEquipmentNotificationCount().catch(() => null);
+        if (rhuNotificationRes?.success) {
+            rhuEquipmentCount = rhuNotificationRes.count;
+        }
+    } catch {}
+
     return (
         <ThemeProvider themeColor={settings.get("theme_color") || "#2563eb"}>
             <div
@@ -149,6 +158,7 @@ export default async function AdminLayout({
                     pendingTransactionsCount={pendingTreasuryCount}
                     unviewedLcrCounts={unviewedLcrCounts}
                     rhuCenterName={rhuCenterName}
+                    rhuEquipmentCount={rhuEquipmentCount}
                 >
                     {children}
                 </AdminShell>
