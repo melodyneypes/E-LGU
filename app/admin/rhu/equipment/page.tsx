@@ -25,7 +25,9 @@ export default async function RHUEquipmentPage() {
                 matchedCenter={data.matchedCenter || null}
                 isReadOnly={Boolean(data.isReadOnly)}
                 isGlobalAdmin={Boolean(data.isGlobalAdmin)}
+                siteLogo={data.siteLogo || ""}
                 canDispatchSO={Boolean(data.canDispatchSO)}
+                canFileRO={Boolean(data.canFileRO)}
             />
         </div>
     );
