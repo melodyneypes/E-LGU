@@ -67,6 +67,7 @@ export async function getStallDetails(id: string) {
                 monthlyRateOverdueFee: true,
                 latitude: true,
                 longitude: true,
+                address: true,
                 createdAt: true,
                 updatedAt: true,
                 createdBy: true,
@@ -103,6 +104,7 @@ export async function createStall(data: {
     imageUrl?: string | null;
     latitude?: number | null;
     longitude?: number | null;
+    address?: string | null;
     otherFees?: {
         name: string;
         amount: number;
@@ -134,6 +136,7 @@ export async function createStall(data: {
                 monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) || 0,
                 latitude: data.latitude !== undefined && data.latitude !== null && !isNaN(Number(data.latitude)) ? Number(data.latitude) : null,
                 longitude: data.longitude !== undefined && data.longitude !== null && !isNaN(Number(data.longitude)) ? Number(data.longitude) : null,
+                address: data.address ? data.address.trim() : null,
                 createdBy: userName,
                 updatedBy: userName,
                 ...(data.otherFees && data.otherFees.length > 0 && {
@@ -202,6 +205,7 @@ export async function updateStall(
         monthlyRateOverdueFee?: number;
         latitude?: number | null;
         longitude?: number | null;
+        address?: string | null;
         otherFees?: {
             id?: string;
             name: string;
@@ -249,6 +253,7 @@ export async function updateStall(
                     ...(data.monthlyRateOverdueFee !== undefined && { monthlyRateOverdueFee: Number(data.monthlyRateOverdueFee) }),
                     ...(data.latitude !== undefined && { latitude: data.latitude === null ? null : (isNaN(Number(data.latitude)) ? null : Number(data.latitude)) }),
                     ...(data.longitude !== undefined && { longitude: data.longitude === null ? null : (isNaN(Number(data.longitude)) ? null : Number(data.longitude)) }),
+                    ...(data.address !== undefined && { address: data.address ? data.address.trim() : null }),
                     updatedBy: userName,
                 },
                 include: {

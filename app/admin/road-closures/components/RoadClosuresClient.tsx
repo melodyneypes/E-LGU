@@ -13,8 +13,22 @@ import {
     Loader2,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Map,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const PublicRoadMap = dynamic(() => import("@/app/road-advisory/mapandan/components/PublicRoadMap"), {
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-[460px] bg-slate-900 rounded-3xl flex flex-col items-center justify-center shadow-xl border border-slate-800">
+            <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading Mapandan Road Network...</p>
+        </div>
+    ),
+});
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +90,10 @@ export function RoadClosuresClient({
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [isMutating, setIsMutating] = useState(false);
     const [isPageChanging, setIsPageChanging] = useState(false);
+
+    // Overview Map States
+    const [showOverviewMap, setShowOverviewMap] = useState(false);
+    const [selectedMapAdvisoryId, setSelectedMapAdvisoryId] = useState<string | null>(null);
     
     // Delete Confirmation Modal State
     const [deleteModalConfig, setDeleteModalConfig] = useState<{
@@ -122,7 +140,6 @@ export function RoadClosuresClient({
         if (!matchesSearch) return false;
         if (statusFilter === "ALL") return true;
         if (statusFilter === "ACTIVE") return c.status !== RoadClosureStatus.REOPENED;
-        if (statusFilter === "REOPENED") return c.status === RoadClosureStatus.REOPENED;
         return c.status === statusFilter;
     });
 
@@ -290,7 +307,7 @@ export function RoadClosuresClient({
                     </div>
 
                     <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-2xl">
-                        {["ALL", "ACTIVE", "REOPENED"].map((tab) => (
+                        {["ALL", "ACTIVE"].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => handleStatusFilterChange(tab)}
@@ -300,23 +317,88 @@ export function RoadClosuresClient({
                                         : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                                 }`}
                             >
-                                {tab === "ALL" ? "All" : tab === "ACTIVE" ? "Active Only" : "Reopened"}
+                                {tab === "ALL" ? "All" : "Active Only"}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                <Button
-                    onClick={() => {
-                        setSelectedClosure(null);
-                        setIsModalOpen(true);
-                    }}
-                    className="h-11 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider px-5 shadow-lg shadow-amber-500/20"
-                >
-                    <Plus className="w-4 h-4 mr-1.5 stroke-[3]" />
-                    New Road Closure
-                </Button>
+                <div className="flex items-center gap-2.5">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowOverviewMap((prev) => !prev)}
+                        className={`h-11 rounded-2xl font-bold text-xs gap-2 transition-all ${
+                            showOverviewMap
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/20"
+                                : "hover:bg-slate-50 dark:hover:bg-white/5 border-slate-200 dark:border-white/10"
+                        }`}
+                    >
+                        <Map className="w-4 h-4 text-amber-500" />
+                        <span>{showOverviewMap ? "Hide Overview Map" : "Overview Map"}</span>
+                        {showOverviewMap ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                        ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                    </Button>
+
+                    <Button
+                        onClick={() => {
+                            setSelectedClosure(null);
+                            setIsModalOpen(true);
+                        }}
+                        className="h-11 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider px-5 shadow-lg shadow-amber-500/20"
+                    >
+                        <Plus className="w-4 h-4 mr-1.5 stroke-[3]" />
+                        New Road Closure
+                    </Button>
+                </div>
             </div>
+
+            {/* Collapsible Overview Map Container */}
+            {showOverviewMap && (
+                <div className="bg-white dark:bg-[#0c111d] rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden p-4 sm:p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                                <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+                                    Mapandan Road Advisories Network Map
+                                </h3>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Showing all active road closures, alternate detours, and repair coordinates. Click any segment on the map to inspect.
+                            </p>
+                        </div>
+                        {selectedMapAdvisoryId && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setSelectedMapAdvisoryId(null)}
+                                className="h-8 rounded-xl text-xs text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/10"
+                            >
+                                Reset Focus View
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="h-[460px] w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 relative shadow-inner">
+                        <PublicRoadMap
+                            advisories={closures}
+                            selectedId={selectedMapAdvisoryId}
+                            onSelectAdvisory={(id) => {
+                                setSelectedMapAdvisoryId(id);
+                                const target = closures.find((c) => c.id === id);
+                                if (target) {
+                                    toast.info(`Focused on: ${target.title}`);
+                                }
+                            }}
+                            onClearSelection={() => setSelectedMapAdvisoryId(null)}
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Closures List: Spaced Cards Layout */}
             <div className="space-y-3.5">
