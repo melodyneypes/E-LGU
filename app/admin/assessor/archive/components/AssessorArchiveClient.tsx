@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
     getArchivedAssessorRecords,
-    createArchivedAssessorRecord
+    createArchivedAssessorRecord,
+    updateArchivedAssessorRecord
 } from "../actions";
 import {
     Search,
     Plus,
     FileText,
     Eye,
+    Pencil,
     FolderArchive,
     MapPin,
     Building2,
@@ -22,11 +24,8 @@ import {
     Coins,
     Landmark,
     Filter,
-    Printer,
     ZoomIn,
     Info,
-    HelpCircle,
-    FolderSearch,
     Clock,
     FileUp
 } from "lucide-react";
@@ -106,6 +105,7 @@ export interface AssessorAttachmentItem {
     label: string;
     file: File | null;
     previewUrl?: string;
+    existingUrl?: string;
     isImage: boolean;
     isPdf: boolean;
     fileSizeFormatted?: string;
@@ -130,29 +130,6 @@ function formatScanTimeAgo(timestamp?: number): string {
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `Scanned ${hours}h ago`;
     return new Date(timestamp).toLocaleDateString();
-}
-
-function guessAssessorDocumentLabel(fileName: string, pageIndex: number): string {
-    const lower = fileName.toLowerCase();
-    if (lower.includes("title") || lower.includes("tct") || lower.includes("oct") || lower.includes("transfer")) {
-        return "Land Title (OCT / TCT)";
-    }
-    if (lower.includes("faas") || lower.includes("appraisal") || lower.includes("sheet")) {
-        return "Field Appraisal Sheet (FAAS)";
-    }
-    if (lower.includes("deed") || lower.includes("sale") || lower.includes("conveyance") || lower.includes("dos")) {
-        return "Deed of Absolute Sale";
-    }
-    if (lower.includes("tax") || lower.includes("clearance") || lower.includes("receipt") || lower.includes("rpt")) {
-        return "Tax Clearance / Official Receipt";
-    }
-    if (lower.includes("survey") || lower.includes("lot") || lower.includes("cadastral") || lower.includes("subdivision")) {
-        return "Cadastral Survey / Lot Plan";
-    }
-    if (lower.includes("cert") || lower.includes("barangay") || lower.includes("brgy")) {
-        return "Barangay Certification";
-    }
-    return `Supplementary Document (Page ${pageIndex + 2})`;
 }
 
 export default function AssessorArchiveClient({
@@ -191,8 +168,11 @@ export default function AssessorArchiveClient({
     const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-    // Create Modal State
+    // Create / Edit Modal State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
+    const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+    const [existingMainTaxDecUrl, setExistingMainTaxDecUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
 
@@ -253,10 +233,6 @@ export default function AssessorArchiveClient({
         targetId?: string;
         file?: File | null;
     } | null>(null);
-
-    // Scanner Station Quick Ingestion State
-    const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
-    const scannerFolderInputRef = React.useRef<HTMLInputElement | null>(null);
 
     // Clean up created object URLs on unmount or form reset
     const cleanupAttachmentUrls = useCallback(() => {
@@ -390,6 +366,9 @@ export default function AssessorArchiveClient({
         setMainTaxDecFile(null);
         setMainTaxDecPreview(null);
         setMainTaxDecScannedAt(null);
+        setExistingMainTaxDecUrl(null);
+        setEditingRecordId(null);
+        setModalMode("CREATE");
         setAdditionalAttachments([
             {
                 id: `init-${Date.now()}-1`,
@@ -406,6 +385,74 @@ export default function AssessorArchiveClient({
                 isPdf: false,
             },
         ]);
+    };
+
+    // Open Create Modal
+    const handleOpenCreateModal = () => {
+        resetForm();
+        setModalMode("CREATE");
+        setIsCreateOpen(true);
+    };
+
+    // Open Edit Modal with strict population
+    const handleOpenEditModal = (record: any) => {
+        resetForm();
+        setModalMode("EDIT");
+        setEditingRecordId(record.id);
+
+        const addData = record.additionalData || {};
+
+        setFormData({
+            tdn: record.tdn && record.tdn !== "N/A" ? record.tdn : "",
+            pin: record.pin && record.pin !== "N/A" ? record.pin : "",
+            titleNumber: record.titleNumber && record.titleNumber !== "N/A" ? record.titleNumber : "",
+            lotNumber: record.lotNumber && record.lotNumber !== "N/A" ? record.lotNumber : "",
+            surveyNumber: record.surveyNumber && record.surveyNumber !== "N/A" ? record.surveyNumber : "",
+            ownerName: record.ownerName && record.ownerName !== "Walk-in Declarant" ? record.ownerName : "",
+            beneficiaryName: record.beneficiaryName || "",
+            contactNumber: addData.contactNumber || "",
+            email: addData.email || "",
+            barangay: record.barangay || "Poblacion",
+            street: record.street || "",
+            propertyKind: record.propertyKind || "LAND",
+            classification: record.classification || "RESIDENTIAL",
+            area: record.area && record.area !== "N/A" ? record.area : "0 sqm",
+            marketValue: record.marketValue ? String(record.marketValue) : "",
+            assessmentLevel: record.assessmentLevel ? String(record.assessmentLevel) : "20",
+            assessedValue: record.assessedValue ? String(record.assessedValue) : "",
+            effectivityYear: record.effectivityYear ? String(record.effectivityYear) : new Date().getFullYear().toString(),
+            effectivityQuarter: record.effectivityQuarter || "1st Quarter",
+            physicalLocationNotes: record.physicalLocationNotes || "",
+        });
+
+        // Hydrate primary document preview if available
+        if (record.primaryScanUrl) {
+            setExistingMainTaxDecUrl(record.primaryScanUrl);
+        }
+
+        // Hydrate supplementary attachments
+        if (record.scannedDocs && Array.isArray(record.scannedDocs)) {
+            const supplementaryDocs = record.scannedDocs.filter((d: any) => d.url !== record.primaryScanUrl);
+            if (supplementaryDocs.length > 0) {
+                const mappedAttachments: AssessorAttachmentItem[] = supplementaryDocs.map((doc: any, idx: number) => {
+                    const url = doc.url || "";
+                    const isPdf = url.toLowerCase().endsWith(".pdf") || (doc.fileName || "").toLowerCase().endsWith(".pdf");
+                    return {
+                        id: `existing-doc-${idx}-${Date.now()}`,
+                        label: doc.label || `Supplementary Document ${idx + 1}`,
+                        file: null,
+                        previewUrl: url,
+                        existingUrl: url,
+                        isImage: !isPdf,
+                        isPdf: isPdf,
+                        fileSizeFormatted: doc.fileName || "Archived Document",
+                    };
+                });
+                setAdditionalAttachments(mappedAttachments);
+            }
+        }
+
+        setIsCreateOpen(true);
     };
 
     // Add Attachment row
@@ -447,6 +494,7 @@ export default function AssessorArchiveClient({
                     return {
                         ...item,
                         file: null,
+                        existingUrl: undefined,
                         previewUrl: undefined,
                         isImage: false,
                         isPdf: false,
@@ -560,6 +608,25 @@ export default function AssessorArchiveClient({
                 data.append("mainTaxDecFile", optimizedMain);
             }
 
+            if (modalMode === "EDIT") {
+                if (editingRecordId) {
+                    data.append("transactionId", editingRecordId);
+                }
+                if (existingMainTaxDecUrl) {
+                    data.append("existingMainUrl", existingMainTaxDecUrl);
+                }
+                // Retain all existing attachments
+                const retainedExistingDocs = additionalAttachments
+                    .filter(att => att.existingUrl && att.file === null)
+                    .map(att => ({
+                        label: att.label,
+                        title: att.label,
+                        url: att.existingUrl,
+                        fileName: att.fileSizeFormatted || att.existingUrl?.split("/").pop() || "document.webp"
+                    }));
+                data.append("existingDocuments", JSON.stringify(retainedExistingDocs));
+            }
+
             for (let idx = 0; idx < additionalAttachments.length; idx++) {
                 const att = additionalAttachments[idx];
                 if (att.file) {
@@ -571,15 +638,20 @@ export default function AssessorArchiveClient({
 
             setIsCompressing(false);
 
-            const res = await createArchivedAssessorRecord(data);
+            const res = modalMode === "EDIT"
+                ? await updateArchivedAssessorRecord(data)
+                : await createArchivedAssessorRecord(data);
 
             if (res.success) {
-                toast.success(res.message || "Record successfully encoded into master vault!");
+                toast.success(
+                    res.message ||
+                    (modalMode === "EDIT" ? "Record updated successfully!" : "Record successfully encoded into master vault!")
+                );
                 setIsCreateOpen(false);
                 resetForm();
                 fetchArchives();
             } else {
-                toast.error(res.error || "Failed to create archive record.");
+                toast.error(res.error || (modalMode === "EDIT" ? "Failed to update archive record." : "Failed to create archive record."));
             }
         } catch (err: any) {
             console.error(err);
@@ -701,14 +773,13 @@ export default function AssessorArchiveClient({
                                 if (!open) resetForm();
                             }}
                         >
-                            <DialogTrigger asChild>
-                                <Button
-                                    className="rounded-2xl text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 shadow-lg flex items-center gap-2 cursor-pointer"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    <Plus className="w-4 h-4" /> Encode Physical Tax Dec
-                                </Button>
-                            </DialogTrigger>
+                            <Button
+                                onClick={handleOpenCreateModal}
+                                className="rounded-2xl text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 shadow-lg flex items-center gap-2 cursor-pointer"
+                                style={{ backgroundColor: themeColor }}
+                            >
+                                <Plus className="w-4 h-4" /> Encode Physical Tax Dec
+                            </Button>
 
                             <DialogContent
                                 onPointerDownOutside={e => {
@@ -731,17 +802,21 @@ export default function AssessorArchiveClient({
                                             className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
                                             style={{ backgroundColor: themeColor }}
                                         >
-                                            <UploadCloud className="w-5 h-5" />
+                                            {modalMode === "EDIT" ? <Pencil className="w-5 h-5" /> : <UploadCloud className="w-5 h-5" />}
                                         </div>
                                         <div>
                                             <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                                <span>Encode Physical Real Property Tax Record</span>
+                                                <span>
+                                                    {modalMode === "EDIT" ? `Edit Real Property Tax Record — ${formData.tdn || "Record"}` : "Encode Physical Real Property Tax Record"}
+                                                </span>
                                                 <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-widest bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                                    Assessor Vault
+                                                    {modalMode === "EDIT" ? "Edit Mode" : "Assessor Vault"}
                                                 </span>
                                             </DialogTitle>
                                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                                Digitize legacy paper Tax Declarations, land titles, and FAAS assessment sheets into the master database.
+                                                {modalMode === "EDIT"
+                                                    ? "Update property assessment, adjust owner details, and manage attached scans."
+                                                    : "Digitize legacy paper Tax Declarations, land titles, and FAAS assessment sheets into the master database."}
                                             </p>
                                         </div>
                                     </div>
@@ -1036,148 +1111,6 @@ export default function AssessorArchiveClient({
 
                                         {/* Right Column: Scanned Documents & Uploads (5 Cols) */}
                                         <div className="lg:col-span-5 flex flex-col space-y-4">
-                                            {/* Phase 1: Direct Scanner Ingestion Bar */}
-                                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/10 border border-blue-500/20 shadow-sm shrink-0 space-y-2.5">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="p-1.5 rounded-lg bg-blue-600 text-white shadow-sm">
-                                                            <Printer className="w-4 h-4" />
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                                                <span>Scanner Station</span>
-                                                                <span className="text-[9px] px-2 py-0.2 rounded-full font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                                                    Direct Ingest
-                                                                </span>
-                                                            </h4>
-                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                                                                Quickly import newly scanned paper Tax Declarations from your office scanner.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setScannerGuideOpen(true)}
-                                                        className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
-                                                        title="Office Scanner Setup Guide"
-                                                    >
-                                                        <HelpCircle className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                <div className="flex items-center gap-2 pt-0.5">
-                                                    {/* Hidden File Input for Scanner Folder Trigger */}
-                                                    <input
-                                                        ref={scannerFolderInputRef}
-                                                        type="file"
-                                                        multiple
-                                                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                                        onChange={(e) => {
-                                                            const rawFiles = Array.from(e.target.files || []);
-                                                            if (rawFiles.length === 0) return;
-
-                                                            // Auto-detect and filter valid scanner documents (.pdf, .jpg, .jpeg, .png)
-                                                            const validScannerFiles = rawFiles.filter((file) => {
-                                                                const name = file.name.toLowerCase();
-                                                                const type = file.type.toLowerCase();
-                                                                return (
-                                                                    name.endsWith(".pdf") ||
-                                                                    name.endsWith(".jpg") ||
-                                                                    name.endsWith(".jpeg") ||
-                                                                    name.endsWith(".png") ||
-                                                                    type === "application/pdf" ||
-                                                                    type.startsWith("image/")
-                                                                );
-                                                            });
-
-                                                            if (validScannerFiles.length === 0) {
-                                                                toast.error("No valid scanner files found (.pdf, .jpg, .jpeg, .png required).");
-                                                                e.target.value = "";
-                                                                return;
-                                                            }
-
-                                                            // Sort by newest scan timestamp first (latest scan is first)
-                                                            const sortedFiles = validScannerFiles.sort((a, b) => b.lastModified - a.lastModified);
-                                                            const newestFile = sortedFiles[0];
-
-                                                            // Automatically slot the first/newest scan as the Primary Tax Dec
-                                                            handleMainTaxDecChange(newestFile, newestFile.lastModified);
-
-                                                            // Slot supplementary pages as Titles, FAAS, or Deeds
-                                                            if (sortedFiles.length > 1) {
-                                                                const additionalScans = sortedFiles.slice(1);
-                                                                setAdditionalAttachments((prev) => {
-                                                                    const updated = [...prev];
-                                                                    additionalScans.forEach((scanFile, idx) => {
-                                                                        const isPdf = scanFile.type === "application/pdf" || scanFile.name.toLowerCase().endsWith(".pdf");
-                                                                        const isImage = scanFile.type.startsWith("image/");
-                                                                        const previewUrl = URL.createObjectURL(scanFile);
-                                                                        const smartLabel = guessAssessorDocumentLabel(scanFile.name, idx);
-
-                                                                        // Fill existing empty preset row if available, otherwise append new scan row
-                                                                        const firstEmptyIdx = updated.findIndex((item) => !item.file);
-                                                                        const newAttachment: AssessorAttachmentItem = {
-                                                                            id: `scan-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
-                                                                            label: smartLabel,
-                                                                            file: scanFile,
-                                                                            previewUrl,
-                                                                            isPdf,
-                                                                            isImage,
-                                                                            fileSizeFormatted: formatFileSize(scanFile.size),
-                                                                            scannedAt: scanFile.lastModified,
-                                                                        };
-
-                                                                        if (firstEmptyIdx !== -1) {
-                                                                            updated[firstEmptyIdx] = {
-                                                                                ...updated[firstEmptyIdx],
-                                                                                label: updated[firstEmptyIdx].label.trim() ? updated[firstEmptyIdx].label : smartLabel,
-                                                                                file: scanFile,
-                                                                                previewUrl,
-                                                                                isPdf,
-                                                                                isImage,
-                                                                                fileSizeFormatted: formatFileSize(scanFile.size),
-                                                                                scannedAt: scanFile.lastModified,
-                                                                            };
-                                                                        } else {
-                                                                            updated.push(newAttachment);
-                                                                        }
-                                                                    });
-                                                                    return updated;
-                                                                });
-
-                                                                toast.success(
-                                                                    `Auto-sorted ${sortedFiles.length} scans! Newest slotted as Primary Tax Dec, ${sortedFiles.length - 1} slotted as attachments.`
-                                                                );
-                                                            } else {
-                                                                toast.success(`Imported newest scan "${newestFile.name}" as Certified Tax Declaration!`);
-                                                            }
-
-                                                            e.target.value = "";
-                                                        }}
-                                                        className="hidden"
-                                                    />
-
-                                                    <Button
-                                                        type="button"
-                                                        onClick={() => scannerFolderInputRef.current?.click()}
-                                                        className="flex-1 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all"
-                                                    >
-                                                        <FolderSearch className="w-4 h-4" />
-                                                        <span>Fetch from Scanner Folder</span>
-                                                    </Button>
-
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => setScannerGuideOpen(true)}
-                                                        className="h-9 px-3 rounded-xl border-blue-500/30 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-xs font-bold shrink-0 cursor-pointer"
-                                                    >
-                                                        <Info className="w-3.5 h-3.5 mr-1" />
-                                                        <span>Guide</span>
-                                                    </Button>
-                                                </div>
-                                            </div>
 
                                             {/* Primary Signed Tax Dec Upload Box with Live Preview */}
                                             <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3 shrink-0">
@@ -1260,6 +1193,49 @@ export default function AssessorArchiveClient({
                                                             </Button>
                                                         </div>
                                                     </div>
+                                                ) : existingMainTaxDecUrl ? (
+                                                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040]">
+                                                        <div className="w-12 h-12 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-600 flex items-center justify-center shrink-0">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                Certified Tax Declaration (Archived)
+                                                            </p>
+                                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                Stored in Cloud Archives
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => {
+                                                                    setActiveDraftPreview({
+                                                                        url: existingMainTaxDecUrl,
+                                                                        title: "Certified Tax Declaration (Archived)",
+                                                                        isPdf: existingMainTaxDecUrl.toLowerCase().endsWith(".pdf"),
+                                                                    });
+                                                                    setPreviewModalOpen(true);
+                                                                }}
+                                                                className="h-8 w-8 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer"
+                                                                title="View Document"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setExistingMainTaxDecUrl(null)}
+                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                title="Replace / Remove File"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 ) : (
                                                     <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#121622] border border-dashed border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/5 transition-all cursor-pointer group">
                                                         <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -1267,16 +1243,21 @@ export default function AssessorArchiveClient({
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                                                                Choose Certified Tax Declaration Scan
+                                                                {modalMode === "EDIT" ? "Upload New Replacement Tax Dec Scan" : "Choose Certified Tax Declaration Scan"}
                                                             </p>
                                                             <p className="text-[10px] text-slate-400 font-medium truncate">
                                                                 PDF, JPG, PNG (Click to browse file)
                                                             </p>
                                                         </div>
                                                         <input
+                                                            key={`primary-input-${existingMainTaxDecUrl ? "has-url" : "no-url"}-${mainTaxDecFile ? "has-file" : "no-file"}`}
                                                             type="file"
                                                             accept="image/*,application/pdf"
-                                                            onChange={e => handleMainTaxDecChange(e.target.files?.[0] || null)}
+                                                            onChange={e => {
+                                                                const selected = e.target.files?.[0] || null;
+                                                                handleMainTaxDecChange(selected);
+                                                                e.target.value = "";
+                                                            }}
                                                             className="hidden"
                                                         />
                                                     </label>
@@ -1372,7 +1353,7 @@ export default function AssessorArchiveClient({
                                                                     </Button>
                                                                 </div>
 
-                                                                {att.file ? (
+                                                                {att.file || att.existingUrl ? (
                                                                     <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
                                                                         {att.isImage && att.previewUrl ? (
                                                                             <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
@@ -1384,7 +1365,18 @@ export default function AssessorArchiveClient({
                                                                                 />
                                                                                 <button
                                                                                     type="button"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    onClick={() => {
+                                                                                        if (att.file) {
+                                                                                            handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id);
+                                                                                        } else {
+                                                                                            setActiveDraftPreview({
+                                                                                                url: att.previewUrl!,
+                                                                                                title: att.label || "Document Preview",
+                                                                                                isPdf: false,
+                                                                                            });
+                                                                                            setPreviewModalOpen(true);
+                                                                                        }
+                                                                                    }}
                                                                                     className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                                                     title="View Image"
                                                                                 >
@@ -1401,7 +1393,7 @@ export default function AssessorArchiveClient({
                                                                         <div className="flex-1 min-w-0">
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                                                                    {att.file.name}
+                                                                                    {att.file ? att.file.name : (att.fileSizeFormatted || "Archived Document")}
                                                                                 </p>
                                                                                 {att.scannedAt && (
                                                                                     <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
@@ -1411,7 +1403,8 @@ export default function AssessorArchiveClient({
                                                                                 )}
                                                                             </div>
                                                                             <p className="text-[10px] text-slate-400 font-medium">
-                                                                                {att.fileSizeFormatted} • {att.isImage ? "Image Scan" : "PDF Document"}
+                                                                                {att.file ? `${att.fileSizeFormatted} • ` : (att.existingUrl ? "Stored in Cloud Archives • " : "")}
+                                                                                {att.isImage ? "Image Scan" : "PDF Document"}
                                                                             </p>
                                                                         </div>
 
@@ -1421,7 +1414,18 @@ export default function AssessorArchiveClient({
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="icon"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    onClick={() => {
+                                                                                        if (att.file) {
+                                                                                            handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id);
+                                                                                        } else {
+                                                                                            setActiveDraftPreview({
+                                                                                                url: att.previewUrl!,
+                                                                                                title: att.label || "Document Preview",
+                                                                                                isPdf: att.isPdf,
+                                                                                            });
+                                                                                            setPreviewModalOpen(true);
+                                                                                        }
+                                                                                    }}
                                                                                     className="h-7 w-7 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer"
                                                                                     title="Inspect Document"
                                                                                 >
@@ -1454,9 +1458,14 @@ export default function AssessorArchiveClient({
                                                                             </p>
                                                                         </div>
                                                                         <input
+                                                                            key={`att-file-input-${att.id}-${att.file ? "has-file" : "no-file"}-${att.existingUrl ? "has-url" : "no-url"}`}
                                                                             type="file"
                                                                             accept="image/*,application/pdf"
-                                                                            onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
+                                                                            onChange={e => {
+                                                                                const selected = e.target.files?.[0] || null;
+                                                                                handleAttachmentFileChange(att.id, selected);
+                                                                                e.target.value = "";
+                                                                            }}
                                                                             className="hidden"
                                                                         />
                                                                     </label>
@@ -1504,11 +1513,11 @@ export default function AssessorArchiveClient({
                                         {isSubmitting ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : "Digitizing & Uploading..."}</span>
+                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : (modalMode === "EDIT" ? "Updating Record..." : "Digitizing & Uploading...")}</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Sparkles className="w-4 h-4" /> Encode & Save to Vault
+                                                <Sparkles className="w-4 h-4" /> {modalMode === "EDIT" ? "Save Changes" : "Encode & Save to Vault"}
                                             </>
                                         )}
                                     </Button>
@@ -1765,7 +1774,18 @@ export default function AssessorArchiveClient({
 
                                     {/* Actions */}
                                     <TableCell className="py-3.5 text-right">
-                                        <div className="flex items-center justify-end">
+                                        <div className="flex items-center justify-end gap-1">
+                                            {r.isPhysicalArchive && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleOpenEditModal(r)}
+                                                    className="h-8 w-8 rounded-xl text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer"
+                                                    title="Edit Archived Record"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -1954,85 +1974,6 @@ export default function AssessorArchiveClient({
                     onSaveRotatedFile={handleSaveRotatedDraftFile}
                 />
             )}
-
-            {/* Office Scanner Station Setup Guide Dialog */}
-            <Dialog open={scannerGuideOpen} onOpenChange={setScannerGuideOpen}>
-                <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                                <Printer className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                                    Assessor Scanner Setup Guide
-                                </DialogTitle>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    3 simple steps to scan Tax Declarations & Titles directly into EMapandan
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3 text-xs">
-                            {/* Step 1 */}
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
-                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                                    1
-                                </span>
-                                <div className="space-y-0.5">
-                                    <p className="font-bold text-slate-800 dark:text-slate-200">
-                                        Set Scanner Output Folder
-                                    </p>
-                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        In your Epson Scan 2 or scanner software, set the target save folder to:
-                                        <code className="block mt-1 font-mono text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-bold">
-                                            C:\Scanned_Permits or C:\Scanned_TaxDecs
-                                        </code>
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Step 2 */}
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
-                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                                    2
-                                </span>
-                                <div className="space-y-0.5">
-                                    <p className="font-bold text-slate-800 dark:text-slate-200">
-                                        Scan Physical Documents as JPEG or PDF
-                                    </p>
-                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Place the Tax Dec, Title, or FAAS sheet on the flatbed scanner and press <strong className="text-slate-700 dark:text-slate-300">Scan</strong>. Recommended setting: <strong>200–300 DPI (JPEG / Color)</strong> for instant rotation & fastest processing.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Step 3 */}
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
-                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                                    3
-                                </span>
-                                <div className="space-y-0.5">
-                                    <p className="font-bold text-slate-800 dark:text-slate-200">
-                                        Click &quot;Fetch from Scanner Folder&quot;
-                                    </p>
-                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Click the button in this modal and select your scanned folder. EMapandan will automatically designate the newest scan as the Certified Tax Dec and auto-label supplementary titles or deeds!
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <Button
-                            type="button"
-                            onClick={() => setScannerGuideOpen(false)}
-                            className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
-                        >
-                            Understood, Got it!
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
