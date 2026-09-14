@@ -635,15 +635,43 @@ export async function deleteArchivedAssessorRecord(id: string) {
             };
         }
 
+        // Collect all attached document URLs to clean up Supabase storage
+        const urlsToDelete: string[] = [];
+        if (tx.eCopyUrl) urlsToDelete.push(tx.eCopyUrl);
+        if (addData.primaryDocumentUrl) urlsToDelete.push(addData.primaryDocumentUrl);
+        if (Array.isArray(addData.attachments)) {
+            addData.attachments.forEach((a: any) => {
+                if (a?.url) urlsToDelete.push(a.url);
+            });
+        }
+        if (addData.documents && typeof addData.documents === "object") {
+            Object.values(addData.documents).forEach((url: any) => {
+                if (typeof url === "string" && url) urlsToDelete.push(url);
+            });
+        }
+        const legacyKeys = ["previousOrUrl", "validIdUrl"];
+        legacyKeys.forEach(key => {
+            if (addData[key] && typeof addData[key] === "string") {
+                urlsToDelete.push(addData[key]);
+            }
+        });
+
         await prisma.transaction.update({
             where: { id },
             data: { isCancelled: true }
         });
 
+        // Clean up uploaded files in Supabase storage asynchronously
+        if (urlsToDelete.length > 0) {
+            Promise.allSettled(Array.from(new Set(urlsToDelete)).map(url => deleteFileByUrl(url))).catch(err => {
+                console.error("[Storage Cleanup] Error deleting assessor archive files from storage:", err);
+            });
+        }
+
         revalidatePath("/admin/assessor/archive");
         revalidatePath("/admin/assessor");
 
-        return { success: true, message: "Archived record removed successfully." };
+        return { success: true, message: "Archived record removed successfully and associated files cleaned from storage." };
     } catch (error: any) {
         console.error("[deleteArchivedAssessorRecord] Error:", error);
         return { success: false, error: error.message || "Failed to delete archived record." };
@@ -814,6 +842,12 @@ export async function updateArchivedAssessorRecord(formData: FormData) {
                 if (typeof url === "string" && url) oldUrls.push(url);
             });
         }
+        const legacyKeys = ["previousOrUrl", "validIdUrl"];
+        legacyKeys.forEach(key => {
+            if (prevAddData[key] && typeof prevAddData[key] === "string") {
+                oldUrls.push(prevAddData[key]);
+            }
+        });
 
         // Set of URLs that are actively retained
         const retainedUrls = new Set<string>();

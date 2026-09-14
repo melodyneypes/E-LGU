@@ -509,6 +509,7 @@ export default function AssessorArchiveClient({
                 return {
                     ...item,
                     file,
+                    existingUrl: undefined, // Cleared because a new file replaces the archived cloud file
                     previewUrl,
                     isImage: isImg,
                     isPdf,
@@ -612,10 +613,11 @@ export default function AssessorArchiveClient({
                 if (editingRecordId) {
                     data.append("transactionId", editingRecordId);
                 }
-                if (existingMainTaxDecUrl) {
+                // Only retain existing main URL if a new file is not replacing it
+                if (existingMainTaxDecUrl && !mainTaxDecFile) {
                     data.append("existingMainUrl", existingMainTaxDecUrl);
                 }
-                // Retain all existing attachments
+                // Retain only existing attachments that were neither removed nor replaced with a new file
                 const retainedExistingDocs = additionalAttachments
                     .filter(att => att.existingUrl && att.file === null)
                     .map(att => ({
