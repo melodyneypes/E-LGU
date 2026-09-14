@@ -309,6 +309,9 @@ export async function getArchivedOccupancyPermits(params?: {
                 barangay: resSnap.barangay || addData.barangay || "Poblacion",
                 street: resSnap.street || addData.street || "",
                 houseNumber: resSnap.houseNumber || addData.houseNumber || "",
+                province: resSnap.province || addData.province || "Pangasinan",
+                municipality: resSnap.municipality || addData.municipality || "Mapandan",
+                isLotOwner: addData.isLotOwner || "Yes",
                 firstName: resSnap.firstName || "",
                 lastName: resSnap.lastName || "",
                 createdAt: tx.createdAt,
@@ -352,8 +355,9 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         const barangay = (formData.get("barangay") as string || "").trim();
         const street = (formData.get("street") as string || "").trim();
         const houseNumber = (formData.get("houseNumber") as string || "").trim();
-        const municipality = "Mapandan";
-        const province = "Pangasinan";
+        const province = (formData.get("province") as string || "").trim() || "Pangasinan";
+        const municipality = (formData.get("municipality") as string || "").trim() || "Mapandan";
+        const isLotOwner = (formData.get("isLotOwner") as string || "Yes").trim();
         const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
 
         const contactNumber = (formData.get("contactNumber") as string || "").trim();
@@ -481,6 +485,8 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
             buildingPermitNo: buildingPermitNumber,
             dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : null,
             totalFloors,
+            isLotOwner,
+            projectType,
             remarks,
             documents, // Lean: [{ title, url, fileName }]
         };
@@ -698,8 +704,9 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
         const barangay = (formData.get("barangay") as string || "").trim();
         const street = (formData.get("street") as string || "").trim();
         const houseNumber = (formData.get("houseNumber") as string || "").trim();
-        const municipality = "Mapandan";
-        const province = "Pangasinan";
+        const province = (formData.get("province") as string || "").trim() || "Pangasinan";
+        const municipality = (formData.get("municipality") as string || "").trim() || "Mapandan";
+        const isLotOwner = (formData.get("isLotOwner") as string || "Yes").trim();
         const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
 
         const contactNumber = (formData.get("contactNumber") as string || "").trim();
@@ -846,6 +853,8 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
             buildingPermitNo: buildingPermitNumber,
             dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : null,
             totalFloors,
+            isLotOwner,
+            projectType,
             remarks,
             documents,
         };

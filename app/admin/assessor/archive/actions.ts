@@ -4,7 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 import { broadcastRealtimeUpdate } from "@/app/api/realtime/stream/route";
 import { logActivity } from "@/lib/audit";
 
@@ -419,7 +419,7 @@ export async function createArchivedAssessorRecord(formData: FormData) {
 
         const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
         const classification = (formData.get("classification") as string)?.trim() || "RESIDENTIAL";
-        const area = (formData.get("area") as string)?.trim() || "0 sqm";
+        const area = (formData.get("area") as string)?.trim() || "";
 
         const marketValue = parseFloat(formData.get("marketValue") as string) || 0;
         const assessmentLevel = parseFloat(formData.get("assessmentLevel") as string) || 20;
@@ -635,17 +635,329 @@ export async function deleteArchivedAssessorRecord(id: string) {
             };
         }
 
+        // Collect all attached document URLs to clean up Supabase storage
+        const urlsToDelete: string[] = [];
+        if (tx.eCopyUrl) urlsToDelete.push(tx.eCopyUrl);
+        if (addData.primaryDocumentUrl) urlsToDelete.push(addData.primaryDocumentUrl);
+        if (Array.isArray(addData.attachments)) {
+            addData.attachments.forEach((a: any) => {
+                if (a?.url) urlsToDelete.push(a.url);
+            });
+        }
+        if (addData.documents && typeof addData.documents === "object") {
+            Object.values(addData.documents).forEach((url: any) => {
+                if (typeof url === "string" && url) urlsToDelete.push(url);
+            });
+        }
+        const legacyKeys = ["previousOrUrl", "validIdUrl"];
+        legacyKeys.forEach(key => {
+            if (addData[key] && typeof addData[key] === "string") {
+                urlsToDelete.push(addData[key]);
+            }
+        });
+
         await prisma.transaction.update({
             where: { id },
             data: { isCancelled: true }
         });
 
+        // Clean up uploaded files in Supabase storage asynchronously
+        if (urlsToDelete.length > 0) {
+            Promise.allSettled(Array.from(new Set(urlsToDelete)).map(url => deleteFileByUrl(url))).catch(err => {
+                console.error("[Storage Cleanup] Error deleting assessor archive files from storage:", err);
+            });
+        }
+
         revalidatePath("/admin/assessor/archive");
         revalidatePath("/admin/assessor");
 
-        return { success: true, message: "Archived record removed successfully." };
+        return { success: true, message: "Archived record removed successfully and associated files cleaned from storage." };
     } catch (error: any) {
         console.error("[deleteArchivedAssessorRecord] Error:", error);
         return { success: false, error: error.message || "Failed to delete archived record." };
+    }
+}
+
+/**
+ * Update an existing physical Real Property Tax Declaration archive record.
+ */
+export async function updateArchivedAssessorRecord(formData: FormData) {
+    try {
+        const { user } = await assertAssessorSession();
+
+        const transactionId = (formData.get("transactionId") as string)?.trim();
+        if (!transactionId) {
+            return { success: false, error: "Transaction Record ID is required for editing." };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id: transactionId }
+        });
+
+        if (!tx) {
+            return { success: false, error: "Record not found in the database." };
+        }
+
+        const prevAddData = (tx.additionalData as any) || {};
+        if (prevAddData.isPhysicalArchive !== true) {
+            return {
+                success: false,
+                error: "Edit restricted. Only physical digitized archive entries can be edited here."
+            };
+        }
+
+        const tdn = (formData.get("tdn") as string)?.trim();
+        const pin = (formData.get("pin") as string)?.trim() || "";
+        const titleNumber = (formData.get("titleNumber") as string)?.trim() || "";
+        const lotNumber = (formData.get("lotNumber") as string)?.trim() || "";
+        const surveyNumber = (formData.get("surveyNumber") as string)?.trim() || "";
+
+        const ownerName = (formData.get("ownerName") as string)?.trim();
+        const beneficiaryName = (formData.get("beneficiaryName") as string)?.trim() || "";
+        const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
+        const email = (formData.get("email") as string)?.trim() || "";
+
+        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
+        const street = (formData.get("street") as string)?.trim() || "";
+
+        const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
+        const classification = (formData.get("classification") as string)?.trim() || "RESIDENTIAL";
+        const area = (formData.get("area") as string)?.trim() || "";
+
+        const marketValue = parseFloat(formData.get("marketValue") as string) || 0;
+        const assessmentLevel = parseFloat(formData.get("assessmentLevel") as string) || 20;
+        const assessedValue = parseFloat(formData.get("assessedValue") as string) || Math.round(marketValue * (assessmentLevel / 100) * 100) / 100;
+
+        const basicTax = Math.round(assessedValue * 0.01 * 100) / 100;
+        const sefTax = Math.round(assessedValue * 0.01 * 100) / 100;
+        const totalTaxDue = basicTax + sefTax;
+
+        const effectivityYear = parseInt(formData.get("effectivityYear") as string, 10) || new Date().getFullYear();
+        const effectivityQuarter = (formData.get("effectivityQuarter") as string)?.trim() || "1st Quarter";
+        const physicalLocationNotes = (formData.get("physicalLocationNotes") as string)?.trim() || "";
+
+        if (!tdn) {
+            return { success: false, error: "Tax Declaration Number (TDN) is required." };
+        }
+        if (!ownerName) {
+            return { success: false, error: "Declared Owner Name is required." };
+        }
+
+        // Check for duplicate TDN across OTHER active records
+        const conflict = await prisma.transaction.findFirst({
+            where: {
+                id: { not: transactionId },
+                isCancelled: false,
+                type: { category: "RPT" },
+                additionalData: {
+                    path: ["tdn"],
+                    equals: tdn
+                }
+            }
+        });
+
+        if (conflict) {
+            return {
+                success: false,
+                error: `Tax Declaration Number "${tdn}" is already registered to another active record.`
+            };
+        }
+
+        // --- Document Processing & URL Diffing ---
+        let primaryDocumentUrl = prevAddData.primaryDocumentUrl || tx.eCopyUrl || null;
+        const attachments: Array<{ label: string; url: string; fileName: string }> = [];
+
+        // 1. Process Main Tax Dec Scan (Upload new or retain existing)
+        const mainTaxDecFile = formData.get("mainTaxDecFile") as File | null;
+        if (mainTaxDecFile && mainTaxDecFile instanceof File && mainTaxDecFile.size > 0) {
+            const timestamp = Date.now();
+            const safeName = mainTaxDecFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const path = `assessor/archives/${timestamp}-TAXDEC-${safeName}`;
+            const uploadedUrl = await uploadFile(mainTaxDecFile, path);
+            if (uploadedUrl) {
+                primaryDocumentUrl = uploadedUrl;
+            }
+        } else {
+            const existingMainUrl = (formData.get("existingMainUrl") as string || "").trim();
+            if (existingMainUrl) {
+                primaryDocumentUrl = existingMainUrl;
+            }
+        }
+
+        // 2. Retain existing supplementary documents from JSON
+        const existingDocsJson = (formData.get("existingDocuments") as string || "").trim();
+        if (existingDocsJson) {
+            try {
+                const parsedExisting = JSON.parse(existingDocsJson);
+                if (Array.isArray(parsedExisting)) {
+                    parsedExisting.forEach((doc: any) => {
+                        if (doc.url && doc.url !== primaryDocumentUrl) {
+                            attachments.push({
+                                label: doc.label || doc.title || "Supplementary Document",
+                                url: doc.url,
+                                fileName: doc.fileName || doc.url.split("/").pop() || "document.webp"
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse existing documents JSON in Assessor update:", e);
+            }
+        }
+
+        // 3. Process Newly Added Supplementary Attachments
+        const attachedFiles = formData.getAll("attachedFiles");
+        const attachedLabels = formData.getAll("attachedLabels");
+
+        for (let i = 0; i < attachedFiles.length; i++) {
+            const file = attachedFiles[i];
+            const label = (attachedLabels[i] as string)?.trim() || `Supplementary Document ${i + 1}`;
+
+            if (file instanceof File && file.size > 0) {
+                const timestamp = Date.now();
+                const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+                const path = `assessor/archives/${timestamp}-${i}-${safeName}`;
+                const url = await uploadFile(file, path);
+                if (url) {
+                    attachments.push({
+                        label,
+                        url,
+                        fileName: file.name
+                    });
+                }
+            }
+        }
+
+        // Snapshot all previous file URLs to identify orphaned files
+        const oldUrls: string[] = [];
+        if (tx.eCopyUrl) oldUrls.push(tx.eCopyUrl);
+        if (prevAddData.primaryDocumentUrl) oldUrls.push(prevAddData.primaryDocumentUrl);
+        if (Array.isArray(prevAddData.attachments)) {
+            prevAddData.attachments.forEach((a: any) => {
+                if (a?.url) oldUrls.push(a.url);
+            });
+        }
+        if (prevAddData.documents && typeof prevAddData.documents === "object") {
+            Object.values(prevAddData.documents).forEach((url: any) => {
+                if (typeof url === "string" && url) oldUrls.push(url);
+            });
+        }
+        const legacyKeys = ["previousOrUrl", "validIdUrl"];
+        legacyKeys.forEach(key => {
+            if (prevAddData[key] && typeof prevAddData[key] === "string") {
+                oldUrls.push(prevAddData[key]);
+            }
+        });
+
+        // Set of URLs that are actively retained
+        const retainedUrls = new Set<string>();
+        if (primaryDocumentUrl) retainedUrls.add(primaryDocumentUrl);
+        attachments.forEach(att => {
+            if (att.url) retainedUrls.add(att.url);
+        });
+
+        // Compute orphaned URLs that were replaced or removed
+        const urlsToDelete = Array.from(new Set(oldUrls)).filter(url => url && !retainedUrls.has(url));
+
+        const updatedAdditionalData = {
+            ...prevAddData,
+            isPhysicalArchive: true,
+            tdn,
+            pin,
+            titleNumber,
+            lotNumber,
+            surveyNumber,
+            ownerName,
+            beneficiaryName,
+            contactNumber,
+            email,
+            barangay,
+            street,
+            propertyAddress: [street, `Brgy. ${barangay}`, "Mapandan, Pangasinan"].filter(Boolean).join(", "),
+            propertyKind,
+            classification,
+            propertyType: classification,
+            area,
+            marketValue,
+            assessmentLevel,
+            assessedValue,
+            basicTax,
+            sefTax,
+            totalTaxDue,
+            effectivityYear,
+            effectivityQuarter,
+            physicalLocationNotes,
+            primaryDocumentUrl,
+            attachments,
+            lastEditedBy: user?.name || user?.email || "Assessor Officer",
+            lastEditedAt: new Date().toISOString()
+        };
+
+        // Update database record
+        const updatedRecord = await prisma.transaction.update({
+            where: { id: transactionId },
+            data: {
+                totalAmount: totalTaxDue,
+                eCopyUrl: primaryDocumentUrl,
+                residentSnapshot: {
+                    firstName: ownerName.split(" ")[0] || ownerName,
+                    lastName: ownerName.split(" ").slice(1).join(" ") || "",
+                    email,
+                    contactNumber,
+                    barangay,
+                    street
+                },
+                additionalData: updatedAdditionalData
+            }
+        });
+
+        // Clean up orphaned files in Supabase storage asynchronously
+        if (urlsToDelete.length > 0) {
+            Promise.allSettled(urlsToDelete.map(url => deleteFileByUrl(url))).catch(err => {
+                console.error("[Storage Cleanup] Error removing replaced assessor files:", err);
+            });
+        }
+
+        // Broadcast realtime update
+        try {
+            await broadcastRealtimeUpdate({
+                type: "ASSESSOR_ARCHIVE_UPDATED",
+                data: { id: updatedRecord.id, tdn, ownerName, barangay }
+            });
+        } catch {
+            // Non-blocking realtime event
+        }
+
+        // Log Edit Activity
+        await logActivity({
+            action: "UPDATE",
+            entityType: "RealPropertyTax",
+            entityId: updatedRecord.id,
+            entityName: `TDN: ${tdn} (${ownerName})`,
+            description: `Updated physical Tax Declaration for ${ownerName} in Brgy. ${barangay}`,
+            metadata: {
+                tdn,
+                pin,
+                titleNumber,
+                ownerName,
+                barangay,
+                propertyKind,
+                marketValue,
+                assessedValue,
+                totalTaxDue
+            }
+        });
+
+        revalidatePath("/admin/assessor/archive");
+        revalidatePath("/admin/assessor");
+
+        return {
+            success: true,
+            message: `Tax Declaration "${tdn}" successfully updated in vault.`,
+            recordId: updatedRecord.id
+        };
+    } catch (error: any) {
+        console.error("[updateArchivedAssessorRecord] Error:", error);
+        return { success: false, error: error.message || "Failed to update Assessor physical record." };
     }
 }
