@@ -26,9 +26,7 @@ import {
     FolderSearch,
     Clock,
     Link2,
-    Layers,
     ShieldCheck,
-    ListFilter,
     RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,7 +43,6 @@ import {
     Dialog,
     DialogContent,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     Select,
@@ -100,6 +97,7 @@ export interface SupplementaryAttachmentItem {
     label: string;
     file: File | null;
     previewUrl?: string;
+    existingUrl?: string;
     isImage: boolean;
     isPdf: boolean;
     fileSizeFormatted?: string;
@@ -149,6 +147,26 @@ function guessScanDocumentLabel(fileName: string): string {
     return "Official Supplementary Document";
 }
 
+const INITIAL_FORM_STATE = {
+    permitNumber: "",
+    buildingPermitNumber: "",
+    firstName: "",
+    lastName: "",
+    applicantName: "",
+    barangay: "Poblacion",
+    street: "",
+    houseNumber: "",
+    contactNumber: "",
+    email: "",
+    dateIssued: new Date().toISOString().split("T")[0],
+    dateOfCompletion: "",
+    projectType: "",
+    occupancyUse: "Residential",
+    estimatedCost: "",
+    totalFloors: "1",
+    remarks: "",
+};
+
 interface OccupancyArchiveClientProps {
     themeColor?: string;
 }
@@ -164,8 +182,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const [search, setSearch] = useState("");
     const [sourceType, setSourceType] = useState<"ALL" | "PHYSICAL" | "ONLINE">("ALL");
     const [barangay, setBarangay] = useState("ALL");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    const [startDate] = useState("");
+    const [endDate] = useState("");
 
     // Modal Form Lifecycle & Mode States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -175,29 +193,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
 
     // Existing Documents in Edit Mode
     const [existingMainPermitUrl, setExistingMainPermitUrl] = useState<string | null>(null);
-    const [existingDocuments, setExistingDocuments] = useState<{ title: string; url: string; fileName: string }[]>([]);
 
     const [isCustomOccupancy, setIsCustomOccupancy] = useState(false);
-
-    const INITIAL_FORM_STATE = {
-        permitNumber: "",
-        buildingPermitNumber: "",
-        firstName: "",
-        lastName: "",
-        applicantName: "",
-        barangay: "Poblacion",
-        street: "",
-        houseNumber: "",
-        contactNumber: "",
-        email: "",
-        dateIssued: new Date().toISOString().split("T")[0],
-        dateOfCompletion: "",
-        projectType: "",
-        occupancyUse: "Residential",
-        estimatedCost: "",
-        totalFloors: "1",
-        remarks: "",
-    };
 
     // Form inputs
     const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -248,7 +245,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         setMainPermitPreview(null);
         setMainPermitScannedAt(null);
         setExistingMainPermitUrl(null);
-        setExistingDocuments([]);
         setAdditionalAttachments([
             {
                 id: `preset-fsic-${Date.now()}`,
@@ -309,14 +305,29 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             remarks: item.remarks || "",
         });
 
-        // Set existing documents
+        // Set existing primary document
         if (item.primaryDocumentUrl) {
             setExistingMainPermitUrl(item.primaryDocumentUrl);
         }
 
+        // Map existing supplementary documents directly into unified additionalAttachments list
         const remainingDocs = (item.documents || []).filter((d: any) => d.url !== item.primaryDocumentUrl);
-        setExistingDocuments(remainingDocs);
+        const mappedAttachments: SupplementaryAttachmentItem[] = remainingDocs.map((doc: any, idx: number) => {
+            const url = doc.url || "";
+            const isPdf = url.toLowerCase().endsWith(".pdf") || (doc.fileName || "").toLowerCase().endsWith(".pdf");
+            return {
+                id: `existing-doc-${idx}-${Date.now()}`,
+                label: doc.label || doc.title || `Supplementary Document ${idx + 1}`,
+                file: null,
+                previewUrl: url,
+                existingUrl: url,
+                isImage: !isPdf,
+                isPdf: isPdf,
+                fileSizeFormatted: doc.fileName || "Archived Document",
+            };
+        });
 
+        setAdditionalAttachments(mappedAttachments);
         setIsCreateOpen(true);
     };
 
@@ -390,7 +401,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
 
     // Folder Scanner Upload ref
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
-    const scannerFolderInputRef = React.useRef<HTMLInputElement | null>(null);
 
     // Document Viewer for Archived Rows
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -497,6 +507,9 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                         previewUrl: preview,
                         isImage: compressed.type.startsWith("image/"),
                         isPdf: compressed.type.includes("pdf"),
+                        label: (!item.label || item.label.startsWith("Additional Clearance") || item.label.startsWith("Supplementary Document"))
+                            ? guessScanDocumentLabel(file.name)
+                            : item.label,
                         scannedAt: Date.now(),
                     };
                 }
@@ -514,74 +527,15 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                         previewUrl: preview,
                         isImage: file.type.startsWith("image/"),
                         isPdf: file.type.includes("pdf"),
+                        label: (!item.label || item.label.startsWith("Additional Clearance") || item.label.startsWith("Supplementary Document"))
+                            ? guessScanDocumentLabel(file.name)
+                            : item.label,
                         scannedAt: Date.now(),
                     };
                 }
                 return item;
             }));
         }
-    };
-
-    // Scanner Folder Batch Ingestion
-    const handleScannerFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const rawFiles = e.target.files;
-        if (!rawFiles || rawFiles.length === 0) return;
-
-        const files = Array.from(rawFiles).filter(f =>
-            f.type.startsWith("image/") || f.name.toLowerCase().endsWith(".pdf")
-        );
-
-        if (files.length === 0) {
-            toast.error("No image or PDF documents found in selected folder.");
-            return;
-        }
-
-        const sortedFiles = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-        const firstFile = sortedFiles[0];
-        try {
-            const compressedMain = await compressDocumentScan(firstFile);
-            const mainUrl = URL.createObjectURL(compressedMain);
-            setMainPermitFile(compressedMain);
-            setMainPermitPreview(mainUrl);
-            setMainPermitScannedAt(Date.now());
-        } catch {
-            const mainUrl = URL.createObjectURL(firstFile);
-            setMainPermitFile(firstFile);
-            setMainPermitPreview(mainUrl);
-            setMainPermitScannedAt(Date.now());
-        }
-
-        const newAttachments: SupplementaryAttachmentItem[] = [];
-        for (let i = 1; i < sortedFiles.length; i++) {
-            const f = sortedFiles[i];
-            const guessedLabel = guessScanDocumentLabel(f.name);
-            try {
-                const comp = await compressDocumentScan(f);
-                newAttachments.push({
-                    id: `scan-${Date.now()}-${i}`,
-                    label: guessedLabel,
-                    file: comp,
-                    previewUrl: URL.createObjectURL(comp),
-                    isImage: comp.type.startsWith("image/"),
-                    isPdf: comp.type.includes("pdf"),
-                    scannedAt: Date.now(),
-                });
-            } catch {
-                newAttachments.push({
-                    id: `scan-${Date.now()}-${i}`,
-                    label: guessedLabel,
-                    file: f,
-                    previewUrl: URL.createObjectURL(f),
-                    isImage: f.type.startsWith("image/"),
-                    isPdf: f.type.includes("pdf"),
-                    scannedAt: Date.now(),
-                });
-            }
-        }
-
-        setAdditionalAttachments(prev => [...prev.filter(p => p.file !== null), ...newAttachments]);
-        toast.success(`Imported ${sortedFiles.length} scanned documents from scanner folder!`);
-        if (e.target) e.target.value = "";
     };
 
     // Submit Digitize Form
@@ -635,7 +589,15 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                 if (existingMainPermitUrl) {
                     dataToSubmit.append("existingMainUrl", existingMainPermitUrl);
                 }
-                dataToSubmit.append("existingDocuments", JSON.stringify(existingDocuments));
+                // Retain all existing attachments from the unified additionalAttachments list
+                const retainedExistingDocs = additionalAttachments
+                    .filter(item => item.existingUrl && item.file === null)
+                    .map(item => ({
+                        title: item.label,
+                        url: item.existingUrl,
+                        fileName: item.fileSizeFormatted || item.existingUrl?.split("/").pop() || "document.webp"
+                    }));
+                dataToSubmit.append("existingDocuments", JSON.stringify(retainedExistingDocs));
             }
 
             const validAttachments = additionalAttachments.filter(item => item.file !== null);
@@ -1342,106 +1304,53 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                 </p>
                                             </div>
 
-                                            {/* Quick Presets Bar */}
-                                            <div className="space-y-1.5 shrink-0">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                    QUICK PRESET ADDITIONS:
-                                                </span>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {OCCUPANCY_DOCUMENT_PRESETS.map((preset, pIdx) => {
-                                                        const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
-                                                        return (
-                                                            <button
-                                                                key={pIdx}
-                                                                type="button"
-                                                                disabled={isAlreadyAdded}
-                                                                onClick={() => {
-                                                                    setAdditionalAttachments(prev => [
-                                                                        ...prev,
-                                                                        {
-                                                                            id: `preset-${Date.now()}-${pIdx}`,
-                                                                            label: preset,
-                                                                            file: null,
-                                                                            isImage: false,
-                                                                            isPdf: false,
-                                                                        }
-                                                                    ]);
-                                                                }}
-                                                                className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                                                    isAlreadyAdded
-                                                                        ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
-                                                                        : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs cursor-pointer"
-                                                                }`}
-                                                            >
-                                                                <Plus className="w-3 h-3" /> {preset}
-                                                            </button>
-                                                        );
-                                                    })}
+                                            {/* Quick Presets Bar - Only displayed when creating a new record */}
+                                            {modalMode === "CREATE" && (
+                                                <div className="space-y-1.5 shrink-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        QUICK PRESET ADDITIONS:
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {OCCUPANCY_DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                            const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                            return (
+                                                                <button
+                                                                    key={pIdx}
+                                                                    type="button"
+                                                                    disabled={isAlreadyAdded}
+                                                                    onClick={() => {
+                                                                        setAdditionalAttachments(prev => [
+                                                                            ...prev,
+                                                                            {
+                                                                                id: `preset-${Date.now()}-${pIdx}`,
+                                                                                label: preset,
+                                                                                file: null,
+                                                                                isImage: false,
+                                                                                isPdf: false,
+                                                                            }
+                                                                        ]);
+                                                                    }}
+                                                                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                        isAlreadyAdded
+                                                                            ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                            : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs cursor-pointer"
+                                                                    }`}
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> {preset}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
-                                            {/* Supplementary Attachments List */}
+                                            {/* Supplementary Attachments List (Matching Image 1) */}
                                             <div className="space-y-3 flex flex-col flex-1">
                                                 <div className="flex items-center justify-between shrink-0">
                                                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        SUPPLEMENTARY PLANS & CLEARANCES ({existingDocuments.length + additionalAttachments.length})
+                                                        SUPPLEMENTARY PLANS & CLEARANCES ({additionalAttachments.length})
                                                     </p>
                                                 </div>
-
-                                                {/* Edit Mode: List of Existing Uploaded Documents */}
-                                                {modalMode === "EDIT" && existingDocuments.length > 0 && (
-                                                    <div className="space-y-2 p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/30">
-                                                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                                                            <Layers className="w-3.5 h-3.5" /> Existing Archived Files ({existingDocuments.length})
-                                                        </span>
-                                                        <div className="space-y-1.5">
-                                                            {existingDocuments.map((doc, dIdx) => (
-                                                                <div
-                                                                    key={dIdx}
-                                                                    className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] shadow-2xs"
-                                                                >
-                                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                                        <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
-                                                                            {doc.title}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 shrink-0">
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => {
-                                                                                setActiveDraftPreview({
-                                                                                    url: doc.url,
-                                                                                    title: doc.title,
-                                                                                    isPdf: doc.url.toLowerCase().endsWith(".pdf"),
-                                                                                });
-                                                                                setPreviewModalOpen(true);
-                                                                            }}
-                                                                            className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
-                                                                            title="View Document"
-                                                                        >
-                                                                            <Eye className="w-3.5 h-3.5" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => {
-                                                                                setExistingDocuments(prev => prev.filter((_, idx) => idx !== dIdx));
-                                                                            }}
-                                                                            className="h-7 w-7 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                                                                            title="Remove File"
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
 
                                                 {additionalAttachments.length === 0 ? (
                                                     <div
@@ -1453,151 +1362,169 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                             No Supplementary Documents
                                                         </span>
                                                         <span className="text-[10px] text-slate-400 mt-1">
-                                                            Select one of the presets above or click here to add a custom attachment
+                                                            Click here or use the button below to add an attachment
                                                         </span>
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1.5 custom-scrollbar">
-                                                        {additionalAttachments.map((att, idx) => (
-                                                            <div
-                                                                key={att.id}
-                                                                className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-2.5 shadow-2xs transition-all hover:border-indigo-500/30"
-                                                            >
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                                                        <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center justify-center shrink-0">
-                                                                            {idx + 1}
-                                                                        </span>
-                                                                        <Input
-                                                                            placeholder="Document Label (e.g. FSIC Clearance)"
-                                                                            value={att.label}
-                                                                            onChange={e => {
-                                                                                const updated = [...additionalAttachments];
-                                                                                updated[idx].label = e.target.value;
-                                                                                setAdditionalAttachments(updated);
-                                                                            }}
-                                                                            className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]"
-                                                                        />
-                                                                    </div>
-                                                                    <Button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveAttachment(att.id)}
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
-                                                                        title="Remove item"
-                                                                    >
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </Button>
-                                                                </div>
+                                                        {additionalAttachments.map((att, idx) => {
+                                                            const hasFileOrExisting = att.file !== null || Boolean(att.existingUrl);
+                                                            const isImageFile = att.isImage;
+                                                            const previewSrc = att.previewUrl || att.existingUrl;
+                                                            const displayName = att.file ? att.file.name : (att.fileSizeFormatted || "Archived Document");
 
-                                                                {/* File Selection / Preview row */}
-                                                                {att.file ? (
-                                                                    <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
-                                                                        {att.isImage && att.previewUrl ? (
-                                                                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
-                                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                                <img
-                                                                                    src={att.previewUrl}
-                                                                                    alt="Preview"
-                                                                                    className="w-full h-full object-cover"
-                                                                                />
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setActiveDraftPreview({
-                                                                                            url: att.previewUrl!,
-                                                                                            title: att.label || "Scanned Document",
-                                                                                            isPdf: false,
-                                                                                        });
-                                                                                        setPreviewModalOpen(true);
-                                                                                    }}
-                                                                                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                                                                    title="View Image"
-                                                                                >
-                                                                                    <ZoomIn className="w-3.5 h-3.5" />
-                                                                                </button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="w-12 h-12 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
-                                                                                <FileText className="w-5 h-5" />
-                                                                                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
-                                                                            </div>
-                                                                        )}
-
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                                                                    {att.file.name}
-                                                                                </p>
-                                                                                {att.scannedAt && (
-                                                                                    <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                                                                                        <Clock className="w-2.5 h-2.5" />
-                                                                                        {formatScanTimeAgo(att.scannedAt)}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <p className="text-[10px] text-slate-400 font-medium">
-                                                                                {formatFileSize(att.file.size)} • {att.isImage ? "Image Scan" : "PDF Document"}
-                                                                            </p>
+                                                            return (
+                                                                <div
+                                                                    key={att.id}
+                                                                    className="p-3.5 rounded-2xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-2.5 shadow-2xs transition-all hover:border-indigo-500/30"
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                            <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                                                                {idx + 1}
+                                                                            </span>
+                                                                            <Input
+                                                                                placeholder="Document Label (e.g. FSIC Clearance)"
+                                                                                value={att.label}
+                                                                                onChange={e => {
+                                                                                    const updated = [...additionalAttachments];
+                                                                                    updated[idx].label = e.target.value;
+                                                                                    setAdditionalAttachments(updated);
+                                                                                }}
+                                                                                className="h-8 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]"
+                                                                            />
                                                                         </div>
+                                                                        <Button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveAttachment(att.id)}
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg shrink-0 cursor-pointer"
+                                                                            title="Remove item"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    </div>
 
-                                                                        <div className="flex items-center gap-1 shrink-0">
-                                                                            {att.previewUrl && (
+                                                                    {/* File Preview or Upload Dropzone */}
+                                                                    {hasFileOrExisting ? (
+                                                                        <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
+                                                                            {isImageFile && previewSrc ? (
+                                                                                <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
+                                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                                    <img
+                                                                                        src={previewSrc}
+                                                                                        alt="Preview"
+                                                                                        className="w-full h-full object-cover"
+                                                                                    />
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setActiveDraftPreview({
+                                                                                                url: previewSrc,
+                                                                                                title: att.label || "Supplementary Document",
+                                                                                                isPdf: false,
+                                                                                                file: att.file,
+                                                                                            });
+                                                                                            setPreviewModalOpen(true);
+                                                                                        }}
+                                                                                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                                                        title="View Image"
+                                                                                    >
+                                                                                        <ZoomIn className="w-3.5 h-3.5" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="w-12 h-12 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                                                    <FileText className="w-5 h-5" />
+                                                                                    <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">PDF</span>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                                        {displayName}
+                                                                                    </p>
+                                                                                    {att.scannedAt && (
+                                                                                        <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                                                                                            <Clock className="w-2.5 h-2.5" />
+                                                                                            {formatScanTimeAgo(att.scannedAt)}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <p className="text-[10px] text-slate-400 font-medium">
+                                                                                    {att.file ? `${formatFileSize(att.file.size)} • ` : ""}
+                                                                                    {att.isImage ? "Image Scan" : "PDF Document"}
+                                                                                </p>
+                                                                            </div>
+
+                                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                                {previewSrc && (
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        onClick={() => {
+                                                                                            if (att.file) {
+                                                                                                handleInspectDraftFile(
+                                                                                                    att.label || "Supplementary Clearance",
+                                                                                                    att.file,
+                                                                                                    previewSrc,
+                                                                                                    "attachment",
+                                                                                                    att.id
+                                                                                                );
+                                                                                            } else {
+                                                                                                setActiveDraftPreview({
+                                                                                                    url: previewSrc,
+                                                                                                    title: att.label || "Supplementary Clearance",
+                                                                                                    isPdf: att.isPdf,
+                                                                                                });
+                                                                                                setPreviewModalOpen(true);
+                                                                                            }
+                                                                                        }}
+                                                                                        className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                                        title="Inspect Document"
+                                                                                    >
+                                                                                        <Eye className="w-3.5 h-3.5" />
+                                                                                    </Button>
+                                                                                )}
                                                                                 <Button
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="icon"
-                                                                                    onClick={() => {
-                                                                                        handleInspectDraftFile(
-                                                                                            att.label || "Supplementary Clearance",
-                                                                                            att.file,
-                                                                                            att.previewUrl,
-                                                                                            "attachment",
-                                                                                            att.id
-                                                                                        );
-                                                                                    }}
-                                                                                    className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
-                                                                                    title="Inspect Document"
+                                                                                    onClick={() => handleRemoveAttachment(att.id)}
+                                                                                    className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                                    title="Remove file"
                                                                                 >
-                                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                                    <Trash2 className="w-3.5 h-3.5" />
                                                                                 </Button>
-                                                                            )}
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handleAttachmentFileChange(att.id, null)}
-                                                                                className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                                                                                title="Change file"
-                                                                            >
-                                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                                            </Button>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <label className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/60 dark:bg-[#151b2b]/60 border border-dashed border-slate-300 dark:border-[#2a3040] hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
-                                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                                                            <FileUp className="w-4 h-4" />
-                                                                        </div>
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                                                                                Choose Document / Plan
-                                                                            </p>
-                                                                            <p className="text-[10px] text-slate-400 font-medium truncate">
-                                                                                PDF, PNG, JPG (Click to browse file)
-                                                                            </p>
-                                                                        </div>
-                                                                        <input
-                                                                            type="file"
-                                                                            accept="image/*,application/pdf"
-                                                                            onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
-                                                                            className="hidden"
-                                                                        />
-                                                                    </label>
-                                                                )}
-                                                            </div>
-                                                        ))}
+                                                                    ) : (
+                                                                        <label className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/60 dark:bg-[#151b2b]/60 border border-dashed border-slate-300 dark:border-[#2a3040] hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                                                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                                                                <FileUp className="w-4 h-4" />
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                                                                    Choose Document / Plan
+                                                                                </p>
+                                                                                <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                                                    PDF, PNG, JPG (Click to browse file)
+                                                                                </p>
+                                                                            </div>
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="image/*,application/pdf"
+                                                                                onChange={e => handleAttachmentFileChange(att.id, e.target.files?.[0] || null)}
+                                                                                className="hidden"
+                                                                            />
+                                                                        </label>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
 
                                                         {/* Prominent Bottom Add Custom Button */}
                                                         <Button

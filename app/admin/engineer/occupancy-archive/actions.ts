@@ -340,7 +340,7 @@ export async function getArchivedOccupancyPermits(params?: {
  */
 export async function createArchivedOccupancyPermit(formData: FormData) {
     try {
-        const { session, user } = await assertEngineerSession();
+        const { user } = await assertEngineerSession();
 
         const permitNumber = (formData.get("permitNumber") as string || "").trim();
         const buildingPermitNumber = (formData.get("buildingPermitNumber") as string || "").trim();
