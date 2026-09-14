@@ -655,7 +655,7 @@ export default function BuildingPermitAppointmentPage() {
     "Duly Notarized Estimated Value of Building/Structure",
     "Duly Notarized Technical Specification",
     "Construction Safety and Health Program From DOLE",
-    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction (Optional)",
     "Affidavit of Undertaking",
     "Cedula of Applicant",
     "ID of applicant with 3 signatures",
@@ -2481,11 +2481,11 @@ export default function BuildingPermitAppointmentPage() {
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-slate-400 font-medium">(Optional)</span>
+                          b. Certified true copy of the TCT or Certified Survey Plan covering the lot <span className="text-slate-400 font-medium">(Optional)</span>
                         </label>
                         {!isEditable ? (
                           <PremiumDocumentUpload
-                            label="TCT Document"
+                            label="TCT / Survey Plan Document"
                             required={false}
                             file={null}
                             existingUrl={selectedApplication.additionalData?.documents?.tctFile}
@@ -2493,14 +2493,14 @@ export default function BuildingPermitAppointmentPage() {
                             onView={() => {
                               setViewerUrl(selectedApplication.additionalData?.documents?.tctFile || null);
                               setViewerFile(null);
-                              setViewerTitle("TCT Document");
+                              setViewerTitle("TCT / Survey Plan Document");
                               setViewerOpen(true);
                             }}
                             disabled={true}
                           />
                         ) : (
                           <PremiumDocumentUpload
-                            label="TCT Document"
+                            label="TCT / Survey Plan Document"
                             required={false}
                             file={formData.tctFile}
                             existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.tctFile : undefined}
@@ -2513,7 +2513,7 @@ export default function BuildingPermitAppointmentPage() {
                                 setViewerUrl(selectedApplication?.additionalData?.documents?.tctFile || null);
                                 setViewerFile(null);
                               }
-                              setViewerTitle("TCT Document");
+                              setViewerTitle("TCT / Survey Plan Document");
                               setViewerOpen(true);
                             }}
                           />

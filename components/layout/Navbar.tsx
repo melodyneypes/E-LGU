@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
     Shield, Menu, X, LogIn, LogOut,
-    ChevronDown, Briefcase, Sun, Moon,
+    ChevronDown, ChevronRight, Briefcase, Sun, Moon,
     Newspaper, PhoneCall, Info,
     Compass, MapPin, Globe, Activity, Archive,
     Building2, Hammer, CreditCard, FileText, User,
-    AlertTriangle, Siren, Truck, Scale
+    AlertTriangle, Siren, Truck, Scale, FileCheck, HardHat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,9 @@ export function Navbar({
     const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
     const [isBarangayModalOpen, setIsBarangayModalOpen] = React.useState(false);
     const [isServicesHovered, setIsServicesHovered] = React.useState(false);
+    const [isBuildingSubHovered, setIsBuildingSubHovered] = React.useState(false);
     const [isMobileServicesOpen, setIsMobileServicesOpen] = React.useState(false);
+    const [isMobileBuildingPermitsOpen, setIsMobileBuildingPermitsOpen] = React.useState(false);
     const [isEmergencyHovered, setIsEmergencyHovered] = React.useState(false);
     const [isMobileEmergencyOpen, setIsMobileEmergencyOpen] = React.useState(false);
     const [isUpdatesHovered, setIsUpdatesHovered] = React.useState(false);
@@ -77,15 +79,53 @@ export function Navbar({
         }
     ], []);
 
+    const buildingSubPermits = React.useMemo(() => [
+        {
+            name: "Building Permit",
+            href: "/user/services/building-permit",
+            desc: "Construction & Electrical Permits",
+            icon: Hammer,
+            color: "text-amber-500 bg-amber-500/10"
+        },
+        {
+            name: "Occupancy Permit",
+            href: "/user/services/occupancy",
+            desc: "Occupancy Permits & Clearances",
+            icon: FileCheck,
+            color: "text-cyan-500 bg-cyan-500/10"
+        },
+        {
+            name: "Fencing Permit",
+            href: "/user/services/fencing-permit",
+            desc: "Perimeter & Enclosure Permits",
+            icon: Shield,
+            color: "text-emerald-500 bg-emerald-500/10"
+        },
+        {
+            name: "Demolition Permit",
+            href: "/user/services/demolition-permit",
+            desc: "Structure Removal & Site Clearing",
+            icon: AlertTriangle,
+            color: "text-rose-500 bg-rose-500/10"
+        }
+    ], []);
+
     const serviceCategories = React.useMemo(() => [
         { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
         { name: "Business Permit", href: "/user/services/business-permit-appointment", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
-        { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction & Electrical Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
-        { name: "Occupancy", href: "/user/services/occupancy", desc: "Occupancy Permits & Clearances", icon: FileText, color: "text-cyan-500 bg-cyan-500/10" },
+        {
+            name: "Engineering Permits",
+            href: "/user/services/building-permit",
+            desc: "Building, Occupancy, Fencing & Demolition",
+            icon: HardHat,
+            color: "text-amber-500 bg-amber-500/10",
+            hasSubmenu: true,
+            subItems: buildingSubPermits
+        },
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
         { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
-    ], []);
+    ], [buildingSubPermits]);
 
     const updatesItems = React.useMemo(() => [
         {
@@ -107,8 +147,7 @@ export function Navbar({
     const [activeCategories, setActiveCategories] = React.useState<string[]>([
         "Civil Registry",
         "Business Permit",
-        "Building Permit",
-        "Occupancy",
+        "Engineering Permits",
         "Cedula (CTC)",
         "Real Property Tax (RPT)",
         "Rural Health Unit (RHU)"
@@ -126,11 +165,8 @@ export function Navbar({
                 if (activeCodes.some(code => code.startsWith("BUSINESS_PERMIT"))) {
                     categoriesToShow.push("Business Permit");
                 }
-                if (activeCodes.some(code => code.startsWith("BUILDING_PERMIT"))) {
-                    categoriesToShow.push("Building Permit");
-                }
-                if (activeCodes.some(code => code.startsWith("OCCUPANCY_PERMIT") || code.startsWith("OCCUPANCY"))) {
-                    categoriesToShow.push("Occupancy");
+                if (activeCodes.some(code => code.startsWith("BUILDING_PERMIT") || code.startsWith("OCCUPANCY") || code.startsWith("FENCING") || code.startsWith("DEMOLITION")) || true) {
+                    categoriesToShow.push("Engineering Permits");
                 }
                 if (activeCodes.some(code => code.startsWith("CEDULA"))) {
                     categoriesToShow.push("Cedula (CTC)");
@@ -446,7 +482,10 @@ export function Navbar({
                                     key={link.name}
                                     className="relative group/services"
                                     onMouseEnter={() => setIsServicesHovered(true)}
-                                    onMouseLeave={() => setIsServicesHovered(false)}
+                                    onMouseLeave={() => {
+                                        setIsServicesHovered(false);
+                                        setIsBuildingSubHovered(false);
+                                    }}
                                 >
                                     <button
                                         type="button"
@@ -486,31 +525,127 @@ export function Navbar({
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, y: 12, scale: 0.95 }}
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
-                                                className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 w-[340px] z-[120]"
+                                                className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 z-[120]"
                                             >
+                                                {/* Main Dropdown Panel */}
                                                 <div 
-                                                    className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
+                                                    className="w-[340px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
                                                 >
-                                                    {displayedCategories.map((cat) => (
-                                                        <Link
-                                                            key={cat.name}
-                                                            href={cat.href}
-                                                            className="flex items-center gap-3.5 p-3.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group/item"
-                                                        >
-                                                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/item:scale-105 shadow-sm", cat.color)}>
-                                                                <cat.icon className="w-5 h-5" />
-                                                            </div>
-                                                            <div className="flex flex-col text-left">
-                                                                <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
-                                                                    {cat.name}
-                                                                </span>
-                                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic">
-                                                                    {cat.desc}
-                                                                </span>
-                                                            </div>
-                                                        </Link>
-                                                    ))}
+                                                    {displayedCategories.map((cat: any) => {
+                                                        if (cat.hasSubmenu) {
+                                                            return (
+                                                                <div
+                                                                    key={cat.name}
+                                                                    className="relative"
+                                                                    onMouseEnter={() => setIsBuildingSubHovered(true)}
+                                                                    onMouseLeave={() => setIsBuildingSubHovered(false)}
+                                                                >
+                                                                    <div
+                                                                        className={cn(
+                                                                            "flex items-center justify-between p-3.5 rounded-2xl transition-colors cursor-pointer group/item",
+                                                                            isBuildingSubHovered 
+                                                                                ? "bg-amber-500/10 dark:bg-amber-500/15" 
+                                                                                : "hover:bg-slate-50 dark:hover:bg-white/5"
+                                                                        )}
+                                                                    >
+                                                                        <div className="flex items-center gap-3.5">
+                                                                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/item:scale-105 shadow-sm", cat.color)}>
+                                                                                <cat.icon className="w-5 h-5" />
+                                                                            </div>
+                                                                            <div className="flex flex-col text-left">
+                                                                                <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                    {cat.name}
+                                                                                </span>
+                                                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic">
+                                                                                    {cat.desc}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <ChevronRight 
+                                                                            className={cn(
+                                                                                "w-4 h-4 transition-all shrink-0 ml-1",
+                                                                                isBuildingSubHovered ? "text-amber-500 translate-x-1" : "text-slate-400 group-hover/item:text-amber-500 group-hover/item:translate-x-0.5"
+                                                                            )} 
+                                                                        />
+                                                                    </div>
+
+                                                                    {/* Side Submenu Panel (Directly aligned with this source item) */}
+                                                                    <AnimatePresence>
+                                                                        {isBuildingSubHovered && (
+                                                                            <motion.div
+                                                                                initial={{ opacity: 0, x: -8, scale: 0.96 }}
+                                                                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                                                                exit={{ opacity: 0, x: -8, scale: 0.96 }}
+                                                                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                                                                style={{ position: "absolute", left: "100%", top: "-8px" }}
+                                                                                className="pl-3.5 w-[344px] z-[130]"
+                                                                            >
+                                                                                <div
+                                                                                    className="w-[330px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl p-3 grid grid-cols-1 gap-1.5 backdrop-blur-xl"
+                                                                                    style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.2)" }}
+                                                                                >
+                                                                                    <div className="px-3 py-1.5 border-b border-slate-100 dark:border-white/5 mb-1 flex items-center justify-between">
+                                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                                                                            Engineering Clearances
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {buildingSubPermits.map((sub: any) => (
+                                                                                        <Link
+                                                                                            key={sub.name}
+                                                                                            href={sub.href}
+                                                                                            onClick={() => {
+                                                                                                setIsServicesHovered(false);
+                                                                                                setIsBuildingSubHovered(false);
+                                                                                            }}
+                                                                                            className="flex items-center gap-3.5 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group/subitem"
+                                                                                        >
+                                                                                            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/subitem:scale-105 shadow-sm", sub.color)}>
+                                                                                                <sub.icon className="w-4 h-4" />
+                                                                                            </div>
+                                                                                            <div className="flex flex-col text-left">
+                                                                                                <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                                    {sub.name}
+                                                                                                </span>
+                                                                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic">
+                                                                                                    {sub.desc}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </Link>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <Link
+                                                                key={cat.name}
+                                                                href={cat.href}
+                                                                onMouseEnter={() => setIsBuildingSubHovered(false)}
+                                                                onClick={() => {
+                                                                    setIsServicesHovered(false);
+                                                                    setIsBuildingSubHovered(false);
+                                                                }}
+                                                                className="flex items-center gap-3.5 p-3.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group/item"
+                                                            >
+                                                                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/item:scale-105 shadow-sm", cat.color)}>
+                                                                    <cat.icon className="w-5 h-5" />
+                                                                </div>
+                                                                <div className="flex flex-col text-left">
+                                                                    <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                        {cat.name}
+                                                                    </span>
+                                                                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic">
+                                                                        {cat.desc}
+                                                                    </span>
+                                                                </div>
+                                                            </Link>
+                                                        );
+                                                    })}
                                                 </div>
                                             </motion.div>
                                         )}
@@ -1122,29 +1257,100 @@ export function Navbar({
                                                                     transition={{ duration: 0.25 }}
                                                                     className="overflow-hidden pl-4 pr-1 flex flex-col gap-1"
                                                                 >
-                                                                    {displayedCategories.map((cat) => (
-                                                                        <Link
-                                                                            key={cat.name}
-                                                                            href={cat.href}
-                                                                            onClick={() => {
-                                                                                setIsOpen(false);
-                                                                                setIsMobileServicesOpen(false);
-                                                                            }}
-                                                                            className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                                                                        >
-                                                                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm", cat.color)}>
-                                                                                <cat.icon className="w-4 h-4" />
-                                                                            </div>
-                                                                            <div className="flex flex-col text-left">
-                                                                                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
-                                                                                    {cat.name}
-                                                                                </span>
-                                                                                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
-                                                                                    {cat.desc}
-                                                                                </span>
-                                                                            </div>
-                                                                        </Link>
-                                                                    ))}
+                                                                    {displayedCategories.map((cat: any) => {
+                                                                        if (cat.hasSubmenu) {
+                                                                            return (
+                                                                                <div key={cat.name} className="flex flex-col gap-1">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setIsMobileBuildingPermitsOpen(!isMobileBuildingPermitsOpen)}
+                                                                                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors w-full text-left"
+                                                                                    >
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm", cat.color)}>
+                                                                                                <cat.icon className="w-4 h-4" />
+                                                                                            </div>
+                                                                                            <div className="flex flex-col text-left">
+                                                                                                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                                    {cat.name}
+                                                                                                </span>
+                                                                                                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
+                                                                                                    {cat.desc}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <ChevronDown
+                                                                                            className={cn(
+                                                                                                "w-3.5 h-3.5 text-slate-400 transition-transform duration-200",
+                                                                                                isMobileBuildingPermitsOpen && "rotate-180 text-amber-500"
+                                                                                            )}
+                                                                                        />
+                                                                                    </button>
+
+                                                                                    <AnimatePresence>
+                                                                                        {isMobileBuildingPermitsOpen && (
+                                                                                            <motion.div
+                                                                                                initial={{ height: 0, opacity: 0 }}
+                                                                                                animate={{ height: "auto", opacity: 1 }}
+                                                                                                exit={{ height: 0, opacity: 0 }}
+                                                                                                transition={{ duration: 0.2 }}
+                                                                                                className="overflow-hidden pl-5 pr-1 flex flex-col gap-1 border-l-2 border-amber-500/20 ml-4 my-1"
+                                                                                            >
+                                                                                                {cat.subItems?.map((sub: any) => (
+                                                                                                    <Link
+                                                                                                        key={sub.name}
+                                                                                                        href={sub.href}
+                                                                                                        onClick={() => {
+                                                                                                            setIsOpen(false);
+                                                                                                            setIsMobileServicesOpen(false);
+                                                                                                            setIsMobileBuildingPermitsOpen(false);
+                                                                                                        }}
+                                                                                                        className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                                                                                    >
+                                                                                                        <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0 shadow-sm", sub.color)}>
+                                                                                                            <sub.icon className="w-3.5 h-3.5" />
+                                                                                                        </div>
+                                                                                                        <div className="flex flex-col text-left">
+                                                                                                            <span className="text-[11px] font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                                                {sub.name}
+                                                                                                            </span>
+                                                                                                            <span className="text-[7.5px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
+                                                                                                                {sub.desc}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    </Link>
+                                                                                                ))}
+                                                                                            </motion.div>
+                                                                                        )}
+                                                                                    </AnimatePresence>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
+                                                                        return (
+                                                                            <Link
+                                                                                key={cat.name}
+                                                                                href={cat.href}
+                                                                                onClick={() => {
+                                                                                    setIsOpen(false);
+                                                                                    setIsMobileServicesOpen(false);
+                                                                                }}
+                                                                                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                                                            >
+                                                                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm", cat.color)}>
+                                                                                    <cat.icon className="w-4 h-4" />
+                                                                                </div>
+                                                                                <div className="flex flex-col text-left">
+                                                                                    <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                        {cat.name}
+                                                                                    </span>
+                                                                                    <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
+                                                                                        {cat.desc}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </Link>
+                                                                        );
+                                                                    })}
                                                                 </motion.div>
                                                             )}
                                                         </AnimatePresence>

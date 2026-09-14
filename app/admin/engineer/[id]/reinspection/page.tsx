@@ -321,7 +321,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
         <div className="grid grid-cols-2 gap-4">
             {[
                 { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID" },
-                { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+                { url: additional?.documents?.tctFile, label: additional?.landDocumentType === "SURVEY_PLAN" ? "Cadastral Survey Plan (Untitled Parcel)" : "TCT / Land Title" },
                 ...[
                     "Barangay Clearance/Certification",
                     "Tax Declaration",
@@ -342,7 +342,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                     "Duly Notarized Estimated Value of Building/Structure",
                     "Duly Notarized Technical Specification",
                     "Construction Safety and Health Program From DOLE",
-                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction (Optional)",
                     "Affidavit of Undertaking",
                     "Cedula of Applicant",
                     "ID of applicant with 3 signatures",

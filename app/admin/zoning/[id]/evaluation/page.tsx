@@ -374,7 +374,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         return [
             { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
             { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
-            { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+            { key: "tctFile", url: additional?.documents?.tctFile, label: additional?.landDocumentType === "SURVEY_PLAN" ? "Cadastral Survey Plan (Untitled Parcel)" : "TCT / Land Title" },
             ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [
                 "Duly Notarized Certificate of Completion",
                 "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
@@ -402,7 +402,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "Duly Notarized Estimated Value of Building/Structure",
                 "Duly Notarized Technical Specification",
                 "Construction Safety and Health Program From DOLE",
-                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction (Optional)",
                 "Affidavit of Undertaking",
                 "Cedula of Applicant",
                 "ID of applicant with 3 signatures",
