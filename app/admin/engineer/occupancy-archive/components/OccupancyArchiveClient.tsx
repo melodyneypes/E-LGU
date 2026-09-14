@@ -182,7 +182,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         email: "",
         dateIssued: new Date().toISOString().split("T")[0],
         dateOfCompletion: "",
-        projectType: "Two-Storey Residential House",
+        projectType: "",
         occupancyUse: "Residential",
         estimatedCost: "",
         totalFloors: "1",
@@ -559,7 +559,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                     email: "",
                     dateIssued: new Date().toISOString().split("T")[0],
                     dateOfCompletion: "",
-                    projectType: "Two-Storey Residential House",
+                    projectType: "",
                     occupancyUse: "Residential",
                     estimatedCost: "",
                     totalFloors: "1",
@@ -883,6 +883,18 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                         type="date"
                                                         value={formData.dateOfCompletion}
                                                         onChange={(e) => setFormData({ ...formData, dateOfCompletion: e.target.value })}
+                                                        className="h-10 rounded-xl text-sm"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Project Nature / Work Scope
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. 2-Storey Residential Building, Commercial Warehouse"
+                                                        value={formData.projectType}
+                                                        onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
                                                         className="h-10 rounded-xl text-sm"
                                                     />
                                                 </div>

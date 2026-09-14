@@ -353,8 +353,9 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         const contactNumber = (formData.get("contactNumber") as string || "").trim();
         const email = (formData.get("email") as string || "").trim();
 
-        const projectType = (formData.get("projectType") as string || "Building Construction").trim();
         const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
+        const projectTypeInput = (formData.get("projectType") as string || "").trim();
+        const projectType = projectTypeInput || `${occupancyUse} Building`;
         const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
         const totalFloors = (formData.get("totalFloors") as string || "1").trim();
 
