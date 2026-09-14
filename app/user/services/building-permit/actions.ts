@@ -47,6 +47,7 @@ export async function submitBuildingPermit(formData: FormData) {
     }
 
     const propertyRelationship = formData.get("propertyRelationship") as string;
+    const landDocumentType = (formData.get("landDocumentType") as string) || "TCT";
 
     // Prepare JSON for additional Data
     const additionalData: any = {
@@ -60,6 +61,7 @@ export async function submitBuildingPermit(formData: FormData) {
       street,
       barangay,
       totalFloors,
+      landDocumentType,
       documents: {},
       customLabels
     };
@@ -258,6 +260,8 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     if (street) additionalData.street = street;
     if (barangay) additionalData.barangay = barangay;
     if (totalFloors !== undefined) additionalData.totalFloors = totalFloors;
+    const landDocumentType = formData.get("landDocumentType") as string;
+    if (landDocumentType) additionalData.landDocumentType = landDocumentType;
 
     // Helper to upload and store URL
     const processFile = async (key: string, folder: string) => {

@@ -39,7 +39,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Plus
+  Plus,
+  Info
 } from "lucide-react";
 import {
   Breadcrumb,
@@ -539,6 +540,7 @@ export default function BuildingPermitPage() {
     newIdFile: null as File | null,
     newIdFileBack: null as File | null,
     tctFile: null as File | null,
+    landDocumentType: "TCT" as "TCT" | "SURVEY_PLAN",
     occupancyUse: "Residential (Single Family)",
     otherOccupancyUse: "",
   });
@@ -641,7 +643,9 @@ export default function BuildingPermitPage() {
   const isNotOwner = formData.isLotOwner === "No";
 
   const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
-  const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
+
+  // Applicable requirements displayed to the citizen in the Upload Step
+  const applicableRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
     .filter(index => {
       // Always skip these as per existing logic
       if ([2, 5, 8].includes(index)) return false;
@@ -672,6 +676,9 @@ export default function BuildingPermitPage() {
       if (!hasMultipleFloors && [23, 24].includes(index)) return false;
       return true;
     });
+
+  // Mandatory requirements that must be provided to submit (Construction Logbook - index 19 is optional)
+  const requiredRequirementIndexes = applicableRequirementIndexes.filter(index => index !== 19);
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_")),
@@ -714,7 +721,7 @@ export default function BuildingPermitPage() {
     "Duly Notarized Estimated Value of Building/Structure",
     "Duly Notarized Technical Specification",
     "Construction Safety and Health Program From DOLE",
-    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction (Optional)",
     "Affidavit of Undertaking",
     "Cedula of Applicant",
     "ID of applicant with 3 signatures",
@@ -834,6 +841,7 @@ export default function BuildingPermitPage() {
         newIdFile: null,
         newIdFileBack: null,
         tctFile: null,
+        landDocumentType: (addData.landDocumentType as "TCT" | "SURVEY_PLAN") || "TCT",
         occupancyUse: addData.occupancyUse || "",
         otherOccupancyUse: parsedOccupancy.specify,
       });
@@ -1007,7 +1015,7 @@ export default function BuildingPermitPage() {
       ],
       infoType: "note",
       infoLabel: "Note",
-      infoText: "If you only have the owner's copy, you can have it photocopied and notarized as a substitute."
+      infoText: "If you only have the owner's copy, you can have it photocopied and notarized as a substitute. For land parcels lacking an official title, an approved Cadastral / Geodetic Survey Plan is accepted."
     },
     {
       id: 4,
@@ -1395,7 +1403,7 @@ export default function BuildingPermitPage() {
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
       for (let i = 0; i < 25; i++) {
-        if (!requiredRequirementIndexes.includes(i)) continue;
+        if (!applicableRequirementIndexes.includes(i)) continue;
 
         const file = uploadedRequirements[i];
         if (file) {
@@ -1537,6 +1545,7 @@ export default function BuildingPermitPage() {
       if (tctFileUrl) {
         data.append("tctFile", tctFileUrl);
       }
+      data.append("landDocumentType", formData.landDocumentType || "TCT");
 
       Object.entries(finalReqUrls).forEach(([key, url]) => {
         data.append(key, url);
@@ -1787,6 +1796,7 @@ export default function BuildingPermitPage() {
               newIdFile: null,
               newIdFileBack: null,
               tctFile: null,
+              landDocumentType: "TCT",
               occupancyUse: "Residential (Single Family)",
               otherOccupancyUse: "",
             });
@@ -1879,7 +1889,8 @@ export default function BuildingPermitPage() {
                           totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
                           newIdFile: null,
                           newIdFileBack: null,
-                          tctFile: null
+                          tctFile: null,
+                          landDocumentType: (app.additionalData?.landDocumentType as "TCT" | "SURVEY_PLAN") || "TCT"
                         }));
                         setIsRevision(false);
                         setIsZoningRevision(false);
@@ -2762,11 +2773,113 @@ export default function BuildingPermitPage() {
                       </div>
 
                       <div id="field-tct-document">
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-red-500 text-lg">*</span>
-                        </label>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+                            b. Certified true copy of TCT or Certified Survey Plan <span className="text-red-500 text-lg">*</span>
+                          </label>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-0.5 rounded-full w-fit">
+                            Proof of Lot Ownership
+                          </span>
+                        </div>
+
+                        {/* Land Document Type Selector */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isEditable) return;
+                              setFormData({ ...formData, landDocumentType: "TCT" });
+                            }}
+                            disabled={!isEditable}
+                            className={cn(
+                              "flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer",
+                              formData.landDocumentType === "TCT"
+                                ? "border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/40 shadow-sm"
+                                : "border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-white/40 dark:bg-white/5"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                              formData.landDocumentType === "TCT"
+                                ? "border-primary bg-primary text-white"
+                                : "border-slate-400 dark:border-slate-600"
+                            )}>
+                              {formData.landDocumentType === "TCT" && (
+                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                                Transfer Certificate of Title (TCT)
+                              </span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                Standard for titled land parcels & registered lots
+                              </span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isEditable) return;
+                              setFormData({ ...formData, landDocumentType: "SURVEY_PLAN" });
+                            }}
+                            disabled={!isEditable}
+                            className={cn(
+                              "flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer",
+                              formData.landDocumentType === "SURVEY_PLAN"
+                                ? "border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 ring-1 ring-amber-500/40 shadow-sm"
+                                : "border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-white/40 dark:bg-white/5"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                              formData.landDocumentType === "SURVEY_PLAN"
+                                ? "border-amber-500 bg-amber-500 text-white"
+                                : "border-slate-400 dark:border-slate-600"
+                            )}>
+                              {formData.landDocumentType === "SURVEY_PLAN" && (
+                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                                  Cadastral / Lot Survey Plan
+                                </span>
+                                <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded uppercase">
+                                  Untitled Lot
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                Valid alternative for land parcels lacking official title
+                              </span>
+                            </div>
+                          </button>
+                        </div>
+
+                        {/* Informational Hint depending on selected type */}
+                        {formData.landDocumentType === "SURVEY_PLAN" ? (
+                          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs mb-3">
+                            <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-bold">Survey Plan Alternative Accepted</span>
+                              <span className="text-[11px] text-amber-700/90 dark:text-amber-300/90 leading-relaxed">
+                                For lots without an official Torrens Title (TCT/OCT), an approved Cadastral / Geodetic Survey Plan signed and sealed by a Licensed Geodetic Engineer is accepted as valid proof of lot boundaries.
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 text-xs mb-3">
+                            <Info className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
+                            <span className="text-[11px] leading-relaxed">
+                              Upload a Certified True Copy of the Transfer Certificate of Title (TCT) issued by the Registry of Deeds covering the parcel where the proposed structure will be built.
+                            </span>
+                          </div>
+                        )}
+
                         <PremiumDocumentUpload
-                          label="Certified True Copy of TCT"
+                          label={formData.landDocumentType === "SURVEY_PLAN" ? "Certified Survey Plan / Lot Plan" : "Certified True Copy of TCT"}
                           required={true}
                           file={formData.tctFile}
                           existingUrl={effectiveDocuments?.tctFile}
@@ -2778,11 +2891,11 @@ export default function BuildingPermitPage() {
                             } else if (effectiveDocuments?.tctFile) {
                               setViewerUrl(effectiveDocuments.tctFile);
                             }
-                            setViewerTitle("TCT Document");
+                            setViewerTitle(formData.landDocumentType === "SURVEY_PLAN" ? "Certified Survey Plan" : "TCT Document");
                             setViewerOpen(true);
                           }}
                           error={showValidationErrors && !hasTctFile}
-                          infoText="Upload TCT Document (PDF/JPG/PNG)"
+                          infoText={formData.landDocumentType === "SURVEY_PLAN" ? "Upload Certified Survey Plan (PDF/JPG/PNG)" : "Upload TCT Document (PDF/JPG/PNG)"}
                           disabled={!isEditable || (isRevision && !isFieldRequested("tctFile"))}
                         />
                       </div>
@@ -3160,9 +3273,13 @@ export default function BuildingPermitPage() {
                           return;
                         }
 
-                        // 3. TCT Document Check
+                        // 3. TCT / Survey Plan Document Check
                         if (!hasTctFile) {
-                          scrollToFirstInvalidField("field-tct-document", "Please upload the Certified True Copy of TCT covering the lot.");
+                          if (formData.landDocumentType === "SURVEY_PLAN") {
+                            scrollToFirstInvalidField("field-tct-document", "Please upload the Certified Survey Plan covering the untitled land parcel.");
+                          } else {
+                            scrollToFirstInvalidField("field-tct-document", "Please upload the Certified True Copy of TCT (or select Survey Plan for untitled land parcels).");
+                          }
                           return;
                         }
 
@@ -3254,6 +3371,7 @@ export default function BuildingPermitPage() {
               setUploadedRequirements={setUploadedRequirements}
               uploadedPermits={uploadedPermits}
               setUploadedPermits={setUploadedPermits}
+              applicableRequirementIndexes={applicableRequirementIndexes}
               requiredRequirementIndexes={requiredRequirementIndexes}
               requiredPermitIndexes={requiredPermitIndexes}
               showValidationErrors={showValidationErrors}
