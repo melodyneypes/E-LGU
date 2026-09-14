@@ -760,7 +760,8 @@ export function Sidebar({
         { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-        { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" },
+        { href: "/admin/engineer/archive", label: "Building Permit Archives", icon: FolderArchive, category: "Engineering" },
+        { href: "/admin/engineer/occupancy-archive", label: "Occupancy Archives", icon: FolderArchive, category: "Engineering" },
         { href: "/admin/engineer/forms", label: "Downloadable Forms", icon: FileText, category: "Engineering" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
@@ -931,7 +932,8 @@ export function Sidebar({
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-                { href: "/admin/engineer/archive", label: "Document Archives", icon: FolderArchive, category: "Engineering" },
+                { href: "/admin/engineer/archive", label: "Building Permit Archives", icon: FolderArchive, category: "Engineering" },
+                { href: "/admin/engineer/occupancy-archive", label: "Occupancy Archives", icon: FolderArchive, category: "Engineering" },
                 { href: "/admin/engineer/forms", label: "Downloadable Forms", icon: FileText, category: "Engineering" },
                 { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
             ];
