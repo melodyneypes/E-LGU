@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { getArchivedOccupancyPermits, createArchivedOccupancyPermit, deleteArchivedOccupancyPermit } from "../actions";
+import { getArchivedOccupancyPermits, createArchivedOccupancyPermit, updateArchivedOccupancyPermit } from "../actions";
 import {
     Search,
     Plus,
     FileText,
     Eye,
+    Pencil,
     FolderArchive,
     Calendar,
     MapPin,
@@ -27,7 +28,6 @@ import {
     Link2,
     Layers,
     ShieldCheck,
-    AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,14 +45,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -173,12 +165,17 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
-    // Modal Form States
+    // Modal Form Lifecycle & Mode States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
+    const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Form inputs
-    const [formData, setFormData] = useState({
+    // Existing Documents in Edit Mode
+    const [existingMainPermitUrl, setExistingMainPermitUrl] = useState<string | null>(null);
+    const [existingDocuments, setExistingDocuments] = useState<{ title: string; url: string; fileName: string }[]>([]);
+
+    const INITIAL_FORM_STATE = {
         permitNumber: "",
         buildingPermitNumber: "",
         firstName: "",
@@ -196,15 +193,17 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         estimatedCost: "",
         totalFloors: "1",
         remarks: "",
-    });
+    };
+
+    // Form inputs
+    const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
     // Primary Certificate Scan
     const [mainPermitFile, setMainPermitFile] = useState<File | null>(null);
     const [mainPermitPreview, setMainPermitPreview] = useState<string | null>(null);
     const [mainPermitScannedAt, setMainPermitScannedAt] = useState<number | null>(null);
 
-    // Supplementary Attachments
-    const [additionalAttachments, setAdditionalAttachments] = useState<SupplementaryAttachmentItem[]>([
+    const DEFAULT_PRESETS: SupplementaryAttachmentItem[] = [
         {
             id: "preset-fsic",
             label: "Fire Safety Inspection Certificate (FSIC - BFP)",
@@ -219,7 +218,95 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             isImage: false,
             isPdf: false,
         },
-    ]);
+    ];
+
+    // Supplementary Attachments
+    const [additionalAttachments, setAdditionalAttachments] = useState<SupplementaryAttachmentItem[]>(DEFAULT_PRESETS);
+
+    // Clean up created object URLs to avoid memory leaks
+    const cleanupAttachmentUrls = useCallback(() => {
+        if (mainPermitPreview) {
+            URL.revokeObjectURL(mainPermitPreview);
+        }
+        additionalAttachments.forEach(att => {
+            if (att.previewUrl) {
+                URL.revokeObjectURL(att.previewUrl);
+            }
+        });
+    }, [mainPermitPreview, additionalAttachments]);
+
+    // STRICT MODAL TERMINATION: Clean state slate when modal closes or switches records
+    const resetModalState = useCallback(() => {
+        cleanupAttachmentUrls();
+        setFormData(INITIAL_FORM_STATE);
+        setMainPermitFile(null);
+        setMainPermitPreview(null);
+        setMainPermitScannedAt(null);
+        setExistingMainPermitUrl(null);
+        setExistingDocuments([]);
+        setAdditionalAttachments([
+            {
+                id: `preset-fsic-${Date.now()}`,
+                label: "Fire Safety Inspection Certificate (FSIC - BFP)",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+            {
+                id: `preset-completion-${Date.now()}`,
+                label: "Certificate of Completion (Signed & Sealed)",
+                file: null,
+                isImage: false,
+                isPdf: false,
+            },
+        ]);
+        setEditingRecordId(null);
+        setModalMode("CREATE");
+    }, [cleanupAttachmentUrls]);
+
+    // Open Create Modal
+    const handleOpenCreateModal = () => {
+        resetModalState();
+        setModalMode("CREATE");
+        setIsCreateOpen(true);
+    };
+
+    // Open Edit Modal with strict population
+    const handleOpenEditModal = (item: any) => {
+        resetModalState();
+        setModalMode("EDIT");
+        setEditingRecordId(item.id);
+
+        setFormData({
+            permitNumber: item.permitNumber || "",
+            buildingPermitNumber: item.buildingPermitNumber && item.buildingPermitNumber !== "N/A" ? item.buildingPermitNumber : "",
+            firstName: item.firstName || "",
+            lastName: item.lastName || "",
+            applicantName: item.applicantName || "",
+            barangay: item.barangay || "Poblacion",
+            street: item.street || "",
+            houseNumber: item.houseNumber || "",
+            contactNumber: item.contactNumber && item.contactNumber !== "N/A" ? item.contactNumber : "",
+            email: item.email || "",
+            dateIssued: item.dateIssued ? new Date(item.dateIssued).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+            dateOfCompletion: item.dateOfCompletion ? new Date(item.dateOfCompletion).toISOString().split("T")[0] : "",
+            projectType: item.projectType || "",
+            occupancyUse: item.occupancyUse || "Residential",
+            estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
+            totalFloors: item.totalFloors || "1",
+            remarks: item.remarks || "",
+        });
+
+        // Set existing documents
+        if (item.primaryDocumentUrl) {
+            setExistingMainPermitUrl(item.primaryDocumentUrl);
+        }
+
+        const remainingDocs = (item.documents || []).filter((d: any) => d.url !== item.primaryDocumentUrl);
+        setExistingDocuments(remainingDocs);
+
+        setIsCreateOpen(true);
+    };
 
     // Local Inspection Lightbox State for Newly Selected Draft Files (with Rotate & DocumentViewerModal support)
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -298,18 +385,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const [viewerDocuments, setViewerDocuments] = useState<{ url: string; label: string; fileName?: string }[]>([]);
     const [viewerTitle, setViewerTitle] = useState("");
 
-    // Cleanup Object URLs on unmount or reset
-    const cleanupAttachmentUrls = useCallback(() => {
-        if (mainPermitPreview) {
-            URL.revokeObjectURL(mainPermitPreview);
-        }
-        additionalAttachments.forEach(att => {
-            if (att.previewUrl) {
-                URL.revokeObjectURL(att.previewUrl);
-            }
-        });
-    }, [mainPermitPreview, additionalAttachments]);
-
+    // Unmount cleanup
     useEffect(() => {
         return () => {
             cleanupAttachmentUrls();
@@ -536,6 +612,14 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                 dataToSubmit.append("mainPermitScan", mainPermitFile);
             }
 
+            if (modalMode === "EDIT") {
+                dataToSubmit.append("transactionId", editingRecordId || "");
+                if (existingMainPermitUrl) {
+                    dataToSubmit.append("existingMainUrl", existingMainPermitUrl);
+                }
+                dataToSubmit.append("existingDocuments", JSON.stringify(existingDocuments));
+            }
+
             const validAttachments = additionalAttachments.filter(item => item.file !== null);
             dataToSubmit.append("attachmentCount", validAttachments.length.toString());
             validAttachments.forEach((item, index) => {
@@ -543,40 +627,17 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                 dataToSubmit.append(`attachmentLabel_${index}`, item.label);
             });
 
-            const res = await createArchivedOccupancyPermit(dataToSubmit);
+            const res = modalMode === "EDIT"
+                ? await updateArchivedOccupancyPermit(dataToSubmit)
+                : await createArchivedOccupancyPermit(dataToSubmit);
 
             if (res.success) {
-                toast.success(res.message || "Occupancy record archived successfully!");
+                toast.success(res.message || (modalMode === "EDIT" ? "Record updated successfully!" : "Occupancy record archived successfully!"));
                 setIsCreateOpen(false);
-                cleanupAttachmentUrls();
-                setMainPermitFile(null);
-                setMainPermitPreview(null);
-                setAdditionalAttachments([
-                    { id: "preset-fsic", label: "Fire Safety Inspection Certificate (FSIC - BFP)", file: null, isImage: false, isPdf: false },
-                    { id: "preset-completion", label: "Certificate of Completion (Signed & Sealed)", file: null, isImage: false, isPdf: false },
-                ]);
-                setFormData({
-                    permitNumber: "",
-                    buildingPermitNumber: "",
-                    firstName: "",
-                    lastName: "",
-                    applicantName: "",
-                    barangay: "Poblacion",
-                    street: "",
-                    houseNumber: "",
-                    contactNumber: "",
-                    email: "",
-                    dateIssued: new Date().toISOString().split("T")[0],
-                    dateOfCompletion: "",
-                    projectType: "",
-                    occupancyUse: "Residential",
-                    estimatedCost: "",
-                    totalFloors: "1",
-                    remarks: "",
-                });
+                resetModalState();
                 fetchData();
             } else {
-                toast.error(res.error || "Failed to archive occupancy permit.");
+                toast.error(res.error || "Failed to save occupancy permit record.");
             }
         } catch (error: any) {
             console.error("Submit error:", error);
@@ -591,43 +652,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         setViewerTitle(`Occupancy Permit: ${item.permitNumber} — ${item.applicantName}`);
         setViewerDocuments(item.documents || []);
         setViewerOpen(true);
-    };
-
-    // Delete Confirmation Modal State
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [recordToDelete, setRecordToDelete] = useState<{
-        id: string;
-        permitNumber: string;
-        applicantName: string;
-    } | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
-
-    // Open delete confirmation modal
-    const handlePromptDelete = (item: { id: string; permitNumber: string; applicantName: string }) => {
-        setRecordToDelete(item);
-        setDeleteModalOpen(true);
-    };
-
-    // Execute synchronized delete
-    const handleConfirmDelete = async () => {
-        if (!recordToDelete) return;
-
-        setIsDeleting(true);
-        try {
-            const res = await deleteArchivedOccupancyPermit(recordToDelete.id);
-            if (res.success) {
-                toast.success(res.message);
-                setDeleteModalOpen(false);
-                setRecordToDelete(null);
-                fetchData();
-            } else {
-                toast.error(res.error || "Failed to delete archive record.");
-            }
-        } catch {
-            toast.error("An error occurred while deleting the archive record.");
-        } finally {
-            setIsDeleting(false);
-        }
     };
 
     // Calculate Stats
@@ -785,16 +809,21 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                         Print Masterlist
                     </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button
-                                style={{ backgroundColor: themeColor }}
-                                className="h-10 rounded-xl text-white font-bold text-xs uppercase tracking-wide gap-2 shadow-md hover:brightness-105 active:scale-95 transition-all"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Digitize Occupancy Permit
-                            </Button>
-                        </DialogTrigger>
+                    <Dialog
+                        open={isCreateOpen}
+                        onOpenChange={open => {
+                            if (!open) resetModalState();
+                            setIsCreateOpen(open);
+                        }}
+                    >
+                        <Button
+                            onClick={handleOpenCreateModal}
+                            style={{ backgroundColor: themeColor }}
+                            className="h-10 rounded-xl text-white font-bold text-xs uppercase tracking-wide gap-2 shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Digitize Occupancy Permit
+                        </Button>
                         <DialogContent 
                             onPointerDownOutside={e => {
                                 if (previewModalOpen || activeDraftPreview) {
@@ -815,17 +844,22 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                         className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
                                         style={{ backgroundColor: themeColor }}
                                     >
-                                        <UploadCloud className="w-5 h-5" />
+                                        {modalMode === "EDIT" ? <Pencil className="w-5 h-5" /> : <UploadCloud className="w-5 h-5" />}
                                     </div>
                                     <div>
                                         <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span>Encode Physical Certificate of Occupancy</span>
+                                            <span>
+                                                {modalMode === "EDIT" ? `Edit Occupancy Archive — ${formData.permitNumber || "Record"}` : "Encode Physical Certificate of Occupancy"}
+                                            </span>
                                             <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
-                                                Archive Vault
+                                                {modalMode === "EDIT" ? "Edit Mode" : "Archive Vault"}
                                             </span>
                                         </DialogTitle>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                            Digitize walk-in physical Certificate of Occupancy hardcopies, associate with building permits, and archive clearances.
+                                            {modalMode === "EDIT"
+                                                ? "Correct applicant details, update building specifications, and manage attached scanned documents."
+                                                : "Digitize walk-in physical Certificate of Occupancy hardcopies, associate with building permits, and archive clearances."
+                                            }
                                         </p>
                                     </div>
                                 </div>
@@ -1154,7 +1188,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                                 )}
                                                             </div>
                                                             <p className="text-[10px] text-slate-400 font-medium">
-                                                                {formatFileSize(mainPermitFile.size)} • High-Res Official Scan
+                                                                {formatFileSize(mainPermitFile.size)} • High-Res Official Scan (New)
                                                             </p>
                                                         </div>
 
@@ -1195,6 +1229,49 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                             </Button>
                                                         </div>
                                                     </div>
+                                                ) : existingMainPermitUrl ? (
+                                                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040]">
+                                                        <div className="w-12 h-12 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-600 flex items-center justify-center shrink-0">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                Official Signed Permit (Archived)
+                                                            </p>
+                                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                Stored in Cloud Archives
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => {
+                                                                    setActiveDraftPreview({
+                                                                        url: existingMainPermitUrl,
+                                                                        title: "Official Signed Permit (Archived)",
+                                                                        isPdf: existingMainPermitUrl.toLowerCase().endsWith(".pdf"),
+                                                                    });
+                                                                    setPreviewModalOpen(true);
+                                                                }}
+                                                                className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                title="View Document"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setExistingMainPermitUrl(null)}
+                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                title="Replace / Remove File"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 ) : (
                                                     <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#121622] border border-dashed border-indigo-500/30 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group">
                                                         <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -1202,7 +1279,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                                                                Choose Official Signed Permit Scan
+                                                                {modalMode === "EDIT" ? "Upload New Replacement Permit Scan" : "Choose Official Signed Permit Scan"}
                                                             </p>
                                                             <p className="text-[10px] text-slate-400 font-medium truncate">
                                                                 PDF, JPG, PNG (Click to browse file)
@@ -1263,9 +1340,64 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                             <div className="space-y-3 flex flex-col flex-1">
                                                 <div className="flex items-center justify-between shrink-0">
                                                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        SUPPLEMENTARY PLANS & CLEARANCES ({additionalAttachments.length})
+                                                        SUPPLEMENTARY PLANS & CLEARANCES ({existingDocuments.length + additionalAttachments.length})
                                                     </p>
                                                 </div>
+
+                                                {/* Edit Mode: List of Existing Uploaded Documents */}
+                                                {modalMode === "EDIT" && existingDocuments.length > 0 && (
+                                                    <div className="space-y-2 p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/30">
+                                                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                                                            <Layers className="w-3.5 h-3.5" /> Existing Archived Files ({existingDocuments.length})
+                                                        </span>
+                                                        <div className="space-y-1.5">
+                                                            {existingDocuments.map((doc, dIdx) => (
+                                                                <div
+                                                                    key={dIdx}
+                                                                    className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] shadow-2xs"
+                                                                >
+                                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                        <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
+                                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
+                                                                            {doc.title}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 shrink-0">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => {
+                                                                                setActiveDraftPreview({
+                                                                                    url: doc.url,
+                                                                                    title: doc.title,
+                                                                                    isPdf: doc.url.toLowerCase().endsWith(".pdf"),
+                                                                                });
+                                                                                setPreviewModalOpen(true);
+                                                                            }}
+                                                                            className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                            title="View Document"
+                                                                        >
+                                                                            <Eye className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => {
+                                                                                setExistingDocuments(prev => prev.filter((_, idx) => idx !== dIdx));
+                                                                            }}
+                                                                            className="h-7 w-7 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                            title="Remove File"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {additionalAttachments.length === 0 ? (
                                                     <div
@@ -1459,12 +1591,12 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                         {submitting ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                                Digitizing & Saving...
+                                                {modalMode === "EDIT" ? "Updating Record..." : "Digitizing & Saving..."}
                                             </>
                                         ) : (
                                             <>
-                                                <CheckCircle2 className="w-4 h-4" />
-                                                Save & Digitize Record
+                                                {modalMode === "EDIT" ? <Pencil className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                {modalMode === "EDIT" ? "Update Archive Record" : "Save & Digitize Record"}
                                             </>
                                         )}
                                     </Button>
@@ -1621,15 +1753,11 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        onClick={() => handlePromptDelete({
-                                                            id: item.id,
-                                                            permitNumber: item.permitNumber,
-                                                            applicantName: item.applicantName,
-                                                        })}
-                                                        className="h-8 w-8 text-slate-400 hover:text-red-500 rounded-lg cursor-pointer"
-                                                        title="Permanently Delete Archive Record"
+                                                        onClick={() => handleOpenEditModal(item)}
+                                                        className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg cursor-pointer transition-colors"
+                                                        title="Edit Archive Record & Documents"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Pencil className="w-3.5 h-3.5" />
                                                     </Button>
                                                 )}
                                             </div>
@@ -1778,91 +1906,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                     </div>
                 </DialogContent>
             </Dialog>
-
-            {/* Delete Record Confirmation Modal */}
-            <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-                <AlertDialogContent className="max-w-md rounded-3xl p-6 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
-                    <AlertDialogHeader className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
-                                <AlertTriangle className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <AlertDialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                                    Delete Archive Record
-                                </AlertDialogTitle>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                    This action cannot be undone.
-                                </p>
-                            </div>
-                        </div>
-
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3 pt-1 text-xs text-slate-600 dark:text-slate-300">
-                                <p>
-                                    Are you sure you want to permanently delete this archived Certificate of Occupancy?
-                                </p>
-                                {recordToDelete && (
-                                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                Permit No.
-                                            </span>
-                                            <span className="font-mono font-bold text-slate-900 dark:text-white">
-                                                {recordToDelete.permitNumber}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                Applicant
-                                            </span>
-                                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
-                                                {recordToDelete.applicantName}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                                <p className="text-[11px] text-rose-500/90 font-medium">
-                                    ⚠️ Both the transaction entry and the occupancy permit record will be deleted simultaneously from the database.
-                                </p>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter className="flex items-center justify-end gap-2 pt-4 mt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                setDeleteModalOpen(false);
-                                setRecordToDelete(null);
-                            }}
-                            disabled={isDeleting}
-                            className="rounded-xl h-10 px-5 text-xs font-bold uppercase"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleConfirmDelete}
-                            disabled={isDeleting}
-                            className="rounded-xl h-10 px-5 text-xs font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 flex items-center gap-2 cursor-pointer"
-                        >
-                            {isDeleting ? (
-                                <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    <span>Deleting...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span>Confirm Delete</span>
-                                </>
-                            )}
-                        </Button>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

@@ -304,7 +304,13 @@ export async function getArchivedOccupancyPermits(params?: {
                 totalDocumentsCount: documents.length,
                 remarks: addData.remarks || "",
                 totalFloors: addData.noOfStoreys || addData.totalFloors || "1",
-                contactNumber: resSnap.contactNumber || addData.contactNumber || "N/A",
+                contactNumber: resSnap.contactNumber || addData.contactNumber || "",
+                email: resSnap.email || addData.email || "",
+                barangay: resSnap.barangay || addData.barangay || "Poblacion",
+                street: resSnap.street || addData.street || "",
+                houseNumber: resSnap.houseNumber || addData.houseNumber || "",
+                firstName: resSnap.firstName || "",
+                lastName: resSnap.lastName || "",
                 createdAt: tx.createdAt,
             };
         });
@@ -657,6 +663,277 @@ export async function deleteArchivedOccupancyPermit(transactionId: string) {
         return {
             success: false,
             error: error.message || "Failed to delete record."
+        };
+    }
+}
+
+/**
+ * Update an existing archived physical Certificate of Occupancy and its attached documents.
+ */
+export async function updateArchivedOccupancyPermit(formData: FormData) {
+    try {
+        const { user } = await assertEngineerSession();
+
+        const transactionId = (formData.get("transactionId") as string || "").trim();
+        if (!transactionId) {
+            return { success: false, error: "Transaction ID is required for editing." };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id: transactionId },
+            include: { occupancyPermit: true }
+        });
+
+        if (!tx) {
+            return { success: false, error: "Archive record not found in the database." };
+        }
+
+        const permitNumber = (formData.get("permitNumber") as string || "").trim();
+        const buildingPermitNumber = (formData.get("buildingPermitNumber") as string || "").trim();
+        const firstName = (formData.get("firstName") as string || "").trim();
+        const lastName = (formData.get("lastName") as string || "").trim();
+        const applicantNameInput = (formData.get("applicantName") as string || "").trim();
+        const applicantName = applicantNameInput || `${firstName} ${lastName}`.trim();
+
+        const barangay = (formData.get("barangay") as string || "").trim();
+        const street = (formData.get("street") as string || "").trim();
+        const houseNumber = (formData.get("houseNumber") as string || "").trim();
+        const municipality = "Mapandan";
+        const province = "Pangasinan";
+        const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
+
+        const contactNumber = (formData.get("contactNumber") as string || "").trim();
+        const email = (formData.get("email") as string || "").trim();
+
+        const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
+        const projectTypeInput = (formData.get("projectType") as string || "").trim();
+        const projectType = projectTypeInput || `${occupancyUse} Building`;
+        const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
+        const totalFloors = (formData.get("totalFloors") as string || "1").trim();
+
+        const dateIssuedRaw = formData.get("dateIssued") as string;
+        const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : (tx.occupancyPermit?.dateIssued || new Date());
+
+        const dateOfCompletionRaw = formData.get("dateOfCompletion") as string;
+        const dateOfCompletion = dateOfCompletionRaw ? new Date(dateOfCompletionRaw) : null;
+
+        const remarks = (formData.get("remarks") as string || "").trim();
+
+        if (!permitNumber) {
+            return { success: false, error: "Occupancy Permit Number is required." };
+        }
+        if (!applicantName) {
+            return { success: false, error: "Applicant Name is required." };
+        }
+
+        // Ensure permit number is unique across other records
+        const conflict = await prisma.occupancyPermit.findFirst({
+            where: {
+                permitNumber,
+                NOT: { transactionId }
+            }
+        });
+        if (conflict) {
+            return {
+                success: false,
+                error: `Permit number "${permitNumber}" is already in use by another record.`
+            };
+        }
+
+        // Process Documents
+        const timestamp = Date.now();
+        const documents: { title: string; url: string; fileName: string }[] = [];
+        let primaryDocumentUrl = tx.occupancyPermit?.documentUrl || tx.eCopyUrl || null;
+
+        // 1. Process Main Permit Scan (New upload or retain existing)
+        const mainFile = formData.get("mainPermitScan") as File | null;
+        if (mainFile && mainFile instanceof File && mainFile.size > 0) {
+            const safeName = mainFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const path = `occupancy-permits/archives/${timestamp}-OCCUPANCY-${safeName}`;
+            const uploadedUrl = await uploadFile(mainFile, path);
+            if (uploadedUrl) {
+                primaryDocumentUrl = uploadedUrl;
+                documents.push({
+                    title: "Certificate of Occupancy - Main Document",
+                    url: uploadedUrl,
+                    fileName: safeName,
+                });
+            }
+        } else {
+            // Retain existing primary document if present
+            const existingMainUrl = (formData.get("existingMainUrl") as string || "").trim();
+            if (existingMainUrl) {
+                primaryDocumentUrl = existingMainUrl;
+                documents.push({
+                    title: "Certificate of Occupancy - Main Document",
+                    url: existingMainUrl,
+                    fileName: existingMainUrl.split("/").pop() || "occupancy_permit.webp",
+                });
+            }
+        }
+
+        // 2. Retain existing supplementary documents that user kept
+        const existingDocsJson = (formData.get("existingDocuments") as string || "").trim();
+        if (existingDocsJson) {
+            try {
+                const parsedExisting = JSON.parse(existingDocsJson);
+                if (Array.isArray(parsedExisting)) {
+                    parsedExisting.forEach((doc: any) => {
+                        if (doc.url && doc.url !== primaryDocumentUrl) {
+                            documents.push({
+                                title: doc.title || doc.label || "Supplementary Document",
+                                url: doc.url,
+                                fileName: doc.fileName || doc.url.split("/").pop() || "document.webp",
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse existing documents JSON:", e);
+            }
+        }
+
+        // 3. Process Newly Added Supplementary Documents
+        const attachmentCount = parseInt((formData.get("attachmentCount") as string) || "0", 10);
+        for (let i = 0; i < attachmentCount; i++) {
+            const file = formData.get(`attachmentFile_${i}`) as File | null;
+            const label = (formData.get(`attachmentLabel_${i}`) as string) || `Attachment ${i + 1}`;
+
+            if (file && file instanceof File && file.size > 0) {
+                const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+                const path = `occupancy-permits/archives/${timestamp}-${i}-${safeName}`;
+                const fileUrl = await uploadFile(file, path);
+
+                if (fileUrl) {
+                    documents.push({
+                        title: label,
+                        url: fileUrl,
+                        fileName: safeName,
+                    });
+
+                    if (!primaryDocumentUrl) {
+                        primaryDocumentUrl = fileUrl;
+                    }
+                }
+            }
+        }
+
+        // Update Resident Snapshot
+        const prevResSnap = (tx.residentSnapshot as any) || {};
+        const residentSnapshot = {
+            ...prevResSnap,
+            firstName,
+            lastName,
+            fullName: applicantName,
+            barangay,
+            municipality,
+            province,
+            contactNumber,
+            email,
+            houseNumber,
+            street,
+            address: fullLocation,
+        };
+
+        // Update Additional Data
+        const prevAddData = (tx.additionalData as any) || {};
+        const additionalData = {
+            ...prevAddData,
+            isPhysicalArchive: true,
+            sourceType: "PHYSICAL_COPY",
+            lastEditedBy: user.name || user.email || "Engineering Admin",
+            lastEditedAt: new Date().toISOString(),
+            buildingPermitNo: buildingPermitNumber,
+            dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : null,
+            totalFloors,
+            remarks,
+            documents,
+        };
+
+        const sanitizedAdditionalData = sanitizeObject(additionalData);
+        const sanitizedResidentSnapshot = sanitizeObject(residentSnapshot);
+
+        // Atomic Transaction Update
+        await prisma.$transaction([
+            prisma.occupancyPermit.upsert({
+                where: { transactionId },
+                update: {
+                    permitNumber,
+                    applicantName,
+                    projectType,
+                    occupancyUse,
+                    location: fullLocation,
+                    estimatedCost,
+                    documentUrl: primaryDocumentUrl,
+                    dateIssued,
+                },
+                create: {
+                    transactionId,
+                    permitNumber,
+                    applicantName,
+                    projectType,
+                    occupancyUse,
+                    location: fullLocation,
+                    estimatedCost,
+                    documentUrl: primaryDocumentUrl,
+                    dateIssued,
+                    issuedBy: user.name || "Municipal Engineer",
+                }
+            }),
+            prisma.transaction.update({
+                where: { id: transactionId },
+                data: {
+                    residentSnapshot: sanitizedResidentSnapshot as any,
+                    additionalData: sanitizedAdditionalData as any,
+                    eCopyUrl: primaryDocumentUrl,
+                }
+            })
+        ]);
+
+        // Audit Trail Logging
+        await logActivity({
+            action: "UPDATE",
+            entityType: "OccupancyPermit",
+            entityId: tx.occupancyPermit?.id || transactionId,
+            entityName: `Permit #${permitNumber} (${applicantName})`,
+            description: `Updated archived Occupancy Permit "${permitNumber}" details and attached documents.`,
+            metadata: {
+                updatedBy: user.name || user.email,
+                permitNumber,
+                applicantName,
+                transactionId,
+                totalDocs: documents.length,
+            }
+        });
+
+        // Broadcast Realtime Update
+        try {
+            await broadcastRealtimeUpdate({
+                entity: "OccupancyPermit",
+                action: "UPDATE",
+                recordId: transactionId,
+                details: {
+                    permitNumber,
+                    applicantName,
+                }
+            });
+        } catch (e) {
+            console.error("Realtime broadcast error on update:", e);
+        }
+
+        revalidatePath("/admin/engineer/occupancy-archive");
+        revalidatePath("/admin/engineer");
+
+        return {
+            success: true,
+            message: `Occupancy Permit "${permitNumber}" updated successfully!`
+        };
+
+    } catch (error: any) {
+        console.error("Error updating archived occupancy permit:", error);
+        return {
+            success: false,
+            error: error.message || "Failed to update archived occupancy permit."
         };
     }
 }
