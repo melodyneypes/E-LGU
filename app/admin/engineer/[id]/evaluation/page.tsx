@@ -554,21 +554,37 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     );
 
     const steps = [
-        { id: "FOR_REQUESTING", label: "EVALUATION" },
-        { id: "FOR_INSPECTION", label: "INSPECTION" },
-        { id: "FOR_REINSPECTION", label: "RE-INSPECTION" },
-        { id: "EVALUATED", label: "FEE ASSESSMENT" }
+        { id: "ENGINEERING", label: "ENGINEERING" },
+        { id: "ZONING", label: "ZONING CLEARANCE" },
+        { id: "ENGINEER_REVIEW", label: "ENGINEER REVIEW" },
+        { id: "BFP", label: "BFP ACKNOWLEDGMENT" }
     ];
 
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
-    const getStepIndex = (status: string) => {
-        if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
-        if (status === "FOR_INSPECTION") return 1;
-        if (status === "FOR_REINSPECTION") return 2;
-        if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
+    
+    const getStepIndex = () => {
+        if (!transaction || isRejected) return -1;
+        
+        if (["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(transaction.status)) {
+            return 0; // Engineering
+        }
+        
+        if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
+            const feeAssessment = transaction.additionalData?.feeAssessment;
+            const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
+            const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
+            const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
+            
+            if (bfpSubmitted) return 3; // BFP Acknowledgment
+            if (zoningEndorsed && !bfpSubmitted) return 2; // Engineer Review
+            if (engineerEndorsedToZoning && !zoningEndorsed) return 1; // Zoning Clearance
+            return 0; // Engineering
+        }
+        
         return -1;
     };
-    const currentStepIdx = isRejected ? -1 : getStepIndex(transaction.status);
+    
+    const currentStepIdx = getStepIndex();
 
     const getRejectedStepIndex = () => {
         const rejectedPhase = transaction?.additionalData?.rejectedPhase || transaction?.additionalData?.rejectedAtStep;
@@ -1160,7 +1176,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-6 py-6">
-                                                {transaction?.revisionCount === 2 && (
+                                                {transaction?.user?.rejectionCount === 2 && (
                                                     <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3">
                                                         <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                                                         <div className="space-y-1">

@@ -38,6 +38,7 @@ export function EditStallModal() {
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
     const [latitude, setLatitude] = useState<string>("");
     const [longitude, setLongitude] = useState<string>("");
+    const [address, setAddress] = useState<string>("");
     const [dailyRate, setDailyRate] = useState("0");
     const [monthlyRate, setMonthlyRate] = useState("0");
     const [dailyRateOverdueFee, setDailyRateOverdueFee] = useState("0");
@@ -53,6 +54,7 @@ export function EditStallModal() {
         setStatus(editingStall.status);
         setLatitude(editingStall.latitude !== null && editingStall.latitude !== undefined ? editingStall.latitude.toString() : "");
         setLongitude(editingStall.longitude !== null && editingStall.longitude !== undefined ? editingStall.longitude.toString() : "");
+        setAddress(editingStall.address || "");
         setDailyRate(editingStall.dailyRate.toString());
         setMonthlyRate(editingStall.monthlyRate.toString());
         setDailyRateOverdueFee(editingStall.dailyRateOverdueFee.toString());
@@ -102,6 +104,7 @@ export function EditStallModal() {
             status,
             latitude: parsedLat,
             longitude: parsedLng,
+            address: address.trim() || null,
             dailyRate: parseFloat(dailyRate) || 0,
             monthlyRate: parseFloat(monthlyRate) || 0,
             dailyRateOverdueFee: parseFloat(dailyRateOverdueFee) || 0,
@@ -263,6 +266,19 @@ export function EditStallModal() {
                                 </div>
                             </div>
 
+                            {/* Specific Physical Address / Location */}
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                    Specific Location / Stall Address
+                                </label>
+                                <Input
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    placeholder="e.g. Dry Goods Section, Gate 2, Building A"
+                                    className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-medium"
+                                />
+                            </div>
+
                             {/* Dynamic StallOtherFee Section */}
                             <div className="pt-3 border-t border-slate-100 dark:border-[#2a3040] space-y-3">
                                 <div className="flex items-center justify-between">
@@ -287,17 +303,17 @@ export function EditStallModal() {
                                 </div>
 
                                 {otherFees.length > 0 && (
-                                    <div className="space-y-2 bg-slate-50 dark:bg-[#10141d] p-3 rounded-2xl border border-slate-200/60 dark:border-[#2a3040] max-h-48 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
                                         {otherFees.map((fee, idx) => (
                                             <div
                                                 key={idx}
-                                                className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white dark:bg-[#151b2b] p-2 rounded-xl border border-slate-200 dark:border-[#2a3040]"
+                                                className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-slate-50 dark:bg-[#1a202c] p-2 rounded-xl border border-slate-200 dark:border-[#2a3040]"
                                             >
                                                 <Input
                                                     placeholder="Fee Name"
                                                     value={fee.name}
                                                     onChange={(e) => handleFeeChange(idx, "name", e.target.value)}
-                                                    className="h-8 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium flex-1 min-w-[100px]"
+                                                    className="h-8 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium flex-1 min-w-[100px]"
                                                 />
                                                 <Input
                                                     type="number"
@@ -305,13 +321,13 @@ export function EditStallModal() {
                                                     placeholder="Amount"
                                                     value={fee.amount}
                                                     onChange={(e) => handleFeeChange(idx, "amount", e.target.value)}
-                                                    className="h-8 w-20 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold"
+                                                    className="h-8 w-20 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold"
                                                 />
                                                 <Select
                                                     value={fee.feeType}
                                                     onValueChange={(val: any) => handleFeeChange(idx, "feeType", val)}
                                                 >
-                                                    <SelectTrigger className="h-8 w-24 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold">
+                                                    <SelectTrigger className="h-8 w-24 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white dark:bg-[#151b2b]">
@@ -335,9 +351,9 @@ export function EditStallModal() {
                             </div>
                         </div>
 
-                        {/* RIGHT COLUMN: Persistent Map & Coordinates (5 cols) */}
-                        <div className="lg:col-span-5 flex flex-col space-y-3 bg-slate-50 dark:bg-[#10141d] p-4 rounded-3xl border border-slate-200 dark:border-[#2a3040]">
-                            <div className="flex items-center justify-between">
+                        {/* RIGHT COLUMN: Persistent Map & Pin Location (5 cols) */}
+                        <div className="lg:col-span-5 flex flex-col space-y-2">
+                            <div className="flex items-center justify-between pb-1">
                                 <div className="flex items-center gap-1.5">
                                     <MapPin className="w-4 h-4 text-rose-500" />
                                     <div>
@@ -363,34 +379,8 @@ export function EditStallModal() {
                                 )}
                             </div>
 
-                            {/* Coordinates readouts/inputs */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Latitude</label>
-                                    <Input
-                                        type="number"
-                                        step="any"
-                                        value={latitude}
-                                        onChange={(e) => setLatitude(e.target.value)}
-                                        placeholder="e.g. 16.0245"
-                                        className="h-9 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-mono"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Longitude</label>
-                                    <Input
-                                        type="number"
-                                        step="any"
-                                        value={longitude}
-                                        onChange={(e) => setLongitude(e.target.value)}
-                                        placeholder="e.g. 120.4520"
-                                        className="h-9 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-mono"
-                                    />
-                                </div>
-                            </div>
-
                             {/* Embedded Persistent Map */}
-                            <div className="flex-1 min-h-[320px] rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] shadow-inner relative">
+                            <div className="flex-1 min-h-[380px] rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2a3040] shadow-sm relative">
                                 <LocationPicker
                                     lat={latitude ? parseFloat(latitude) : null}
                                     lng={longitude ? parseFloat(longitude) : null}

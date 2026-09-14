@@ -10,7 +10,7 @@ import {
     Newspaper, PhoneCall, Info,
     Compass, MapPin, Globe, Activity, Archive,
     Building2, Hammer, CreditCard, FileText, User,
-    AlertTriangle, Siren, Truck, Scale, FileCheck, HardHat
+    AlertTriangle, Siren, Truck, Scale, FileCheck, HardHat, ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,6 +76,13 @@ export function Navbar({
             desc: "Municipal Fleet Readiness & Transport",
             icon: Truck,
             color: "text-amber-500 bg-amber-500/10"
+        },
+        {
+            name: "Live Road Advisory",
+            href: "/road-advisory/mapandan",
+            desc: "Active Road Closures, Floodings & Detours",
+            icon: Compass,
+            color: "text-amber-500 bg-amber-500/10"
         }
     ], []);
 
@@ -125,7 +132,7 @@ export function Navbar({
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
         { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
-    ], [buildingSubPermits]);
+    ], []);
 
     const updatesItems = React.useMemo(() => [
         {
@@ -177,6 +184,7 @@ export function Navbar({
                 if (activeCodes.some(code => code.startsWith("RHU_")) || true) {
                     categoriesToShow.push("Rural Health Unit (RHU)");
                 }
+                categoriesToShow.push("POSO Portal");
 
                 setActiveCategories(categoriesToShow);
             }
@@ -379,7 +387,6 @@ export function Navbar({
     const mainLinks = [
         { name: "About", href: "/about", icon: Info },
         { name: "Services", href: "/#services", icon: Briefcase },
-        { name: "Gallery", href: "/#tourism", icon: Compass },
         { name: "Updates", href: "/#news", icon: Newspaper },
         { name: "Careers", href: "/#careers", icon: Briefcase },
         { name: "Citizens Charter", href: "/user/citizens-charter", icon: FileText },
@@ -528,7 +535,7 @@ export function Navbar({
                                                 className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 z-[120]"
                                             >
                                                 {/* Main Dropdown Panel */}
-                                                <div 
+                                                <div
                                                     className="w-[340px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
                                                 >
@@ -544,8 +551,8 @@ export function Navbar({
                                                                     <div
                                                                         className={cn(
                                                                             "flex items-center justify-between p-3.5 rounded-2xl transition-colors cursor-pointer group/item",
-                                                                            isBuildingSubHovered 
-                                                                                ? "bg-amber-500/10 dark:bg-amber-500/15" 
+                                                                            isBuildingSubHovered
+                                                                                ? "bg-amber-500/10 dark:bg-amber-500/15"
                                                                                 : "hover:bg-slate-50 dark:hover:bg-white/5"
                                                                         )}
                                                                     >
@@ -562,11 +569,11 @@ export function Navbar({
                                                                                 </span>
                                                                             </div>
                                                                         </div>
-                                                                        <ChevronRight 
+                                                                        <ChevronRight
                                                                             className={cn(
                                                                                 "w-4 h-4 transition-all shrink-0 ml-1",
                                                                                 isBuildingSubHovered ? "text-amber-500 translate-x-1" : "text-slate-400 group-hover/item:text-amber-500 group-hover/item:translate-x-0.5"
-                                                                            )} 
+                                                                            )}
                                                                         />
                                                                     </div>
 
@@ -702,7 +709,7 @@ export function Navbar({
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                                 className="absolute right-0 top-[80%] pt-4 w-[340px] z-[120]"
                                             >
-                                                <div 
+                                                <div
                                                     className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
                                                 >
@@ -787,7 +794,7 @@ export function Navbar({
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                                 className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 w-[340px] z-[120]"
                                             >
-                                                <div 
+                                                <div
                                                     className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
                                                 >

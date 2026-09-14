@@ -437,6 +437,11 @@ export default function EngineerDashboard() {
                                                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
                                                         Registered Resident
                                                     </span>
+                                                    {tx.user?.rejectionCount === 2 && (
+                                                        <span className="mt-1 w-max px-2 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 animate-pulse">
+                                                            Final Attempt
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell>

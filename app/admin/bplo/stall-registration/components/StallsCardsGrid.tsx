@@ -26,7 +26,8 @@ export function StallsCardsGrid() {
         const matchesSearch =
             stall.stallNumber.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             (stall.vendor?.name && stall.vendor.name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-            stall.stallType.name.toLowerCase().includes(debouncedSearch.toLowerCase());
+            stall.stallType.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            (stall.address && stall.address.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
         const matchesStatus =
             selectedStatus === "ALL" || stall.status === selectedStatus;
@@ -106,10 +107,18 @@ export function StallsCardsGrid() {
                             {getStatusBadge(item.status)}
                         </div>
 
-                        {/* Section / Stall Type */}
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 italic mb-4">
-                            <Tag className="w-3.5 h-3.5 text-purple-500" />
-                            <span>{item.stallType.name}</span>
+                        {/* Section / Stall Type & Address */}
+                        <div className="flex flex-col gap-1 mb-4">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 italic">
+                                <Tag className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                                <span>{item.stallType.name}</span>
+                            </div>
+                            {item.address && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium truncate" title={item.address}>
+                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span className="truncate">{item.address}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Vendor Profile Info */}

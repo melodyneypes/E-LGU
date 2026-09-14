@@ -84,6 +84,8 @@ export function Footer({
                         {[
                             { name: "About Us", href: "/about" },
                             { name: "Transparency Seal", href: "/about" },
+                            { name: "Road Advisory", href: "/road-advisory/mapandan" },
+                            { name: "POSO Portal", href: "/poso/mapandan" },
                             { name: "Citizens Charter", href: "/user/citizens-charter" },
                             { name: "Privacy Policy", href: "/privacy-policy" }
                         ].map((link) => (

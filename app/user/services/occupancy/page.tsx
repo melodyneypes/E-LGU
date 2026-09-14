@@ -381,7 +381,6 @@ export default function OccupancyPermitPage() {
   const requirementsProgress = requiredRequirementIndexes
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
-  const uploadedRequirementsCount = uploadedRequirementKeys.size;
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
     !["RELEASED", "REJECTED", "DELIVERED", "CANCELLED"].includes(app.status) && !app.isCancelled
@@ -1886,6 +1885,7 @@ export default function OccupancyPermitPage() {
                                 previewUrl={typeof formData.newIdFileBack === 'string' ? formData.newIdFileBack : undefined}
                                 existingUrl={effectiveDocuments?.newIdFileBack}
                                 onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'newIdFileBack')}
+                                onClear={() => setFormData(prev => ({ ...prev, newIdFileBack: null }))}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
@@ -2308,6 +2308,20 @@ export default function OccupancyPermitPage() {
 
         {!loading && currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {residentData?.user?.rejectionCount === 2 && (
+              <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 shadow-sm animate-pulse">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h3 className="text-red-700 dark:text-red-400 font-black tracking-widest uppercase text-xs">
+                    FINAL ATTEMPT WARNING
+                  </h3>
+                  <p className="text-red-600 dark:text-red-300 font-medium text-sm">
+                    Warning: This is your final attempt to submit these documents. A further rejection will permanently lock this application. Please ensure all documents are correct before submitting.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div className="space-y-3 md:space-y-4 mb-8">
               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight flex items-center gap-4">
@@ -2446,6 +2460,21 @@ export default function OccupancyPermitPage() {
                         })()}
                         existingUrl={fileUrl}
                         onFileSelect={(file) => handleAsyncUpload(file, activeDocTab === "REQUIREMENTS", idx)}
+                        onClear={!isRequired ? () => {
+                          if (activeDocTab === "REQUIREMENTS") {
+                            setUploadedRequirements(prev => {
+                              const next = { ...prev };
+                              delete next[idx];
+                              return next;
+                            });
+                          } else {
+                            setUploadedPermits(prev => {
+                              const next = { ...prev };
+                              delete next[idx];
+                              return next;
+                            });
+                          }
+                        } : undefined}
                         onView={() => {
                           const currentData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
                           if (currentData && typeof currentData !== 'string') {
@@ -2485,14 +2514,14 @@ export default function OccupancyPermitPage() {
                   className="text-xs md:text-sm font-bold"
                   style={{ color: themeColor }}
                 >
-                  {`Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`}
+                  {`Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
                   <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {uploadedRequirementsCount}/{requiredRequirementsCount} items uploaded
+                    Total Progress: {requirementsProgress}/{requiredRequirementsCount} items uploaded
                   </p>
                 </div>
                 {!selectedApplication && (
