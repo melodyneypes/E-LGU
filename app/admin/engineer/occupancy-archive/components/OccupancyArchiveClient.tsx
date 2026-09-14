@@ -28,6 +28,7 @@ import {
     Link2,
     ShieldCheck,
     RotateCcw,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,8 +183,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const [search, setSearch] = useState("");
     const [sourceType, setSourceType] = useState<"ALL" | "PHYSICAL" | "ONLINE">("ALL");
     const [barangay, setBarangay] = useState("ALL");
-    const [startDate] = useState("");
-    const [endDate] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Modal Form Lifecycle & Mode States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -788,6 +789,52 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                         </SelectContent>
                     </Select>
 
+                    {/* Date Range Filter */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 h-10 shadow-sm">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <div className="flex items-center gap-1 text-xs">
+                            <span className="text-[10px] font-bold uppercase text-slate-400">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => {
+                                    setStartDate(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-transparent border-0 text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer py-1"
+                                title="Filter from date"
+                            />
+                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-400">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                min={startDate || undefined}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-transparent border-0 text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer py-1"
+                                title="Filter to date"
+                            />
+                        </div>
+
+                        {(startDate || endDate) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStartDate("");
+                                    setEndDate("");
+                                    setPage(1);
+                                }}
+                                className="ml-1 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                title="Clear date filter"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
                     {/* Refresh Button */}
                     <Button
                         variant="outline"
@@ -802,15 +849,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
 
                 {/* Digitize Action Trigger */}
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => window.print()}
-                        className="h-10 rounded-xl border-slate-200 dark:border-slate-700 text-xs font-bold gap-2 text-slate-700 dark:text-slate-200"
-                    >
-                        <Printer className="w-4 h-4" />
-                        Print Masterlist
-                    </Button>
-
                     <Dialog
                         open={isCreateOpen}
                         onOpenChange={open => {
