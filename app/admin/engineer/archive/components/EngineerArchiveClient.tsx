@@ -22,8 +22,8 @@ import {
     Printer,
     Info,
     HelpCircle,
-    FolderSearch,
     Clock,
+    RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,28 +122,6 @@ function formatScanTimeAgo(timestamp?: number): string {
     return new Date(timestamp).toLocaleDateString();
 }
 
-function guessScanDocumentLabel(fileName: string, pageIndex: number): string {
-    const lower = fileName.toLowerCase();
-    if (lower.includes("plan") || lower.includes("arch") || lower.includes("blueprint") || lower.includes("draw")) {
-        return "Approved Architectural / Blueprint Plan";
-    }
-    if (lower.includes("struct") || lower.includes("civil")) {
-        return "Structural / Civil Plans";
-    }
-    if (lower.includes("plumb") || lower.includes("sanitary")) {
-        return "Sanitary & Plumbing Clearance";
-    }
-    if (lower.includes("elect") || lower.includes("wiring")) {
-        return "Electrical Permit & Wiring Layout";
-    }
-    if (lower.includes("tax") || lower.includes("title") || lower.includes("tct") || lower.includes("deed")) {
-        return "Tax Declaration / Land Title (TCT)";
-    }
-    if (lower.includes("clearance") || lower.includes("brgy") || lower.includes("barangay")) {
-        return "Barangay Construction Clearance";
-    }
-    return `Supplementary Attachment (Page ${pageIndex + 2})`;
-}
 
 export default function EngineerArchiveClient({
     themeColor = "#2563eb",
@@ -230,7 +208,7 @@ export default function EngineerArchiveClient({
 
     // Scanner Station Quick Ingestion State
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
-    const scannerFolderInputRef = React.useRef<HTMLInputElement | null>(null);
+    const [isCustomOccupancy, setIsCustomOccupancy] = useState(false);
 
     // Clean up created object URLs on unmount or form reset
     const cleanupAttachmentUrls = useCallback(() => {
@@ -346,6 +324,7 @@ export default function EngineerArchiveClient({
         });
         setMainPermitFile(null);
         setMainPermitPreview(null);
+        setIsCustomOccupancy(false);
         setAdditionalAttachments([
             {
                 id: `init-${Date.now()}-1`,
@@ -499,6 +478,12 @@ export default function EngineerArchiveClient({
 
         if (!formData.firstName.trim() || !formData.lastName.trim()) {
             toast.error("Please enter both First Name and Last Name of the applicant.");
+            return;
+        }
+
+        const finalOccupancy = formData.occupancyUse.trim();
+        if (!finalOccupancy || finalOccupancy === "Other Construction") {
+            toast.error("Please specify the Occupancy Classification.");
             return;
         }
 
@@ -803,26 +788,64 @@ export default function EngineerArchiveClient({
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Occupancy Classification
-                                                    </Label>
-                                                    <Select
-                                                        value={formData.occupancyUse}
-                                                        onValueChange={val => setFormData({ ...formData, occupancyUse: val })}
-                                                    >
-                                                        <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
-                                                            <SelectValue placeholder="Select Occupancy" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {OCCUPANCY_TYPES.map(occ => (
-                                                                <SelectItem key={occ} value={occ}>
-                                                                    {occ}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+                                                {!isCustomOccupancy ? (
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                            Occupancy Classification <span className="text-rose-500">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formData.occupancyUse}
+                                                            onValueChange={val => {
+                                                                if (val === "Other Construction") {
+                                                                    setIsCustomOccupancy(true);
+                                                                    setFormData({ ...formData, occupancyUse: "" });
+                                                                } else {
+                                                                    setFormData({ ...formData, occupancyUse: val });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
+                                                                <SelectValue placeholder="Select Occupancy" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {OCCUPANCY_TYPES.map(occ => (
+                                                                    <SelectItem key={occ} value={occ}>
+                                                                        {occ}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                                                <Building2 className="w-3.5 h-3.5" />
+                                                                Occupancy Classification <span className="text-rose-500">*</span>
+                                                            </Label>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsCustomOccupancy(false);
+                                                                    setFormData({ ...formData, occupancyUse: "Residential" });
+                                                                }}
+                                                                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                                                                title="Switch back to preset dropdown choices"
+                                                            >
+                                                                <RotateCcw className="w-3 h-3" />
+                                                                Select from list
+                                                            </button>
+                                                        </div>
+                                                        <Input
+                                                            placeholder="Type specific classification (e.g. Grain Silo, Telecom Tower, Guardhouse)..."
+                                                            value={formData.occupancyUse}
+                                                            onChange={e => setFormData({ ...formData, occupancyUse: e.target.value })}
+                                                            required
+                                                            autoFocus
+                                                            className="h-11 rounded-xl text-sm border-amber-300 dark:border-amber-700/60 focus:ring-amber-500 bg-amber-50/20 dark:bg-amber-950/10 font-medium"
+                                                        />
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-1.5">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -941,116 +964,15 @@ export default function EngineerArchiveClient({
                                                     </button>
                                                 </div>
 
-                                                <div className="flex items-center gap-2 pt-0.5">
-                                                    {/* Hidden File Input for Scanner Folder Trigger */}
-                                                    <input
-                                                        ref={scannerFolderInputRef}
-                                                        type="file"
-                                                        multiple
-                                                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                                        onChange={(e) => {
-                                                            const rawFiles = Array.from(e.target.files || []);
-                                                            if (rawFiles.length === 0) return;
-
-                                                            // Auto-detect and filter valid scanner documents (.pdf, .jpg, .jpeg, .png)
-                                                            const validScannerFiles = rawFiles.filter((file) => {
-                                                                const name = file.name.toLowerCase();
-                                                                const type = file.type.toLowerCase();
-                                                                return (
-                                                                    name.endsWith(".pdf") ||
-                                                                    name.endsWith(".jpg") ||
-                                                                    name.endsWith(".jpeg") ||
-                                                                    name.endsWith(".png") ||
-                                                                    type === "application/pdf" ||
-                                                                    type.startsWith("image/")
-                                                                );
-                                                            });
-
-                                                            if (validScannerFiles.length === 0) {
-                                                                toast.error("No valid scanner files found (.pdf, .jpg, .jpeg, .png required).");
-                                                                e.target.value = "";
-                                                                return;
-                                                            }
-
-                                                            // Sort by newest scan timestamp first (latest scan is first)
-                                                            const sortedFiles = validScannerFiles.sort((a, b) => b.lastModified - a.lastModified);
-                                                            const newestFile = sortedFiles[0];
-
-                                                            // Automatically slot the first/newest scan as the Primary Signed Permit
-                                                            handleMainPermitChange(newestFile, newestFile.lastModified);
-
-                                                            // Slot supplementary pages as Blueprints / Clearances
-                                                            if (sortedFiles.length > 1) {
-                                                                const additionalScans = sortedFiles.slice(1);
-                                                                setAdditionalAttachments((prev) => {
-                                                                    const updated = [...prev];
-                                                                    additionalScans.forEach((scanFile, idx) => {
-                                                                        const isPdf = scanFile.type === "application/pdf" || scanFile.name.toLowerCase().endsWith(".pdf");
-                                                                        const isImage = scanFile.type.startsWith("image/");
-                                                                        const previewUrl = URL.createObjectURL(scanFile);
-                                                                        const smartLabel = guessScanDocumentLabel(scanFile.name, idx);
-
-                                                                        // Fill existing empty preset row if available, otherwise append new scan row
-                                                                        const firstEmptyIdx = updated.findIndex((item) => !item.file);
-                                                                        const newAttachment: SupplementaryAttachmentItem = {
-                                                                            id: `scan-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
-                                                                            label: smartLabel,
-                                                                            file: scanFile,
-                                                                            previewUrl,
-                                                                            isPdf,
-                                                                            isImage,
-                                                                            fileSizeFormatted: formatFileSize(scanFile.size),
-                                                                            scannedAt: scanFile.lastModified,
-                                                                        };
-
-                                                                        if (firstEmptyIdx !== -1) {
-                                                                            updated[firstEmptyIdx] = {
-                                                                                ...updated[firstEmptyIdx],
-                                                                                label: updated[firstEmptyIdx].label.trim() ? updated[firstEmptyIdx].label : smartLabel,
-                                                                                file: scanFile,
-                                                                                previewUrl,
-                                                                                isPdf,
-                                                                                isImage,
-                                                                                fileSizeFormatted: formatFileSize(scanFile.size),
-                                                                                scannedAt: scanFile.lastModified,
-                                                                            };
-                                                                        } else {
-                                                                            updated.push(newAttachment);
-                                                                        }
-                                                                    });
-                                                                    return updated;
-                                                                });
-
-                                                                toast.success(
-                                                                    `Auto-sorted ${sortedFiles.length} scans! Newest slotted as Primary Permit, ${sortedFiles.length - 1} slotted as attachments.`
-                                                                );
-                                                            } else {
-                                                                toast.success(`Imported newest scan "${newestFile.name}" as Official Signed Permit!`);
-                                                            }
-
-                                                            // Reset input so same files can be re-scanned if needed
-                                                            e.target.value = "";
-                                                        }}
-                                                        className="hidden"
-                                                    />
-
-                                                    <Button
-                                                        type="button"
-                                                        onClick={() => scannerFolderInputRef.current?.click()}
-                                                        className="flex-1 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all"
-                                                    >
-                                                        <FolderSearch className="w-4 h-4" />
-                                                        <span>Fetch from Scanner Folder</span>
-                                                    </Button>
-
+                                                <div className="pt-0.5">
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         onClick={() => setScannerGuideOpen(true)}
-                                                        className="h-9 px-3 rounded-xl border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-xs font-bold shrink-0 cursor-pointer"
+                                                        className="w-full h-9 rounded-xl border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                                                     >
-                                                        <Info className="w-3.5 h-3.5 mr-1" />
-                                                        <span>Guide</span>
+                                                        <Info className="w-3.5 h-3.5" />
+                                                        <span>Scanner Setup Guide</span>
                                                     </Button>
                                                 </div>
                                             </div>
