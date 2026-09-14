@@ -407,11 +407,10 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
 
         // 1. Process Main Certificate of Occupancy Scan
         const mainFile = formData.get("mainPermitScan") as File | null;
-        if (mainFile && mainFile.size > 0) {
-            const buffer = Buffer.from(await mainFile.arrayBuffer());
+        if (mainFile && mainFile instanceof File && mainFile.size > 0) {
             const safeName = mainFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
             const path = `occupancy-permits/archives/${timestamp}-OCCUPANCY-${safeName}`;
-            const uploadedUrl = await uploadFile(buffer, path, mainFile.type || "image/webp");
+            const uploadedUrl = await uploadFile(mainFile, path);
             
             if (uploadedUrl) {
                 primaryDocumentUrl = uploadedUrl;
@@ -420,6 +419,8 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
                     url: uploadedUrl,
                     fileName: safeName,
                 });
+            } else {
+                console.error(`[Occupancy Archive] Failed to upload main permit scan: ${mainFile.name}`);
             }
         }
 
@@ -429,11 +430,10 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
             const file = formData.get(`attachmentFile_${i}`) as File | null;
             const label = (formData.get(`attachmentLabel_${i}`) as string) || `Attachment ${i + 1}`;
 
-            if (file && file.size > 0) {
-                const buffer = Buffer.from(await file.arrayBuffer());
+            if (file && file instanceof File && file.size > 0) {
                 const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
                 const path = `occupancy-permits/archives/${timestamp}-${i}-${safeName}`;
-                const fileUrl = await uploadFile(buffer, path, file.type || "image/webp");
+                const fileUrl = await uploadFile(file, path);
 
                 if (fileUrl) {
                     documents.push({
@@ -445,6 +445,8 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
                     if (!primaryDocumentUrl) {
                         primaryDocumentUrl = fileUrl;
                     }
+                } else {
+                    console.error(`[Occupancy Archive] Failed to upload supplementary file: ${file.name}`);
                 }
             }
         }
