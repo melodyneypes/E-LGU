@@ -30,6 +30,7 @@ model User {
   rfid                  String?                  @unique
   consecutiveRejections Json?                    @default("{}")
   fcmToken              String?
+  assignedDoctorId      String?
   accounts              Account[]
   auditLogs             AuditLog[]               @relation("UserAuditLogs")
   directiveReads        DirectiveRecipientRead[]
@@ -43,6 +44,8 @@ model User {
   driverTransactions    Transaction[]            @relation("DriverTransactions")
   transactions          Transaction[]            @relation("ResidentTransactions")
   transactionFeedbacks  TransactionFeedback[]    @relation("UserFeedbacks")
+  User                  User?                    @relation("UserToUser", fields: [assignedDoctorId], references: [id], onUpdate: NoAction)
+  other_User            User[]                   @relation("UserToUser")
 }
 
 model Account {
@@ -1698,6 +1701,7 @@ enum MedicalRole {
   DENTIST
   ADMIN
   PHARMACY
+  SECRETARY
 }
 
 enum TicketStatus {
@@ -1734,6 +1738,7 @@ enum UserRole {
   BARANGAY_CAPTAIN
   MDRRMO_ADMIN
   MDRRMO_STAFF
+  ASST_SEC
 }
 
 enum ResidentStatus {

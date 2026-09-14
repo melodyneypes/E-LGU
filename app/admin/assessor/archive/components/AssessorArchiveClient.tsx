@@ -1317,32 +1317,34 @@ export default function AssessorArchiveClient({
 
                                             {/* Supplementary Attachments List */}
                                             <div className="space-y-3 flex flex-col flex-1">
-                                                {/* Phase 2: Quick Preset Additions Toolbar */}
-                                                <div className="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                        Quick Preset Additions:
-                                                    </span>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {ASSESSOR_DOCUMENT_PRESETS.map((preset, pIdx) => {
-                                                            const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
-                                                            return (
-                                                                <button
-                                                                    key={pIdx}
-                                                                    type="button"
-                                                                    disabled={isAlreadyAdded}
-                                                                    onClick={() => handleAddAttachmentRow(preset)}
-                                                                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                                                        isAlreadyAdded
-                                                                            ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
-                                                                            : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-blue-500/50 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs cursor-pointer"
-                                                                    }`}
-                                                                >
-                                                                    <Plus className="w-3 h-3" /> {preset}
-                                                                </button>
-                                                            );
-                                                        })}
+                                                {/* Phase 2: Quick Preset Additions Toolbar (Create Mode Only) */}
+                                                {modalMode === "CREATE" && (
+                                                    <div className="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                            Quick Preset Additions:
+                                                        </span>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {ASSESSOR_DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                                const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                                return (
+                                                                    <button
+                                                                        key={pIdx}
+                                                                        type="button"
+                                                                        disabled={isAlreadyAdded}
+                                                                        onClick={() => handleAddAttachmentRow(preset)}
+                                                                        className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                            isAlreadyAdded
+                                                                                ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                                : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-blue-500/50 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs cursor-pointer"
+                                                                        }`}
+                                                                    >
+                                                                        <Plus className="w-3 h-3" /> {preset}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between shrink-0">
                                                     <div className="flex items-center gap-1.5">
