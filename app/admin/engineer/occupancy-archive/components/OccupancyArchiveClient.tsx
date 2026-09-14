@@ -28,6 +28,8 @@ import {
     Link2,
     Layers,
     ShieldCheck,
+    ListFilter,
+    RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,6 +177,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const [existingMainPermitUrl, setExistingMainPermitUrl] = useState<string | null>(null);
     const [existingDocuments, setExistingDocuments] = useState<{ title: string; url: string; fileName: string }[]>([]);
 
+    const [isCustomOccupancy, setIsCustomOccupancy] = useState(false);
+
     const INITIAL_FORM_STATE = {
         permitNumber: "",
         buildingPermitNumber: "",
@@ -239,6 +243,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     const resetModalState = useCallback(() => {
         cleanupAttachmentUrls();
         setFormData(INITIAL_FORM_STATE);
+        setIsCustomOccupancy(false);
         setMainPermitFile(null);
         setMainPermitPreview(null);
         setMainPermitScannedAt(null);
@@ -267,6 +272,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
     // Open Create Modal
     const handleOpenCreateModal = () => {
         resetModalState();
+        setIsCustomOccupancy(false);
         setModalMode("CREATE");
         setIsCreateOpen(true);
     };
@@ -276,6 +282,12 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         resetModalState();
         setModalMode("EDIT");
         setEditingRecordId(item.id);
+
+        const standardTypes = ["Residential", "Commercial", "Industrial", "Institutional", "Agricultural"];
+        const currentUse = (item.occupancyUse || "Residential").trim();
+        const isStandard = standardTypes.includes(currentUse);
+
+        setIsCustomOccupancy(!isStandard);
 
         setFormData({
             permitNumber: item.permitNumber || "",
@@ -291,7 +303,7 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             dateIssued: item.dateIssued ? new Date(item.dateIssued).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
             dateOfCompletion: item.dateOfCompletion ? new Date(item.dateOfCompletion).toISOString().split("T")[0] : "",
             projectType: item.projectType || "",
-            occupancyUse: item.occupancyUse || "Residential",
+            occupancyUse: currentUse === "Other Construction" ? "" : currentUse,
             estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
             totalFloors: item.totalFloors || "1",
             remarks: item.remarks || "",
@@ -587,6 +599,12 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             return;
         }
 
+        const finalOccupancyUse = formData.occupancyUse.trim();
+        if (!finalOccupancyUse || finalOccupancyUse === "Other Construction") {
+            toast.error("Please specify the Occupancy Classification.");
+            return;
+        }
+
         setSubmitting(true);
         try {
             const dataToSubmit = new FormData();
@@ -602,8 +620,8 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
             dataToSubmit.append("email", formData.email.trim());
             dataToSubmit.append("dateIssued", formData.dateIssued);
             dataToSubmit.append("dateOfCompletion", formData.dateOfCompletion);
-            dataToSubmit.append("projectType", formData.projectType.trim());
-            dataToSubmit.append("occupancyUse", formData.occupancyUse);
+            dataToSubmit.append("projectType", finalOccupancyUse);
+            dataToSubmit.append("occupancyUse", finalOccupancyUse);
             dataToSubmit.append("estimatedCost", formData.estimatedCost || "0");
             dataToSubmit.append("totalFloors", formData.totalFloors || "1");
             dataToSubmit.append("remarks", formData.remarks.trim());
@@ -906,24 +924,62 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                     />
                                                 </div>
 
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Occupancy Classification
-                                                    </Label>
-                                                    <Select
-                                                        value={formData.occupancyUse}
-                                                        onValueChange={(val) => setFormData({ ...formData, occupancyUse: val })}
-                                                    >
-                                                        <SelectTrigger className="h-10 rounded-xl text-sm">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {OCCUPANCY_TYPES.map((t) => (
-                                                                <SelectItem key={t} value={t}>{t}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+                                                {!isCustomOccupancy ? (
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                            Occupancy Classification <span className="text-rose-500">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formData.occupancyUse}
+                                                            onValueChange={(val) => {
+                                                                if (val === "Other Construction") {
+                                                                    setIsCustomOccupancy(true);
+                                                                    setFormData({ ...formData, occupancyUse: "" });
+                                                                } else {
+                                                                    setFormData({ ...formData, occupancyUse: val });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-10 rounded-xl text-sm">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {OCCUPANCY_TYPES.map((t) => (
+                                                                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                                                <Building2 className="w-3.5 h-3.5" />
+                                                                Occupancy Classification <span className="text-rose-500">*</span>
+                                                            </Label>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsCustomOccupancy(false);
+                                                                    setFormData({ ...formData, occupancyUse: "Residential" });
+                                                                }}
+                                                                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                                                                title="Switch back to preset dropdown choices"
+                                                            >
+                                                                <RotateCcw className="w-3 h-3" />
+                                                                Select from list
+                                                            </button>
+                                                        </div>
+                                                        <Input
+                                                            placeholder="Type specific classification (e.g. Grain Silo, Telecom Tower, Guardhouse)..."
+                                                            value={formData.occupancyUse}
+                                                            onChange={(e) => setFormData({ ...formData, occupancyUse: e.target.value })}
+                                                            required
+                                                            autoFocus
+                                                            className="h-10 rounded-xl text-sm border-amber-300 dark:border-amber-700/60 focus:ring-amber-500 bg-amber-50/20 dark:bg-amber-950/10 font-medium"
+                                                        />
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-1.5">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -945,18 +1001,6 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                         type="date"
                                                         value={formData.dateOfCompletion}
                                                         onChange={(e) => setFormData({ ...formData, dateOfCompletion: e.target.value })}
-                                                        className="h-10 rounded-xl text-sm"
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Project Nature / Work Scope
-                                                    </Label>
-                                                    <Input
-                                                        placeholder="e.g. 2-Storey Residential Building, Commercial Warehouse"
-                                                        value={formData.projectType}
-                                                        onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
                                                         className="h-10 rounded-xl text-sm"
                                                     />
                                                 </div>

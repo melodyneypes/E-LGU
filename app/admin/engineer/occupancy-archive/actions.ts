@@ -361,7 +361,7 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
 
         const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
         const projectTypeInput = (formData.get("projectType") as string || "").trim();
-        const projectType = projectTypeInput || `${occupancyUse} Building`;
+        const projectType = projectTypeInput || occupancyUse;
         const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
         const totalFloors = (formData.get("totalFloors") as string || "1").trim();
 
@@ -707,7 +707,7 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
 
         const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
         const projectTypeInput = (formData.get("projectType") as string || "").trim();
-        const projectType = projectTypeInput || `${occupancyUse} Building`;
+        const projectType = projectTypeInput || occupancyUse;
         const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
         const totalFloors = (formData.get("totalFloors") as string || "1").trim();
 
