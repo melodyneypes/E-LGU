@@ -27,7 +27,9 @@ import {
     ZoomIn,
     Info,
     Clock,
-    FileUp
+    FileUp,
+    Printer,
+    HelpCircle
 } from "lucide-react";
 import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
@@ -191,7 +193,7 @@ export default function AssessorArchiveClient({
         street: "",
         propertyKind: "LAND",
         classification: "RESIDENTIAL",
-        area: "0 sqm",
+        area: "",
         marketValue: "",
         assessmentLevel: "20",
         assessedValue: "",
@@ -225,6 +227,7 @@ export default function AssessorArchiveClient({
 
     // Local Inspection Lightbox State for Newly Selected Draft Files
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
     const [activeDraftPreview, setActiveDraftPreview] = useState<{
         url: string;
         title: string;
@@ -355,7 +358,7 @@ export default function AssessorArchiveClient({
             street: "",
             propertyKind: "LAND",
             classification: "RESIDENTIAL",
-            area: "0 sqm",
+            area: "",
             marketValue: "",
             assessmentLevel: "20",
             assessedValue: "",
@@ -416,7 +419,7 @@ export default function AssessorArchiveClient({
             street: record.street || "",
             propertyKind: record.propertyKind || "LAND",
             classification: record.classification || "RESIDENTIAL",
-            area: record.area && record.area !== "N/A" ? record.area : "0 sqm",
+            area: record.area && record.area !== "N/A" && record.area !== "0 sqm" ? record.area : "",
             marketValue: record.marketValue ? String(record.marketValue) : "",
             assessmentLevel: record.assessmentLevel ? String(record.assessmentLevel) : "20",
             assessedValue: record.assessedValue ? String(record.assessedValue) : "",
@@ -1113,6 +1116,49 @@ export default function AssessorArchiveClient({
 
                                         {/* Right Column: Scanned Documents & Uploads (5 Cols) */}
                                         <div className="lg:col-span-5 flex flex-col space-y-4">
+
+                                            {/* Direct Scanner Guide Bar */}
+                                            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-violet-500/10 border border-blue-500/20 shadow-xs shrink-0 space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-lg bg-blue-600 text-white shadow-xs">
+                                                            <Printer className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                                <span>Scanner Station</span>
+                                                                <span className="text-[9px] px-2 py-0.2 rounded-full font-bold uppercase tracking-widest bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                                                    Digitize Guide
+                                                                </span>
+                                                            </h4>
+                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                                                Guidelines for scanning paper Tax Declarations & land titles.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                                                        title="Office Scanner Setup Guide"
+                                                    >
+                                                        <HelpCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="pt-0.5">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setScannerGuideOpen(true)}
+                                                        className="w-full h-8 rounded-xl border-blue-500/30 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                                                    >
+                                                        <Info className="w-3.5 h-3.5" />
+                                                        <span>Scanner Setup Guide</span>
+                                                    </Button>
+                                                </div>
+                                            </div>
 
                                             {/* Primary Signed Tax Dec Upload Box with Live Preview */}
                                             <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3 shrink-0">
@@ -1976,6 +2022,87 @@ export default function AssessorArchiveClient({
                     onSaveRotatedFile={handleSaveRotatedDraftFile}
                 />
             )}
+
+            {/* Assessor Scanner Setup Guide Dialog */}
+            <Dialog open={scannerGuideOpen} onOpenChange={setScannerGuideOpen}>
+                <DialogContent className="max-w-md p-6 rounded-3xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 pb-3 border-b border-slate-200/80 dark:border-[#2a3040]">
+                            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                <Printer className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                    Assessor Scanner Setup Guide
+                                </DialogTitle>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Simple steps for high-accuracy digitization of paper Tax Declarations
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                            {/* Step 1 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    1
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Scanner Destination Folder
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Set your scanner software (Epson, Canon, Brother, HP) default output folder to an accessible folder such as:
+                                        <code className="block mt-1 font-mono text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-bold">
+                                            Desktop\Scanned_Tax_Declarations
+                                        </code>
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    2
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Optimal Resolution & Color
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Scan at <strong>200–300 DPI</strong> (Color or Grayscale PDF/JPEG). This captures official dry seals, stamps, and signatures clearly without file bloat.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                                    3
+                                </span>
+                                <div className="space-y-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                                        Upload & Auto-Compress
+                                    </p>
+                                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Simply drag or browse your scanned file into the Certified Tax Declaration or Supplementary slots. The system will automatically compress and store it safely in the vault.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
+                            <Button
+                                type="button"
+                                onClick={() => setScannerGuideOpen(false)}
+                                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
+                            >
+                                Got it, Close Guide
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

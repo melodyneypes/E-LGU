@@ -419,7 +419,7 @@ export async function createArchivedAssessorRecord(formData: FormData) {
 
         const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
         const classification = (formData.get("classification") as string)?.trim() || "RESIDENTIAL";
-        const area = (formData.get("area") as string)?.trim() || "0 sqm";
+        const area = (formData.get("area") as string)?.trim() || "";
 
         const marketValue = parseFloat(formData.get("marketValue") as string) || 0;
         const assessmentLevel = parseFloat(formData.get("assessmentLevel") as string) || 20;
@@ -722,7 +722,7 @@ export async function updateArchivedAssessorRecord(formData: FormData) {
 
         const propertyKind = (formData.get("propertyKind") as string)?.trim() || "LAND";
         const classification = (formData.get("classification") as string)?.trim() || "RESIDENTIAL";
-        const area = (formData.get("area") as string)?.trim() || "0 sqm";
+        const area = (formData.get("area") as string)?.trim() || "";
 
         const marketValue = parseFloat(formData.get("marketValue") as string) || 0;
         const assessmentLevel = parseFloat(formData.get("assessmentLevel") as string) || 20;
