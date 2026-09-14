@@ -132,7 +132,8 @@ export function Navbar({
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
         { name: "Real Property Tax (RPT)", href: "/user/services/rpt-appointment", desc: "Amilyar Payment & Tax Clearance", icon: Building2, color: "text-purple-500 bg-purple-500/10" },
         { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
-    ], []);
+        { name: "POSO Portal", href: "/poso/mapandan", desc: "Traffic Violations & Citation Inquiries", icon: ShieldAlert, color: "text-cyan-500 bg-cyan-500/10" },
+    ], [buildingSubPermits]);
 
     const updatesItems = React.useMemo(() => [
         {
@@ -534,7 +535,6 @@ export function Navbar({
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                                 className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 z-[120]"
                                             >
-                                                {/* Main Dropdown Panel */}
                                                 <div
                                                     className="w-[340px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
