@@ -1026,7 +1026,7 @@ export default function RequestHubPage() {
 
             if (d.newIdFile) docs.push({ label: "Applicant ID (Front)", url: d.newIdFile });
             if (d.newIdFileBack) docs.push({ label: "Applicant ID (Back)", url: d.newIdFileBack });
-            if (d.tctFile) docs.push({ label: "TCT File", url: d.tctFile });
+            if (d.tctFile) docs.push({ label: addData?.landDocumentType === "SURVEY_PLAN" ? "Survey Plan (Untitled Parcel)" : "TCT File", url: d.tctFile });
             if (addData.signature) docs.push({ label: "Digital Signature", url: addData.signature });
 
             return docs.filter(doc => !!doc.url) as { label: string; url: string }[];

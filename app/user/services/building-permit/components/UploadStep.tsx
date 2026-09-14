@@ -25,6 +25,7 @@ interface UploadStepProps {
   setUploadedRequirements: React.Dispatch<React.SetStateAction<Record<number, any>>>;
   uploadedPermits: Record<number, any>;
   setUploadedPermits: React.Dispatch<React.SetStateAction<Record<number, any>>>;
+  applicableRequirementIndexes?: number[];
   requiredRequirementIndexes: number[];
   requiredPermitIndexes: number[];
   showValidationErrors: boolean;
@@ -67,6 +68,7 @@ export function UploadStep({
   setUploadedRequirements,
   uploadedPermits,
   setUploadedPermits,
+  applicableRequirementIndexes,
   requiredRequirementIndexes,
   requiredPermitIndexes,
   showValidationErrors,
@@ -253,13 +255,14 @@ export function UploadStep({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
         {(() => {
           if (activeDocTab === "REQUIREMENTS") {
+            const applicableIndexes = applicableRequirementIndexes || requiredRequirementIndexes;
             const baseItems = [
               ...documentRequirementsList
                 .map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `req_${idx}` })),
               ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const, key: `req_${documentRequirementsList.length + idx}` }))
             ].filter(({ idx, kind }) => {
               if (kind === "custom") return true;
-              return requiredRequirementIndexes.includes(idx);
+              return applicableIndexes.includes(idx);
             });
 
             const existingKeys = new Set(baseItems.map(item => item.key));

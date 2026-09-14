@@ -164,7 +164,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 "Duly Notarized Estimated Value of Building/Structure",
                 "Duly Notarized Technical Specification",
                 "Construction Safety and Health Program From DOLE",
-                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction (Optional)",
                 "Affidavit of Undertaking",
                 "Cedula of Applicant",
                 "ID of applicant with 3 signatures",
