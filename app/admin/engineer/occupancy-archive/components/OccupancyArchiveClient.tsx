@@ -493,6 +493,28 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         });
     };
 
+    // Detach attached file/scan from row while preserving the custom label/title
+    const handleDetachAttachmentFile = (id: string) => {
+        setAdditionalAttachments(prev =>
+            prev.map(item => {
+                if (item.id !== id) return item;
+                if (item.previewUrl) {
+                    URL.revokeObjectURL(item.previewUrl);
+                }
+                return {
+                    ...item,
+                    file: null,
+                    previewUrl: undefined,
+                    existingUrl: undefined,
+                    isImage: false,
+                    isPdf: false,
+                    fileSizeFormatted: undefined,
+                    scannedAt: undefined,
+                };
+            })
+        );
+    };
+
     const handleAttachmentFileChange = async (id: string, file: File | null) => {
         if (!file) return;
         try {
@@ -1493,9 +1515,9 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="icon"
-                                                                                    onClick={() => handleRemoveAttachment(att.id)}
+                                                                                    onClick={() => handleDetachAttachmentFile(att.id)}
                                                                                     className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                                                                                    title="Remove file"
+                                                                                    title="Remove file (keep document title)"
                                                                                 >
                                                                                     <Trash2 className="w-3.5 h-3.5" />
                                                                                 </Button>

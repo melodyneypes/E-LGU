@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { getArchivedBuildingPermits, createArchivedBuildingPermit } from "../actions";
+import { getArchivedBuildingPermits, createArchivedBuildingPermit, updateArchivedBuildingPermit } from "../actions";
 import {
     Search,
     Plus,
@@ -24,6 +24,7 @@ import {
     HelpCircle,
     Clock,
     RotateCcw,
+    Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +97,7 @@ export interface SupplementaryAttachmentItem {
     label: string;
     file: File | null;
     previewUrl?: string;
+    existingUrl?: string;
     isImage: boolean;
     isPdf: boolean;
     fileSizeFormatted?: string;
@@ -146,8 +148,11 @@ export default function EngineerArchiveClient({
     const [selectedDocuments, setSelectedDocuments] = useState<{ url: string; label: string }[]>([]);
     const [viewerTitle, setViewerTitle] = useState("");
 
-    // Create Modal State
+    // Create & Edit Modal State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
+    const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+    const [existingMainPermitUrl, setExistingMainPermitUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
 
@@ -324,6 +329,10 @@ export default function EngineerArchiveClient({
         });
         setMainPermitFile(null);
         setMainPermitPreview(null);
+        setMainPermitScannedAt(null);
+        setExistingMainPermitUrl(null);
+        setEditingRecordId(null);
+        setModalMode("CREATE");
         setIsCustomOccupancy(false);
         setAdditionalAttachments([
             {
@@ -341,6 +350,69 @@ export default function EngineerArchiveClient({
                 isPdf: false,
             },
         ]);
+    };
+
+    // Open Create Modal
+    const handleOpenCreateModal = () => {
+        resetForm();
+        setModalMode("CREATE");
+        setIsCreateOpen(true);
+    };
+
+    // Open Edit Modal with pre-filled record data
+    const handleOpenEditModal = (item: any) => {
+        resetForm();
+        setModalMode("EDIT");
+        setEditingRecordId(item.id);
+
+        const currentOccupancy = (item.occupancyUse || "Residential").trim();
+        const isStandard = OCCUPANCY_TYPES.includes(currentOccupancy);
+        setIsCustomOccupancy(!isStandard);
+
+        setFormData({
+            permitNumber: item.permitNumber || "",
+            firstName: item.firstName || "",
+            lastName: item.lastName || "",
+            province: "Pangasinan",
+            municipality: "Mapandan",
+            barangay: item.barangay || "Poblacion",
+            contactNumber: item.contactNumber && item.contactNumber !== "N/A" ? item.contactNumber : "",
+            email: item.email || "",
+            houseNumber: item.houseNumber || "",
+            street: item.street || "",
+            dateIssued: item.dateIssued ? new Date(item.dateIssued).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+            projectType: item.projectType || "",
+            occupancyUse: currentOccupancy === "Other Construction" ? "" : currentOccupancy,
+            estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
+            totalFloors: item.totalFloors || "1",
+            isLotOwner: item.isLotOwner || "Yes",
+            remarks: item.remarks || "",
+        });
+
+        // Set existing primary document
+        if (item.primaryDocumentUrl) {
+            setExistingMainPermitUrl(item.primaryDocumentUrl);
+        }
+
+        // Map existing supplementary documents directly into unified additionalAttachments list
+        const remainingDocs = (item.documents || []).filter((d: any) => d.url !== item.primaryDocumentUrl);
+        const mappedAttachments: SupplementaryAttachmentItem[] = remainingDocs.map((doc: any, idx: number) => {
+            const url = doc.url || "";
+            const isPdf = url.toLowerCase().endsWith(".pdf") || (doc.fileName || "").toLowerCase().endsWith(".pdf");
+            return {
+                id: `existing-doc-${idx}-${Date.now()}`,
+                label: doc.label || doc.title || `Supplementary Document ${idx + 1}`,
+                file: null,
+                previewUrl: url,
+                existingUrl: url,
+                isImage: !isPdf,
+                isPdf: isPdf,
+                fileSizeFormatted: doc.fileName || "Archived Document",
+            };
+        });
+
+        setAdditionalAttachments(mappedAttachments);
+        setIsCreateOpen(true);
     };
 
     // Add extra document row with custom label
@@ -383,9 +455,11 @@ export default function EngineerArchiveClient({
                         ...item,
                         file: null,
                         previewUrl: undefined,
+                        existingUrl: undefined,
                         isImage: false,
                         isPdf: false,
                         fileSizeFormatted: undefined,
+                        scannedAt: undefined,
                     };
                 }
 
@@ -397,9 +471,32 @@ export default function EngineerArchiveClient({
                     ...item,
                     file,
                     previewUrl,
+                    existingUrl: undefined,
                     isImage: isImg,
                     isPdf,
                     fileSizeFormatted: formatFileSize(file.size),
+                };
+            })
+        );
+    };
+
+    // Detach attached file/scan from row while keeping the document title/label intact
+    const handleDetachAttachmentFile = (id: string) => {
+        setAdditionalAttachments(prev =>
+            prev.map(item => {
+                if (item.id !== id) return item;
+                if (item.previewUrl) {
+                    URL.revokeObjectURL(item.previewUrl);
+                }
+                return {
+                    ...item,
+                    file: null,
+                    previewUrl: undefined,
+                    existingUrl: undefined,
+                    isImage: false,
+                    isPdf: false,
+                    fileSizeFormatted: undefined,
+                    scannedAt: undefined,
                 };
             })
         );
@@ -503,6 +600,23 @@ export default function EngineerArchiveClient({
                 fd.append("mainPermitFile", optimizedMain);
             }
 
+            if (modalMode === "EDIT") {
+                if (editingRecordId) {
+                    fd.append("transactionId", editingRecordId);
+                }
+                if (existingMainPermitUrl) {
+                    fd.append("existingMainUrl", existingMainPermitUrl);
+                }
+                // Retain all existing attachments
+                const retainedExistingDocs = additionalAttachments
+                    .filter(item => item.existingUrl && item.file === null)
+                    .map(item => ({
+                        title: item.label,
+                        url: item.existingUrl,
+                    }));
+                fd.append("existingDocuments", JSON.stringify(retainedExistingDocs));
+            }
+
             for (let idx = 0; idx < additionalAttachments.length; idx++) {
                 const item = additionalAttachments[idx];
                 if (item.file) {
@@ -514,15 +628,21 @@ export default function EngineerArchiveClient({
 
             setIsCompressing(false);
 
-            const res = await createArchivedBuildingPermit(fd);
+            const res = modalMode === "EDIT"
+                ? await updateArchivedBuildingPermit(fd)
+                : await createArchivedBuildingPermit(fd);
 
             if (res.success) {
-                toast.success(`Permit #${res.permitNumber} successfully encoded to archives!`);
+                toast.success(
+                    modalMode === "EDIT"
+                        ? `Permit #${res.permitNumber} updated successfully!`
+                        : `Permit #${res.permitNumber} successfully encoded to archives!`
+                );
                 setIsCreateOpen(false);
                 resetForm();
                 fetchArchives();
             } else {
-                toast.error(res.error || "Failed to encode physical permit record.");
+                toast.error(res.error || (modalMode === "EDIT" ? "Failed to update archive record." : "Failed to encode physical permit record."));
             }
         } catch (err: any) {
             console.error(err);
@@ -578,6 +698,7 @@ export default function EngineerArchiveClient({
                     >
                         <DialogTrigger asChild>
                             <Button
+                                onClick={handleOpenCreateModal}
                                 className="rounded-2xl text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 shadow-lg shadow-indigo-600/20 flex items-center gap-2"
                                 style={{ backgroundColor: themeColor }}
                             >
@@ -606,17 +727,21 @@ export default function EngineerArchiveClient({
                                         className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
                                         style={{ backgroundColor: themeColor }}
                                     >
-                                        <UploadCloud className="w-5 h-5" />
+                                        {modalMode === "EDIT" ? <Pencil className="w-5 h-5" /> : <UploadCloud className="w-5 h-5" />}
                                     </div>
                                     <div>
                                         <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span>Encode Physical Building Permit</span>
+                                            <span>
+                                                {modalMode === "EDIT" ? `Edit Building Permit Archive — ${formData.permitNumber || "Record"}` : "Encode Physical Building Permit"}
+                                            </span>
                                             <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                                                Archive Vault
+                                                {modalMode === "EDIT" ? "Edit Mode" : "Archive Vault"}
                                             </span>
                                         </DialogTitle>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                            Digitize walk-in physical paper records, blueprints, and engineering clearances into the master database.
+                                            {modalMode === "EDIT"
+                                                ? "Correct applicant details, update building specifications, and manage attached scanned documents."
+                                                : "Digitize walk-in physical paper records, blueprints, and engineering clearances into the master database."}
                                         </p>
                                     </div>
                                 </div>
@@ -1029,7 +1154,7 @@ export default function EngineerArchiveClient({
                                                                 )}
                                                             </div>
                                                             <p className="text-[10px] text-slate-400 font-medium">
-                                                                {formatFileSize(mainPermitFile.size)} • High-Res Official Scan
+                                                                {formatFileSize(mainPermitFile.size)} • High-Res Official Scan (New)
                                                             </p>
                                                         </div>
 
@@ -1058,6 +1183,49 @@ export default function EngineerArchiveClient({
                                                             </Button>
                                                         </div>
                                                     </div>
+                                                ) : existingMainPermitUrl ? (
+                                                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040]">
+                                                        <div className="w-12 h-12 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-600 flex items-center justify-center shrink-0">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                Official Signed Permit (Archived)
+                                                            </p>
+                                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                Stored in Cloud Archives
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => {
+                                                                    setActiveDraftPreview({
+                                                                        url: existingMainPermitUrl,
+                                                                        title: "Official Signed Permit (Archived)",
+                                                                        isPdf: existingMainPermitUrl.toLowerCase().endsWith(".pdf"),
+                                                                    });
+                                                                    setPreviewModalOpen(true);
+                                                                }}
+                                                                className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                                title="View Document"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setExistingMainPermitUrl(null)}
+                                                                className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                                                                title="Replace / Remove File"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 ) : (
                                                     <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#121622] border border-dashed border-indigo-500/30 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group">
                                                         <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -1065,7 +1233,7 @@ export default function EngineerArchiveClient({
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                                                                Choose Official Signed Permit Scan
+                                                                {modalMode === "EDIT" ? "Upload New Replacement Permit Scan" : "Choose Official Signed Permit Scan"}
                                                             </p>
                                                             <p className="text-[10px] text-slate-400 font-medium truncate">
                                                                 PDF, JPG, PNG (Click to browse file)
@@ -1084,32 +1252,34 @@ export default function EngineerArchiveClient({
                                                 </p>
                                             </div>
 
-                                            {/* Presets Bar */}
-                                            <div className="space-y-1.5 shrink-0">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                    Quick Preset Additions:
-                                                </span>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {DOCUMENT_PRESETS.map((preset, pIdx) => {
-                                                        const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
-                                                        return (
-                                                            <button
-                                                                key={pIdx}
-                                                                type="button"
-                                                                disabled={isAlreadyAdded}
-                                                                onClick={() => handleAddAttachmentRow(preset)}
-                                                                className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                                                    isAlreadyAdded
-                                                                        ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
-                                                                        : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs cursor-pointer"
-                                                                }`}
-                                                            >
-                                                                <Plus className="w-3 h-3" /> {preset}
-                                                            </button>
-                                                        );
-                                                    })}
+                                            {/* Presets Bar - Only displayed when creating a new record */}
+                                            {modalMode === "CREATE" && (
+                                                <div className="space-y-1.5 shrink-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        Quick Preset Additions:
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {DOCUMENT_PRESETS.map((preset, pIdx) => {
+                                                            const isAlreadyAdded = additionalAttachments.some(a => a.label === preset);
+                                                            return (
+                                                                <button
+                                                                    key={pIdx}
+                                                                    type="button"
+                                                                    disabled={isAlreadyAdded}
+                                                                    onClick={() => handleAddAttachmentRow(preset)}
+                                                                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                                                                        isAlreadyAdded
+                                                                            ? "bg-slate-100 dark:bg-[#121622] text-slate-400 cursor-not-allowed opacity-50"
+                                                                            : "bg-white dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs cursor-pointer"
+                                                                    }`}
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> {preset}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* Supplementary Attachments List */}
                                             <div className="space-y-3 flex flex-col flex-1">
@@ -1168,19 +1338,30 @@ export default function EngineerArchiveClient({
                                                                 </div>
 
                                                                 {/* File Selection / Preview row */}
-                                                                {att.file ? (
+                                                                {(att.file || att.existingUrl) ? (
                                                                     <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50/90 dark:bg-[#151b2b]/80 border border-slate-200/60 dark:border-[#2a3040]">
-                                                                        {att.isImage && att.previewUrl ? (
+                                                                        {att.isImage && (att.previewUrl || att.existingUrl) ? (
                                                                             <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 shrink-0 group">
                                                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                                 <img
-                                                                                    src={att.previewUrl}
+                                                                                    src={att.previewUrl || att.existingUrl}
                                                                                     alt="Preview"
                                                                                     className="w-full h-full object-cover"
                                                                                 />
                                                                                 <button
                                                                                     type="button"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Scanned Document", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    onClick={() => {
+                                                                                        if (att.file) {
+                                                                                            handleInspectDraftFile(att.label || "Scanned Document", att.file, att.previewUrl, "attachment", att.id);
+                                                                                        } else if (att.existingUrl) {
+                                                                                            setActiveDraftPreview({
+                                                                                                url: att.existingUrl,
+                                                                                                title: att.label || "Supplementary Document",
+                                                                                                isPdf: false,
+                                                                                            });
+                                                                                            setPreviewModalOpen(true);
+                                                                                        }
+                                                                                    }}
                                                                                     className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                                                     title="View Image"
                                                                                 >
@@ -1197,7 +1378,7 @@ export default function EngineerArchiveClient({
                                                                         <div className="flex-1 min-w-0">
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                                                                    {att.file.name}
+                                                                                    {att.file ? att.file.name : (att.fileSizeFormatted || "Archived Document")}
                                                                                 </p>
                                                                                 {att.scannedAt && (
                                                                                     <span className="shrink-0 text-[8px] px-1.5 py-0.2 rounded-md font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
@@ -1207,17 +1388,29 @@ export default function EngineerArchiveClient({
                                                                                 )}
                                                                             </div>
                                                                             <p className="text-[10px] text-slate-400 font-medium">
-                                                                                {att.fileSizeFormatted} • {att.isImage ? "Image Scan" : "PDF Document"}
+                                                                                {att.file ? `${formatFileSize(att.file.size)} • ` : ""}
+                                                                                {att.isImage ? "Image Scan" : "PDF Document"}
                                                                             </p>
                                                                         </div>
 
                                                                         <div className="flex items-center gap-1 shrink-0">
-                                                                            {att.previewUrl && (
+                                                                            {(att.previewUrl || att.existingUrl) && (
                                                                                 <Button
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="icon"
-                                                                                    onClick={() => handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id)}
+                                                                                    onClick={() => {
+                                                                                        if (att.file) {
+                                                                                            handleInspectDraftFile(att.label || "Document Preview", att.file, att.previewUrl, "attachment", att.id);
+                                                                                        } else if (att.existingUrl) {
+                                                                                            setActiveDraftPreview({
+                                                                                                url: att.existingUrl,
+                                                                                                title: att.label || "Supplementary Document",
+                                                                                                isPdf: att.isPdf,
+                                                                                            });
+                                                                                            setPreviewModalOpen(true);
+                                                                                        }
+                                                                                    }}
                                                                                     className="h-7 w-7 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer"
                                                                                     title="Inspect Document"
                                                                                 >
@@ -1228,9 +1421,9 @@ export default function EngineerArchiveClient({
                                                                                 type="button"
                                                                                 variant="ghost"
                                                                                 size="icon"
-                                                                                onClick={() => handleAttachmentFileChange(att.id, null)}
+                                                                                onClick={() => handleDetachAttachmentFile(att.id)}
                                                                                 className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                                                                                title="Change file"
+                                                                                title="Remove file (keep document title)"
                                                                             >
                                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                                             </Button>
@@ -1306,12 +1499,12 @@ export default function EngineerArchiveClient({
                                         {isSubmitting ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : "Digitizing Record..."}</span>
+                                                <span>{isCompressing ? "Optimizing High-Res Scans..." : (modalMode === "EDIT" ? "Saving Changes..." : "Digitizing Record...")}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <CheckCircle2 className="w-4 h-4" />
-                                                <span>Save to Archive Vault</span>
+                                                <span>{modalMode === "EDIT" ? "Save Changes" : "Save to Archive Vault"}</span>
                                             </>
                                         )}
                                     </Button>
@@ -1542,17 +1735,32 @@ export default function EngineerArchiveClient({
                                             </div>
                                         </TableCell>
 
-                                        {/* Action: Open Shared Document Viewer */}
+                                        {/* Action: Open Shared Document Viewer & Edit Permit */}
                                         <TableCell className="py-4 text-right">
-                                            <Button
-                                                onClick={() => handleOpenDocuments(record)}
-                                                disabled={docCount === 0}
-                                                size="sm"
-                                                variant="outline"
-                                                className="rounded-2xl text-xs font-bold uppercase tracking-wider border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 shadow-sm active:scale-95"
-                                            >
-                                                <Eye className="w-3.5 h-3.5 mr-1.5" /> View {docCount} Doc{docCount !== 1 ? "s" : ""}
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <Button
+                                                    onClick={() => handleOpenDocuments(record)}
+                                                    disabled={docCount === 0}
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="rounded-xl text-xs font-bold uppercase tracking-wider border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 shadow-sm active:scale-95"
+                                                    title="Inspect Scanned Documents"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5 mr-1.5" /> View {docCount} Doc{docCount !== 1 ? "s" : ""}
+                                                </Button>
+
+                                                {record.isPhysical && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleOpenEditModal(record)}
+                                                        className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-xl cursor-pointer transition-colors"
+                                                        title="Edit Archive Record & Documents"
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );

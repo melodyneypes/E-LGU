@@ -267,14 +267,24 @@ export async function getArchivedBuildingPermits(params?: {
                 id: tx.id,
                 permitNumber,
                 applicantName,
+                firstName: resSnap.firstName || "",
+                lastName: resSnap.lastName || "",
+                contactNumber: resSnap.contactNumber || addData.contactNumber || "",
+                email: resSnap.email || addData.email || "",
+                houseNumber: resSnap.houseNumber || addData.houseNumber || "",
+                street: resSnap.street || addData.street || "",
                 location,
-                barangay: addData.barangay || resSnap.barangay || "",
+                barangay: addData.barangay || resSnap.barangay || "Poblacion",
                 dateIssued,
                 projectType,
                 occupancyUse,
                 estimatedCost,
                 isPhysical,
                 encodedBy: addData.encodedBy || "Engineering Staff",
+                totalFloors: addData.totalFloors || "1",
+                isLotOwner: addData.isLotOwner || "Yes",
+                remarks: addData.remarks || "",
+                primaryDocumentUrl: bp?.documentUrl || tx.eCopyUrl || (documents[0]?.url || null),
                 status: tx.status,
                 documents,
                 createdAt: tx.createdAt,
@@ -498,3 +508,241 @@ export async function createArchivedBuildingPermit(formData: FormData) {
         return { success: false, error: error.message || "Failed to encode physical permit record." };
     }
 }
+
+/**
+ * Update an existing physical Building Permit record in the archives.
+ */
+export async function updateArchivedBuildingPermit(formData: FormData) {
+    try {
+        const { user } = await assertEngineerSession();
+
+        const transactionId = (formData.get("transactionId") as string || "").trim();
+        if (!transactionId) {
+            return { success: false, error: "Transaction ID is required for updating." };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id: transactionId },
+            include: { buildingPermit: true }
+        });
+
+        if (!tx) {
+            return { success: false, error: "Archive record not found in the database." };
+        }
+
+        const permitNumber = (formData.get("permitNumber") as string)?.trim();
+        const firstName = (formData.get("firstName") as string)?.trim() || "";
+        const lastName = (formData.get("lastName") as string)?.trim() || "";
+        const applicantName = `${firstName} ${lastName}`.trim();
+
+        if (!permitNumber) {
+            return { success: false, error: "Official Permit Number is required." };
+        }
+
+        if (!firstName || !lastName) {
+            return { success: false, error: "Both Applicant First Name and Last Name are required." };
+        }
+
+        // Check for permit number conflict with other records
+        const conflict = await prisma.buildingPermit.findFirst({
+            where: {
+                permitNumber,
+                NOT: { transactionId }
+            }
+        });
+        if (conflict) {
+            return {
+                success: false,
+                error: `Permit number "${permitNumber}" is already in use by another record.`
+            };
+        }
+
+        const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
+        const email = (formData.get("email") as string)?.trim() || "";
+        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
+        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
+        const street = (formData.get("street") as string)?.trim() || "";
+        const houseNumber = (formData.get("houseNumber") as string)?.trim() || "";
+        const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
+
+        const projectType = (formData.get("projectType") as string)?.trim() || "Building Construction";
+        const occupancyUse = (formData.get("occupancyUse") as string)?.trim() || "Residential";
+        const estimatedCost = parseFloat((formData.get("estimatedCost") as string) || "0");
+        const totalFloors = (formData.get("totalFloors") as string)?.trim() || "1";
+        const isLotOwner = (formData.get("isLotOwner") as string)?.trim() || "Yes";
+        const remarks = (formData.get("remarks") as string)?.trim() || "";
+
+        const dateIssuedRaw = formData.get("dateIssued") as string;
+        const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : (tx.buildingPermit?.dateIssued || new Date());
+
+        // Process Documents
+        const documents: Record<string, string> = {};
+        let primaryDocumentUrl = tx.buildingPermit?.documentUrl || tx.eCopyUrl || null;
+
+        // 1. Process Main Permit Scan (New upload or retain existing)
+        const mainFile = formData.get("mainPermitFile") as File | null;
+        if (mainFile && mainFile instanceof File && mainFile.size > 0) {
+            const timestamp = Date.now();
+            const safeName = mainFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const path = `building-permits/archives/${timestamp}-PERMIT-${safeName}`;
+            const uploadedUrl = await uploadFile(mainFile, path);
+            if (uploadedUrl) {
+                primaryDocumentUrl = uploadedUrl;
+                documents["Official Signed Permit"] = uploadedUrl;
+            }
+        } else {
+            const existingMainUrl = (formData.get("existingMainUrl") as string || "").trim();
+            if (existingMainUrl) {
+                primaryDocumentUrl = existingMainUrl;
+                documents["Official Signed Permit"] = existingMainUrl;
+            }
+        }
+
+        // 2. Retain existing supplementary documents from JSON
+        const existingDocsJson = (formData.get("existingDocuments") as string || "").trim();
+        if (existingDocsJson) {
+            try {
+                const parsedExisting = JSON.parse(existingDocsJson);
+                if (Array.isArray(parsedExisting)) {
+                    parsedExisting.forEach((doc: any) => {
+                        if (doc.url && doc.url !== primaryDocumentUrl) {
+                            const label = doc.label || doc.title || "Attached Document";
+                            documents[label] = doc.url;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to parse existing documents JSON in Building Permit update:", e);
+            }
+        }
+
+        // 3. Process Newly Added Supplementary Documents
+        const attachedFiles = formData.getAll("attachedFiles");
+        const attachedLabels = formData.getAll("attachedLabels");
+
+        for (let i = 0; i < attachedFiles.length; i++) {
+            const file = attachedFiles[i];
+            const label = (attachedLabels[i] as string)?.trim() || `Attached Document ${i + 1}`;
+
+            if (file instanceof File && file.size > 0) {
+                const timestamp = Date.now();
+                const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+                const path = `building-permits/archives/${timestamp}-${i}-${safeName}`;
+                const url = await uploadFile(file, path);
+                if (url) {
+                    documents[label] = url;
+                }
+            }
+        }
+
+        // Update Resident Snapshot
+        const prevResSnap = (tx.residentSnapshot as any) || {};
+        const residentSnapshot = {
+            ...prevResSnap,
+            firstName,
+            lastName,
+            fullName: applicantName,
+            barangay,
+            municipality,
+            province,
+            contactNumber,
+            email,
+            houseNumber,
+            street,
+            address: fullLocation,
+        };
+
+        // Update Additional Data
+        const prevAddData = (tx.additionalData as any) || {};
+        const additionalData = {
+            ...prevAddData,
+            isPhysicalArchive: true,
+            sourceType: "PHYSICAL_COPY",
+            lastEditedBy: user.name || user.email || "Engineering Admin",
+            lastEditedAt: new Date().toISOString(),
+            remarks,
+            totalFloors,
+            isLotOwner,
+            documents,
+        };
+
+        const sanitizedAdditionalData = sanitizeObject(additionalData);
+        const sanitizedResidentSnapshot = sanitizeObject(residentSnapshot);
+
+        // Atomic Transaction Update
+        await prisma.$transaction([
+            prisma.buildingPermit.upsert({
+                where: { transactionId },
+                update: {
+                    permitNumber,
+                    applicantName,
+                    projectType,
+                    occupancyUse,
+                    location: fullLocation,
+                    estimatedCost,
+                    documentUrl: primaryDocumentUrl,
+                    dateIssued,
+                },
+                create: {
+                    transactionId,
+                    permitNumber,
+                    applicantName,
+                    projectType,
+                    occupancyUse,
+                    location: fullLocation,
+                    estimatedCost,
+                    documentUrl: primaryDocumentUrl,
+                    dateIssued,
+                    issuedBy: user.name || "Municipal Engineer",
+                }
+            }),
+            prisma.transaction.update({
+                where: { id: transactionId },
+                data: {
+                    residentSnapshot: sanitizedResidentSnapshot as any,
+                    additionalData: sanitizedAdditionalData as any,
+                    eCopyUrl: primaryDocumentUrl,
+                }
+            })
+        ]);
+
+        // Audit Trail Logging
+        await logActivity({
+            action: "UPDATE",
+            entityType: "BuildingPermit",
+            entityId: tx.buildingPermit?.id || transactionId,
+            entityName: `Permit #${permitNumber} (${applicantName})`,
+            description: `Updated archived Building Permit "${permitNumber}" details and documents.`,
+            metadata: {
+                updatedBy: user.name || user.email,
+                permitNumber,
+                applicantName,
+                transactionId,
+            }
+        });
+
+        try {
+            broadcastRealtimeUpdate({
+                type: "BUILDING_PERMIT_UPDATED",
+                transactionId,
+                permitNumber
+            });
+        } catch {
+            // Ignore broadcast error
+        }
+
+        revalidatePath("/admin/engineer");
+        revalidatePath("/admin/engineer/archive");
+
+        return {
+            success: true,
+            transactionId,
+            permitNumber
+        };
+    } catch (error: any) {
+        console.error("[updateArchivedBuildingPermit] Error:", error);
+        return { success: false, error: error.message || "Failed to update archived permit record." };
+    }
+}
+
