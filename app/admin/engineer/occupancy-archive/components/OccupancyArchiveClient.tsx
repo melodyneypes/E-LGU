@@ -27,6 +27,7 @@ import {
     Link2,
     Layers,
     ShieldCheck,
+    AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,14 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -584,21 +593,40 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
         setViewerOpen(true);
     };
 
-    // Soft delete action
-    const handleDeleteRecord = async (id: string, permitNumber: string) => {
-        if (!confirm(`Are you sure you want to cancel and remove archive record "${permitNumber}"?`)) {
-            return;
-        }
+    // Delete Confirmation Modal State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [recordToDelete, setRecordToDelete] = useState<{
+        id: string;
+        permitNumber: string;
+        applicantName: string;
+    } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Open delete confirmation modal
+    const handlePromptDelete = (item: { id: string; permitNumber: string; applicantName: string }) => {
+        setRecordToDelete(item);
+        setDeleteModalOpen(true);
+    };
+
+    // Execute synchronized delete
+    const handleConfirmDelete = async () => {
+        if (!recordToDelete) return;
+
+        setIsDeleting(true);
         try {
-            const res = await deleteArchivedOccupancyPermit(id);
+            const res = await deleteArchivedOccupancyPermit(recordToDelete.id);
             if (res.success) {
                 toast.success(res.message);
+                setDeleteModalOpen(false);
+                setRecordToDelete(null);
                 fetchData();
             } else {
-                toast.error(res.error || "Failed to cancel record.");
+                toast.error(res.error || "Failed to delete archive record.");
             }
         } catch {
-            toast.error("Error cancelling record.");
+            toast.error("An error occurred while deleting the archive record.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -1593,9 +1621,13 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        onClick={() => handleDeleteRecord(item.id, item.permitNumber)}
-                                                        className="h-8 w-8 text-slate-400 hover:text-red-500 rounded-lg"
-                                                        title="Cancel / Delete Physical Archive"
+                                                        onClick={() => handlePromptDelete({
+                                                            id: item.id,
+                                                            permitNumber: item.permitNumber,
+                                                            applicantName: item.applicantName,
+                                                        })}
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-500 rounded-lg cursor-pointer"
+                                                        title="Permanently Delete Archive Record"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
@@ -1746,6 +1778,91 @@ export default function OccupancyArchiveClient({ themeColor = "#2563eb" }: Occup
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Record Confirmation Modal */}
+            <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+                <AlertDialogContent className="max-w-md rounded-3xl p-6 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl">
+                    <AlertDialogHeader className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <AlertDialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                    Delete Archive Record
+                                </AlertDialogTitle>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                    This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3 pt-1 text-xs text-slate-600 dark:text-slate-300">
+                                <p>
+                                    Are you sure you want to permanently delete this archived Certificate of Occupancy?
+                                </p>
+                                {recordToDelete && (
+                                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#121622] border border-slate-200/80 dark:border-[#2a3040] space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Permit No.
+                                            </span>
+                                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                                {recordToDelete.permitNumber}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Applicant
+                                            </span>
+                                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                                                {recordToDelete.applicantName}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                <p className="text-[11px] text-rose-500/90 font-medium">
+                                    ⚠️ Both the transaction entry and the occupancy permit record will be deleted simultaneously from the database.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter className="flex items-center justify-end gap-2 pt-4 mt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setDeleteModalOpen(false);
+                                setRecordToDelete(null);
+                            }}
+                            disabled={isDeleting}
+                            className="rounded-xl h-10 px-5 text-xs font-bold uppercase"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleConfirmDelete}
+                            disabled={isDeleting}
+                            className="rounded-xl h-10 px-5 text-xs font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 flex items-center gap-2 cursor-pointer"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Deleting...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Confirm Delete</span>
+                                </>
+                            )}
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

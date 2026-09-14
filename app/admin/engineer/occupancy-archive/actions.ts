@@ -4,7 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 import { sanitizeObject } from "@/lib/validation";
 import { broadcastRealtimeUpdate } from "@/app/api/realtime/stream/route";
 import { logActivity } from "@/lib/audit";
@@ -568,7 +568,7 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
 }
 
 /**
- * Soft cancel or remove an archived occupancy record (Authorized Engineer / Admin).
+ * Synchronized atomic deletion of an archived occupancy record from both OccupancyPermit and Transaction tables.
  */
 export async function deleteArchivedOccupancyPermit(transactionId: string) {
     try {
@@ -580,41 +580,83 @@ export async function deleteArchivedOccupancyPermit(transactionId: string) {
         });
 
         if (!tx) {
-            return { success: false, error: "Record not found." };
+            return { success: false, error: "Record not found in the database." };
         }
 
-        await prisma.transaction.update({
-            where: { id: transactionId },
-            data: {
-                isCancelled: true,
-                status: "CANCELLED"
+        const permitNumber = tx.occupancyPermit?.permitNumber || "N/A";
+        const applicantName = tx.occupancyPermit?.applicantName || "N/A";
+        const opId = tx.occupancyPermit?.id;
+
+        // Collect all attached document URLs to clean up Supabase storage
+        const urlsToDelete: string[] = [];
+        if (tx.eCopyUrl) urlsToDelete.push(tx.eCopyUrl);
+        if (tx.occupancyPermit?.documentUrl) urlsToDelete.push(tx.occupancyPermit.documentUrl);
+
+        const addData = (tx.additionalData as any) || {};
+        if (Array.isArray(addData.documents)) {
+            addData.documents.forEach((d: any) => {
+                if (d?.url) urlsToDelete.push(d.url);
+            });
+        }
+
+        // Atomically delete from both OccupancyPermit and Transaction tables simultaneously
+        await prisma.$transaction([
+            prisma.occupancyPermit.deleteMany({
+                where: { transactionId }
+            }),
+            prisma.transaction.delete({
+                where: { id: transactionId }
+            })
+        ]);
+
+        // Clean up uploaded files in Supabase storage asynchronously
+        Promise.allSettled(urlsToDelete.map(url => deleteFileByUrl(url))).catch(err => {
+            console.error("Storage cleanup error on occupancy permit delete:", err);
+        });
+
+        // Audit Trail Logging
+        await logActivity({
+            action: "DELETE",
+            entityType: "OccupancyPermit",
+            entityId: opId || transactionId,
+            entityName: `Permit #${permitNumber} (${applicantName})`,
+            description: `Permanently deleted archived Occupancy Permit "${permitNumber}" and its Transaction record.`,
+            metadata: {
+                deletedBy: user.name || user.email,
+                permitNumber,
+                applicantName,
+                transactionId,
             }
         });
 
-        await logActivity({
-            action: "STATUS_CHANGE",
-            entityType: "OccupancyPermit",
-            entityId: tx.occupancyPermit?.id || tx.id,
-            entityName: `Permit #${tx.occupancyPermit?.permitNumber || tx.id}`,
-            description: `Cancelled archived Occupancy Permit "${tx.occupancyPermit?.permitNumber || tx.id}"`,
-            metadata: {
-                cancelledBy: user.name || user.email,
-                reason: "Administrative record cancellation"
-            }
-        });
+        // Broadcast Realtime Update
+        try {
+            await broadcastRealtimeUpdate({
+                entity: "OccupancyPermit",
+                action: "DELETE",
+                recordId: transactionId,
+                details: {
+                    permitNumber,
+                    applicantName,
+                }
+            });
+        } catch (e) {
+            console.error("Realtime broadcast error on delete:", e);
+        }
 
         revalidatePath("/admin/engineer/occupancy-archive");
+        revalidatePath("/admin/engineer");
 
         return {
             success: true,
-            message: "Archived occupancy permit successfully cancelled."
+            message: `Occupancy Permit "${permitNumber}" successfully deleted from archives.`
         };
 
     } catch (error: any) {
         console.error("Error deleting archived occupancy permit:", error);
         return {
             success: false,
-            error: error.message || "Failed to cancel record."
+            error: error.message || "Failed to delete record."
         };
     }
 }
