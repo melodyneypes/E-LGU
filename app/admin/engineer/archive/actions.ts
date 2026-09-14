@@ -4,7 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 import { sanitizeObject } from "@/lib/validation";
 import { broadcastRealtimeUpdate } from "@/app/api/realtime/stream/route";
 import { logActivity } from "@/lib/audit";
@@ -670,6 +670,26 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
         const sanitizedAdditionalData = sanitizeObject(additionalData);
         const sanitizedResidentSnapshot = sanitizeObject(residentSnapshot);
 
+        // Collect all previous file URLs before changes to identify orphans
+        const oldUrls: string[] = [];
+        if (tx.eCopyUrl) oldUrls.push(tx.eCopyUrl);
+        if (tx.buildingPermit?.documentUrl) oldUrls.push(tx.buildingPermit.documentUrl);
+        if (prevAddData.documents && typeof prevAddData.documents === "object") {
+            Object.values(prevAddData.documents).forEach((url: any) => {
+                if (typeof url === "string" && url) oldUrls.push(url);
+            });
+        }
+
+        // Set of URLs that are actively retained in the updated record
+        const retainedUrls = new Set<string>();
+        if (primaryDocumentUrl) retainedUrls.add(primaryDocumentUrl);
+        Object.values(documents).forEach((url) => {
+            if (typeof url === "string" && url) retainedUrls.add(url);
+        });
+
+        // Compute orphaned URLs that were replaced or removed by the user
+        const urlsToDelete = Array.from(new Set(oldUrls)).filter((url) => url && !retainedUrls.has(url));
+
         // Atomic Transaction Update
         await prisma.$transaction([
             prisma.buildingPermit.upsert({
@@ -706,6 +726,13 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
                 }
             })
         ]);
+
+        // Clean up orphaned/replaced files in Supabase storage asynchronously
+        if (urlsToDelete.length > 0) {
+            Promise.allSettled(urlsToDelete.map((url) => deleteFileByUrl(url))).catch((err) => {
+                console.error("[Storage Cleanup] Error removing replaced building permit files:", err);
+            });
+        }
 
         // Audit Trail Logging
         await logActivity({
