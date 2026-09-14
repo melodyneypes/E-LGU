@@ -853,6 +853,26 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
         const sanitizedAdditionalData = sanitizeObject(additionalData);
         const sanitizedResidentSnapshot = sanitizeObject(residentSnapshot);
 
+        // Collect all previous file URLs before changes to identify orphans
+        const oldUrls: string[] = [];
+        if (tx.eCopyUrl) oldUrls.push(tx.eCopyUrl);
+        if (tx.occupancyPermit?.documentUrl) oldUrls.push(tx.occupancyPermit.documentUrl);
+        if (Array.isArray(prevAddData.documents)) {
+            prevAddData.documents.forEach((d: any) => {
+                if (d?.url) oldUrls.push(d.url);
+            });
+        }
+
+        // Set of URLs that are still actively retained in the updated record
+        const retainedUrls = new Set<string>();
+        if (primaryDocumentUrl) retainedUrls.add(primaryDocumentUrl);
+        documents.forEach((d) => {
+            if (d.url) retainedUrls.add(d.url);
+        });
+
+        // Compute orphaned URLs that were replaced or removed by the user
+        const urlsToDelete = Array.from(new Set(oldUrls)).filter((url) => url && !retainedUrls.has(url));
+
         // Atomic Transaction Update
         await prisma.$transaction([
             prisma.occupancyPermit.upsert({
@@ -889,6 +909,13 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
                 }
             })
         ]);
+
+        // Clean up orphaned/replaced files in Supabase storage asynchronously
+        if (urlsToDelete.length > 0) {
+            Promise.allSettled(urlsToDelete.map((url) => deleteFileByUrl(url))).catch((err) => {
+                console.error("[Storage Cleanup] Error removing replaced occupancy permit files:", err);
+            });
+        }
 
         // Audit Trail Logging
         await logActivity({
