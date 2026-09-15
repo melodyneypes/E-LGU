@@ -28,8 +28,7 @@ import {
     FileUp,
     HelpCircle,
     BookOpen,
-    ScanText,
-    Wand2
+    ScanText
 } from "lucide-react";
 import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
@@ -344,10 +343,15 @@ export default function RegistrarArchiveClient({
                     return updated;
                 });
 
-                toast.success(`Document scanned successfully. Form fields have been auto-filled.`, {
-                    id: toastId,
-                    duration: 4000,
-                });
+                toast.success(
+                    countExtracted > 0
+                        ? `Document scanned successfully. Auto-filled ${countExtracted} fields.`
+                        : `Document scanned successfully. Form fields have been auto-filled.`,
+                    {
+                        id: toastId,
+                        duration: 4000,
+                    }
+                );
             } else {
                 toast.error(res.error || "Unable to read document cleanly. Please verify or input details manually.", {
                     id: toastId,

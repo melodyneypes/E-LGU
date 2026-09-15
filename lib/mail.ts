@@ -47,7 +47,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âœ“</span>
+                        <span style="color: white; font-size: 32px;">&#10003;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Registration Approved</h1>
                 </div>
@@ -58,7 +58,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: #166534; font-size: 13px; margin: 8px 0 0 0; opacity: 0.8;">You can now access all digital resident services through the portal.</p>
                 </div>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "REJECTED") {
@@ -70,7 +70,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                     <div style="text-align: center; margin-bottom: 32px;">
                         <div style="width: 64px; height: 64px; background: ${primaryRed}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                            <span style="color: white; font-size: 32px;">âœ—</span>
+                            <span style="color: white; font-size: 32px;">&#10007;</span>
                         </div>
                         <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Request Declined</h1>
                     </div>
@@ -83,7 +83,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     </div>` : ""}
                     <p style="color: #64748b; font-size: 13px;">Please re-submit your application with the corrected information to proceed.</p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal â€¢ Automated Notification</p>
+                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal &bull; Automated Notification</p>
                 </div>
             </div>`;
         } else {
@@ -93,7 +93,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                     <div style="text-align: center; margin-bottom: 32px;">
                         <div style="width: 64px; height: 64px; background: ${primaryRed}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                            <span style="color: white; font-size: 32px;">âœ—</span>
+                            <span style="color: white; font-size: 32px;">&#10007;</span>
                         </div>
                         <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Registration Update</h1>
                     </div>
@@ -106,7 +106,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     </div>` : ""}
                     <p style="color: #64748b; font-size: 13px;">Please re-submit your application with the corrected information to proceed.</p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal â€¢ Automated Notification</p>
+                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal &bull; Automated Notification</p>
                 </div>
             </div>`;
         }
@@ -119,7 +119,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryAmber}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âš ï¸</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Revision Required</h1>
                 </div>
@@ -132,7 +132,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
                 <p style="color: #64748b; font-size: 13px;">Please log in to your account, go to "My Requests", and resubmit the required corrections. <strong>This does not count as a rejection strike.</strong></p>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_PAYMENT") {
@@ -148,7 +148,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ’³</span>
+                        <span style="color: white; font-size: 32px;">&#128179;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Payment Ready</h1>
                 </div>
@@ -157,7 +157,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Final Assessment</p>
-                    <p style="color: #1e40af; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">â‚±${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
+                    <p style="color: #1e40af; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">&#8369;${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
                     ${feeBreakdown && feeBreakdown.length > 0 ? `
                     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #bfdbfe; text-align: left;">
                         <p style="color: #1e40af; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
@@ -165,7 +165,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                             ${feeBreakdown.map(fee => `
                             <tr>
                                 <td style="padding: 4px 0;">${fee.label}</td>
-                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">â‚±${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">&#8369;${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             </tr>`).join('')}
                         </table>
                     </div>` : ''}
@@ -186,7 +186,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${deptFooter} â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${deptFooter} &bull; Automated Notification</p>
             </div>
         </div>`;
         } else if (type === "FOR_CLAIM") {
@@ -207,7 +207,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸŽ«</span>
+                        <span style="color: white; font-size: 32px;">&#127915;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Document Ready for Claiming</h1>
                 </div>
@@ -232,7 +232,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                         ${isEngineeringPermit ? "" : `
                         <tr>
                             <td style="color: #64748b; padding: 4px 0;">Amount to Pay:</td>
-                            <td style="color: #1e293b; font-weight: 800; padding: 4px 0; font-size: 16px;">₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</td>
+                            <td style="color: #1e293b; font-weight: 800; padding: 4px 0; font-size: 16px;">&#8369;${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</td>
                         </tr>
                         `}
                     </table>
@@ -243,7 +243,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${footerLabel} • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${footerLabel} &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "RELEASED") {
@@ -255,7 +255,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ“„</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Document Officially Released</h1>
                 </div>
@@ -267,7 +267,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: #166534; font-size: 18px; font-weight: 900; margin: 0; letter-spacing: 0.1em;">REF: ${transactionId || "N/A"}</p>
                 </div>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Official Release Notice</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Official Release Notice</p>
             </div>
         </div>`;
     } else if (type === "DEACTIVATED") {
@@ -277,7 +277,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.1); border: 1px solid #fee2e2;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryRed}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âš ï¸</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #991b1b; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Account Deactivated</h1>
                 </div>
@@ -292,19 +292,19 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <p style="color: #64748b; font-size: 13px;">Please bring a valid Government ID for authentication. Access to all digital services is suspended until further notice.</p>
                 
                 <hr style="border: none; border-top: 1px solid #fecaca; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Security Protocol â€¢ Security Alert</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Security Protocol &bull; Security Alert</p>
             </div>
         </div>`;
     } else if (type === "IN_ROUTE") {
         const docName = serviceName || "Community Tax Certificate - Individual";
         const subjectDocName = serviceName || "Community Tax Certificate - Individual";
-        subject = `ðŸšš On the Way: Your ${subjectDocName} is Out for Delivery! - LGU ${municipalityName}`;
+        subject = `&#128666; On the Way: Your ${subjectDocName} is Out for Delivery! - LGU ${municipalityName}`;
         htmlBody = `
         <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸšš</span>
+                        <span style="color: white; font-size: 32px;">&#128666;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Delivery in Progress</h1>
                     <p style="color: #3b82f6; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Your Rider is on the way!</p>
@@ -316,11 +316,11 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: #0369a1; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.05em;">Payment Information</p>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="color: #0c4a6e; font-size: 14px; font-weight: 600;">Total Amount:</span>
-                        <span style="color: #0369a1; font-size: 24px; font-weight: 900;">â‚±${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</span>
+                        <span style="color: #0369a1; font-size: 24px; font-weight: 900;">&#8369;${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</span>
                     </div>
                     <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 12px; margin-top: 16px;">
                         <p style="color: #92400e; font-size: 12px; margin: 0; font-weight: 700; text-align: center;">
-                            ðŸ’¡ REMINDER: Please prepare the EXACT AMOUNT for a faster and contactless-ready transaction.
+                            &#128161; REMINDER: Please prepare the EXACT AMOUNT for a faster and contactless-ready transaction.
                         </p>
                     </div>
                 </div>
@@ -332,18 +332,18 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "NEW_PICKUP_ALERT") {
-        subject = `ðŸ“¦ New Delivery Job Alert - LGU ${municipalityName}`;
+        subject = `&#128230; New Delivery Job Alert - LGU ${municipalityName}`;
         console.log(`[MAIL] Setting subject for NEW_PICKUP_ALERT: ${subject}`);
         htmlBody = `
         <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ“¦</span>
+                        <span style="color: white; font-size: 32px;">&#128230;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">New Pickup Ready</h1>
                     <p style="color: ${primaryGreen}; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Logistics Fleet Notification</p>
@@ -372,7 +372,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics â€¢ Fleet Dispatch System</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics &bull; Fleet Dispatch System</p>
             </div>
         </div>`;
     } else if (type === "DISPUTE_APPROVED") {
@@ -383,7 +383,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ”„</span>
+                        <span style="color: white; font-size: 32px;">&#128260;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Request Approved</h1>
                 </div>
@@ -402,7 +402,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Official Notification</p>
             </div>
         </div>`;
     } else if (type === "PASSWORD_RESET") {
@@ -413,7 +413,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryIndigo}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ”‘</span>
+                        <span style="color: white; font-size: 32px;">&#128273;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Password Reset</h1>
                     <p style="color: #64748b; font-size: 13px; margin: 8px 0 0 0;">LGU ${municipalityName} Resident Portal</p>
@@ -427,7 +427,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 20px; margin: 32px 0;">
-                    <p style="color: #92400e; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; letter-spacing: 0.05em;">â± Important: Link expires in 15 minutes</p>
+                    <p style="color: #92400e; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; letter-spacing: 0.05em;"> Important: Link expires in 15 minutes</p>
                     <p style="color: #78350f; font-size: 13px; margin: 0; line-height: 1.5;">If you did not request a password reset, you can safely ignore this email. Your password will not be changed.</p>
                 </div>
 
@@ -437,7 +437,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal â€¢ Security Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal &bull; Security Notification</p>
             </div>
         </div>`;
     } else if (type === "DISPUTE_REJECTED") {
@@ -448,7 +448,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryRed}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âœ•</span>
+                        <span style="color: white; font-size: 32px;">&#10005;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Request Declined</h1>
                 </div>
@@ -463,7 +463,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <p style="color: #64748b; font-size: 13px;">The original transaction record remains final. If you have further questions, please visit the Municipal Treasury Office personally.</p>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Official Notification</p>
             </div>
         </div>`;
     } else if (type === "PROCESSING") {
@@ -474,7 +474,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âš™ï¸</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Request in Process</h1>
                 </div>
@@ -493,7 +493,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} â€¢ Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} &bull; Official Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_REINSPECTION" && serviceName?.toLowerCase().includes("business")) {
@@ -503,7 +503,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âœ“</span>
+                        <span style="color: white; font-size: 32px;">&#10003;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Payment Received</h1>
                     <p style="color: ${primaryGreen}; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Treasury Verification Complete</p>
@@ -517,7 +517,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
                 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Official Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_INSPECTION" || type === "FOR_REINSPECTION") {
@@ -529,7 +529,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryAmber}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ”Ž</span>
+                        <span style="color: white; font-size: 32px;">&#128269;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">For ${inspectionType}</h1>
                 </div>
@@ -548,7 +548,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} â€¢ Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} &bull; Official Notification</p>
             </div>
         </div>`;
     } else if (type === "EVALUATED") {
@@ -578,7 +578,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "UNPAID") {
@@ -588,7 +588,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryRed}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ’³</span>
+                        <span style="color: white; font-size: 32px;">&#128179;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Payment Required</h1>
                 </div>
@@ -597,7 +597,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #991b1b; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Amount Due</p>
-                    <p style="color: #991b1b; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">â‚±${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
+                    <p style="color: #991b1b; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">&#8369;${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
                     ${feeBreakdown && feeBreakdown.length > 0 ? `
                     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #fecaca; text-align: left;">
                         <p style="color: #991b1b; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
@@ -605,7 +605,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                             ${feeBreakdown.map(fee => `
                             <tr>
                                 <td style="padding: 4px 0;">${fee.label}</td>
-                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">â‚±${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">&#8369;${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             </tr>`).join('')}
                         </table>
                     </div>` : ''}
@@ -619,7 +619,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "PAID") {
@@ -629,7 +629,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryGreen}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">âœ”ï¸</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Payment Confirmed</h1>
                 </div>
@@ -638,12 +638,12 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 
                 <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #166534; font-size: 14px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Payment Details</p>
-                    <p style="color: #166534; font-size: 24px; font-weight: 900; margin: 8px 0;">â‚±${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
+                    <p style="color: #166534; font-size: 24px; font-weight: 900; margin: 8px 0;">&#8369;${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
                     <p style="color: #15803d; font-size: 13px; margin: 0; opacity: 0.8;">Your document will now be prepared for release or delivery depending on your chosen method.</p>
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department â€¢ Official Receipt Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department &bull; Official Receipt Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_PICKING") {
@@ -653,7 +653,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ–¨ï¸</span>
+                        <span style="color: white; font-size: 32px;">&#128196;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Document Preparation</h1>
                 </div>
@@ -666,7 +666,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} &bull; Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "COMMUNITY_REPORT_SUBMITTED") {
@@ -676,7 +676,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ“‹</span>
+                        <span style="color: white; font-size: 32px;">&#128203;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Report Received</h1>
                     <p style="color: #3b82f6; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Community Concern Submission</p>
@@ -701,7 +701,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </p>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">LGU ${municipalityName} Community Services â€¢ Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">LGU ${municipalityName} Community Services &bull; Automated Notification</p>
             </div>
         </div>`;
     }
