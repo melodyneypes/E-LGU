@@ -1597,9 +1597,9 @@ export default function RegistrarArchiveClient({
                             <div className="flex items-start justify-between border-b pb-4">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h3 className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                                        <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white font-mono">
                                             #{viewRecord.registryNo}
-                                        </h3>
+                                        </DialogTitle>
                                         <span className="text-xs px-2 py-0.5 rounded-full font-bold uppercase bg-blue-50 text-blue-700">
                                             {viewRecord.archiveType}
                                         </span>
@@ -1700,9 +1700,9 @@ export default function RegistrarArchiveClient({
                             <BookOpen className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                            <DialogTitle className="text-lg font-black text-slate-900 dark:text-white">
                                 Scanning Best Practices
-                            </h3>
+                            </DialogTitle>
                             <p className="text-xs text-slate-500 mt-1">
                                 Tips for digitizing historical Civil Registry books and certificates.
                             </p>
