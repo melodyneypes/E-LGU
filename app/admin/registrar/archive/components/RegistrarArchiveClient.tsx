@@ -5,7 +5,6 @@ import {
     getArchivedRegistrarRecords,
     createArchivedRegistrarRecord,
     updateArchivedRegistrarRecord,
-    deleteArchivedRegistrarRecord,
     RegistryCategory
 } from "../actions";
 import {
@@ -25,12 +24,9 @@ import {
     UploadCloud,
     Loader2,
     Filter,
-    Clock,
     FileUp,
     HelpCircle,
-    Calendar,
-    BookOpen,
-    Users
+    BookOpen
 } from "lucide-react";
 import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
@@ -478,26 +474,6 @@ export default function RegistrarArchiveClient({
             toast.error("A network or server error occurred.");
         } finally {
             setSubmitting(false);
-        }
-    };
-
-    // Delete Record
-    const handleDeleteRecord = async (id: string, regNo: string) => {
-        if (!confirm(`Are you sure you want to delete Registry Record #${regNo}? All uploaded scanned copies will be purged from storage.`)) {
-            return;
-        }
-
-        try {
-            const res = await deleteArchivedRegistrarRecord(id);
-            if (res.success) {
-                toast.success(res.message);
-                fetchRecords();
-                if (isViewOpen) setIsViewOpen(false);
-            } else {
-                toast.error(res.error || "Failed to delete record.");
-            }
-        } catch (err) {
-            toast.error("Failed to delete record.");
         }
     };
 
