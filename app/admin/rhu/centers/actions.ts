@@ -95,9 +95,31 @@ async function checkEmailUniqueness(email: string, existingUserId?: string | nul
         const raw: any[] = await prisma.$queryRaw`SELECT "id" FROM "User" WHERE "email" = ${cleanEmail}`;
         if (raw && raw.length > 0) {
             const existingUser = raw[0];
-            if (!existingUserId || existingUser.id !== existingUserId) {
-                return { isUnique: false, error: `The email address "${cleanEmail}" is already in use by another account.` };
+            if (existingUserId && existingUser.id === existingUserId) {
+                return { isUnique: true, userId: existingUser.id };
             }
+
+            // Check if this user is already claimed by an active RHUMedicalPersonnel
+            const linkedPersonnel: any[] = await prisma.$queryRaw`
+                SELECT "id", "name" FROM "RHUMedicalPersonnel" 
+                WHERE ("userId" = ${existingUser.id} OR LOWER("accountEmail") = ${cleanEmail})
+                  AND (${existingUserId} IS NULL OR "userId" != ${existingUserId})
+            `;
+            if (linkedPersonnel && linkedPersonnel.length > 0) {
+                return { isUnique: false, error: `The email address "${cleanEmail}" is already linked to personnel "${linkedPersonnel[0].name}".` };
+            }
+
+            // Check if linked to an active RHUHealthCenter
+            const linkedCenter: any[] = await prisma.$queryRaw`
+                SELECT "id", "name" FROM "RHUHealthCenter" 
+                WHERE ("userId" = ${existingUser.id} OR LOWER("accountEmail") = ${cleanEmail})
+            `;
+            if (linkedCenter && linkedCenter.length > 0) {
+                return { isUnique: false, error: `The email address "${cleanEmail}" is already linked as head of "${linkedCenter[0].name}".` };
+            }
+
+            // Account exists but has no active personnel or center bindings (e.g. from previous attempt) - allow linking it!
+            return { isUnique: true, userId: existingUser.id };
         }
     } catch (err) {
         console.error("Error checking email uniqueness:", err);
@@ -118,15 +140,16 @@ export async function createOrUpdateLinkedUserAccount(params: {
     name: string;
     email: string;
     password?: string;
-    role: "RHU_CENTER_ADMIN" | "RHU_STAFF" | "RHU_DOCTOR" | "RHU_PHARMACY";
+    role: "RHU_CENTER_ADMIN" | "RHU_STAFF" | "RHU_DOCTOR" | "RHU_PHARMACY" | "ASST_SEC";
     department?: string;
     managedBarangay?: string;
+    assignedDoctorId?: string | null;
 }) {
     if (!params.email || !params.email.trim()) return null;
     const cleanEmail = params.email.trim().toLowerCase();
 
     const targetRole = params.role || "RHU_CENTER_ADMIN";
-    const defaultDept = targetRole === "RHU_CENTER_ADMIN" ? "RHU Center Medical Admin" : "RHU Medical Staff";
+    const defaultDept = targetRole === "RHU_CENTER_ADMIN" ? "RHU Center Medical Admin" : (targetRole === "ASST_SEC" ? "RHU Medical Secretary / Doctor's Assistant" : "RHU Medical Staff");
 
     // Ensure PostgreSQL enum has all values
     try {
@@ -134,6 +157,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_DOCTOR';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_STAFF';`);
         await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'RHU_PHARMACY';`);
+        await prisma.$executeRawUnsafe(`ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'ASST_SEC';`);
     } catch { }
 
     let user: any = null;
@@ -152,6 +176,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
 
     const deptClean = params.department || defaultDept;
     const brgyClean = params.managedBarangay || null;
+    const docIdClean = params.assignedDoctorId || null;
 
     if (user) {
         if (params.password && params.password.trim().length >= 6) {
@@ -163,6 +188,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
                     "role" = ${targetRole}::"UserRole",
                     "department" = ${deptClean},
                     "managedBarangay" = ${brgyClean},
+                    "assignedDoctorId" = COALESCE(${docIdClean}, "assignedDoctorId"),
                     "password" = ${hashed},
                     "isPasswordChanged" = true,
                     "updatedAt" = NOW()
@@ -176,6 +202,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
                     "role" = ${targetRole}::"UserRole",
                     "department" = ${deptClean},
                     "managedBarangay" = ${brgyClean},
+                    "assignedDoctorId" = COALESCE(${docIdClean}, "assignedDoctorId"),
                     "updatedAt" = NOW()
                 WHERE "id" = ${user.id}
             `;
@@ -190,9 +217,9 @@ export async function createOrUpdateLinkedUserAccount(params: {
 
         await prisma.$executeRaw`
             INSERT INTO "User" (
-                "id", "name", "email", "password", "role", "department", "managedBarangay", "isEmailVerified", "isPasswordChanged", "createdAt", "updatedAt"
+                "id", "name", "email", "password", "role", "department", "managedBarangay", "assignedDoctorId", "isEmailVerified", "isPasswordChanged", "createdAt", "updatedAt"
             ) VALUES (
-                ${newId}, ${params.name}, ${cleanEmail}, ${hashedPassword}, ${targetRole}::"UserRole", ${deptClean}, ${brgyClean}, true, true, NOW(), NOW()
+                ${newId}, ${params.name}, ${cleanEmail}, ${hashedPassword}, ${targetRole}::"UserRole", ${deptClean}, ${brgyClean}, ${docIdClean}, true, true, NOW(), NOW()
             )
         `;
         return newId;
@@ -207,6 +234,7 @@ export async function ensureHealthCenterTableExists() {
         try {
             await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'ADMIN';`);
             await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'PHARMACY';`);
+            await prisma.$executeRawUnsafe(`ALTER TYPE "MedicalRole" ADD VALUE IF NOT EXISTS 'SECRETARY';`);
         } catch { }
 
         await prisma.$executeRaw`
@@ -869,10 +897,14 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
             return { success: false, error: "Medical role is required" };
         }
 
+        let linkedUserId: string | null = input.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
-            const check = await checkEmailUniqueness(input.accountEmail);
+            const check = await checkEmailUniqueness(input.accountEmail, input.userId);
             if (!check.isUnique) {
                 return { success: false, error: check.error };
+            }
+            if (check.userId) {
+                linkedUserId = check.userId;
             }
         }
 
@@ -889,24 +921,60 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
         const centerIdClean = input.healthCenterId && input.healthCenterId !== "NONE" ? input.healthCenterId : null;
         const accountEmailClean = input.accountEmail && input.accountEmail.trim() ? input.accountEmail.trim() : null;
 
-        let linkedUserId: string | null = null;
         if (input.accountEmail && input.accountEmail.trim()) {
-            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
+            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" | "ASST_SEC" = "RHU_STAFF";
             const roleUpper = (roleClean || "").toUpperCase();
+            let doctorIdToAssign: string | null = null;
+
             if (roleUpper === "ADMIN" || roleUpper.includes("ADMIN")) {
                 userRole = "RHU_CENTER_ADMIN";
             } else if (roleUpper === "PHARMACY" || roleUpper.includes("PHARMACY")) {
                 userRole = "RHU_PHARMACY";
+            } else if (roleUpper === "DOCTOR" || roleUpper.includes("DOCTOR") || roleUpper.includes("PHYSICIAN")) {
+                userRole = "RHU_DOCTOR";
+            } else if (roleUpper === "SECRETARY" || roleUpper.includes("SECRETARY") || roleUpper.includes("ASST_SEC")) {
+                userRole = "ASST_SEC";
+                if (centerIdClean) {
+                    try {
+                        const docPersonnel: any[] = await prisma.$queryRaw`
+                            SELECT "userId" FROM "RHUMedicalPersonnel"
+                            WHERE "healthCenterId" = ${centerIdClean} AND ("role"::text = 'DOCTOR' OR "role"::text = 'PHYSICIAN') AND "userId" IS NOT NULL
+                            LIMIT 1
+                        `;
+                        if (docPersonnel && docPersonnel[0]?.userId) {
+                            doctorIdToAssign = docPersonnel[0].userId;
+                        } else {
+                            const centerRow: any[] = await prisma.$queryRaw`
+                                SELECT "userId" FROM "RHUHealthCenter" WHERE "id" = ${centerIdClean} LIMIT 1
+                            `;
+                            if (centerRow && centerRow[0]?.userId) {
+                                doctorIdToAssign = centerRow[0].userId;
+                            }
+                        }
+                    } catch {}
+                }
+                if (!doctorIdToAssign) {
+                    try {
+                        const anyDoc: any[] = await prisma.$queryRaw`
+                            SELECT "id" FROM "User" WHERE "role"::text = 'RHU_DOCTOR' LIMIT 1
+                        `;
+                        if (anyDoc && anyDoc[0]?.id) {
+                            doctorIdToAssign = anyDoc[0].id;
+                        }
+                    } catch {}
+                }
             } else {
                 userRole = "RHU_STAFF";
             }
+
             linkedUserId = await createOrUpdateLinkedUserAccount({
-                existingUserId: input.userId,
+                existingUserId: linkedUserId,
                 name: nameClean,
                 email: input.accountEmail,
                 password: input.accountPassword,
                 role: userRole,
-                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : `RHU Medical Staff (${roleClean})`)
+                assignedDoctorId: doctorIdToAssign,
+                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : (userRole === "ASST_SEC" ? "RHU Medical Secretary / Doctor's Assistant" : `RHU Medical Staff (${roleClean})`))
             });
         }
 
@@ -939,13 +1007,23 @@ export async function createRHUMedicalPersonnel(input: RHUMedicalPersonnelInput)
         }
 
         if (!createdSuccess) {
-            await prisma.$executeRaw`
-                INSERT INTO "RHUMedicalPersonnel" (
-                    "id", "name", "role", "specialization", "licenseNumber", "contactNumber", "email", "schedule", "assignedServices", "status", "healthCenterId", "accountEmail", "userId", "createdAt", "updatedAt"
-                ) VALUES (
-                    ${id}, ${nameClean}, ${roleClean}, ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
-                )
-            `;
+            try {
+                await prisma.$executeRaw`
+                    INSERT INTO "RHUMedicalPersonnel" (
+                        "id", "name", "role", "specialization", "licenseNumber", "contactNumber", "email", "schedule", "assignedServices", "status", "healthCenterId", "accountEmail", "userId", "createdAt", "updatedAt"
+                    ) VALUES (
+                        ${id}, ${nameClean}, ${roleClean}::"MedicalRole", ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
+                    )
+                `;
+            } catch (_rawErr) {
+                await prisma.$executeRaw`
+                    INSERT INTO "RHUMedicalPersonnel" (
+                        "id", "name", "role", "specialization", "licenseNumber", "contactNumber", "email", "schedule", "assignedServices", "status", "healthCenterId", "accountEmail", "userId", "createdAt", "updatedAt"
+                    ) VALUES (
+                        ${id}, ${nameClean}, ${roleClean}, ${specClean}, ${licenseClean}, ${contactClean}, ${emailClean}, ${schedClean}, ${servicesClean}, ${statusClean}, ${centerIdClean}, ${accountEmailClean}, ${linkedUserId}, NOW(), NOW()
+                    )
+                `;
+            }
         }
 
         if (centerIdClean && servicesClean) {
@@ -976,10 +1054,14 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
         } catch { }
         const currentUserId = input.userId || existingPersonnel?.userId || null;
 
+        let linkedUserId: string | null = input.userId || existingPersonnel?.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
             const check = await checkEmailUniqueness(input.accountEmail, currentUserId);
             if (!check.isUnique) {
                 return { success: false, error: check.error };
+            }
+            if (check.userId) {
+                linkedUserId = check.userId;
             }
         }
 
@@ -997,25 +1079,62 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
             ? (input.accountEmail && input.accountEmail.trim() ? input.accountEmail.trim() : null)
             : undefined;
 
-        let linkedUserId: string | null = input.userId || null;
         if (input.accountEmail && input.accountEmail.trim()) {
             const roleToMap = input.role || existingPersonnel?.role || "DOCTOR";
             const roleUpper = (roleToMap || "").toUpperCase();
-            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" = "RHU_STAFF";
+            let userRole: "RHU_CENTER_ADMIN" | "RHU_DOCTOR" | "RHU_STAFF" | "RHU_PHARMACY" | "ASST_SEC" = "RHU_STAFF";
+            let doctorIdToAssign: string | null = null;
+
             if (roleUpper === "ADMIN" || roleUpper.includes("ADMIN")) {
                 userRole = "RHU_CENTER_ADMIN";
             } else if (roleUpper === "PHARMACY" || roleUpper.includes("PHARMACY")) {
                 userRole = "RHU_PHARMACY";
+            } else if (roleUpper === "DOCTOR" || roleUpper.includes("DOCTOR") || roleUpper.includes("PHYSICIAN")) {
+                userRole = "RHU_DOCTOR";
+            } else if (roleUpper === "SECRETARY" || roleUpper.includes("SECRETARY") || roleUpper.includes("ASST_SEC")) {
+                userRole = "ASST_SEC";
+                const targetCenterId = centerIdClean !== undefined ? centerIdClean : existingPersonnel?.healthCenterId;
+                if (targetCenterId) {
+                    try {
+                        const docPersonnel: any[] = await prisma.$queryRaw`
+                            SELECT "userId" FROM "RHUMedicalPersonnel"
+                            WHERE "healthCenterId" = ${targetCenterId} AND ("role"::text = 'DOCTOR' OR "role"::text = 'PHYSICIAN') AND "userId" IS NOT NULL
+                            LIMIT 1
+                        `;
+                        if (docPersonnel && docPersonnel[0]?.userId) {
+                            doctorIdToAssign = docPersonnel[0].userId;
+                        } else {
+                            const centerRow: any[] = await prisma.$queryRaw`
+                                SELECT "userId" FROM "RHUHealthCenter" WHERE "id" = ${targetCenterId} LIMIT 1
+                            `;
+                            if (centerRow && centerRow[0]?.userId) {
+                                doctorIdToAssign = centerRow[0].userId;
+                            }
+                        }
+                    } catch {}
+                }
+                if (!doctorIdToAssign) {
+                    try {
+                        const anyDoc: any[] = await prisma.$queryRaw`
+                            SELECT "id" FROM "User" WHERE "role"::text = 'RHU_DOCTOR' LIMIT 1
+                        `;
+                        if (anyDoc && anyDoc[0]?.id) {
+                            doctorIdToAssign = anyDoc[0].id;
+                        }
+                    } catch {}
+                }
             } else {
                 userRole = "RHU_STAFF";
             }
+
             linkedUserId = await createOrUpdateLinkedUserAccount({
-                existingUserId: input.userId,
+                existingUserId: linkedUserId,
                 name: input.name || existingPersonnel?.name || "Medical Personnel",
                 email: input.accountEmail,
                 password: input.accountPassword,
                 role: userRole,
-                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : `RHU Medical Staff (${roleToMap})`)
+                assignedDoctorId: doctorIdToAssign,
+                department: roleUpper === "ADMIN" ? "RHU Center Medical Admin" : (roleUpper === "PHARMACY" ? "RHU Center Pharmacy" : (userRole === "ASST_SEC" ? "RHU Medical Secretary / Doctor's Assistant" : `RHU Medical Staff (${roleToMap})`))
             });
         } else if (input.accountEmail !== undefined && (!input.accountEmail || !input.accountEmail.trim())) {
             linkedUserId = null;
@@ -1051,23 +1170,43 @@ export async function updateRHUMedicalPersonnel(id: string, input: Partial<RHUMe
         }
 
         if (!updateSuccess) {
-            await prisma.$executeRaw`
-                UPDATE "RHUMedicalPersonnel"
-                SET "name" = COALESCE(${nameClean}, "name"),
-                    "role" = COALESCE(${roleClean}, "role"),
-                    "specialization" = ${specClean !== undefined ? specClean : null},
-                    "licenseNumber" = ${licenseClean !== undefined ? licenseClean : null},
-                    "contactNumber" = ${contactClean !== undefined ? contactClean : null},
-                    "email" = ${emailClean !== undefined ? emailClean : null},
-                    "schedule" = ${schedClean !== undefined ? schedClean : null},
-                    "assignedServices" = ${servicesClean !== undefined ? servicesClean : null},
-                    "status" = COALESCE(${statusClean}, "status"),
-                    "healthCenterId" = ${centerIdClean !== undefined ? centerIdClean : null},
-                    "accountEmail" = ${accountEmailClean !== undefined ? accountEmailClean : null},
-                    "userId" = ${linkedUserId !== undefined ? linkedUserId : null},
-                    "updatedAt" = NOW()
-                WHERE "id" = ${id}
-            `;
+            try {
+                await prisma.$executeRaw`
+                    UPDATE "RHUMedicalPersonnel"
+                    SET "name" = COALESCE(${nameClean}, "name"),
+                        "role" = COALESCE(${roleClean}::"MedicalRole", "role"),
+                        "specialization" = ${specClean !== undefined ? specClean : null},
+                        "licenseNumber" = ${licenseClean !== undefined ? licenseClean : null},
+                        "contactNumber" = ${contactClean !== undefined ? contactClean : null},
+                        "email" = ${emailClean !== undefined ? emailClean : null},
+                        "schedule" = ${schedClean !== undefined ? schedClean : null},
+                        "assignedServices" = ${servicesClean !== undefined ? servicesClean : null},
+                        "status" = COALESCE(${statusClean}, "status"),
+                        "healthCenterId" = ${centerIdClean !== undefined ? centerIdClean : null},
+                        "accountEmail" = ${accountEmailClean !== undefined ? accountEmailClean : null},
+                        "userId" = ${linkedUserId !== undefined ? linkedUserId : null},
+                        "updatedAt" = NOW()
+                    WHERE "id" = ${id}
+                `;
+            } catch (_rawErr) {
+                await prisma.$executeRaw`
+                    UPDATE "RHUMedicalPersonnel"
+                    SET "name" = COALESCE(${nameClean}, "name"),
+                        "role" = COALESCE(${roleClean}, "role"),
+                        "specialization" = ${specClean !== undefined ? specClean : null},
+                        "licenseNumber" = ${licenseClean !== undefined ? licenseClean : null},
+                        "contactNumber" = ${contactClean !== undefined ? contactClean : null},
+                        "email" = ${emailClean !== undefined ? emailClean : null},
+                        "schedule" = ${schedClean !== undefined ? schedClean : null},
+                        "assignedServices" = ${servicesClean !== undefined ? servicesClean : null},
+                        "status" = COALESCE(${statusClean}, "status"),
+                        "healthCenterId" = ${centerIdClean !== undefined ? centerIdClean : null},
+                        "accountEmail" = ${accountEmailClean !== undefined ? accountEmailClean : null},
+                        "userId" = ${linkedUserId !== undefined ? linkedUserId : null},
+                        "updatedAt" = NOW()
+                    WHERE "id" = ${id}
+                `;
+            }
         }
 
         if (servicesClean) {

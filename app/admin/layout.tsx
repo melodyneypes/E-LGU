@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "./components/AdminShell";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import prisma from "@/lib/db/prisma";
-import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
+import { getMatchedCenterForUser, getRHUCheckedInVitalsCount } from "@/app/admin/rhu/actions";
 import { getRHUEquipmentNotificationCount } from "@/app/admin/rhu/equipment/actions";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 export const dynamic = "force-dynamic";
@@ -35,7 +35,8 @@ export default async function AdminLayout({
         "RHU_DOCTOR",
         "RHU_STAFF",
         "RHU_PHARMACY",
-        "ASSESSOR"
+        "ASSESSOR",
+        "ASST_SEC"
     ].includes(role || "") || department.includes("MDRRMO") || department.includes("DISASTER") || department === "LGU";
 
     if (!isAllowedAdmin) {
@@ -69,12 +70,32 @@ export default async function AdminLayout({
     let lcrTransactions: any[] = [];
     let rhuCenterName: string | null = null;
 
+    const isRhuRole = [
+        "ADMIN",
+        "RHU_ADMIN",
+        "RHU_CENTER_ADMIN",
+        "RHU_DOCTOR",
+        "RHU_STAFF",
+        "RHU_PHARMACY"
+    ].includes(role || "");
+
+    const isLcrRole = [
+        "ADMIN",
+        "ADMIN_AIDE",
+        "ASST_SEC"
+    ].includes(role || "") || department.includes("REGISTRAR") || department.includes("LCR");
+
+    const isReportsRole = isBarangayAdmin || [
+        "ADMIN",
+        "MDRRMO_ADMIN"
+    ].includes(role || "") || department.includes("MDRRMO") || department.includes("DISASTER");
+
     try {
         const [repCnt, resCnt, trsCnt, lcrTx, matchedCenter] = await Promise.all([
-            prisma.report.count({ where: reportsWhere }).catch(() => 0),
-            prisma.resident.count({ where: residentsWhere }).catch(() => 0),
-            prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0),
-            prisma.transaction.findMany({
+            isReportsRole ? prisma.report.count({ where: reportsWhere }).catch(() => 0) : Promise.resolve(0),
+            isReportsRole ? prisma.resident.count({ where: residentsWhere }).catch(() => 0) : Promise.resolve(0),
+            (role === "ADMIN" || role === "TREASURY_STAFF") ? prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0) : Promise.resolve(0),
+            isLcrRole ? prisma.transaction.findMany({
                 where: {
                     status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
                     isCancelled: false,
@@ -91,8 +112,8 @@ export default async function AdminLayout({
                     updatedAt: true,
                     type: { select: { code: true } }
                 }
-            }).catch(() => []),
-            session?.user ? getMatchedCenterForUser(session.user).catch(() => null) : Promise.resolve(null)
+            }).catch(() => []) : Promise.resolve([]),
+            (isRhuRole && session?.user) ? getMatchedCenterForUser(session.user).catch(() => null) : Promise.resolve(null)
         ]);
         pendingReportsCount = repCnt;
         pendingResidentsCount = resCnt;
@@ -123,7 +144,7 @@ export default async function AdminLayout({
     };
 
     const unviewedLcrCounts: Record<string, number> = {};
-    if (lcrTransactions) {
+    if (lcrTransactions && lcrTransactions.length > 0) {
         for (const tx of lcrTransactions) {
             const code = tx.type?.code || "";
             const category = codeToCategory[code];
@@ -134,12 +155,24 @@ export default async function AdminLayout({
     }
 
     let rhuEquipmentCount = 0;
-    try {
-        const rhuNotificationRes = await getRHUEquipmentNotificationCount().catch(() => null);
-        if (rhuNotificationRes?.success) {
-            rhuEquipmentCount = rhuNotificationRes.count;
-        }
-    } catch {}
+    if (isRhuRole) {
+        try {
+            const rhuNotificationRes = await getRHUEquipmentNotificationCount().catch(() => null);
+            if (rhuNotificationRes?.success) {
+                rhuEquipmentCount = rhuNotificationRes.count;
+            }
+        } catch {}
+    }
+
+    let rhuVitalsCount = 0;
+    if (isRhuRole) {
+        try {
+            const vitalsRes = await getRHUCheckedInVitalsCount().catch(() => null);
+            if (vitalsRes?.success) {
+                rhuVitalsCount = vitalsRes.count;
+            }
+        } catch {}
+    }
 
     return (
         <ThemeProvider themeColor={settings.get("theme_color") || "#2563eb"}>
@@ -159,6 +192,7 @@ export default async function AdminLayout({
                     unviewedLcrCounts={unviewedLcrCounts}
                     rhuCenterName={rhuCenterName}
                     rhuEquipmentCount={rhuEquipmentCount}
+                    rhuVitalsCount={rhuVitalsCount}
                 >
                     {children}
                 </AdminShell>

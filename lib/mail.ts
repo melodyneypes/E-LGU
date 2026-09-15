@@ -719,6 +719,9 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 user: emailUser,
                 pass: sanitizedPass,
             },
+            connectionTimeout: 4000,
+            greetingTimeout: 4000,
+            socketTimeout: 4000,
         });
 
         const mailOptions = {

@@ -40,8 +40,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-import { Checkbox } from "@/components/ui/checkbox";
 import { getEngineeringPermitLabel } from "@/lib/transactions/engineering-permit";
+import { cn } from "@/lib/utils";
 
 const formatNumberWithCommas = (value: string | number) => {
     if (value === undefined || value === null || value === "") return "";
@@ -76,13 +76,16 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     // Fee form state
     const [buildingFee, setBuildingFee] = useState<string>("");
-    const [zoningVisibleDocs, setZoningVisibleDocs] = useState<string[]>([]);
-    const [bfpVisibleDocs, setBfpVisibleDocs] = useState<string[]>([]);
+    const [zoningVisibleDocs] = useState<string[]>([]);
+    const [bfpVisibleDocs] = useState<string[]>([]);
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [, setECopyFile] = useState<File | null>(null);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
     const eCopyInputRef = useRef<HTMLInputElement | null>(null);
+    const feeAssessmentCardRef = useRef<HTMLDivElement>(null);
+    const buildingFeeInputRef = useRef<HTMLInputElement>(null);
 
     // Modals state
     const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -96,6 +99,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
     const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
     const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
+    const isDispatched = Boolean(engineerEndorsedToZoning && bfpSubmitted) || Boolean(feeAssessment?.engineeringApproved);
     const bfpAcknowledged = transaction?.additionalData?.bfpStatus === "ACKNOWLEDGED";
     const bfpAcknowledgedAt = transaction?.additionalData?.bfpAcknowledgedAt || transaction?.additionalData?.bfpApprovedAt;
     const zoningClearanceReceived = Boolean(transaction?.additionalData?.zoningClearanceUrl || zoningEndorsed);
@@ -126,7 +130,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             text: `${String(days).padStart(2, "0")}D ${String(hours).padStart(2, "0")}H ${String(minutes).padStart(2, "0")}M ${String(seconds).padStart(2, "0")}S`
         };
     }, [bfpAcknowledgedAt, now]);
-    const paymentEndorsementReady = Boolean((bfpClearanceReceived || bfpCountdown?.expired) && Number(buildingFee) > 0 && zoningPaymentTotal > 0);
+    const paymentEndorsementReady = Boolean((bfpClearanceReceived || bfpCountdown?.expired) && Number(buildingFee) > 0 && zoningPaymentTotal > 0 && zoningEndorsed);
 
     const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
     const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
@@ -261,39 +265,59 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     }, [fetchTransaction]);
 
     const handleEndorse = async () => {
+        if (isDispatched) {
+            setHasAttemptedSubmit(true);
+
+            const hasInvalidCharge = engineerMunicipalCharges.some(
+                c => (c.name.trim() !== "" || c.amount.trim() !== "") && (!c.name.trim() || !c.amount || Number(c.amount) <= 0)
+            );
+
+            if (!paymentEndorsementReady || hasInvalidCharge) {
+                if (!buildingFee || Number(buildingFee) <= 0) {
+                    toast.error(`Please specify the ${permitLabel} Fee.`);
+                    feeAssessmentCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    buildingFeeInputRef.current?.focus();
+                } else if (hasInvalidCharge) {
+                    toast.error("Please complete all added municipal charges with valid names and amounts.");
+                    feeAssessmentCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                } else if (!zoningEndorsed) {
+                    toast.error("Awaiting MPDC Zoning fee endorsement before endorsing to resident.");
+                } else if (!bfpClearanceReceived && !bfpCountdown?.expired) {
+                    toast.error("Awaiting BFP Clearance upload or 3-day window expiration.");
+                }
+                return;
+            }
+        }
+
         const validCharges = engineerMunicipalCharges.filter(c => c.name.trim() && c.amount);
 
         setActionLoading(true);
         try {
-            const actionType = !engineerEndorsedToZoning
-                ? "ENGINEER_TO_ZONING"
-                : zoningEndorsed && !bfpSubmitted
-                    ? "ENGINEER_TO_BFP"
-                    : "ENGINEER_TO_TREASURY";
+            const actionType = !isDispatched
+                ? "ENGINEER_DISPATCH_CONCURRENT"
+                : "ENGINEER_TO_TREASURY";
 
             const res = await endorseBuildingPermitFees(id, {
                 actionType,
                 ...(buildingFee ? { buildingPermitFee: Number(buildingFee) } : {}),
                 engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) })),
-                zoningVisibleDocs,
-                bfpVisibleDocs
+                zoningVisibleDocs: zoningVisibleDocs.length > 0 ? zoningVisibleDocs : vaultDocs.map(d => d.key),
+                bfpVisibleDocs: bfpVisibleDocs.length > 0 ? bfpVisibleDocs : vaultDocs.map(d => d.key)
             });
 
             if (res.success) {
                 toast.success(
-                    actionType === "ENGINEER_TO_BFP"
-                        ? "Documents forwarded to BFP successfully!"
-                        : actionType === "ENGINEER_TO_TREASURY"
-                            ? "Fees endorsed to Engineer successfully!"
-                            : "Documents endorsed to Zoning successfully!"
+                    actionType === "ENGINEER_DISPATCH_CONCURRENT"
+                        ? "Application approved! Endorsed concurrently to Zoning and BFP."
+                        : "Fees endorsed to Resident successfully!"
                 );
-                router.push(backUrl);
+                router.replace(backUrl);
             } else {
                 toast.error(res.error || "Failed to endorse fees");
+                setActionLoading(false);
             }
         } catch {
             toast.error("An error occurred while submitting fees");
-        } finally {
             setActionLoading(false);
         }
     };
@@ -460,10 +484,10 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
 
     const steps = [
-        { id: "ENGINEERING", label: "ENGINEERING" },
-        { id: "ZONING", label: "ZONING CLEARANCE" },
-        { id: "ENGINEER_REVIEW", label: "ENGINEER REVIEW" },
-        { id: "BFP", label: "BFP ACKNOWLEDGMENT" }
+        { id: "ENGINEERING", label: "ENGINEERING EVALUATION" },
+        { id: "CONCURRENT_REVIEWS", label: "ZONING & BFP REVIEWS" },
+        { id: "PAYMENT", label: "TREASURY PAYMENT" },
+        { id: "ISSUANCE", label: "PERMIT ISSUANCE" }
     ];
 
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
@@ -476,14 +500,15 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         }
         
         if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
-            const feeAssessment = transaction.additionalData?.feeAssessment;
-            const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
-            const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
-            const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
-            
-            if (bfpSubmitted || feeAssessment?.endorsed === true || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) return 3; // BFP Acknowledgment
-            if (zoningEndorsed && !bfpSubmitted) return 2; // Engineer Review
-            if (engineerEndorsedToZoning && !zoningEndorsed) return 1; // Zoning Clearance
+            if (["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
+                return 3; // Permit Issuance
+            }
+            if (["UNPAID", "PAYMENT_SUBMITTED", "PAID"].includes(transaction.status) || isEndorsed) {
+                return 2; // Treasury Payment
+            }
+            if (isDispatched) {
+                return 1; // Concurrent Reviews (Zoning & BFP)
+            }
             return 0; // Engineering
         }
         
@@ -832,29 +857,47 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         )}
                     </div>
                     {/* Specify Official Endorsement Fees Block */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                    <div ref={feeAssessmentCardRef} className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-primary/10 rounded-lg"><Coins className="text-primary w-4 h-4" /></div>
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Specify Official Endorsement Fees</span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                            <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{permitLabel} Fee (₱) *</Label>
-                                <Input
-                                    type="text"
-                                    placeholder="0.00"
-                                    value={formatNumberWithCommas(buildingFee)}
-                                    onChange={(e) => {
-                                        const cleanVal = cleanCommaNumber(e.target.value);
-                                        const decimalCount = (cleanVal.match(/\./g) || []).length;
-                                        if (decimalCount > 1) return;
-                                        setBuildingFee(cleanVal);
-                                    }}
-                                    disabled={isViewOnly}
-                                    className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
-                                />
-                            </div>
+                            {(() => {
+                                const isBuildingFeeInvalid = !isViewOnly && (!buildingFee || Number(buildingFee) <= 0);
+                                const showBuildingFeeError = isBuildingFeeInvalid && (hasAttemptedSubmit || buildingFee !== "");
+                                return (
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{permitLabel} Fee (₱) *</Label>
+                                        <Input
+                                            ref={buildingFeeInputRef}
+                                            type="text"
+                                            placeholder="0.00"
+                                            value={formatNumberWithCommas(buildingFee)}
+                                            onChange={(e) => {
+                                                const cleanVal = cleanCommaNumber(e.target.value);
+                                                const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                                if (decimalCount > 1) return;
+                                                setBuildingFee(cleanVal);
+                                            }}
+                                            disabled={isViewOnly}
+                                            className={cn(
+                                                "h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 transition-all",
+                                                showBuildingFeeError
+                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5 ring-1 ring-red-500/30"
+                                                    : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                            )}
+                                        />
+                                        {showBuildingFeeError && (
+                                            <p className="text-[10px] text-red-500 font-medium ml-1 animate-in fade-in flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3 shrink-0" />
+                                                {permitLabel} Fee is required and must be &gt; ₱0.00
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             <div className="col-span-1 md:col-span-2 space-y-4">
                                 <div className="flex items-center justify-between">
@@ -876,54 +919,81 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     )}
                                 </div>
 
-                                {engineerMunicipalCharges.map((charge, index) => (
-                                    <div key={index} className="flex items-center gap-4">
-                                        <Input
-                                            type="text"
-                                            placeholder="Fee Name (e.g. Zoning Fee)"
-                                            value={charge.name}
-                                            onChange={(e) => {
-                                                const newCharges = [...engineerMunicipalCharges];
-                                                newCharges[index].name = e.target.value;
-                                                setEngineerMunicipalCharges(newCharges);
-                                            }}
-                                            disabled={isViewOnly}
-                                            className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1"
-                                        />
-                                        <Input
-                                            type="text"
-                                            placeholder="0.00"
-                                            value={formatNumberWithCommas(charge.amount)}
-                                            onChange={(e) => {
-                                                const cleanVal = cleanCommaNumber(e.target.value);
-                                                const decimalCount = (cleanVal.match(/\./g) || []).length;
-                                                if (decimalCount > 1) return;
-                                                const newCharges = [...engineerMunicipalCharges];
-                                                newCharges[index].amount = cleanVal;
-                                                setEngineerMunicipalCharges(newCharges);
-                                            }}
-                                            disabled={isViewOnly}
-                                            className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px]"
-                                        />
-                                        {!isViewOnly && engineerMunicipalCharges.length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    const newCharges = [...engineerMunicipalCharges];
-                                                    newCharges.splice(index, 1);
-                                                    setEngineerMunicipalCharges(newCharges);
-                                                }}
-                                                className="h-12 w-12 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
-                                            >
-                                                <X className="w-5 h-5" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
+                                {engineerMunicipalCharges.map((charge, index) => {
+                                    const isRowPartiallyFilled = charge.name.trim() !== "" || charge.amount.trim() !== "";
+                                    const isNameInvalid = !isViewOnly && (hasAttemptedSubmit || isRowPartiallyFilled) && !charge.name.trim() && isRowPartiallyFilled;
+                                    const isAmountInvalid = !isViewOnly && (hasAttemptedSubmit || isRowPartiallyFilled) && (!charge.amount || Number(charge.amount) <= 0) && isRowPartiallyFilled;
+                                    return (
+                                        <div key={index} className="space-y-1">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1 space-y-1">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Fee Name (e.g. Zoning Fee)"
+                                                        value={charge.name}
+                                                        onChange={(e) => {
+                                                            const newCharges = [...engineerMunicipalCharges];
+                                                            newCharges[index].name = e.target.value;
+                                                            setEngineerMunicipalCharges(newCharges);
+                                                        }}
+                                                        disabled={isViewOnly}
+                                                        className={cn(
+                                                            "h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1 transition-all",
+                                                            isNameInvalid
+                                                                ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5 ring-1 ring-red-500/30"
+                                                                : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                                        )}
+                                                    />
+                                                    {isNameInvalid && (
+                                                        <p className="text-[10px] text-red-500 font-medium ml-1">Fee Name is required</p>
+                                                    )}
+                                                </div>
+                                                <div className="w-[150px] space-y-1">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="0.00"
+                                                        value={formatNumberWithCommas(charge.amount)}
+                                                        onChange={(e) => {
+                                                            const cleanVal = cleanCommaNumber(e.target.value);
+                                                            const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                                            if (decimalCount > 1) return;
+                                                            const newCharges = [...engineerMunicipalCharges];
+                                                            newCharges[index].amount = cleanVal;
+                                                            setEngineerMunicipalCharges(newCharges);
+                                                        }}
+                                                        disabled={isViewOnly}
+                                                        className={cn(
+                                                            "h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px] transition-all",
+                                                            isAmountInvalid
+                                                                ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5 ring-1 ring-red-500/30"
+                                                                : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                                        )}
+                                                    />
+                                                    {isAmountInvalid && (
+                                                        <p className="text-[10px] text-red-500 font-medium ml-1">Amount must be &gt; ₱0.00</p>
+                                                    )}
+                                                </div>
+                                                {!isViewOnly && engineerMunicipalCharges.length > 1 && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            const newCharges = [...engineerMunicipalCharges];
+                                                            newCharges.splice(index, 1);
+                                                            setEngineerMunicipalCharges(newCharges);
+                                                        }}
+                                                        className="h-12 w-12 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {/* ZONING FEES LIST */}
@@ -1381,128 +1451,179 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isEndorsed && !engineerEndorsedToZoning && (userRole === "ENGINEER" || userRole === "ADMIN") && (
+                        {!isEndorsed && !isDispatched && (userRole === "ENGINEER" || userRole === "ADMIN") && (
                             <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
                                 <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Endorse to Zoning</h3>
-                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Select documents to make visible to Zoning for evaluation.</p>
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 italic">Concurrent Department Review</h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-slate-400">
+                                        Approve preliminary evaluation and automatically forward digital copies simultaneously to both Zoning Office and Bureau of Fire Protection (BFP) for parallel review.
+                                    </p>
                                 </div>
-                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                    {vaultDocs.map((doc) => (
-                                        <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setZoningVisibleDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
-                                            <Checkbox checked={zoningVisibleDocs.includes(doc.key)} onCheckedChange={(checked) => { setZoningVisibleDocs(prev => checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <Button
-                                    onClick={handleEndorse}
-                                    disabled={actionLoading || zoningVisibleDocs.length === 0}
-                                    className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
-                                >
-                                    <Check className="w-4 h-4 mr-2" /> Endorse to Zoning
-                                </Button>
-                            </div>
-                        )}
-
-                        {!isEndorsed && engineerEndorsedToZoning && !zoningEndorsed && (
-                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-[2rem] p-6 text-center space-y-2">
-                                <h3 className="text-sm font-black italic uppercase tracking-widest">Awaiting Zoning</h3>
-                                <p className="text-[10px] font-medium opacity-80">This application has been forwarded to the Zoning Officer for their assessment. You will be able to endorse this to Treasury once they complete their review.</p>
-                            </div>
-                        )}
-
-                        {!isEndorsed && zoningEndorsed && !bfpSubmitted && (userRole === "ENGINEER" || userRole === "ADMIN") && (
-                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Forward to BFP</h3>
-                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Select documents to forward to BFP for Fire Safety evaluation.</p>
-                                </div>
-                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                    {vaultDocs.map((doc) => (
-                                        <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setBfpVisibleDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
-                                            <Checkbox checked={bfpVisibleDocs.includes(doc.key)} onCheckedChange={(checked) => { setBfpVisibleDocs(prev => checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-white/5 border border-white/5 text-[11px] text-slate-300 font-semibold">
+                                    <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span>{vaultDocs.length} Digital document copies attached automatically</span>
                                 </div>
                                 <Button
                                     onClick={handleEndorse}
                                     disabled={actionLoading}
-                                    className="w-full h-16 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-cyan-900/20 active:scale-95"
+                                    className="w-full min-h-[3.5rem] py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-wider text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 whitespace-normal leading-snug flex items-center justify-center gap-2 text-center"
                                 >
-                                    <Check className="w-4 h-4 mr-2" /> Endorse to BFP
+                                    <Check className="w-4 h-4 shrink-0" />
+                                    <span>Endorse to Zoning & BFP</span>
                                 </Button>
                             </div>
                         )}
 
-                        {!isEndorsed && zoningEndorsed && bfpSubmitted && bfpAcknowledged && zoningClearanceReceived && bfpClearanceReceived && !bfpCountdown?.expired && (userRole === "ENGINEER" || userRole === "ADMIN") && (
-                            <Button
-                                onClick={handleEndorse}
-                                disabled={actionLoading || !buildingFee}
-                                className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
-                            >
-                                <Check className="w-4 h-4 mr-2" /> Endorse Payment to Resident
-                            </Button>
-                        )}
-
-                        {!isEndorsed && zoningEndorsed && bfpSubmitted && !bfpAcknowledged && !bfpClearanceReceived && (userRole === "ENGINEER" || userRole === "ADMIN") && (
-                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-[2rem] p-6 text-center space-y-2">
-                                <h3 className="text-sm font-black italic uppercase tracking-widest">Awaiting BFP Acknowledgment</h3>
-                                <p className="text-[10px] font-medium opacity-80">BFP must acknowledge the endorsement first before the clearance document countdown begins.</p>
-                            </div>
-                        )}
-
-                        {!isEndorsed && zoningEndorsed && bfpClearanceReceived && (
-                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">BFP Clearance</h3>
-                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Submitted by BFP and ready for Engineer review.</p>
+                        {/* Concurrent Department Review Tracking Hub */}
+                        {isDispatched && !isEndorsed && (
+                            <div className="space-y-4">
+                                {/* Zoning Review Stream */}
+                                <div className={cn(
+                                    "bg-[#151b28] rounded-[2rem] p-6 border transition-all duration-300 space-y-4",
+                                    hasAttemptedSubmit && !zoningEndorsed ? "border-red-500 ring-2 ring-red-500/30 bg-red-500/[0.03]" : "border-white/5"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 italic">MPDC Zoning Stream</h3>
+                                            <p className="text-[10px] font-medium opacity-80 text-slate-500">
+                                                {zoningEndorsed
+                                                    ? `Endorsed: ₱${zoningPaymentTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} in municipal charges`
+                                                    : "Zoning review currently in progress"}
+                                            </p>
+                                        </div>
+                                        <Badge className={cn(
+                                            "text-[10px] px-3 py-1 font-bold rounded-lg uppercase",
+                                            zoningEndorsed ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-purple-500/10 border border-purple-500/20 text-purple-400 animate-pulse"
+                                        )}>
+                                            {zoningEndorsed ? "ENDORSED" : (transaction.additionalData?.zoningStatus || "IN REVIEW")}
+                                        </Badge>
+                                    </div>
+                                    {transaction.additionalData?.zoningClearanceUrl ? (
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                                                    <div className="h-12 w-16 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
+                                                        <img src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="h-full w-full object-cover" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">Zoning Clearance</span>
+                                                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">View Document</span>
+                                                    </div>
+                                                </button>
+                                            </DialogTrigger>
+                                            <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning Clearance" />
+                                        </Dialog>
+                                    ) : (
+                                        <div className="rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 p-3 text-purple-400">
+                                            <p className="text-[10px] font-black uppercase tracking-widest italic">
+                                                {zoningEndorsed ? "Clearance endorsed by Zoning Officer" : "Awaiting Zoning clearance & fee endorsement"}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                        <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                                            <div className="h-12 w-16 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
-                                                <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="h-full w-full object-cover" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">BFP Fire Safety Clearance</span>
-                                                <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Submitted by BFP Officer</span>
-                                            </div>
-                                        </button>
-                                    </DialogTrigger>
-                                    <LightboxView src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" label="BFP Fire Safety Clearance" />
-                                </Dialog>
-                            </div>
-                        )}
 
-                        {!["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && !isEndorsed && zoningEndorsed && bfpSubmitted && (bfpClearanceReceived || bfpCountdown?.expired) && (userRole === "ENGINEER" || userRole === "ADMIN") && (
-                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
-                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-emerald-400">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">
-                                        {bfpClearanceReceived ? "Payment endorsement available" : "3-day countdown expired"}
-                                    </span>
-                                    <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-3 py-1 font-bold rounded-lg shrink-0">
-                                        READY
-                                    </Badge>
+                                {/* BFP Fire Safety Stream */}
+                                <div className={cn(
+                                    "bg-[#151b28] rounded-[2rem] p-6 border transition-all duration-300 space-y-4",
+                                    hasAttemptedSubmit && (!bfpClearanceReceived && !bfpCountdown?.expired) ? "border-red-500 ring-2 ring-red-500/30 bg-red-500/[0.03]" : "border-white/5"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400 italic">BFP Fire Safety Stream</h3>
+                                            <p className="text-[10px] font-medium opacity-80 text-slate-500">
+                                                {bfpClearanceReceived
+                                                    ? "Fire Safety Clearance approved & uploaded"
+                                                    : bfpAcknowledged
+                                                        ? (bfpCountdown?.expired ? "3-day window elapsed" : "3-day window active")
+                                                        : "Awaiting BFP acknowledgement"}
+                                            </p>
+                                        </div>
+                                        <Badge className={cn(
+                                            "text-[10px] px-3 py-1 font-bold rounded-lg uppercase",
+                                            bfpClearanceReceived ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" :
+                                            bfpCountdown?.expired ? "bg-red-500/10 border border-red-500/20 text-red-400" :
+                                            bfpAcknowledged ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-slate-500/10 border border-slate-500/20 text-slate-400 animate-pulse"
+                                        )}>
+                                            {bfpClearanceReceived ? "CLEARED" : bfpCountdown?.expired ? "EXPIRED" : bfpAcknowledged ? "ACKNOWLEDGED" : "PENDING"}
+                                        </Badge>
+                                    </div>
+                                    {bfpAcknowledged && !bfpClearanceReceived && !bfpCountdown?.expired && (
+                                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-400">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">3-day clearance window</span>
+                                            <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] px-3 py-1 font-bold rounded-lg shrink-0">
+                                                {bfpCountdown?.text || "00D 00H 00M 00S"}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                    {transaction.additionalData?.bfpClearanceUrl && (
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                                                    <div className="h-12 w-16 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
+                                                        <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="h-full w-full object-cover" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">BFP Clearance</span>
+                                                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">View Document</span>
+                                                    </div>
+                                                </button>
+                                            </DialogTrigger>
+                                            <LightboxView src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" label="BFP Fire Safety Clearance" />
+                                        </Dialog>
+                                    )}
                                 </div>
-                                <Button
-                                    onClick={handleEndorse}
-                                    disabled={actionLoading || !paymentEndorsementReady}
-                                    className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Check className="w-4 h-4 mr-2" /> Endorse Payment to Resident
-                                </Button>
-                                {!paymentEndorsementReady && (
-                                    <p className="text-[10px] font-medium text-emerald-200/80">
-                                        Set the {permitLabel} Fee and make sure the Zoning payment is already present before endorsing to Resident.
-                                    </p>
+
+                                {/* Synchronization & Endorse Payment to Resident */}
+                                {(userRole === "ENGINEER" || userRole === "ADMIN") && (
+                                    <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-emerald-400">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">
+                                                {paymentEndorsementReady ? "Reviews Complete • Payment Ready" : "Awaiting Parallel Review Completion"}
+                                            </span>
+                                            <Badge className={cn(
+                                                "text-[10px] px-3 py-1 font-bold rounded-lg shrink-0",
+                                                paymentEndorsementReady ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                                            )}>
+                                                {paymentEndorsementReady ? "READY" : "IN PROGRESS"}
+                                            </Badge>
+                                        </div>
+                                        <Button
+                                            onClick={handleEndorse}
+                                            disabled={actionLoading}
+                                            className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:scale-100"
+                                        >
+                                            <Check className="w-4 h-4 mr-2" /> Endorse Payment to Resident
+                                        </Button>
+                                        {hasAttemptedSubmit && !paymentEndorsementReady && (
+                                            <div className="space-y-1 mt-1 animate-in fade-in">
+                                                {!zoningEndorsed && (
+                                                    <p className="text-[10px] font-semibold text-rose-400 italic flex items-center justify-center gap-1 text-center">
+                                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                                        Awaiting MPDC Zoning fee endorsement.
+                                                    </p>
+                                                )}
+                                                {!bfpClearanceReceived && !bfpCountdown?.expired && (
+                                                    <p className="text-[10px] font-semibold text-rose-400 italic flex items-center justify-center gap-1 text-center">
+                                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                                        Awaiting BFP Clearance upload or 3-day window expiration.
+                                                    </p>
+                                                )}
+                                                {(!buildingFee || Number(buildingFee) <= 0) && (
+                                                    <p className="text-[10px] font-semibold text-rose-400 italic flex items-center justify-center gap-1 text-center">
+                                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                                        Please specify the {permitLabel} Fee above.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!hasAttemptedSubmit && !paymentEndorsementReady && (
+                                            <p className="text-[10px] font-medium text-amber-200/80 text-center">
+                                                {!zoningEndorsed && "• Awaiting MPDC Zoning fee endorsement. "}
+                                                {!bfpClearanceReceived && !bfpCountdown?.expired && "• Awaiting BFP Clearance upload or 3-day window expiration. "}
+                                                {(!buildingFee || Number(buildingFee) <= 0) && `• Please specify the ${permitLabel} Fee.`}
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}

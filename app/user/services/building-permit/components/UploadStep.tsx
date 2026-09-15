@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getSecureUploadUrlsAction } from "@/app/auth/actions";
 
+import { DynamicOccupancyRequirement } from "@/lib/transactions/occupancy-requirements";
+
 interface UploadStepProps {
   themeColor: string;
   isEditable: boolean;
@@ -17,6 +19,7 @@ interface UploadStepProps {
   setActiveDocTab: (tab: "REQUIREMENTS" | "PERMITS") => void;
   requiredRequirementsCount: number;
   documentRequirementsList: readonly string[];
+  dynamicOccupancyRequirements?: DynamicOccupancyRequirement[];
   customRequirements: { label: string }[];
   permitTypesList: readonly string[];
   customPermits: { label: string }[];
@@ -60,6 +63,7 @@ export function UploadStep({
   setActiveDocTab,
   requiredRequirementsCount,
   documentRequirementsList,
+  dynamicOccupancyRequirements,
   customRequirements,
   permitTypesList,
   customPermits,
@@ -251,6 +255,21 @@ export function UploadStep({
         )}
       </div>
 
+      {/* Specialized Occupancy Banner */}
+      {activeDocTab === "REQUIREMENTS" && dynamicOccupancyRequirements && dynamicOccupancyRequirements.length > 0 && (
+        <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-slate-800 dark:text-slate-200 flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <p className="font-black text-sm uppercase tracking-wider text-primary">
+              Specialized Occupancy Plans Required ({dynamicOccupancyRequirements.length})
+            </p>
+            <p className="text-slate-600 dark:text-slate-300 font-medium">
+              Based on your specific building occupancy / ancillary selection, engineering and building safety regulations require the following signed & sealed technical plans:
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Document Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
         {(() => {
@@ -258,15 +277,30 @@ export function UploadStep({
             const applicableIndexes = applicableRequirementIndexes || requiredRequirementIndexes;
             const baseItems = [
               ...documentRequirementsList
-                .map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `req_${idx}` })),
-              ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const, key: `req_${documentRequirementsList.length + idx}` }))
+                .map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `req_${idx}`, description: undefined as string | undefined, subType: undefined as string | undefined })),
+              ...(dynamicOccupancyRequirements || []).map((dyn) => ({
+                docName: dyn.label,
+                idx: parseInt(dyn.key.replace("req_", ""), 10),
+                kind: "occupancy" as const,
+                key: dyn.key,
+                description: dyn.description,
+                subType: dyn.subType
+              })),
+              ...customRequirements.map((req, idx) => ({
+                docName: req.label,
+                idx: documentRequirementsList.length + idx,
+                kind: "custom" as const,
+                key: `req_${documentRequirementsList.length + idx}`,
+                description: undefined as string | undefined,
+                subType: undefined as string | undefined
+              }))
             ].filter(({ idx, kind }) => {
-              if (kind === "custom") return true;
+              if (kind === "custom" || kind === "occupancy") return true;
               return applicableIndexes.includes(idx);
             });
 
             const existingKeys = new Set(baseItems.map(item => item.key));
-            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base"; key: string }> = [];
+            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base" | "occupancy"; key: string; description?: string; subType?: string }> = [];
 
             if (selectedApplication?.additionalData?.revisionRequests) {
               selectedApplication.additionalData.revisionRequests.forEach((req: any, i: number) => {
@@ -277,7 +311,9 @@ export function UploadStep({
                       docName: req.name,
                       idx: documentRequirementsList.length + customRequirements.length + i,
                       kind: "revision",
-                      key: reqKey
+                      key: reqKey,
+                      description: undefined,
+                      subType: undefined
                     });
                   }
                 }
@@ -287,12 +323,12 @@ export function UploadStep({
             return [...baseItems, ...revisionItems];
           } else {
             const baseItems = [
-              ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `permit_${idx}` })),
-              ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const, key: `permit_${permitTypesList.length + idx}` }))
+              ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const, key: `permit_${idx}`, description: undefined as string | undefined, subType: undefined as string | undefined })),
+              ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const, key: `permit_${permitTypesList.length + idx}`, description: undefined as string | undefined, subType: undefined as string | undefined }))
             ];
 
             const existingKeys = new Set(baseItems.map(item => item.key));
-            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base"; key: string }> = [];
+            const revisionItems: Array<{ docName: string; idx: number; kind: "revision" | "custom" | "base" | "occupancy"; key: string; description?: string; subType?: string }> = [];
 
             if (selectedApplication?.additionalData?.revisionRequests) {
               selectedApplication.additionalData.revisionRequests.forEach((req: any, i: number) => {
@@ -303,7 +339,9 @@ export function UploadStep({
                       docName: req.name,
                       idx: permitTypesList.length + customPermits.length + i,
                       kind: "revision",
-                      key: reqKey
+                      key: reqKey,
+                      description: undefined,
+                      subType: undefined
                     });
                   }
                 }
@@ -312,9 +350,10 @@ export function UploadStep({
 
             return [...baseItems, ...revisionItems];
           }
-        })().map(({ docName, idx, kind, key: itemKey }) => {
+        })().map(({ docName, idx, kind, key: itemKey, description, subType }) => {
           const isCustomItem = kind === "custom";
           const isRevisionItem = kind === "revision";
+          const isOccupancyItem = kind === "occupancy";
           const key = itemKey || (activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`);
           const fileUrl = clearedKeys.has(key) ? null : effectiveDocuments?.[key];
           const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
@@ -324,9 +363,11 @@ export function UploadStep({
             ? isRequestedInRevision
             : (isCustomItem
               ? false
-              : (activeDocTab === "PERMITS"
-                ? requiredPermitIndexes.includes(idx)
-                : requiredRequirementIndexes.includes(idx)));
+              : (isOccupancyItem
+                ? true
+                : (activeDocTab === "PERMITS"
+                  ? requiredPermitIndexes.includes(idx)
+                  : requiredRequirementIndexes.includes(idx))));
           const hasError = showValidationErrors && isRequired && !isUploaded;
           
           const uploadedData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
@@ -334,32 +375,45 @@ export function UploadStep({
           const cleanDocName = docName.replace(/\s*\(Optional\)/gi, "").trim();
 
           return (
-            <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-1 ring-red-500/40" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
-              <div className="flex justify-between items-start gap-4 mb-4">
-                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                  <div className="min-h-[40px] leading-tight">
-                    <span className="text-lg mr-1.5 align-bottom">📄</span>
-                    <span className="break-words">{cleanDocName}</span>
-                    {isRequired ? (
-                      <span className="text-red-500 ml-1 text-base align-top">*</span>
-                    ) : (
-                      activeDocTab !== "PERMITS" && (
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">(Optional)</span>
-                      )
+            <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group relative flex flex-col justify-between", hasError ? "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-1 ring-red-500/40" : isOccupancyItem ? "border-primary/30 hover:border-primary/60 bg-primary/[0.02]" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
+              <div>
+                <div className="flex justify-between items-start gap-4 mb-2">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
+                    <div className="leading-tight">
+                      <span className="text-lg mr-1.5 align-bottom">{isOccupancyItem ? "📐" : "📄"}</span>
+                      <span className="break-words">{cleanDocName}</span>
+                      {isRequired ? (
+                        <span className="text-red-500 ml-1 text-base align-top">*</span>
+                      ) : (
+                        activeDocTab !== "PERMITS" && (
+                          <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">(Optional)</span>
+                        )
+                      )}
+                    </div>
+                    {subType && (
+                      <div className="mt-1">
+                        <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {subType}
+                        </span>
+                      </div>
                     )}
-                  </div>
-                </h4>
-                <div className="flex items-center gap-2 shrink-0">
-                  {isUploaded ? (
-                    <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
-                      Uploaded
-                    </span>
-                  ) : (
-                    <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
-                      Pending
-                    </span>
-                  )}
-                  {isCustomItem && isEditable && (
+                    {description && (
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                        {description}
+                      </p>
+                    )}
+                  </h4>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isUploaded ? (
+                      <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
+                        Uploaded
+                      </span>
+                    ) : (
+                      <span className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full", isOccupancyItem ? "bg-primary/10 text-primary border border-primary/20" : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500")}>
+                        {isOccupancyItem ? "Required Plan" : "Pending"}
+                      </span>
+                    )}
+                    {isCustomItem && isEditable && (
                     <button
                       type="button"
                       onClick={() => {
@@ -400,6 +454,7 @@ export function UploadStep({
                   )}
                 </div>
               </div>
+            </div>
 
               <div className="mt-2">
                 <PremiumDocumentUpload

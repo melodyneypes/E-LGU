@@ -9,13 +9,16 @@ import {
     Activity,
     Smile,
     ShieldAlert,
-    UserPlus
+    UserPlus,
+    Repeat,
+    RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { RHUWalkInModal } from "../consultations/RHUWalkInModal";
+import { injectDailyFollowUpQueue } from "../actions";
 import {
     getRHUQueueTickets,
     fetchAndCallNextRHUTicket,
@@ -171,6 +174,36 @@ export default function RHUQueuePage() {
         return addData?.checkupType || tx.type?.name || "RHU Consultation";
     };
 
+    const isFollowUpPatient = (tx: any) => {
+        if (!tx) return false;
+        const addData = typeof tx.additionalData === "string" 
+            ? (() => { try { return JSON.parse(tx.additionalData); } catch { return {}; } })() 
+            : (tx.additionalData || {});
+        return Boolean(tx.isFollowUp || addData.isFollowUp || addData.returnPatient);
+    };
+
+    const [syncingFollowUps, setSyncingFollowUps] = useState(false);
+    const handleSyncFollowUps = async () => {
+        setSyncingFollowUps(true);
+        try {
+            const res = await injectDailyFollowUpQueue();
+            if (res.success) {
+                if (res.injected && res.injected > 0) {
+                    toast.success(`Injected ${res.injected} return patient(s) into today's active queue.`);
+                } else {
+                    toast.info(res.message || "All return patients for today are already queued.");
+                }
+                await fetchQueue();
+            } else {
+                toast.error(res.error || "Failed to sync follow-ups.");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to sync follow-ups.");
+        } finally {
+            setSyncingFollowUps(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] pb-24">
             <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-10 space-y-6 md:space-y-8">
@@ -196,7 +229,18 @@ export default function RHUQueuePage() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={handleSyncFollowUps}
+                            disabled={syncingFollowUps}
+                            className="h-11 px-4 rounded-2xl border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer transition-all"
+                            title="Sync return visits scheduled for today into the active queue"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${syncingFollowUps ? "animate-spin" : ""}`} />
+                            Sync Return Visits
+                        </Button>
+
                         <Button
                             onClick={() => setIsWalkInModalOpen(true)}
                             className="h-11 px-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/25 hover:scale-105 active:scale-95 transition-all gap-2 cursor-pointer"
@@ -294,10 +338,18 @@ export default function RHUQueuePage() {
                                     {currentlyServing ? (
                                         <div className="space-y-6">
                                             <div className="space-y-2">
-                                                <span className="inline-flex items-center gap-2 px-6 py-2 bg-amber-500/10 text-amber-500 rounded-full text-xs font-black uppercase tracking-widest border border-amber-500/20 italic animate-pulse">
-                                                    <Activity className="w-4 h-4" />
-                                                    Serving Patient
-                                                </span>
+                                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                                    <span className="inline-flex items-center gap-2 px-6 py-2 bg-amber-500/10 text-amber-500 rounded-full text-xs font-black uppercase tracking-widest border border-amber-500/20 italic animate-pulse">
+                                                        <Activity className="w-4 h-4" />
+                                                        Serving Patient
+                                                    </span>
+                                                    {isFollowUpPatient(currentlyServing) && (
+                                                        <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 rounded-full text-xs font-black uppercase tracking-widest border border-indigo-500/30 italic animate-pulse">
+                                                            <Repeat className="w-3.5 h-3.5" />
+                                                            Return Patient / Follow-up
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-slate-950 dark:text-white uppercase italic leading-none font-mono py-4">
                                                     {currentlyServing.queueNumber
                                                         ? currentlyServing.queueNumber.split("-").pop()
@@ -378,11 +430,12 @@ export default function RHUQueuePage() {
                                                 ? tx.queueNumber.split("-").pop()
                                                 : tx.controlNumber || "RHU-XXX";
                                             const isPriority = tx.isPriority;
+                                            const isFollowUp = isFollowUpPatient(tx);
 
                                             return (
-                                                <div key={tx.id} className={`flex flex-col items-center justify-center text-center py-2 ${idx === 0 ? "pt-1" : ""}`}>
-                                                    <div className="space-y-0.5 min-w-0 flex flex-col items-center">
-                                                        <div className="flex items-center justify-center gap-2">
+                                                <div key={tx.id} className={`flex flex-col items-center justify-center text-center py-2.5 ${idx === 0 ? "pt-1" : ""}`}>
+                                                    <div className="space-y-1 min-w-0 flex flex-col items-center">
+                                                        <div className="flex flex-wrap items-center justify-center gap-1.5">
                                                             <span className="text-2xl font-black font-mono tracking-tighter text-slate-900 dark:text-white uppercase italic">
                                                                 {queueNum}
                                                             </span>
@@ -391,8 +444,14 @@ export default function RHUQueuePage() {
                                                                     Priority
                                                                 </span>
                                                             )}
+                                                            {isFollowUp && (
+                                                                <span className="text-[8px] font-black tracking-wider uppercase bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded-full italic flex items-center gap-1">
+                                                                    <Repeat className="w-2.5 h-2.5" />
+                                                                    Return Patient / Follow-up
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate max-w-[220px] leading-tight">
+                                                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase truncate max-w-[220px] leading-tight">
                                                             {getPatientName(tx)}
                                                         </p>
                                                         <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">

@@ -19,7 +19,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes, getSystemSettingsAction } from "@/app/admin/transactions/actions";
 import { getPendingReportsCount } from "@/app/admin/actions";
 import { getRHUEquipmentNotificationCount } from "@/app/admin/rhu/equipment/actions";
+import { getRHUCheckedInVitalsCount } from "@/app/admin/rhu/actions";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface SidebarProps {
     session: {
@@ -44,6 +46,7 @@ interface SidebarProps {
     unviewedLcrCounts?: Record<string, number>;
     rhuCenterName?: string | null;
     rhuEquipmentCount?: number;
+    rhuVitalsCount?: number;
 }
 
 export function Sidebar({
@@ -59,7 +62,8 @@ export function Sidebar({
     pendingAnnouncementsCount = 0,
     unviewedLcrCounts = {},
     rhuCenterName = null,
-    rhuEquipmentCount = 0
+    rhuEquipmentCount = 0,
+    rhuVitalsCount = 0
 }: SidebarProps) {
     const rhuLabel = React.useMemo(() => {
         if (!rhuCenterName) return "Rural Health Unit";
@@ -81,6 +85,27 @@ export function Sidebar({
     const searchParams = useSearchParams();
     const role = session?.user?.role || "ADMIN";
     const department = session?.user?.department;
+
+    const isRhuRole = React.useMemo(() => [
+        "ADMIN",
+        "RHU_ADMIN",
+        "RHU_CENTER_ADMIN",
+        "RHU_DOCTOR",
+        "RHU_STAFF",
+        "RHU_PHARMACY"
+    ].includes(role), [role]);
+
+    const isLcrRole = React.useMemo(() => [
+        "ADMIN",
+        "ADMIN_AIDE",
+        "ASST_SEC"
+    ].includes(role) || Boolean(department?.includes("REGISTRAR") || department?.includes("LCR")), [role, department]);
+
+    const isReportsRole = React.useMemo(() => [
+        "ADMIN",
+        "MDRRMO_ADMIN",
+        "BARANGAY_ADMIN"
+    ].includes(role) || Boolean(department?.includes("MDRRMO") || department?.includes("DISASTER")), [role, department]);
     const { isOpen: isSidebarOpen, close } = useSidebar();
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
@@ -95,10 +120,17 @@ export function Sidebar({
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [livePendingAnnouncementsCount, setLivePendingAnnouncementsCount] = React.useState(pendingAnnouncementsCount);
     const [liveRhuEquipmentCount, setLiveRhuEquipmentCount] = React.useState(rhuEquipmentCount);
+    const [liveRhuVitalsCount, setLiveRhuVitalsCount] = React.useState(rhuVitalsCount);
+    const prevVitalsCountRef = React.useRef(rhuVitalsCount);
 
     React.useEffect(() => {
         setLiveRhuEquipmentCount(rhuEquipmentCount);
     }, [rhuEquipmentCount]);
+
+    React.useEffect(() => {
+        setLiveRhuVitalsCount(rhuVitalsCount);
+        prevVitalsCountRef.current = rhuVitalsCount;
+    }, [rhuVitalsCount]);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/bplo/stall-registration"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
@@ -241,19 +273,15 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-
-        fetchLcrCounts();
-    }, [pathname, fetchLcrCounts]);
+        if (isLcrRole) {
+            fetchLcrCounts();
+        }
+    }, [pathname, fetchLcrCounts, isLcrRole]);
 
     React.useEffect(() => {
-        console.log("[LCR Realtime] Setting up subscription...");
-        fetchLcrCounts();
-
-        if (!supabase) {
-            console.warn("[LCR Realtime] Supabase client is not available.");
-            return;
-        }
+        if (!isLcrRole || !supabase) return;
         let channel: any;
+        let debounceTimer: NodeJS.Timeout | null = null;
         try {
             channel = supabase
                 .channel("sidebar-lcr-realtime")
@@ -264,25 +292,25 @@ export function Sidebar({
                         schema: "public",
                         table: "Transaction",
                     },
-                    (payload: any) => {
-                        console.log("[LCR Realtime] Received table change event:", payload);
-                        fetchLcrCounts();
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchLcrCounts();
+                        }, 1000);
                     }
                 )
-                .subscribe((status: string) => {
-                    console.log("[LCR Realtime] Subscription status callback:", status);
-                });
+                .subscribe();
         } catch (error) {
             console.warn("[LCR Realtime] Failed to setup subscription:", error);
         }
 
         return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
             if (channel) {
-                console.log("[LCR Realtime] Unsubscribing channel...");
                 supabase.removeChannel(channel);
             }
         };
-    }, [fetchLcrCounts]);
+    }, [fetchLcrCounts, isLcrRole]);
 
     const fetchReportsCount = React.useCallback(async () => {
         try {
@@ -296,11 +324,13 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        fetchReportsCount();
-    }, [pathname, fetchReportsCount]);
+        if (isReportsRole) {
+            fetchReportsCount();
+        }
+    }, [pathname, fetchReportsCount, isReportsRole]);
 
     React.useEffect(() => {
-        if (!supabase) return;
+        if (!isReportsRole || !supabase) return;
         let channel: any;
         let debounceTimer: NodeJS.Timeout | null = null;
 
@@ -332,7 +362,7 @@ export function Sidebar({
                 supabase.removeChannel(channel);
             }
         };
-    }, [fetchReportsCount]);
+    }, [fetchReportsCount, isReportsRole]);
 
     const fetchRhuEquipmentCount = React.useCallback(async () => {
         try {
@@ -346,19 +376,22 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        fetchRhuEquipmentCount();
-    }, [pathname, fetchRhuEquipmentCount]);
+        if (isRhuRole) {
+            fetchRhuEquipmentCount();
+        }
+    }, [pathname, fetchRhuEquipmentCount, isRhuRole]);
 
     React.useEffect(() => {
+        if (!isRhuRole) return;
         const handleUpdate = () => {
             fetchRhuEquipmentCount();
         };
         window.addEventListener("rhu-equipment-updated", handleUpdate);
         return () => window.removeEventListener("rhu-equipment-updated", handleUpdate);
-    }, [fetchRhuEquipmentCount]);
+    }, [fetchRhuEquipmentCount, isRhuRole]);
 
     React.useEffect(() => {
-        if (!supabase) return;
+        if (!isRhuRole || !supabase) return;
         let channel: any;
         let debounceTimer: NodeJS.Timeout | null = null;
 
@@ -418,21 +451,113 @@ export function Sidebar({
                 supabase.removeChannel(channel);
             }
         };
-    }, [fetchRhuEquipmentCount]);
+    }, [fetchRhuEquipmentCount, isRhuRole]);
+
+    const fetchVitalsCount = React.useCallback(async () => {
+        try {
+            const res = await getRHUCheckedInVitalsCount();
+            if (res && res.success) {
+                const newCount = res.count ?? 0;
+                if (newCount > prevVitalsCountRef.current) {
+                    const isDoctorOrStaff = role === "RHU_DOCTOR" || role === "RHU_STAFF" || role === "RHU_CENTER_ADMIN" || role === "ADMIN" || role === "RHU_ADMIN";
+                    if (isDoctorOrStaff) {
+                        try {
+                            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                            if (AudioContextClass) {
+                                const ctx = new AudioContextClass();
+                                const osc = ctx.createOscillator();
+                                const gain = ctx.createGain();
+                                osc.type = "sine";
+                                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+                                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                                osc.connect(gain);
+                                gain.connect(ctx.destination);
+                                osc.start();
+                                osc.stop(ctx.currentTime + 0.35);
+                            }
+                        } catch {}
+
+                        toast.info("Secretary Triage Complete: Patient vitals recorded. Ready for doctor consultation!", {
+                            icon: "🩺",
+                            duration: 6000,
+                        });
+                    }
+                }
+                prevVitalsCountRef.current = newCount;
+                setLiveRhuVitalsCount(newCount);
+            }
+        } catch (err) {
+            console.error("[Sidebar Vitals Realtime] Error:", err);
+        }
+    }, [role]);
 
     React.useEffect(() => {
-        // Background polling fallback every 20 seconds to keep counts in sync
+        if (isRhuRole) {
+            fetchVitalsCount();
+        }
+    }, [pathname, fetchVitalsCount, isRhuRole]);
+
+    React.useEffect(() => {
+        if (!isRhuRole) return;
+        const handleUpdate = () => {
+            fetchVitalsCount();
+        };
+        window.addEventListener("rhu-vitals-updated", handleUpdate);
+        return () => window.removeEventListener("rhu-vitals-updated", handleUpdate);
+    }, [fetchVitalsCount, isRhuRole]);
+
+    React.useEffect(() => {
+        if (!isRhuRole || !supabase) return;
+        let channel: any;
+        let debounceTimer: NodeJS.Timeout | null = null;
+
+        try {
+            channel = supabase
+                .channel("sidebar-rhu-vitals-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchVitalsCount();
+                        }, 1000);
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.warn("[Sidebar RHU Vitals Realtime] Setup error:", error);
+        }
+
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchVitalsCount, isRhuRole]);
+
+    React.useEffect(() => {
+        // Background polling fallback every 30 seconds only for relevant role items
         const interval = setInterval(() => {
-            console.log("[Polling Sidebar] Fetching counts...");
             if (role === "ADMIN" || role === "ADMIN_AIDE") {
                 fetchBploCount();
             }
-            fetchLcrCounts();
-            fetchRhuEquipmentCount();
-        }, 20000);
+            if (isLcrRole) fetchLcrCounts();
+            if (isRhuRole) {
+                fetchRhuEquipmentCount();
+                fetchVitalsCount();
+            }
+        }, 30000);
 
         return () => clearInterval(interval);
-    }, [fetchBploCount, fetchLcrCounts, fetchRhuEquipmentCount, role]);
+    }, [fetchBploCount, fetchLcrCounts, fetchRhuEquipmentCount, fetchVitalsCount, role, isLcrRole, isRhuRole]);
 
     React.useEffect(() => {
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
@@ -615,7 +740,10 @@ export function Sidebar({
             category: rhuCategory,
             isDropdown: true,
             isOpen: isRHUOpen,
-            badge: liveRhuEquipmentCount > 0 && !isRHUOpen ? liveRhuEquipmentCount : undefined,
+            badge: !isRHUOpen 
+                ? (liveRhuVitalsCount > 0 ? liveRhuVitalsCount : (liveRhuEquipmentCount > 0 ? liveRhuEquipmentCount : undefined)) 
+                : undefined,
+            badgeColor: !isRHUOpen && liveRhuVitalsCount > 0 ? "bg-emerald-500" : undefined,
             onToggle: () => {
                 if (isRHUOpen) {
                     setIsRHUOpen(false);
@@ -626,7 +754,13 @@ export function Sidebar({
             },
             subItems: [
                 { href: "/admin/rhu", label: "Dashboard" },
-                { href: "/admin/rhu/consultations", label: "All Consultations" },
+                { 
+                    href: "/admin/rhu/consultations", 
+                    label: "All Consultations",
+                    badge: liveRhuVitalsCount > 0 ? liveRhuVitalsCount : undefined,
+                    badgeColor: "bg-emerald-500"
+                },
+                { href: "/admin/rhu/follow-ups", label: "Return / Follow-Up Visits" },
             ]
         },
         {
@@ -970,7 +1104,7 @@ export function Sidebar({
                 item.label === "Medicine & Supplies" ||
                 item.href === "/admin/rhu/inventory"
             );
-        } else if (role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || (department && (department.toUpperCase().includes("RHU") || department.toUpperCase().includes("HEALTH")))) {
+        } else if (role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || role === "ASST_SEC" || (department && (department.toUpperCase().includes("RHU") || department.toUpperCase().includes("HEALTH")))) {
             menuItems = allMenuItems.filter(item => item.category === rhuCategory || item.category === "Rural Health Unit");
         } else if (role === "MDRRMO_ADMIN" || (department && (department.toUpperCase().includes("MDRRMO") || department.toUpperCase().includes("DISASTER")))) {
             menuItems = allMenuItems.filter(item => item.category === "MDRRMO");
@@ -1136,7 +1270,10 @@ export function Sidebar({
                                                         </span>
                                                     )}
                                                     {typeof item.badge === "number" && item.badge > 0 && (
-                                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                        <span className={cn(
+                                                            "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white shadow-sm",
+                                                            (item as any).badgeColor || "bg-rose-500"
+                                                        )}>
                                                             {item.badge}
                                                         </span>
                                                     )}
@@ -1222,7 +1359,10 @@ export function Sidebar({
                                                                             </span>
                                                                         )}
                                                                         {typeof (sub as any).badge === "number" && (sub as any).badge > 0 && (
-                                                                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                                                                            <span className={cn(
+                                                                                "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white shadow-sm animate-pulse",
+                                                                                (sub as any).badgeColor || "bg-amber-500"
+                                                                            )}>
                                                                                 {(sub as any).badge}
                                                                             </span>
                                                                         )}
