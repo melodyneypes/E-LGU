@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { Prisma, TransactionStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -178,9 +179,9 @@ export async function getArchivedRegistrarRecords(params?: {
         ]);
 
         // Aggregate live metrics across registry categories (Strictly RELEASED & Civil Registry)
-        const baseArchivedScope = {
+        const baseArchivedScope: Prisma.TransactionWhereInput = {
             isCancelled: false,
-            status: "RELEASED",
+            status: TransactionStatus.RELEASED,
             type: {
                 category: { in: ["Civil Registry", "REGISTRAR", "CIVIL_REGISTRY"] }
             }

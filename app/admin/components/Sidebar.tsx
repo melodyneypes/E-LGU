@@ -620,7 +620,7 @@ export function Sidebar({
             icon: Calendar,
             category: "Registrar"
         },
-        { href: "/admin/registrar/archive", label: "Document Archives", icon: FolderArchive, category: "Registrar" },
+        { href: "/admin/registrar/archive", label: "Registrar Archives", icon: FolderArchive, category: "Registrar" },
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
@@ -886,7 +886,7 @@ export function Sidebar({
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
-                        (item.label === "Document Archives" && item.category === "Registrar") ||
+                        (item.label === "Registrar Archives" && item.category === "Registrar") ||
                         (item.label === "Citizen Feedback" && item.category === "Registrar") ||
                         (item.label === "Appointment Settings" && item.category === "Registrar")
                     );
