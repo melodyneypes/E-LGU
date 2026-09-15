@@ -947,7 +947,7 @@ export default function RegistrarArchiveClient({
                                             {/* Actions */}
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1.5">
-                                                    {/* View Detail Modal */}
+                                                    {/* View Detail Modal (Available for both Physical & Online) */}
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
@@ -961,27 +961,16 @@ export default function RegistrarArchiveClient({
                                                         <Eye className="w-4 h-4" />
                                                     </Button>
 
-                                                    {/* Edit Modal */}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => openEditModal(rec)}
-                                                        className="h-8 w-8 p-0 rounded-lg hover:bg-blue-50 text-blue-600 dark:hover:bg-blue-950/50"
-                                                        title="Edit / Update Record"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </Button>
-
-                                                    {/* Delete */}
+                                                    {/* Edit Modal (Available for Physical Archive) */}
                                                     {rec.isPhysical && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => handleDeleteRecord(rec.id, rec.registryNo)}
-                                                            className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-rose-600 dark:hover:bg-rose-950/50"
-                                                            title="Delete Record"
+                                                            onClick={() => openEditModal(rec)}
+                                                            className="h-8 w-8 p-0 rounded-lg hover:bg-blue-50 text-blue-600 dark:hover:bg-blue-950/50"
+                                                            title="Edit Physical Record"
                                                         >
-                                                            <Trash2 className="w-4 h-4" />
+                                                            <Pencil className="w-4 h-4" />
                                                         </Button>
                                                     )}
                                                 </div>
