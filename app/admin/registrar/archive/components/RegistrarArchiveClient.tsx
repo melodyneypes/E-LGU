@@ -125,7 +125,7 @@ export default function RegistrarArchiveClient({
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
 
@@ -191,12 +191,12 @@ export default function RegistrarArchiveClient({
     const [attachments, setAttachments] = useState<RegistrarAttachmentItem[]>([]);
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
 
-    // Debounce search input
+    // Debounce search input (400ms)
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(search);
             setCurrentPage(1);
-        }, 350);
+        }, 400);
         return () => clearTimeout(timer);
     }, [search]);
 
@@ -230,7 +230,7 @@ export default function RegistrarArchiveClient({
         } finally {
             setLoading(false);
         }
-    }, [currentPage, debouncedSearch, registryTypeFilter, sourceType, startDate, endDate]);
+    }, [currentPage, itemsPerPage, debouncedSearch, registryTypeFilter, sourceType, startDate, endDate]);
 
     useEffect(() => {
         fetchRecords();
@@ -938,34 +938,72 @@ export default function RegistrarArchiveClient({
                     </Table>
                 </div>
 
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-                        <div>
-                            Page {currentPage} of {totalPages}
-                        </div>
+                {/* Pagination & Rows-Per-Page Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                    {/* Left: Range and Rows Per Page Selector */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <span>
+                            {totalCount > 0 ? (
+                                <>
+                                    Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of{" "}
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300">{totalCount}</span> records
+                                </>
+                            ) : (
+                                "No records"
+                            )}
+                        </span>
+
                         <div className="flex items-center gap-2">
+                            <span className="text-slate-400">Rows per page:</span>
+                            <Select
+                                value={String(itemsPerPage)}
+                                onValueChange={(val) => {
+                                    setItemsPerPage(Number(val));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="h-8 w-[72px] text-xs rounded-lg border-slate-200 dark:border-slate-700">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Right: Page Indicator & Navigation Buttons */}
+                    <div className="flex items-center gap-3">
+                        <span>
+                            Page <span className="font-semibold text-slate-700 dark:text-slate-300">{currentPage}</span> of{" "}
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{totalPages}</span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                disabled={currentPage <= 1}
+                                disabled={currentPage <= 1 || loading}
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                className="h-8 rounded-lg"
+                                className="h-8 px-3 rounded-lg text-xs"
                             >
                                 Previous
                             </Button>
                             <Button
                                 variant="outline"
                                 size="sm"
-                                disabled={currentPage >= totalPages}
+                                disabled={currentPage >= totalPages || loading}
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                className="h-8 rounded-lg"
+                                className="h-8 px-3 rounded-lg text-xs"
                             >
                                 Next
                             </Button>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* CREATE / EDIT ARCHIVE MODAL */}
