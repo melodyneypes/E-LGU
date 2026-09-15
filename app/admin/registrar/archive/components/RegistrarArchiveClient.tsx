@@ -6,7 +6,6 @@ import {
     createArchivedRegistrarRecord,
     updateArchivedRegistrarRecord,
     deleteArchivedRegistrarRecord,
-    syncHistoricalRegistrarArchives,
     RegistryCategory
 } from "../actions";
 import {
@@ -142,7 +141,6 @@ export default function RegistrarArchiveClient({
     const [isEditMode, setIsEditMode] = useState(false);
     const [editRecordId, setEditRecordId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
 
     // Detail Modal states
     const [viewRecord, setViewRecord] = useState<any | null>(null);
@@ -503,25 +501,6 @@ export default function RegistrarArchiveClient({
         }
     };
 
-    // Retroactive sync handler
-    const handleSyncDatabase = async () => {
-        setIsSyncing(true);
-        toast.info("Synchronizing archives into database registry tables...", { duration: 2500 });
-        try {
-            const res = await syncHistoricalRegistrarArchives();
-            if (res.success) {
-                toast.success(res.message);
-                fetchRecords();
-            } else {
-                toast.error(res.error || "Failed to sync archives to database.");
-            }
-        } catch {
-            toast.error("Network error during database synchronization.");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
     // Lightbox helper
     const openLightbox = (url: string, title: string) => {
         const isPdf = /\.pdf$/i.test(url);
@@ -701,23 +680,11 @@ export default function RegistrarArchiveClient({
                         <Button
                             variant="outline"
                             onClick={() => fetchRecords()}
-                            disabled={loading || isSyncing}
+                            disabled={loading}
                             className="h-11 px-3 rounded-xl border-slate-200 dark:border-slate-700"
                             title="Refresh registry list"
                         >
                             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                        </Button>
-
-                        {/* Database Sync Button */}
-                        <Button
-                            variant="outline"
-                            onClick={handleSyncDatabase}
-                            disabled={isSyncing || loading}
-                            className="h-11 px-3.5 rounded-xl border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 gap-2"
-                            title="Synchronize all archives into dedicated database registry tables"
-                        >
-                            <Sparkles className={`w-4 h-4 text-amber-500 ${isSyncing ? "animate-spin" : ""}`} />
-                            <span className="hidden md:inline">{isSyncing ? "Syncing DB..." : "Sync DB Tables"}</span>
                         </Button>
 
                         {/* Primary Action Button: Archive Document */}
@@ -781,17 +748,14 @@ export default function RegistrarArchiveClient({
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70">
-                                <TableHead className="w-[180px] font-bold text-xs uppercase tracking-wider">
-                                    Registry Number
+                                <TableHead className="w-[80px] font-bold text-xs uppercase tracking-wider text-center">
+                                    No.
                                 </TableHead>
                                 <TableHead className="w-[130px] font-bold text-xs uppercase tracking-wider">
                                     Type
                                 </TableHead>
                                 <TableHead className="min-w-[220px] font-bold text-xs uppercase tracking-wider">
                                     Subject / Parties
-                                </TableHead>
-                                <TableHead className="w-[160px] font-bold text-xs uppercase tracking-wider">
-                                    Book / Page
                                 </TableHead>
                                 <TableHead className="w-[160px] font-bold text-xs uppercase tracking-wider">
                                     Event Date
@@ -810,7 +774,7 @@ export default function RegistrarArchiveClient({
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-64 text-center">
+                                    <TableCell colSpan={7} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                                             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                                             <p className="text-sm font-medium">Loading archived registry records...</p>
@@ -819,7 +783,7 @@ export default function RegistrarArchiveClient({
                                 </TableRow>
                             ) : records.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-64 text-center">
+                                    <TableCell colSpan={7} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                                             <FolderArchive className="w-12 h-12 text-slate-300 stroke-1" />
                                             <p className="text-base font-semibold text-slate-700 dark:text-slate-300">
@@ -842,27 +806,29 @@ export default function RegistrarArchiveClient({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                records.map((rec) => {
+                                records.map((rec, index) => {
                                     const isBirth = rec.archiveType === "BIRTH";
                                     const isDeath = rec.archiveType === "DEATH";
                                     const isMarriage = rec.archiveType === "MARRIAGE";
+                                    const rowNumber = (currentPage - 1) * itemsPerPage + index + 1;
 
                                     return (
                                         <TableRow
                                             key={rec.id}
                                             className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                                         >
-                                            {/* Registry Number */}
-                                            <TableCell className="font-mono font-bold text-slate-900 dark:text-white">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-blue-600 dark:text-blue-400">#</span>
-                                                    <span>{rec.registryNo}</span>
-                                                </div>
-                                                {rec.isPhysical && (
-                                                    <span className="inline-block mt-0.5 text-[10px] font-sans font-semibold tracking-wider uppercase px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
-                                                        Physical Archive
+                                            {/* Sequential Row Number */}
+                                            <TableCell className="font-mono text-center">
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                                        {rowNumber}
                                                     </span>
-                                                )}
+                                                    {rec.isPhysical && (
+                                                        <span className="inline-block mt-0.5 text-[9px] font-sans font-semibold tracking-wider uppercase px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
+                                                            Physical
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </TableCell>
 
                                             {/* Type Badge */}
@@ -895,19 +861,8 @@ export default function RegistrarArchiveClient({
                                                     {rec.citizenFullName}
                                                 </div>
                                                 <div className="text-xs text-slate-500">
-                                                    {isBirth && rec.motherMaidenName ? `Mother: ${rec.motherMaidenName}` : null}
                                                     {isDeath && rec.causeOfDeath ? `Cause: ${rec.causeOfDeath}` : null}
                                                     {isMarriage && rec.solemnizingOfficer ? `Officer: ${rec.solemnizingOfficer}` : null}
-                                                </div>
-                                            </TableCell>
-
-                                            {/* Book & Page */}
-                                            <TableCell>
-                                                <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                                                    {rec.bookNo !== "N/A" ? `Book ${rec.bookNo}` : "No Book"}
-                                                </div>
-                                                <div className="text-xs text-slate-400">
-                                                    {rec.pageNo !== "N/A" ? `Page ${rec.pageNo}` : "No Page"}
                                                 </div>
                                             </TableCell>
 

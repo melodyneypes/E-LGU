@@ -54,9 +54,10 @@ export async function getArchivedRegistrarRecords(params?: {
 
         const skip = (page - 1) * limit;
 
-        // Base criteria: Civil Registry category
+        // Base criteria: Civil Registry category & RELEASED status
         const where: any = {
             isCancelled: false,
+            status: "RELEASED",
             type: {
                 category: { in: ["Civil Registry", "REGISTRAR", "CIVIL_REGISTRY"] }
             }
@@ -179,6 +180,7 @@ export async function getArchivedRegistrarRecords(params?: {
         // Aggregate live metrics across registry categories
         const baseArchivedScope = {
             isCancelled: false,
+            status: "RELEASED",
             type: {
                 category: { in: ["Civil Registry", "REGISTRAR", "CIVIL_REGISTRY"] }
             }
