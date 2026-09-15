@@ -7,6 +7,7 @@ import {
     updateArchivedRegistrarRecord,
     RegistryCategory
 } from "../actions";
+import { scanCivilRegistryDocument } from "../actions/ai-scanner";
 import {
     Search,
     Plus,
@@ -26,7 +27,9 @@ import {
     Filter,
     FileUp,
     HelpCircle,
-    BookOpen
+    BookOpen,
+    ScanText,
+    Wand2
 } from "lucide-react";
 import { compressDocumentScan } from "@/lib/image-compression";
 import { Button } from "@/components/ui/button";
@@ -184,6 +187,9 @@ export default function RegistrarArchiveClient({
     const [mainCertPreview, setMainCertPreview] = useState<string | null>(null);
     const [mainCertExistingUrl, setMainCertExistingUrl] = useState<string | null>(null);
 
+    // AI Scanner state
+    const [isScanningAi, setIsScanningAi] = useState(false);
+
     const [attachments, setAttachments] = useState<RegistrarAttachmentItem[]>([]);
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
 
@@ -232,28 +238,28 @@ export default function RegistrarArchiveClient({
         fetchRecords();
     }, [fetchRecords]);
 
-    // Reset Form
+    // Reset Form - Pristine empty fields for newly added archives
     const resetForm = () => {
         setFormData({
             registryNo: "",
             bookNo: "",
             pageNo: "",
-            dateRegistered: new Date().toISOString().split("T")[0],
+            dateRegistered: "",
             childName: "",
             sex: "MALE",
             dateOfBirth: "",
-            placeOfBirth: "Mapandan, Pangasinan",
+            placeOfBirth: "",
             fatherName: "",
             motherMaidenName: "",
             deceasedName: "",
             dateOfDeath: "",
-            placeOfDeath: "Mapandan, Pangasinan",
+            placeOfDeath: "",
             ageAtDeath: "",
             causeOfDeath: "",
             husbandName: "",
             wifeName: "",
             dateOfMarriage: "",
-            placeOfMarriage: "Mapandan, Pangasinan",
+            placeOfMarriage: "",
             solemnizingOfficer: "",
             remarks: ""
         });
@@ -267,6 +273,7 @@ export default function RegistrarArchiveClient({
         setAttachments([]);
         setIsEditMode(false);
         setEditRecordId(null);
+        setIsScanningAi(false);
     };
 
     const openCreateModal = (type: "BIRTH" | "DEATH" | "MARRIAGE" = "BIRTH") => {
@@ -274,6 +281,109 @@ export default function RegistrarArchiveClient({
         setFormType(type);
         setIsEditMode(false);
         setIsCreateOpen(true);
+    };
+
+    // Trigger Document Scan and Auto-populate form
+    const triggerAiDocumentScan = async (fileToScan: File, category: "BIRTH" | "DEATH" | "MARRIAGE") => {
+        setIsScanningAi(true);
+        const toastId = toast.loading("Scanning document and extracting registry fields...");
+        try {
+            // Convert file to Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve, reject) => {
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    // Strip the Data URL prefix (e.g., 'data:image/jpeg;base64,')
+                    const base64Clean = result.split(",")[1];
+                    resolve(base64Clean);
+                };
+                reader.onerror = (err) => reject(err);
+            });
+            reader.readAsDataURL(fileToScan);
+            const base64Data = await base64Promise;
+
+            const res = await scanCivilRegistryDocument({
+                base64Data,
+                mimeType: fileToScan.type || "image/jpeg",
+                category,
+            });
+
+            if (res.success && res.data) {
+                const d = res.data;
+                let countExtracted = 0;
+
+                setFormData(prev => {
+                    const updated = { ...prev };
+                    if (d.registryNo) { updated.registryNo = d.registryNo; countExtracted++; }
+                    if (d.bookNo) { updated.bookNo = d.bookNo; countExtracted++; }
+                    if (d.pageNo) { updated.pageNo = d.pageNo; countExtracted++; }
+                    if (d.dateRegistered) { updated.dateRegistered = d.dateRegistered; countExtracted++; }
+
+                    // Category-specific fields
+                    if (category === "BIRTH") {
+                        if (d.childName) { updated.childName = d.childName; countExtracted++; }
+                        if (d.sex) updated.sex = d.sex;
+                        if (d.dateOfBirth) { updated.dateOfBirth = d.dateOfBirth; countExtracted++; }
+                        if (d.placeOfBirth) { updated.placeOfBirth = d.placeOfBirth; countExtracted++; }
+                        if (d.fatherName) { updated.fatherName = d.fatherName; countExtracted++; }
+                        if (d.motherMaidenName) { updated.motherMaidenName = d.motherMaidenName; countExtracted++; }
+                    } else if (category === "DEATH") {
+                        if (d.deceasedName) { updated.deceasedName = d.deceasedName; countExtracted++; }
+                        if (d.dateOfDeath) { updated.dateOfDeath = d.dateOfDeath; countExtracted++; }
+                        if (d.placeOfDeath) { updated.placeOfDeath = d.placeOfDeath; countExtracted++; }
+                        if (d.ageAtDeath) { updated.ageAtDeath = d.ageAtDeath; countExtracted++; }
+                        if (d.causeOfDeath) { updated.causeOfDeath = d.causeOfDeath; countExtracted++; }
+                    } else if (category === "MARRIAGE") {
+                        if (d.husbandName) { updated.husbandName = d.husbandName; countExtracted++; }
+                        if (d.wifeName) { updated.wifeName = d.wifeName; countExtracted++; }
+                        if (d.dateOfMarriage) { updated.dateOfMarriage = d.dateOfMarriage; countExtracted++; }
+                        if (d.placeOfMarriage) { updated.placeOfMarriage = d.placeOfMarriage; countExtracted++; }
+                        if (d.solemnizingOfficer) { updated.solemnizingOfficer = d.solemnizingOfficer; countExtracted++; }
+                    }
+
+                    return updated;
+                });
+
+                toast.success(`Document scanned successfully. Form fields have been auto-filled.`, {
+                    id: toastId,
+                    duration: 4000,
+                });
+            } else {
+                toast.error(res.error || "Unable to read document cleanly. Please verify or input details manually.", {
+                    id: toastId,
+                    duration: 4000,
+                });
+            }
+        } catch (err: any) {
+            console.error("Document Scan invocation error:", err);
+            toast.error("Failed to process scanned document. Please input details manually.", { id: toastId });
+        } finally {
+            setIsScanningAi(false);
+        }
+    };
+
+    // Primary scan file upload handler with compression and AI auto-fill
+    const handleMainCertUpload = async (file: File) => {
+        try {
+            let processedFile = file;
+            if (file.type.startsWith("image/")) {
+                toast.info("Optimizing certificate scan resolution...", { duration: 1500 });
+                processedFile = await compressDocumentScan(file);
+            }
+            if (mainCertPreview) URL.revokeObjectURL(mainCertPreview);
+            setMainCertFile(processedFile);
+            setMainCertPreview(URL.createObjectURL(processedFile));
+            toast.success(`Loaded scan: ${processedFile.name} (${formatFileSize(processedFile.size)})`);
+
+            // Auto-trigger AI extraction if in create mode or requested
+            if (!isEditMode) {
+                await triggerAiDocumentScan(processedFile, formType);
+            }
+        } catch (err) {
+            console.error("Image processing error:", err);
+            setMainCertFile(file);
+            setMainCertPreview(URL.createObjectURL(file));
+        }
     };
 
     const openEditModal = (rec: any) => {
@@ -326,25 +436,6 @@ export default function RegistrarArchiveClient({
         }
 
         setIsCreateOpen(true);
-    };
-
-    // Primary scan file upload handler with compression
-    const handleMainCertUpload = async (file: File) => {
-        try {
-            let processedFile = file;
-            if (file.type.startsWith("image/")) {
-                toast.info("Optimizing certificate scan resolution...", { duration: 1500 });
-                processedFile = await compressDocumentScan(file);
-            }
-            if (mainCertPreview) URL.revokeObjectURL(mainCertPreview);
-            setMainCertFile(processedFile);
-            setMainCertPreview(URL.createObjectURL(processedFile));
-            toast.success(`Loaded scan: ${processedFile.name} (${formatFileSize(processedFile.size)})`);
-        } catch (err) {
-            console.error("Image processing error:", err);
-            setMainCertFile(file);
-            setMainCertPreview(URL.createObjectURL(file));
-        }
     };
 
     // Supplementary attachment upload handler with compression
@@ -1040,7 +1131,28 @@ export default function RegistrarArchiveClient({
                                     <div className="grid grid-cols-3 gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setFormType("BIRTH")}
+                                            onClick={() => {
+                                                setFormType("BIRTH");
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    childName: "",
+                                                    sex: "MALE",
+                                                    dateOfBirth: "",
+                                                    placeOfBirth: "",
+                                                    fatherName: "",
+                                                    motherMaidenName: "",
+                                                    deceasedName: "",
+                                                    dateOfDeath: "",
+                                                    placeOfDeath: "",
+                                                    ageAtDeath: "",
+                                                    causeOfDeath: "",
+                                                    husbandName: "",
+                                                    wifeName: "",
+                                                    dateOfMarriage: "",
+                                                    placeOfMarriage: "",
+                                                    solemnizingOfficer: "",
+                                                }));
+                                            }}
                                             className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
                                                 formType === "BIRTH"
                                                     ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20 font-bold"
@@ -1053,7 +1165,28 @@ export default function RegistrarArchiveClient({
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormType("DEATH")}
+                                            onClick={() => {
+                                                setFormType("DEATH");
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    childName: "",
+                                                    sex: "MALE",
+                                                    dateOfBirth: "",
+                                                    placeOfBirth: "",
+                                                    fatherName: "",
+                                                    motherMaidenName: "",
+                                                    deceasedName: "",
+                                                    dateOfDeath: "",
+                                                    placeOfDeath: "",
+                                                    ageAtDeath: "",
+                                                    causeOfDeath: "",
+                                                    husbandName: "",
+                                                    wifeName: "",
+                                                    dateOfMarriage: "",
+                                                    placeOfMarriage: "",
+                                                    solemnizingOfficer: "",
+                                                }));
+                                            }}
                                             className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
                                                 formType === "DEATH"
                                                     ? "border-slate-600 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white ring-2 ring-slate-600/20 font-bold"
@@ -1066,7 +1199,28 @@ export default function RegistrarArchiveClient({
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormType("MARRIAGE")}
+                                            onClick={() => {
+                                                setFormType("MARRIAGE");
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    childName: "",
+                                                    sex: "MALE",
+                                                    dateOfBirth: "",
+                                                    placeOfBirth: "",
+                                                    fatherName: "",
+                                                    motherMaidenName: "",
+                                                    deceasedName: "",
+                                                    dateOfDeath: "",
+                                                    placeOfDeath: "",
+                                                    ageAtDeath: "",
+                                                    causeOfDeath: "",
+                                                    husbandName: "",
+                                                    wifeName: "",
+                                                    dateOfMarriage: "",
+                                                    placeOfMarriage: "",
+                                                    solemnizingOfficer: "",
+                                                }));
+                                            }}
                                             className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
                                                 formType === "MARRIAGE"
                                                     ? "border-rose-500 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 ring-2 ring-rose-500/20 font-bold"
@@ -1307,35 +1461,71 @@ export default function RegistrarArchiveClient({
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 shadow-sm transition-all">
-                                                <FileUp className="w-3.5 h-3.5 text-blue-600" />
-                                                <span>{mainCertFile || mainCertExistingUrl ? "Replace Scan" : "Upload Scan"}</span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*,application/pdf"
-                                                    className="hidden"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) handleMainCertUpload(file);
-                                                    }}
-                                                />
-                                            </label>
-
-                                            {(mainCertPreview || mainCertExistingUrl) && (
+                                            {mainCertFile && !isScanningAi && (
                                                 <Button
                                                     type="button"
-                                                    variant="ghost"
+                                                    variant="outline"
                                                     size="sm"
-                                                    onClick={() => openLightbox(mainCertPreview || mainCertExistingUrl!, "Primary Certificate Scan")}
-                                                    className="h-8 px-2.5 text-xs text-blue-600"
+                                                    onClick={() => triggerAiDocumentScan(mainCertFile, formType)}
+                                                    className="h-8 px-3 rounded-xl border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100 text-xs font-semibold shadow-xs"
                                                 >
-                                                    <Eye className="w-3.5 h-3.5 mr-1" /> Preview
+                                                    <ScanText className="w-3.5 h-3.5 mr-1 text-blue-600" /> Re-scan Document
                                                 </Button>
                                             )}
-                                        </div>
+
+                                            <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 shadow-sm transition-all ${isScanningAi ? "opacity-60 pointer-events-none" : ""}`}>
+                                                 <FileUp className="w-3.5 h-3.5 text-blue-600" />
+                                                 <span>{mainCertFile || mainCertExistingUrl ? "Replace Scan" : "Upload Scan"}</span>
+                                                 <input
+                                                     type="file"
+                                                     accept="image/*,application/pdf"
+                                                     className="hidden"
+                                                     disabled={isScanningAi}
+                                                     onChange={(e) => {
+                                                         const file = e.target.files?.[0];
+                                                         if (file) handleMainCertUpload(file);
+                                                     }}
+                                                 />
+                                             </label>
+
+                                             {(mainCertPreview || mainCertExistingUrl) && (
+                                                 <Button
+                                                     type="button"
+                                                     variant="ghost"
+                                                     size="sm"
+                                                     onClick={() => openLightbox(mainCertPreview || mainCertExistingUrl!, "Primary Certificate Scan")}
+                                                     className="h-8 px-2.5 text-xs text-blue-600"
+                                                 >
+                                                     <Eye className="w-3.5 h-3.5 mr-1" /> Preview
+                                                 </Button>
+                                             )}
+                                         </div>
                                     </div>
 
-                                    {(mainCertFile || mainCertExistingUrl) && (
+                                    {/* Document OCR & Scanning Processing Banner */}
+                                    {isScanningAi && (
+                                        <div className="mt-4 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50 via-slate-50 to-emerald-50 dark:from-blue-950/40 dark:via-slate-900/40 dark:to-emerald-950/40 flex items-center justify-between animate-pulse">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                                        <ScanText className="w-3.5 h-3.5 text-blue-600" />
+                                                        <span>Optical Character Recognition & Document Ingestion in Progress</span>
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                                                        Parsing official registry records, dates, and demographic details...
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-white/90 dark:bg-blue-900/50 px-2.5 py-1 rounded-lg border border-blue-100 dark:border-blue-800/60">
+                                                Auto-filling fields
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {(mainCertFile || mainCertExistingUrl) && !isScanningAi && (
                                         <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                                             <div className="flex items-center gap-2 truncate">
                                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -1525,13 +1715,18 @@ export default function RegistrarArchiveClient({
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={submitting}
+                                disabled={submitting || isScanningAi}
                                 className="rounded-xl px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold"
                             >
                                 {submitting ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
                                         Saving Vault Record...
+                                    </>
+                                ) : isScanningAi ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        Processing & Scanning Document...
                                     </>
                                 ) : (
                                     isEditMode ? "Save Changes" : "Digitize into Vault"
