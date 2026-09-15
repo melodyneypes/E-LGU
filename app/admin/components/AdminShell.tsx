@@ -29,6 +29,7 @@ interface AdminShellProps {
     unviewedLcrCounts?: Record<string, number>;
     rhuCenterName?: string | null;
     rhuEquipmentCount?: number;
+    rhuVitalsCount?: number;
 }
 
 export function AdminShell({
@@ -45,6 +46,7 @@ export function AdminShell({
     unviewedLcrCounts: initialUnviewedLcrCounts = {},
     rhuCenterName = null,
     rhuEquipmentCount: initialRhuEquipmentCount = 0,
+    rhuVitalsCount: initialRhuVitalsCount = 0,
 }: AdminShellProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -55,6 +57,11 @@ export function AdminShell({
     const [announcementsCount, setAnnouncementsCount] = React.useState(initialPendingAnnouncementsCount);
     const [lcrCounts, setLcrCounts] = React.useState<Record<string, number>>(initialUnviewedLcrCounts);
     const [rhuEquipmentCount, setRhuEquipmentCount] = React.useState(initialRhuEquipmentCount);
+    const [rhuVitalsCount, setRhuVitalsCount] = React.useState(initialRhuVitalsCount);
+
+    React.useEffect(() => {
+        setRhuVitalsCount(initialRhuVitalsCount);
+    }, [initialRhuVitalsCount]);
 
     React.useEffect(() => {
         let active = true;
@@ -284,6 +291,7 @@ export function AdminShell({
                 unviewedLcrCounts={lcrCounts}
                 rhuCenterName={rhuCenterName}
                 rhuEquipmentCount={rhuEquipmentCount}
+                rhuVitalsCount={rhuVitalsCount}
             />
             <div className="flex-1 flex flex-col min-w-0 relative">
                 <TopNav

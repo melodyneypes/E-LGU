@@ -28,6 +28,7 @@ export default async function RHUEquipmentPage() {
                 siteLogo={data.siteLogo || ""}
                 canDispatchSO={Boolean(data.canDispatchSO)}
                 canFileRO={Boolean(data.canFileRO)}
+                currentUserName={data.currentUserName || ""}
             />
         </div>
     );

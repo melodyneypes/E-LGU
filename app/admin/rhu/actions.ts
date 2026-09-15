@@ -1,5 +1,12 @@
 "use server";
 
+import prisma from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { generateQueueNumber } from "@/lib/queue";
+
 // Simple in-memory cache for matched health center per user to reduce DB queries on navigation
 const matchedCenterCache = new Map<string, Promise<any> | any>();
 
@@ -35,20 +42,20 @@ async function getRHUTypeIds(): Promise<string[]> {
     }
 }
 
-import prisma from "@/lib/db/prisma";
-import { Prisma } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
-import { generateQueueNumber } from "@/lib/queue";
-
 async function getSession() {
     return await getServerSession(authOptions);
 }
 
+export async function clearMatchedCenterCache(emailOrUserId?: string) {
+    if (emailOrUserId) {
+        matchedCenterCache.delete(emailOrUserId.toLowerCase());
+    } else {
+        matchedCenterCache.clear();
+    }
+}
+
 export async function getMatchedCenterForUser(user: any) {
     if (!user) return null;
-    // Use a cache key that uniquely identifies the user (email is typically unique)
     const cacheKey = (user.email || String(user.id)).toLowerCase();
     if (matchedCenterCache.has(cacheKey)) {
         return matchedCenterCache.get(cacheKey);
@@ -61,7 +68,8 @@ export async function getMatchedCenterForUser(user: any) {
         const userIdStr = String(user.id);
 
         const userRole = (user.role || "").toUpperCase();
-        // Global admin accounts (rhu@mapandan.gov.ph, admin@mapandan.gov.ph, LGU admin, Municipal Admin) without medical personnel link see all centers
+        const assignedDoctorId = user.assignedDoctorId ? String(user.assignedDoctorId) : null;
+        // Global admin accounts (rhu@mapandan.gov.ph, admin@mapandan.gov.ph, LGU admin) without medical personnel link see all centers
         if (
             userEmail === "rhu@mapandan.gov.ph" ||
             userEmail === "admin@mapandan.gov.ph" ||
@@ -76,18 +84,34 @@ export async function getMatchedCenterForUser(user: any) {
                 SELECT "id", "name", "code", "barangay", "accountEmail", "userId", "pharmacyEmail", "pharmacyUserId" FROM "RHUHealthCenter"
             `;
 
-            // 1. Direct check in RHUMedicalPersonnel for assigned doctor or medical staff (by userId or email)
+            // 1. Direct check in RHUMedicalPersonnel for assigned doctor or medical staff (by userId, email, accountEmail, or assigned doctor)
             try {
-                const personnel: any[] = await prisma.$queryRaw`
-                    SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
-                    WHERE ("userId" = ${userIdStr} OR LOWER("email") = ${userEmail}) 
-                      AND "healthCenterId" IS NOT NULL LIMIT 1
-                `;
+                let personnel: any[] = [];
+                if (assignedDoctorId) {
+                    personnel = await prisma.$queryRaw`
+                        SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
+                        WHERE ("userId" = ${userIdStr} 
+                           OR LOWER("email") = ${userEmail} 
+                           OR LOWER("accountEmail") = ${userEmail}
+                           OR "userId" = ${assignedDoctorId}) 
+                          AND "healthCenterId" IS NOT NULL LIMIT 1
+                    `;
+                } else {
+                    personnel = await prisma.$queryRaw`
+                        SELECT "healthCenterId" FROM "RHUMedicalPersonnel" 
+                        WHERE ("userId" = ${userIdStr} 
+                           OR LOWER("email") = ${userEmail} 
+                           OR LOWER("accountEmail") = ${userEmail}) 
+                          AND "healthCenterId" IS NOT NULL LIMIT 1
+                    `;
+                }
                 if (personnel && personnel[0] && personnel[0].healthCenterId) {
                     const matched = centers.find((c: any) => c.id === personnel[0].healthCenterId);
                     if (matched) return matched;
                 }
-            } catch {}
+            } catch (err) {
+                console.error("Error matching center for user via personnel:", err);
+            }
 
             // 2. Priority: keyword matching by email/name on RHUHealthCenter
             const keywordMatch = centers.find((c: any) => {
@@ -104,16 +128,40 @@ export async function getMatchedCenterForUser(user: any) {
 
             if (keywordMatch) return keywordMatch;
 
-            // 3. Fallback: userId match on RHUHealthCenter
+            // 3. Fallback: userId match on RHUHealthCenter (including assigned doctor)
             const userIdMatch = centers.find((c: any) =>
                 (c.userId && String(c.userId) === userIdStr) ||
+                (assignedDoctorId && c.userId && String(c.userId) === assignedDoctorId) ||
                 (c.pharmacyUserId && String(c.pharmacyUserId) === userIdStr)
             );
             if (userIdMatch) return userIdMatch;
 
-        } catch {}
+            // 4. If user has an assignedDoctorId (e.g. Secretary), check doctor's user account email
+            if (assignedDoctorId) {
+                try {
+                    const docUser: any[] = await prisma.$queryRaw`
+                        SELECT "email" FROM "User" WHERE "id" = ${assignedDoctorId} LIMIT 1
+                    `;
+                    if (docUser && docUser[0]?.email) {
+                        const docEmail = String(docUser[0].email).toLowerCase();
+                        const docPersonnel: any[] = await prisma.$queryRaw`
+                            SELECT "healthCenterId" FROM "RHUMedicalPersonnel"
+                            WHERE ("userId" = ${assignedDoctorId} OR LOWER("email") = ${docEmail} OR LOWER("accountEmail") = ${docEmail})
+                              AND "healthCenterId" IS NOT NULL LIMIT 1
+                        `;
+                        if (docPersonnel && docPersonnel[0]?.healthCenterId) {
+                            const matched = centers.find((c: any) => c.id === docPersonnel[0].healthCenterId);
+                            if (matched) return matched;
+                        }
+                    }
+                } catch {}
+            }
 
-        // 4. Virtual fallback by email/name keywords
+        } catch (err) {
+            console.error("Error in getMatchedCenterForUser:", err);
+        }
+
+        // 5. Virtual fallback by email/name keywords
         if (userEmail.includes("lalas") || userName.includes("lalas") || userDept.includes("lalas")) {
             return {
                 id: "lalas-medical-clinic",
@@ -135,8 +183,11 @@ export async function getMatchedCenterForUser(user: any) {
         return null;
     })();
 
-    matchedCenterCache.set(cacheKey, promise);
-    return promise;
+    const res = await promise;
+    if (res) {
+        matchedCenterCache.set(cacheKey, res);
+    }
+    return res;
 }
 
 export async function getRHUAdminTransactions(params?: {
@@ -382,6 +433,16 @@ export async function updateRHUAppointmentStatus(
         const role = user?.role || "";
         const email = (user?.email || "").toLowerCase();
 
+        if (status === "CHECK_IN") {
+            const canCheckIn = role === "ASST_SEC" || role === "ADMIN" || role === "RHU_ADMIN";
+            if (!canCheckIn) {
+                return {
+                    success: false,
+                    error: "Forbidden: Only Assistant Secretary accounts are authorized to check in patients and record vital signs. Doctors and clinical staff cannot check in patients or record vitals."
+                };
+            }
+        }
+
         if (status === "COMPLETED" || status === "RELEASED" || status === "DELIVERED") {
             const isPharmacy = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_PHARMACY" || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "ADMIN_AIDE" || email.includes("pharmacy");
             if (!isPharmacy) {
@@ -420,6 +481,14 @@ export async function updateRHUAppointmentStatus(
         }
 
         if (vitalsData) {
+            // Guard: Only Assistant Secretary accounts (and overall admins) can input or edit vitals
+            if (role !== "ASST_SEC" && role !== "ADMIN" && role !== "RHU_ADMIN") {
+                return {
+                    success: false,
+                    error: "Forbidden: Only Assistant Secretary accounts are authorized to input patient triage vital signs. Doctors and clinical staff cannot record vitals."
+                };
+            }
+
             const h = parseFloat(vitalsData.height || "");
             const w = parseFloat(vitalsData.weight || "");
             let calculatedBmi: string | null = null;
@@ -459,6 +528,14 @@ export async function updateRHUAppointmentStatus(
         }
 
         if (deosData) {
+            // Guard: Assistant Secretary accounts are blocked from issuing clinical diagnoses or physician orders
+            if (role === "ASST_SEC") {
+                return {
+                    success: false,
+                    error: "Forbidden: Assistant Secretary accounts are not authorized to issue clinical diagnoses, prescriptions, or physician orders. Must be signed off by a licensed physician."
+                };
+            }
+
             const physicianName = deosData.attendingPhysician?.trim() || user?.name || "Attending Physician";
             additionalData.deos = {
                 diagnosis: deosData.diagnosis || null,
@@ -488,6 +565,19 @@ export async function updateRHUAppointmentStatus(
                 dispensedByRole: existingDispenseInfo.dispensedByRole || user?.role || "RHU_PHARMACY",
                 dispensedAt: existingDispenseInfo.dispensedAt || additionalData.dispensedAt
             };
+
+            // If this transaction originated from a scheduled return visit / follow-up, mark the follow-up as Completed
+            if (additionalData.followUpAppointmentId) {
+                try {
+                    await prisma.$executeRaw`
+                        UPDATE follow_up_appointments
+                        SET status = 'Completed', updated_at = NOW()
+                        WHERE id = ${additionalData.followUpAppointmentId}
+                    `;
+                } catch (fuErr) {
+                    console.warn("Could not mark follow-up appointment as completed:", fuErr);
+                }
+            }
         }
 
         const dbStatusMap: Record<string, any> = {
@@ -793,6 +883,7 @@ export async function registerRHUWalkInConsultation(payload: {
         }
 
         const user = session.user as any;
+        const role = user?.role || "";
         const matchedCenter = await getMatchedCenterForUser(user);
 
         // 1. Resolve target Health Center
@@ -914,6 +1005,13 @@ export async function registerRHUWalkInConsultation(payload: {
         };
 
         if (payload.vitals) {
+            // Guard: Only Assistant Secretary accounts (and overall admins) can encode initial vitals
+            if (role !== "ASST_SEC" && role !== "ADMIN" && role !== "RHU_ADMIN") {
+                delete payload.vitals;
+            }
+        }
+
+        if (payload.vitals) {
             additionalData.vitals = {
                 height: payload.vitals.height || null,
                 weight: payload.vitals.weight || null,
@@ -971,4 +1069,495 @@ export async function registerRHUWalkInConsultation(payload: {
         return { success: false, error: error.message || "Failed to register walk-in patient." };
     }
 }
+
+export async function getRHUCheckedInVitalsCount() {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, count: 0 };
+        }
+
+        const user = session.user as any;
+        const matchedCenter = await getMatchedCenterForUser(user);
+
+        const rhuTypeIds = await getRHUTypeIds();
+        const typeIdCondition = rhuTypeIds.length > 0
+            ? Prisma.sql`t."typeId" IN (${Prisma.join(rhuTypeIds)})`
+            : Prisma.sql`1=1`;
+
+        const conditions: Prisma.Sql[] = [
+            Prisma.sql`
+                (
+                    ${typeIdCondition}
+                    OR (t."additionalData"->>'rhuStatus' IS NOT NULL)
+                    OR (t."additionalData"->>'checkupType' IS NOT NULL)
+                    OR (t."additionalData"->>'healthCenterName' IS NOT NULL)
+                    OR (t."additionalData"->>'healthCenterId' IS NOT NULL)
+                )
+            `,
+            Prisma.sql`t."isCancelled" = FALSE`,
+            Prisma.sql`t.status::text NOT IN ('CANCELLED', 'REJECTED')`,
+            Prisma.sql`
+                (
+                    t."additionalData"->>'rhuStatus' = 'CHECK_IN'
+                    OR (
+                        t."additionalData"->>'rhuStatus' IS NULL
+                        AND t.status::text IN ('CHECK_IN', 'EVALUATED')
+                    )
+                )
+            `,
+            Prisma.sql`
+                (
+                    t."additionalData"->'vitals' IS NOT NULL
+                    OR t."additionalData"->>'checkedInBy' IS NOT NULL
+                )
+            `
+        ];
+
+        if (matchedCenter) {
+            const centerId = matchedCenter.id;
+            const centerNameLower = (matchedCenter.name || "").toLowerCase();
+            const isLalas = centerNameLower.includes("lalas");
+            const isMain = centerNameLower.includes("main");
+
+            conditions.push(Prisma.sql`
+                (
+                    (t."additionalData"->>'healthCenterId' = ${centerId})
+                    OR (LOWER(t."additionalData"->>'healthCenterName') LIKE ${`%${centerNameLower}%`})
+                    OR (${centerNameLower} LIKE CONCAT('%', LOWER(t."additionalData"->>'healthCenterName'), '%'))
+                    OR (${isLalas} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%lalas%'
+                        OR LOWER(t."additionalData"::text) LIKE '%lalas%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                    OR (${isMain} = TRUE AND (
+                        LOWER(t."additionalData"->>'healthCenterName') LIKE '%main%'
+                        OR LOWER(t."additionalData"::text) LIKE '%main%'
+                        OR (t."additionalData"->>'healthCenterId' IS NULL AND t."additionalData"->>'healthCenterName' IS NULL)
+                    ))
+                )
+            `);
+        }
+
+        const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
+        const result: any[] = await prisma.$queryRaw`
+            SELECT COUNT(*)::int as count
+            FROM "Transaction" t
+            ${whereClause}
+        `;
+
+        const count = Number(result?.[0]?.count || 0);
+        return { success: true, count };
+    } catch (error) {
+        console.error("[getRHUCheckedInVitalsCount] Error:", error);
+        return { success: false, count: 0 };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RHU FOLLOW-UP CONSULTATION & AUTOMATED QUEUE INJECTION ACTIONS
+// ---------------------------------------------------------------------------
+
+export async function scheduleRHUFollowUp(payload: {
+    patientId: string;
+    patientName: string;
+    doctorId?: string;
+    doctorName?: string;
+    healthCenterId?: string;
+    healthCenterName?: string;
+    scheduledDate: string | Date;
+    notes?: string;
+    sourceTransactionId?: string;
+}) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const scheduledDateObj = new Date(payload.scheduledDate);
+        if (isNaN(scheduledDateObj.getTime())) {
+            return { success: false, error: "Invalid scheduled date for follow-up." };
+        }
+
+        const id = `fu_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const patientId = payload.patientId || "WALK_IN_PATIENT";
+        const patientName = payload.patientName || "PATIENT";
+        const doctorId = payload.doctorId || (session.user as any)?.id || null;
+        const doctorName = payload.doctorName || (session.user as any)?.name || "Attending Physician";
+        const notes = payload.notes?.trim() || null;
+        const healthCenterId = payload.healthCenterId || null;
+        const healthCenterName = payload.healthCenterName || null;
+        const sourceTxId = payload.sourceTransactionId || null;
+
+        await prisma.$executeRaw`
+            INSERT INTO follow_up_appointments (
+                id, patient_id, patient_name, doctor_id, doctor_name, 
+                health_center_id, health_center_name, scheduled_date, 
+                status, notes, source_transaction_id, created_at, updated_at
+            ) VALUES (
+                ${id}, ${patientId}, ${patientName}, ${doctorId}, ${doctorName},
+                ${healthCenterId}, ${healthCenterName}, ${scheduledDateObj},
+                'Pending', ${notes}, ${sourceTxId}, NOW(), NOW()
+            )
+        `;
+
+        if (sourceTxId) {
+            try {
+                const tx = await prisma.transaction.findUnique({ where: { id: sourceTxId } });
+                if (tx) {
+                    const additionalData = (tx.additionalData as any) || {};
+                    additionalData.followUpScheduled = {
+                        followUpId: id,
+                        scheduledDate: scheduledDateObj.toISOString(),
+                        notes,
+                        doctorName,
+                        scheduledAt: new Date().toISOString()
+                    };
+                    await prisma.transaction.update({
+                        where: { id: sourceTxId },
+                        data: { additionalData, updatedAt: new Date() }
+                    });
+                }
+            } catch (err) {
+                console.warn("Could not attach followUpScheduled to source transaction:", err);
+            }
+        }
+
+        try {
+            revalidatePath("/admin/rhu");
+            revalidatePath("/admin/rhu/consultations");
+            revalidatePath("/admin/rhu/follow-ups");
+            if (sourceTxId) revalidatePath(`/admin/rhu/${sourceTxId}`);
+        } catch {}
+
+        return { success: true, followUpId: id };
+    } catch (error: any) {
+        console.error("Failed to schedule follow-up:", error);
+        return { success: false, error: error.message || "Failed to schedule follow-up." };
+    }
+}
+
+export async function getRHUFollowUpAppointments(filters?: {
+    status?: string;
+    search?: string;
+    dateFilter?: string;
+    healthCenterId?: string;
+}) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const conditions: Prisma.Sql[] = [Prisma.sql`1=1`];
+
+        if (filters?.status && filters.status !== "ALL") {
+            conditions.push(Prisma.sql`status = ${filters.status}`);
+        }
+
+        if (filters?.healthCenterId) {
+            conditions.push(Prisma.sql`health_center_id = ${filters.healthCenterId}`);
+        }
+
+        if (filters?.search && filters.search.trim()) {
+            const term = `%${filters.search.trim().toLowerCase()}%`;
+            conditions.push(Prisma.sql`(
+                LOWER(patient_name) LIKE ${term}
+                OR LOWER(doctor_name) LIKE ${term}
+                OR LOWER(notes) LIKE ${term}
+            )`);
+        }
+
+        if (filters?.dateFilter === "today") {
+            const manilaDateString = new Intl.DateTimeFormat("en-US", {
+                timeZone: "Asia/Manila",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            }).format(new Date());
+            const [month, day, year] = manilaDateString.split("/");
+            const startOfToday = new Date(`${year}-${month}-${day}T00:00:00.000+08:00`);
+            const endOfToday = new Date(`${year}-${month}-${day}T23:59:59.999+08:00`);
+            conditions.push(Prisma.sql`scheduled_date >= ${startOfToday} AND scheduled_date <= ${endOfToday}`);
+        } else if (filters?.dateFilter === "upcoming") {
+            const now = new Date();
+            conditions.push(Prisma.sql`scheduled_date >= ${now}`);
+        } else if (filters?.dateFilter === "past") {
+            const now = new Date();
+            conditions.push(Prisma.sql`scheduled_date < ${now}`);
+        }
+
+        const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
+        const appointments: any[] = await prisma.$queryRaw`
+            SELECT 
+                id,
+                patient_id as "patientId",
+                patient_name as "patientName",
+                doctor_id as "doctorId",
+                doctor_name as "doctorName",
+                health_center_id as "healthCenterId",
+                health_center_name as "healthCenterName",
+                scheduled_date as "scheduledDate",
+                status,
+                notes,
+                source_transaction_id as "sourceTransactionId",
+                injected_transaction_id as "injectedTransactionId",
+                created_at as "createdAt",
+                updated_at as "updatedAt"
+            FROM follow_up_appointments
+            ${whereClause}
+            ORDER BY scheduled_date ASC
+        `;
+
+        return { success: true, data: appointments };
+    } catch (error: any) {
+        console.error("getRHUFollowUpAppointments error:", error);
+        return { success: false, error: error.message || "Failed to fetch follow-up appointments." };
+    }
+}
+
+export async function injectDailyFollowUpQueue() {
+    try {
+        const manilaFormatter = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        });
+        const [month, day, year] = manilaFormatter.format(new Date()).split("/");
+        const startOfToday = new Date(`${year}-${month}-${day}T00:00:00.000+08:00`);
+        const endOfToday = new Date(`${year}-${month}-${day}T23:59:59.999+08:00`);
+
+        // 1. Automatically mark past unfulfilled pending appointments as "Missed"
+        await prisma.$executeRaw`
+            UPDATE follow_up_appointments
+            SET status = 'Missed', updated_at = NOW()
+            WHERE status = 'Pending' AND scheduled_date < ${startOfToday}
+        `;
+
+        // 2. Fetch all pending follow-ups for CURRENT_DATE
+        const todaysFollowUps: any[] = await prisma.$queryRaw`
+            SELECT 
+                id,
+                patient_id,
+                patient_name,
+                doctor_id,
+                doctor_name,
+                health_center_id,
+                health_center_name,
+                scheduled_date,
+                status,
+                notes,
+                source_transaction_id,
+                injected_transaction_id
+            FROM follow_up_appointments
+            WHERE status = 'Pending'
+              AND scheduled_date >= ${startOfToday}
+              AND scheduled_date <= ${endOfToday}
+            ORDER BY scheduled_date ASC
+        `;
+
+        if (todaysFollowUps.length === 0) {
+            return { 
+                success: true, 
+                processed: 0, 
+                injected: 0, 
+                message: "No pending return visits scheduled for today." 
+            };
+        }
+
+        // 3. Resolve RHU TransactionType
+        let rhuType = await prisma.transactionType.findFirst({
+            where: {
+                OR: [
+                    { code: "RHU_CONSULTATION" },
+                    { code: { startsWith: "RHU" } },
+                    { category: { in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH"] } }
+                ]
+            }
+        });
+
+        if (!rhuType) {
+            rhuType = await prisma.transactionType.findFirst();
+        }
+
+        if (!rhuType) {
+            return { success: false, error: "Unable to find RHU Consultation transaction type in database." };
+        }
+
+        let injectedCount = 0;
+        const now = new Date();
+
+        for (const fu of todaysFollowUps) {
+            // Check idempotency: If already injected, verify transaction exists
+            if (fu.injected_transaction_id) {
+                const existingTx = await prisma.transaction.findUnique({
+                    where: { id: fu.injected_transaction_id }
+                });
+                if (existingTx && !existingTx.isCancelled) {
+                    continue;
+                }
+            }
+
+            // Also verify no other active queue transaction exists today for this follow-up
+            const duplicateCheck = await prisma.transaction.findFirst({
+                where: {
+                    appointmentDate: { gte: startOfToday, lte: endOfToday },
+                    status: { in: ["FOR_INSPECTION", "IN_CONSULTATION", "PRESCRIBED", "CHECK_IN", "FOR_PROCESSING"] },
+                    isCancelled: false,
+                    additionalData: {
+                        path: ["followUpAppointmentId"],
+                        equals: fu.id
+                    }
+                }
+            });
+            if (duplicateCheck) {
+                continue;
+            }
+
+            // Retrieve snapshot from source transaction or construct fallback
+            let residentSnapshot: any = {
+                firstName: fu.patient_name?.split(" ")[0] || "Return",
+                lastName: fu.patient_name?.split(" ").slice(1).join(" ") || "Patient",
+                middleName: "",
+                gender: "UNSPECIFIED",
+                barangay: "Poblacion",
+                municipality: "Mapandan",
+                province: "Pangasinan"
+            };
+
+            let userId: string | null = null;
+            if (fu.source_transaction_id) {
+                const sourceTx = await prisma.transaction.findUnique({
+                    where: { id: fu.source_transaction_id }
+                });
+                if (sourceTx) {
+                    if (sourceTx.residentSnapshot) {
+                        residentSnapshot = typeof sourceTx.residentSnapshot === "string"
+                            ? JSON.parse(sourceTx.residentSnapshot)
+                            : sourceTx.residentSnapshot;
+                    }
+                    userId = sourceTx.userId || null;
+                }
+            }
+
+            if (!userId && fu.patient_id && !fu.patient_id.startsWith("WALK_IN") && !fu.patient_id.startsWith("fu_")) {
+                const user = await prisma.user.findUnique({ where: { id: fu.patient_id } });
+                if (user) userId = user.id;
+            }
+
+            // Generate dedicated RHU Queue Number (e.g. 09142026-AM-H001)
+            const queueNumber = await generateQueueNumber({
+                source: "kiosk",
+                isPriority: false,
+                appointmentDate: now,
+                appointmentSlot: "AM",
+                category: "RHU"
+            });
+
+            const additionalData = {
+                checkupType: "Return Patient / Follow-up",
+                isFollowUp: true,
+                returnPatient: true,
+                followUpAppointmentId: fu.id,
+                followUpNotes: fu.notes || "Scheduled return visit",
+                originalDoctor: fu.doctor_name || "Attending Physician",
+                healthCenterId: fu.health_center_id || null,
+                healthCenterName: fu.health_center_name || null,
+                checkedIn: true,
+                checkedInAt: now.toISOString(),
+                rhuStatus: "FOR_INSPECTION",
+                autoInjectedByCron: true
+            };
+
+            const newTx = await prisma.transaction.create({
+                data: {
+                    typeId: rhuType.id,
+                    userId,
+                    status: "FOR_INSPECTION",
+                    appointmentDate: now,
+                    appointmentSlot: "AM",
+                    queueNumber,
+                    residentSnapshot,
+                    additionalData,
+                    totalAmount: 0,
+                    isPaid: true
+                }
+            });
+
+            // Update follow_up_appointments with the injected transaction ID
+            await prisma.$executeRaw`
+                UPDATE follow_up_appointments
+                SET injected_transaction_id = ${newTx.id}, updated_at = NOW()
+                WHERE id = ${fu.id}
+            `;
+
+            injectedCount++;
+        }
+
+        try {
+            revalidatePath("/admin/rhu");
+            revalidatePath("/admin/rhu/queue");
+            revalidatePath("/admin/rhu/consultations");
+            revalidatePath("/admin/rhu/follow-ups");
+        } catch {}
+
+        return {
+            success: true,
+            processed: todaysFollowUps.length,
+            injected: injectedCount
+        };
+    } catch (error: any) {
+        console.error("injectDailyFollowUpQueue error:", error);
+        return { success: false, error: error.message || "Failed to execute daily follow-up queue injection." };
+    }
+}
+
+export async function cancelRHUFollowUp(appointmentId: string, reason?: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        await prisma.$executeRaw`
+            UPDATE follow_up_appointments
+            SET status = 'Cancelled', 
+                notes = CONCAT(COALESCE(notes, ''), ' [Cancelled: ', ${reason || 'By Staff'}, ']'), 
+                updated_at = NOW()
+            WHERE id = ${appointmentId}
+        `;
+
+        try {
+            revalidatePath("/admin/rhu/follow-ups");
+        } catch {}
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to cancel follow-up." };
+    }
+}
+
+export async function completeRHUFollowUp(appointmentId: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        await prisma.$executeRaw`
+            UPDATE follow_up_appointments
+            SET status = 'Completed', updated_at = NOW()
+            WHERE id = ${appointmentId}
+        `;
+
+        try {
+            revalidatePath("/admin/rhu/follow-ups");
+        } catch {}
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to complete follow-up." };
+    }
+}
+
 

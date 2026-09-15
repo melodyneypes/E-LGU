@@ -99,13 +99,14 @@ export default withAuth(
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Guard: RHU roles (RHU_ADMIN, RHU_CENTER_ADMIN, RHU_DOCTOR, RHU_STAFF, RHU_PHARMACY)
+    // Guard: RHU roles (RHU_ADMIN, RHU_CENTER_ADMIN, RHU_DOCTOR, RHU_STAFF, RHU_PHARMACY, ASST_SEC)
     const isRHURole =
       token?.role === "RHU_ADMIN" ||
       token?.role === "RHU_CENTER_ADMIN" ||
       token?.role === "RHU_DOCTOR" ||
       token?.role === "RHU_STAFF" ||
       token?.role === "RHU_PHARMACY" ||
+      token?.role === "ASST_SEC" ||
       (token?.department && (token.department.includes("RHU") || token.department.includes("Medical Admin") || token.department.includes("Pharmacy")));
 
     if (isRHURole && url.pathname.startsWith("/admin")) {

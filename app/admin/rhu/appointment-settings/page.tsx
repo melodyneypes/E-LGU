@@ -22,7 +22,7 @@ export default async function RHUAppointmentSettingsPage() {
     const role = (session.user as any)?.role;
     const department = ((session.user as any)?.department || "").toUpperCase();
 
-    const allowedRoles = ["ADMIN", "RHU_ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF"];
+    const allowedRoles = ["ADMIN", "RHU_ADMIN", "ADMIN_AIDE", "BARANGAY_ADMIN", "RHU_CENTER_ADMIN", "RHU_DOCTOR", "RHU_STAFF", "ASST_SEC"];
     const allowedDepts = ["RHU", "HEALTH", "RURAL_HEALTH_UNIT", "MEDICAL", "LGU"];
 
     const isAuthorized = allowedRoles.includes(role) || allowedDepts.some(d => department.includes(d)) || (role && role.startsWith("RHU_"));
@@ -39,8 +39,8 @@ export default async function RHUAppointmentSettingsPage() {
 
     const matchedCenter = session.user ? await getMatchedCenterForUser(session.user) : null;
     const userRole = (role || "").toUpperCase();
-    const canManageSchedule = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN";
-    const isCenterAdmin = !!matchedCenter || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF";
+    const canManageSchedule = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userRole === "ASST_SEC";
+    const isCenterAdmin = !!matchedCenter || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || role === "ASST_SEC";
 
     // Load initial configuration
     const initialCenterId = matchedCenter?.id || healthCenters[0]?.id || "NONE";
