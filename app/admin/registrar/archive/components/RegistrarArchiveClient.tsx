@@ -489,7 +489,14 @@ export default function RegistrarArchiveClient({
             {/* KPI Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Total Archived */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-500/50 transition-all">
+                <div
+                    onClick={() => setRegistryTypeFilter("ALL")}
+                    className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 shadow-sm relative overflow-hidden group cursor-pointer transition-all ${
+                        registryTypeFilter === "ALL"
+                            ? "border-blue-500 ring-2 ring-blue-500/20"
+                            : "border-slate-200 dark:border-slate-800 hover:border-blue-500/50"
+                    }`}
+                >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                             Total Digitized
@@ -504,9 +511,9 @@ export default function RegistrarArchiveClient({
                         </span>
                         <span className="text-xs font-semibold text-slate-500">records in vault</span>
                     </div>
-                    <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Preserved Physical Books</span>
+                        <span>All Released Records</span>
                     </div>
                 </div>
 

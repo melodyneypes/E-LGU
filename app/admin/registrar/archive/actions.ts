@@ -177,7 +177,7 @@ export async function getArchivedRegistrarRecords(params?: {
             prisma.transaction.count({ where })
         ]);
 
-        // Aggregate live metrics across registry categories
+        // Aggregate live metrics across registry categories (Strictly RELEASED & Civil Registry)
         const baseArchivedScope = {
             isCancelled: false,
             status: "RELEASED",
@@ -187,36 +187,40 @@ export async function getArchivedRegistrarRecords(params?: {
         };
 
         const [totalArchivedAll, totalBirth, totalDeath, totalMarriage] = await Promise.all([
+            // 1. Total Released Civil Registry Records
             prisma.transaction.count({
-                where: {
-                    ...baseArchivedScope,
-                    additionalData: { path: ["isPhysicalArchive"], equals: true }
-                }
+                where: baseArchivedScope
             }),
+            // 2. Total Released Birth Records
             prisma.transaction.count({
                 where: {
                     ...baseArchivedScope,
                     OR: [
-                        { type: { code: { in: ["LCR_BIRTH_REG", "LCR_BIRTH"] } } },
-                        { additionalData: { path: ["archiveType"], equals: "BIRTH" } }
+                        { type: { code: { in: ["LCR_BIRTH_REG", "LCR_BIRTH", "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_PSA_ENDORSEMENT"] } } },
+                        { additionalData: { path: ["archiveType"], equals: "BIRTH" } },
+                        { additionalData: { path: ["registryType"], equals: "BIRTH" } }
                     ]
                 }
             }),
+            // 3. Total Released Death Records
             prisma.transaction.count({
                 where: {
                     ...baseArchivedScope,
                     OR: [
-                        { type: { code: { in: ["LCR_DEATH_REG", "LCR_DEATH"] } } },
-                        { additionalData: { path: ["archiveType"], equals: "DEATH" } }
+                        { type: { code: { in: ["LCR_DEATH_REG", "LCR_DEATH", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_PSA_ENDORSEMENT"] } } },
+                        { additionalData: { path: ["archiveType"], equals: "DEATH" } },
+                        { additionalData: { path: ["registryType"], equals: "DEATH" } }
                     ]
                 }
             }),
+            // 4. Total Released Marriage Records
             prisma.transaction.count({
                 where: {
                     ...baseArchivedScope,
                     OR: [
-                        { type: { code: { in: ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"] } } },
-                        { additionalData: { path: ["archiveType"], equals: "MARRIAGE" } }
+                        { type: { code: { in: ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"] } } },
+                        { additionalData: { path: ["archiveType"], equals: "MARRIAGE" } },
+                        { additionalData: { path: ["registryType"], equals: "MARRIAGE" } }
                     ]
                 }
             })
