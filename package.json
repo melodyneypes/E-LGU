@@ -11,6 +11,7 @@
     "generate": "prisma generate"
   },
   "dependencies": {
+    "@google/genai": "^2.22.0",
     "@hookform/resolvers": "^5.2.2",
     "@mediapipe/tasks-vision": "^0.10.32",
     "@next-auth/prisma-adapter": "^1.0.7",

@@ -111,7 +111,14 @@ export function Sidebar({
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
     const [isAnnouncementsOpen, setIsAnnouncementsOpen] = React.useState(pathname.startsWith("/admin/announcements"));
-    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
+    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(
+        pathname.startsWith("/admin/registrar") &&
+        !pathname.startsWith("/admin/registrar/ledger") &&
+        !pathname.startsWith("/admin/registrar/appointment-settings") &&
+        !pathname.startsWith("/admin/registrar/archive") &&
+        !pathname.startsWith("/admin/registrar/feedback") &&
+        !pathname.startsWith("/admin/registrar/queue")
+    );
 
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
@@ -564,8 +571,14 @@ export function Sidebar({
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsAnnouncementsOpen(pathname.startsWith("/admin/announcements"));
-        setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
-        setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
+        setIsRegistrarOpen(
+            pathname.startsWith("/admin/registrar") &&
+            !pathname.startsWith("/admin/registrar/ledger") &&
+            !pathname.startsWith("/admin/registrar/appointment-settings") &&
+            !pathname.startsWith("/admin/registrar/archive") &&
+            !pathname.startsWith("/admin/registrar/feedback") &&
+            !pathname.startsWith("/admin/registrar/queue")
+        );
     }, [pathname]);
 
     React.useEffect(() => {
@@ -732,6 +745,7 @@ export function Sidebar({
             icon: Calendar,
             category: "Registrar"
         },
+        { href: "/admin/registrar/archive", label: "Registrar Archives", icon: FolderArchive, category: "Registrar" },
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
@@ -1006,6 +1020,7 @@ export function Sidebar({
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
+                        (item.label === "Registrar Archives" && item.category === "Registrar") ||
                         (item.label === "Citizen Feedback" && item.category === "Registrar") ||
                         (item.label === "Appointment Settings" && item.category === "Registrar")
                     );
