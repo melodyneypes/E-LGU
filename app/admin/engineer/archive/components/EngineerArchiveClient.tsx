@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getArchivedBuildingPermits, createArchivedBuildingPermit, updateArchivedBuildingPermit } from "../actions";
+import { scanBuildingPermitDocument } from "../actions/ai-scanner";
 import {
     Search,
     Plus,
@@ -24,7 +25,8 @@ import {
     Clock,
     RotateCcw,
     Pencil,
-    Check
+    Check,
+    Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -261,6 +263,7 @@ export default function EngineerArchiveClient({
     // Scanner Station Quick Ingestion State
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
     const [isCustomOccupancy, setIsCustomOccupancy] = useState(false);
+    const [isScanningAi, setIsScanningAi] = useState(false);
 
     // Clean up created object URLs on unmount or form reset
     const cleanupAttachmentUrls = useCallback(() => {
@@ -280,8 +283,129 @@ export default function EngineerArchiveClient({
         };
     }, [cleanupAttachmentUrls]);
 
+    // AI OCR Document Scan and Auto-populate form for NBC Form No. B - 01B
+    const triggerAiBuildingPermitScan = async (fileToScan: File) => {
+        setIsScanningAi(true);
+        const toastId = toast.loading("Analyzing permit scan and extracting NBC Form No. B - 01B fields...");
+        try {
+            // Convert file to Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve, reject) => {
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    const base64Clean = result.split(",")[1];
+                    resolve(base64Clean);
+                };
+                reader.onerror = err => reject(err);
+            });
+            reader.readAsDataURL(fileToScan);
+            const base64Data = await base64Promise;
+
+            const res = await scanBuildingPermitDocument({
+                base64Data,
+                mimeType: fileToScan.type || "image/jpeg",
+            });
+
+            if (res.success && res.data) {
+                const d = res.data;
+                let countExtracted = 0;
+
+                setFormData(prev => {
+                    const updated = { ...prev };
+
+                    // Permit Control & Clearances
+                    if (d.permitType) updated.permitType = d.permitType;
+                    if (d.permitNumber) { updated.permitNumber = d.permitNumber; countExtracted++; }
+                    if (d.dateIssued) { updated.dateIssued = d.dateIssued; countExtracted++; }
+                    if (d.orNumber) { updated.orNumber = d.orNumber; countExtracted++; }
+                    if (d.datePaid) { updated.datePaid = d.datePaid; countExtracted++; }
+                    if (d.fsecNo) { updated.fsecNo = d.fsecNo; countExtracted++; }
+                    if (d.fsecDateIssued) { updated.fsecDateIssued = d.fsecDateIssued; countExtracted++; }
+
+                    // Permittee & Project Title
+                    if (d.ownerName) { updated.ownerName = d.ownerName; countExtracted++; }
+                    if (d.projectTitle) { updated.projectTitle = d.projectTitle; countExtracted++; }
+
+                    // Location / Cadastral
+                    if (d.lotNo) { updated.lotNo = d.lotNo; countExtracted++; }
+                    if (d.blkNo) { updated.blkNo = d.blkNo; countExtracted++; }
+                    if (d.tctNo) { updated.tctNo = d.tctNo; countExtracted++; }
+                    if (d.street) { updated.street = d.street; countExtracted++; }
+
+                    // Match or normalize Barangay
+                    if (d.barangay) {
+                        const matchedBrgy = MAPANDAN_BARANGAYS.find(
+                            b => b.toLowerCase() === d.barangay!.trim().toLowerCase()
+                        );
+                        if (matchedBrgy) {
+                            updated.barangay = matchedBrgy;
+                            countExtracted++;
+                        }
+                    }
+
+                    // Occupancy & Scope
+                    if (d.occupancyGroup) {
+                        const matchedGrp = OCCUPANCY_GROUPS.find(
+                            g => g.value.toLowerCase() === d.occupancyGroup!.trim().toLowerCase() ||
+                                 g.label.toLowerCase().includes(d.occupancyGroup!.trim().toLowerCase())
+                        );
+                        if (matchedGrp) {
+                            updated.occupancyGroup = matchedGrp.value;
+                        } else {
+                            updated.occupancyGroup = d.occupancyGroup;
+                        }
+                        countExtracted++;
+                    }
+
+                    if (d.occupancyUse) {
+                        const standardOcc = OCCUPANCY_TYPES.find(
+                            o => o.toLowerCase() === d.occupancyUse!.trim().toLowerCase()
+                        );
+                        if (standardOcc) {
+                            updated.occupancyUse = standardOcc;
+                            setIsCustomOccupancy(false);
+                        } else {
+                            updated.occupancyUse = d.occupancyUse;
+                            setIsCustomOccupancy(true);
+                        }
+                        countExtracted++;
+                    }
+
+                    if (d.scopeOfWork) { updated.scopeOfWork = d.scopeOfWork; countExtracted++; }
+                    if (d.estimatedCost) { updated.estimatedCost = d.estimatedCost; countExtracted++; }
+
+                    // Signatories
+                    if (d.engineerInCharge) { updated.engineerInCharge = d.engineerInCharge; countExtracted++; }
+                    if (d.buildingOfficial) { updated.buildingOfficial = d.buildingOfficial; countExtracted++; }
+
+                    // Remarks
+                    if (d.remarks) { updated.remarks = d.remarks; countExtracted++; }
+
+                    return updated;
+                });
+
+                toast.success(
+                    countExtracted > 0
+                        ? `NBC Form No. B - 01B analyzed! Auto-filled ${countExtracted} fields.`
+                        : `Permit analyzed! Review and verify form fields.`,
+                    { id: toastId, duration: 4000 }
+                );
+            } else {
+                toast.error(res.error || "Unable to read permit cleanly. Please verify details manually.", {
+                    id: toastId,
+                    duration: 4000,
+                });
+            }
+        } catch (err: any) {
+            console.error("AI Building Permit Scan error:", err);
+            toast.error("Failed to process scanned document. Please input details manually.", { id: toastId });
+        } finally {
+            setIsScanningAi(false);
+        }
+    };
+
     // Update main permit file and generate live preview
-    const handleMainPermitChange = (file: File | null, scannedAt?: number) => {
+    const handleMainPermitChange = async (file: File | null, scannedAt?: number) => {
         if (mainPermitPreview) {
             URL.revokeObjectURL(mainPermitPreview);
             setMainPermitPreview(null);
@@ -297,6 +421,11 @@ export default function EngineerArchiveClient({
         setMainPermitScannedAt(scannedAt || file.lastModified || null);
         const url = URL.createObjectURL(file);
         setMainPermitPreview(url);
+
+        // Auto-trigger AI extraction when adding a fresh scan in CREATE mode
+        if (modalMode === "CREATE") {
+            await triggerAiBuildingPermitScan(file);
+        }
     };
 
     // Debounce search input
@@ -1357,11 +1486,19 @@ export default function EngineerArchiveClient({
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
                                                         <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Official Signed Permit (Primary)
                                                     </Label>
-                                                    {mainPermitFile && (
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                                            <CheckCircle2 className="w-3 h-3" /> Ready
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-1.5">
+                                                        {isScanningAi && (
+                                                            <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
+                                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                                AI Extracting...
+                                                            </span>
+                                                        )}
+                                                        {mainPermitFile && !isScanningAi && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-3 h-3" /> Ready
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {mainPermitFile ? (
@@ -1408,6 +1545,17 @@ export default function EngineerArchiveClient({
                                                         </div>
 
                                                         <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                disabled={isScanningAi}
+                                                                onClick={() => triggerAiBuildingPermitScan(mainPermitFile)}
+                                                                className="h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                                                                title="Scan with AI to Auto-fill"
+                                                            >
+                                                                <Sparkles className={`w-4 h-4 ${isScanningAi ? "animate-spin" : ""}`} />
+                                                            </Button>
                                                             {mainPermitPreview && (
                                                                 <Button
                                                                     type="button"
