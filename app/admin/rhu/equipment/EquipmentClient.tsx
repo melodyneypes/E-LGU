@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useTransition, useRef } from "react";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
+import { useSession } from "next-auth/react";
 import {
     Activity,
     Boxes,
@@ -107,6 +108,7 @@ interface EquipmentClientProps {
     canDispatchSO?: boolean;
     canFileRO?: boolean;
     siteLogo?: string;
+    currentUserName?: string;
 }
 
 type TabType = "LEDGER" | "PO" | "RO" | "SO" | "RETURNS" | "MAINTENANCE" | "REPORTS";
@@ -125,8 +127,11 @@ export default function EquipmentClient({
     isGlobalAdmin = false,
     canDispatchSO = false,
     canFileRO,
-    siteLogo = ""
+    siteLogo = "",
+    currentUserName = ""
 }: EquipmentClientProps) {
+    const { data: session } = useSession();
+    const activeStaffName = currentUserName || session?.user?.name || "";
     const userCanFileRO = canFileRO !== undefined ? canFileRO : (Boolean(matchedCenter) && !isGlobalAdmin);
     const resolvedLogo = siteLogo || "/images/mapandan-logo.png";
 
@@ -305,7 +310,7 @@ export default function EquipmentClient({
     const [roRoom, setRoRoom] = useState("");
     const [isCustomRoRoom, setIsCustomRoRoom] = useState(false);
     const [customRoRoomName, setCustomRoRoomName] = useState("");
-    const [roRequestedBy, setRoRequestedBy] = useState("");
+    const [roRequestedBy, setRoRequestedBy] = useState(activeStaffName || "");
     const [roJustification, setRoJustification] = useState("");
     const [roItems, setRoItems] = useState<Array<{ equipmentName: string; quantity: number | string; estimatedUnitCost: number; urgency: string }>>([
         { equipmentName: "", quantity: "", estimatedUnitCost: 0, urgency: "NORMAL" }
@@ -314,19 +319,27 @@ export default function EquipmentClient({
     // SO Form State
     const [soTargetFacility, setSoTargetFacility] = useState("");
     const [soTargetRoom, setSoTargetRoom] = useState("Treatment & Examination Room");
-    const [soDispatchedBy, setSoDispatchedBy] = useState("");
+    const [soDispatchedBy, setSoDispatchedBy] = useState(activeStaffName || "RHU Supply Custodian");
     const [soNotes, setSoNotes] = useState("");
     const [selectedStockAssetIds, setSelectedStockAssetIds] = useState<string[]>([]);
     const [dispatchQuantities, setDispatchQuantities] = useState<Record<string, number | string>>({});
     const [linkedRoNumber, setLinkedRoNumber] = useState<string>("");
 
     // Receiving Form State
-    const [receivingBy, setReceivingBy] = useState("");
+    const [receivingBy, setReceivingBy] = useState(activeStaffName || "");
     const [isFullAcceptance, setIsFullAcceptance] = useState(true);
     const [actualReceivedCount, setActualReceivedCount] = useState<number | string>("");
     const [missingCount, setMissingCount] = useState<number | string>("");
     const [defectiveCount, setDefectiveCount] = useState<number | string>("");
     const [receivingDiscrepancyNotes, setReceivingDiscrepancyNotes] = useState("");
+
+    useEffect(() => {
+        if (activeStaffName) {
+            setReceivingBy(prev => prev ? prev : activeStaffName);
+            setRoRequestedBy(prev => prev ? prev : activeStaffName);
+            setSoDispatchedBy(prev => prev ? prev : activeStaffName);
+        }
+    }, [activeStaffName]);
 
     // Repair Form State
     const [repairIssueNotes, setRepairIssueNotes] = useState("");
@@ -355,20 +368,20 @@ export default function EquipmentClient({
         setRoRoom("");
         setIsCustomRoRoom(false);
         setCustomRoRoomName("");
-        setRoRequestedBy("");
+        setRoRequestedBy(activeStaffName || "");
         setRoJustification("");
         setRoItems([{ equipmentName: "", quantity: "", estimatedUnitCost: 0, urgency: "NORMAL" }]);
-    }, [matchedCenter]);
+    }, [matchedCenter, activeStaffName]);
 
     const resetSOForm = useCallback(() => {
         setSoTargetFacility("");
         setSoTargetRoom("");
-        setSoDispatchedBy("");
+        setSoDispatchedBy(activeStaffName || "RHU Supply Custodian");
         setSoNotes("");
         setSelectedStockAssetIds([]);
         setDispatchQuantities({});
         setLinkedRoNumber("");
-    }, []);
+    }, [activeStaffName]);
 
     const resetCatalogForm = useCallback(() => {
         setCatalogForm({
@@ -408,15 +421,14 @@ export default function EquipmentClient({
     });
 
     // Consolidated Assets Grouping (De-duplicates same equipment in same location/status into single row with total stock & PO history)
+    // Consolidated Assets Grouping (De-duplicates same equipment in same facility into single row with total stock & PO history)
     const consolidatedAssets = React.useMemo(() => {
         const groupMap = new Map<string, any[]>();
 
         filteredAssets.forEach(a => {
             const normName = (a.equipmentName || "").toLowerCase().trim();
-            const normFacility = (a.currentFacility || "").trim();
-            const normRoom = (a.assignedRoom || "").trim();
-            const normStatus = (a.currentStatus || "").trim();
-            const key = `${normName}:::${normFacility}:::${normRoom}:::${normStatus}`;
+            const normFacility = (a.currentFacility || "Central Stockroom").trim().toLowerCase();
+            const key = `${normName}:::${normFacility}`;
 
             if (!groupMap.has(key)) {
                 groupMap.set(key, []);
@@ -443,12 +455,38 @@ export default function EquipmentClient({
             poNumbers: string[];
             brandSummary: string;
             distinctTags: string[];
+            defectiveQty: number;
+            unserviceableQty: number;
+            disposedQty: number;
             isCatalogOnly?: boolean;
             catalogItemId?: string;
         }> = [];
 
         groupMap.forEach((batches, groupKey) => {
-            batches.sort((x, y) => new Date(y.createdAt || 0).getTime() - new Date(x.createdAt || 0).getTime());
+            // Sort batches: active/serviceable with stock first, then pending, then repair/unserviceable/disposed
+            const getStatusPriority = (status: string, avail: number) => {
+                if (status === "DEPLOYED_SERVICEABLE" || status === "IN_STOCKROOM") {
+                    return avail > 0 ? 1 : 2;
+                }
+                if (status === "PENDING_VERIFICATION") return 3;
+                if (status === "DEFECTIVE_FOR_REPAIR") return 4;
+                if (status === "UNSERVICEABLE_FOR_CONDEMNATION") return 5;
+                if (status === "CONDEMNED_DISPOSED") return 6;
+                return 7;
+            };
+
+            batches.sort((x, y) => {
+                const pX = getStatusPriority(x.currentStatus, Number(x.availableQty ?? x.quantity ?? 0));
+                const pY = getStatusPriority(y.currentStatus, Number(y.availableQty ?? y.quantity ?? 0));
+                if (pX !== pY) return pX - pY;
+
+                const qX = Number(x.availableQty ?? x.quantity ?? 0);
+                const qY = Number(y.availableQty ?? y.quantity ?? 0);
+                if (qY !== qX) return qY - qX;
+
+                return new Date(y.createdAt || 0).getTime() - new Date(x.createdAt || 0).getTime();
+            });
+
             const primaryAsset = batches[0];
 
             let totalQuantity = 0;
@@ -456,9 +494,16 @@ export default function EquipmentClient({
             let totalStockValue = 0;
             let minUnitCost = Infinity;
             let maxUnitCost = -Infinity;
+            let defectiveQty = 0;
+            let unserviceableQty = 0;
+            let disposedQty = 0;
+            let pendingQty = 0;
+
             const poNumbersSet = new Set<string>();
             const brandsSet = new Set<string>();
             const tags: string[] = [];
+            const roomsSet = new Set<string>();
+            const custodiansSet = new Set<string>();
 
             batches.forEach(b => {
                 const qty = b.quantity != null ? Number(b.quantity) : 0;
@@ -470,6 +515,11 @@ export default function EquipmentClient({
                 totalAvailableQty += avail;
                 totalStockValue += isInactiveStatus ? 0 : (avail * cost);
 
+                if (b.currentStatus === "DEFECTIVE_FOR_REPAIR") defectiveQty += qty;
+                else if (b.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION") unserviceableQty += qty;
+                else if (b.currentStatus === "CONDEMNED_DISPOSED") disposedQty += qty;
+                else if (b.currentStatus === "PENDING_VERIFICATION") pendingQty += qty;
+
                 if (cost < minUnitCost) minUnitCost = cost;
                 if (cost > maxUnitCost) maxUnitCost = cost;
 
@@ -478,6 +528,11 @@ export default function EquipmentClient({
                     brandsSet.add(b.brand.trim());
                 }
                 if (b.assetTagNo) tags.push(b.assetTagNo);
+                if (b.assignedRoom && b.assignedRoom.trim()) roomsSet.add(b.assignedRoom.trim());
+
+                let p = (b.accountablePerson || "").trim();
+                if (p.toLowerCase() === "dr") p = activeStaffName || "Dr. Kenneth Ogalinola";
+                if (p) custodiansSet.add(p);
             });
 
             if (minUnitCost === Infinity) minUnitCost = 0;
@@ -488,6 +543,30 @@ export default function EquipmentClient({
                 ? `${brandsArr.slice(0, 2).join(", ")} (${brandsArr.length} brands)`
                 : brandsArr[0] || primaryAsset.brand || "N/A";
 
+            const roomsArr = Array.from(roomsSet);
+            const assignedRoom = roomsArr.length > 1
+                ? `${roomsArr[0]} (+${roomsArr.length - 1} rooms)`
+                : (roomsArr[0] || primaryAsset.assignedRoom || "Central Stockroom");
+
+            const custodiansArr = Array.from(custodiansSet);
+            const accountablePerson = custodiansArr.length > 1
+                ? `${custodiansArr[0]} (+${custodiansArr.length - 1})`
+                : (custodiansArr[0] || primaryAsset.accountablePerson || "RHU Supply Custodian");
+
+            // Determine representative currentStatus for the group
+            let representativeStatus = primaryAsset.currentStatus;
+            if (totalAvailableQty > 0) {
+                representativeStatus = primaryAsset.currentStatus || "DEPLOYED_SERVICEABLE";
+            } else if (pendingQty > 0) {
+                representativeStatus = "PENDING_VERIFICATION";
+            } else if (defectiveQty > 0) {
+                representativeStatus = "DEFECTIVE_FOR_REPAIR";
+            } else if (unserviceableQty > 0) {
+                representativeStatus = "UNSERVICEABLE_FOR_CONDEMNATION";
+            } else if (disposedQty > 0) {
+                representativeStatus = "CONDEMNED_DISPOSED";
+            }
+
             groups.push({
                 groupKey,
                 equipmentName: primaryAsset.equipmentName,
@@ -496,17 +575,20 @@ export default function EquipmentClient({
                 totalQuantity,
                 totalAvailableQty,
                 currentFacility: primaryAsset.currentFacility,
-                assignedRoom: primaryAsset.assignedRoom,
-                accountablePerson: primaryAsset.accountablePerson,
+                assignedRoom,
+                accountablePerson,
                 category: primaryAsset.category,
-                currentStatus: primaryAsset.currentStatus,
+                currentStatus: representativeStatus,
                 minUnitCost,
                 maxUnitCost,
                 totalStockValue,
                 hasMultipleBatches: batches.length > 1,
                 poNumbers: Array.from(poNumbersSet),
                 brandSummary,
-                distinctTags: tags
+                distinctTags: tags,
+                defectiveQty,
+                unserviceableQty,
+                disposedQty
             });
         });
 
@@ -574,6 +656,9 @@ export default function EquipmentClient({
                     poNumbers: [],
                     brandSummary: cat.brand ? `${cat.brand}${cat.model ? ` (${cat.model})` : ""}` : "N/A",
                     distinctTags: [],
+                    defectiveQty: 0,
+                    unserviceableQty: 0,
+                    disposedQty: 0,
                     isCatalogOnly: true,
                     catalogItemId: cat.id
                 });
@@ -581,7 +666,7 @@ export default function EquipmentClient({
         }
 
         return groups;
-    }, [filteredAssets, catalogItems, matchedCenter, selectedFacility, selectedStatus, selectedCategory, searchQuery]);
+    }, [filteredAssets, catalogItems, matchedCenter, selectedFacility, selectedStatus, selectedCategory, searchQuery, activeStaffName]);
 
     // Unique equipment catalog from Master Ledger for PO procurement autocomplete
     const ledgerEquipmentList = React.useMemo(() => {
@@ -940,9 +1025,9 @@ export default function EquipmentClient({
             serialNo: "",
             unitCost: "",
             quantity: "",
-            currentFacility: "",
+            currentFacility: matchedCenter ? matchedCenter.name : "",
             assignedRoom: "",
-            accountablePerson: "",
+            accountablePerson: activeStaffName || "",
             accountableEmployeeId: "",
             acquisitionSource: isLegacy ? "LEGACY_BHS_EXISTING" : ""
         });
@@ -963,6 +1048,11 @@ export default function EquipmentClient({
         setIsCustomRoom(isCustom);
         setCustomRoomName(isCustom ? asset.assignedRoom : "");
 
+        const currentCustodian = asset.accountablePerson || "";
+        const resolvedCustodian = (currentCustodian.toLowerCase() === "dr" && activeStaffName)
+            ? activeStaffName
+            : (currentCustodian || activeStaffName || "");
+
         setAssetForm({
             equipmentName: asset.equipmentName,
             brand: asset.brand || "",
@@ -971,7 +1061,7 @@ export default function EquipmentClient({
             quantity: asset.quantity != null ? String(asset.quantity) : "",
             currentFacility: asset.currentFacility,
             assignedRoom: asset.assignedRoom,
-            accountablePerson: asset.accountablePerson || "",
+            accountablePerson: resolvedCustodian,
             accountableEmployeeId: asset.accountableEmployeeId || "",
             acquisitionSource: asset.acquisitionSource || ""
         });
@@ -1982,7 +2072,7 @@ export default function EquipmentClient({
                                                                 )}
                                                             >
                                                                 <Boxes className="w-3 h-3 shrink-0" />
-                                                                <span>{group.batches.length} PO Batches</span>
+                                                                <span>{group.batches.length} Batches</span>
                                                                 {isExpanded ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
                                                             </button>
                                                         ) : primary.poReferenceNo ? (
@@ -2048,7 +2138,7 @@ export default function EquipmentClient({
                                                     <TableCell className="align-top py-3.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                                                         <div className="flex items-center gap-1">
                                                             <User className="w-3.5 h-3.5 text-slate-400" />
-                                                            {group.accountablePerson || "RHU Supply Custodian"}
+                                                            {((group.accountablePerson || "").toLowerCase() === "dr" ? (activeStaffName || "Dr. Kenneth Ogalinola") : group.accountablePerson) || "RHU Supply Custodian"}
                                                         </div>
                                                     </TableCell>
 
@@ -2082,15 +2172,38 @@ export default function EquipmentClient({
                                                                 group.currentStatus === "CONDEMNED_DISPOSED" ? "text-rose-500" : (group.totalAvailableQty > 0 ? "text-emerald-500" : "text-slate-400")
                                                             }`} />
                                                             <span>
-                                                                {group.currentStatus === "CONDEMNED_DISPOSED"
-                                                                    ? `${group.totalQuantity} pcs disposed`
-                                                                    : group.currentStatus === "UNSERVICEABLE_FOR_CONDEMNATION"
-                                                                    ? `${group.totalQuantity} pcs unserviceable`
-                                                                    : group.currentStatus === "DEFECTIVE_FOR_REPAIR"
-                                                                    ? `${group.totalQuantity} pcs in repair`
-                                                                    : `${group.totalAvailableQty} pcs in stock`}
+                                                                {group.totalAvailableQty > 0
+                                                                    ? `${group.totalAvailableQty.toLocaleString()} pcs in stock`
+                                                                    : group.defectiveQty > 0
+                                                                    ? `${group.defectiveQty} pcs in repair`
+                                                                    : group.unserviceableQty > 0
+                                                                    ? `${group.unserviceableQty} pcs unserviceable`
+                                                                    : group.disposedQty > 0
+                                                                    ? `${group.disposedQty} pcs disposed`
+                                                                    : "0 pcs in stock"}
                                                             </span>
                                                         </div>
+
+                                                        {/* Secondary breakdown if active stock exists but some are in repair/unserviceable/disposed */}
+                                                        {group.totalAvailableQty > 0 && (group.defectiveQty > 0 || group.unserviceableQty > 0 || group.disposedQty > 0) && (
+                                                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                                                                {group.defectiveQty > 0 && (
+                                                                    <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                                                        +{group.defectiveQty} in repair
+                                                                    </span>
+                                                                )}
+                                                                {group.unserviceableQty > 0 && (
+                                                                    <span className="text-rose-500 font-semibold">
+                                                                        • {group.unserviceableQty} unserviceable
+                                                                    </span>
+                                                                )}
+                                                                {group.disposedQty > 0 && (
+                                                                    <span className="text-slate-400">
+                                                                        • {group.disposedQty} disposed
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
 
                                                         {/* Unit Cost / Valuation */}
                                                         <div className="mt-1 font-bold text-slate-900 dark:text-white">
@@ -2116,6 +2229,20 @@ export default function EquipmentClient({
 
                                                     <TableCell className="align-top py-3.5">
                                                         {getStatusBadge(group.currentStatus)}
+                                                        {group.hasMultipleBatches && (group.defectiveQty > 0 || group.unserviceableQty > 0) && group.totalAvailableQty > 0 && (
+                                                            <div className="mt-1 flex flex-col gap-0.5">
+                                                                {group.defectiveQty > 0 && (
+                                                                    <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                                                        ⚠ {group.defectiveQty} unit{group.defectiveQty > 1 ? "s" : ""} in repair
+                                                                    </span>
+                                                                )}
+                                                                {group.unserviceableQty > 0 && (
+                                                                    <span className="text-[9px] font-bold text-rose-500">
+                                                                        ✕ {group.unserviceableQty} unserviceable
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </TableCell>
 
                                                     <TableCell className="align-top py-3.5 text-right">
@@ -2358,7 +2485,9 @@ export default function EquipmentClient({
                                                                                             <td className="py-2.5 px-3">
                                                                                                 <div className="flex items-center gap-1 text-xs text-slate-700 dark:text-slate-300 font-medium">
                                                                                                     <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                                                                    <span className="truncate max-w-[140px]">{batch.accountablePerson || "RHU Supply Custodian"}</span>
+                                                                                                    <span className="truncate max-w-[140px]">
+                                                                                        {((batch.accountablePerson || "").toLowerCase() === "dr" ? (activeStaffName || "Dr. Kenneth Ogalinola") : batch.accountablePerson) || "RHU Supply Custodian"}
+                                                                                    </span>
                                                                                                 </div>
                                                                                             </td>
                                                                                             <td className="py-2.5 px-3">
@@ -2446,6 +2575,16 @@ export default function EquipmentClient({
                                                                                                             title="File Repair Request"
                                                                                                         >
                                                                                                             <Wrench className="w-2.5 h-2.5 mr-0.5" /> Defect
+                                                                                                        </Button>
+                                                                                                    )}
+                                                                                                    {!isReadOnly && batch.currentStatus === "DEFECTIVE_FOR_REPAIR" && isGlobalAdmin && !matchedCenter && (
+                                                                                                        <Button
+                                                                                                            size="sm"
+                                                                                                            onClick={() => { setActiveAsset(batch); setIsResolveRepairModalOpen(true); }}
+                                                                                                            className="h-6 px-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] uppercase cursor-pointer whitespace-nowrap shadow-xs"
+                                                                                                            title="Resolve Repair"
+                                                                                                        >
+                                                                                                            Resolve
                                                                                                         </Button>
                                                                                                     )}
                                                                                                     {!isReadOnly && (
@@ -3115,7 +3254,7 @@ export default function EquipmentClient({
                                                                 size="sm"
                                                                 onClick={() => {
                                                                     setActiveSO(so);
-                                                                    setReceivingBy("");
+                                                                    setReceivingBy(activeStaffName || "");
                                                                     setIsFullAcceptance(true);
                                                                     setActualReceivedCount("");
                                                                     setMissingCount("");
@@ -3141,7 +3280,7 @@ export default function EquipmentClient({
                                                                     variant="ghost"
                                                                     onClick={() => {
                                                                         setActiveSO(so);
-                                                                        setReceivingBy("");
+                                                                        setReceivingBy(activeStaffName || "");
                                                                         setIsFullAcceptance(true);
                                                                         setActualReceivedCount("");
                                                                         setMissingCount("");
@@ -4076,11 +4215,11 @@ export default function EquipmentClient({
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5 min-w-0">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Accountable Custodian (Nurse/Midwife)</Label>
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Accountable Custodian (Nurse/Midwife/Doctor)</Label>
                                 <Input
                                     value={assetForm.accountablePerson}
                                     onChange={(e) => setAssetForm({ ...assetForm, accountablePerson: e.target.value })}
-                                    placeholder="e.g. Maria Dela Cruz, RN"
+                                    placeholder={activeStaffName || "e.g. Maria Dela Cruz, RN"}
                                     className="h-11 rounded-xl text-xs font-bold"
                                 />
                             </div>
@@ -5183,11 +5322,11 @@ export default function EquipmentClient({
 
                     <div className="space-y-4 py-2">
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">Receiving Nurse / Midwife Name *</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Receiving Staff / Custodian Name *</Label>
                             <Input
                                 value={receivingBy}
                                 onChange={(e) => setReceivingBy(e.target.value)}
-                                placeholder="e.g. Maria Dela Cruz, RM"
+                                placeholder={activeStaffName || "e.g. Maria Dela Cruz, RM"}
                                 autoComplete="off"
                                 className="h-11 rounded-xl text-xs font-bold"
                             />
@@ -5563,7 +5702,9 @@ export default function EquipmentClient({
                             </div>
                             <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
                                 <span className="text-[10px] font-black uppercase text-slate-400 block">Assigned Custodian</span>
-                                <span className="font-bold text-slate-800 dark:text-slate-200">{assetForDetail?.accountablePerson || "Unassigned"}</span>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {((assetForDetail?.accountablePerson || "").toLowerCase() === "dr" ? (activeStaffName || "Dr. Kenneth Ogalinola") : assetForDetail?.accountablePerson) || "Unassigned"}
+                                </span>
                             </div>
                             <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
                                 <span className="text-[10px] font-black uppercase text-slate-400 block">PO / Reference No</span>
@@ -6545,7 +6686,7 @@ export default function EquipmentClient({
                                                         {batch.accountablePerson && (
                                                             <div className="text-[11px] text-slate-500 flex items-center gap-1">
                                                                 <User className="w-3 h-3 text-slate-400 shrink-0" />
-                                                                <span>{batch.accountablePerson}</span>
+                                                                <span>{((batch.accountablePerson || "").toLowerCase() === "dr" ? (activeStaffName || "Dr. Kenneth Ogalinola") : batch.accountablePerson)}</span>
                                                             </div>
                                                         )}
                                                     </div>

@@ -61,6 +61,7 @@ type UserWithProfile = {
   department?: string | null;
   createdAt: Date;
   accessiblePages: string[];
+  assignedDoctorId?: string | null;
   residentProfile: {
     id: string;
     registrationStatus: string;
@@ -512,13 +513,16 @@ export function UsersPage({
                         else if ((user.role as string) === "BFP")
                           style =
                             "bg-orange-500/10 text-orange-500 border-orange-500/20";
+                        else if ((user.role as string) === "ASST_SEC")
+                          style =
+                            "bg-pink-500/10 text-pink-500 border-pink-500/20";
 
                         return (
                           <Badge
                             variant="outline"
                             className={`font-black uppercase text-[9px] w-fit italic tracking-wider py-0.5 px-2 ${style}`}
                           >
-                            {user.role.replace("_", " ")}
+                            {(user.role as string) === "ASST_SEC" ? "ASST. SECRETARY" : user.role.replace(/_/g, " ")}
                           </Badge>
                         );
                       })()}

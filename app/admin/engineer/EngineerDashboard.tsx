@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
     getEngineerTransactions, 
-    getEngineerPendingCount,
     getEngineerStatusCounts
 } from "@/app/admin/transactions/actions";
 import {
@@ -195,7 +194,6 @@ export default function EngineerDashboard() {
                 setTotalCount(0);
                 toast.error(res.error || "Failed to load transactions. Check your permissions.");
             }
-            await getEngineerPendingCount();
         } catch (err) {
             if (!isSilent) {
                 console.error("[EngineerDashboard] Unexpected error:", err);
@@ -219,18 +217,17 @@ export default function EngineerDashboard() {
 
     useEffect(() => {
         fetchTransactions();
-    }, [fetchTransactions]);
-
-    useEffect(() => {
         fetchStatusCounts();
-    }, [fetchStatusCounts]);
+    }, [fetchTransactions, fetchStatusCounts]);
 
-    useEffect(() => {
-        if (!loading) {
+    const realtimeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+    const handleRealtimeUpdate = useCallback(() => {
+        if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = setTimeout(() => {
+            fetchTransactions(true);
             fetchStatusCounts();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading]);
+        }, 400);
+    }, [fetchTransactions, fetchStatusCounts]);
 
     // Native SSE (Server-Sent Events) Stream Listener for Engineering Admin Hub
     useEffect(() => {
@@ -241,9 +238,7 @@ export default function EngineerDashboard() {
                 try {
                     const data = JSON.parse(event.data);
                     console.log("[SSE EngineerDashboard] Realtime stream payload:", data);
-                    toast.info("⚡ Live Stream Update: Permit applications updated.", { id: "sse-engineer-toast" });
-                    fetchTransactions(true);
-                    fetchStatusCounts();
+                    handleRealtimeUpdate();
                 } catch {}
             };
         } catch {}
@@ -253,7 +248,7 @@ export default function EngineerDashboard() {
                 eventSource.close();
             }
         };
-    }, [fetchTransactions, fetchStatusCounts]);
+    }, [handleRealtimeUpdate]);
 
     // Event-driven Supabase Realtime Subscription for Engineering Admin Hub
     useEffect(() => {
@@ -268,21 +263,19 @@ export default function EngineerDashboard() {
                     schema: "public",
                     table: "Transaction",
                 },
-                (payload: any) => {
-                    console.log("[EngineerDashboard] Realtime change detected:", payload);
-                    toast.info("⚡ Realtime Update: Applications updated live.", { id: "realtime-update-toast" });
-                    fetchTransactions(true);
-                    fetchStatusCounts();
+                () => {
+                    handleRealtimeUpdate();
                 }
             )
             .subscribe();
 
         return () => {
+            if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
             if (supabase && channel) {
                 supabase.removeChannel(channel);
             }
         };
-    }, [fetchTransactions, fetchStatusCounts]);
+    }, [handleRealtimeUpdate]);
 
     useEffect(() => {
         if (currentPage !== 1) {

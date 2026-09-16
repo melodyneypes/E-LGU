@@ -8,8 +8,9 @@ import {
     ArrowLeft, CheckCircle2, XCircle, Printer,
     Activity, Stethoscope, ClipboardList,
     ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
-    Search, Pill, Clock, UserCheck, ShieldAlert,
-    Syringe, FileText, Building, X
+    Search, Pill, Clock, UserCheck, ShieldAlert, Lock,
+    Syringe, FileText, Building, X, Edit3,
+    Repeat, Calendar
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateRHUAppointmentStatus, getRHUHealthCenters } from "../actions";
+import { updateRHUAppointmentStatus, getRHUHealthCenters, scheduleRHUFollowUp } from "../actions";
 import { getRHUInventoryItems, dispenseRHUMedicines } from "@/app/admin/rhu/inventory/actions";
 import PrintReferralSlip from "@/components/shared/PrintReferralSlip";
 
@@ -200,6 +201,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
     const userRole = currentUser?.role || "";
     const userEmail = (currentUser?.email || "").toLowerCase();
+    const isSecretary = userRole === "ASST_SEC";
+    const canInputVitals = isSecretary || userRole === "ADMIN" || userRole === "RHU_ADMIN";
     const isPharmacyAccount = userRole === "ADMIN" || 
                               userRole === "RHU_ADMIN" || 
                               userRole === "RHU_PHARMACY" || 
@@ -361,7 +364,23 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     });
 
     // Active console tab
-    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx">("deos");
+    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx" | "followup">("deos");
+
+    // Follow-up return visit state
+    const [scheduleFollowUp, setScheduleFollowUp] = useState<boolean>(() => {
+        return Boolean(addData.followUpScheduled);
+    });
+    const [followUpDate, setFollowUpDate] = useState<string>(() => {
+        if (addData.followUpScheduled?.scheduledDate) {
+            return new Date(addData.followUpScheduled.scheduledDate).toISOString().split("T")[0];
+        }
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        return d.toISOString().split("T")[0];
+    });
+    const [followUpNotes, setFollowUpNotes] = useState<string>(() => {
+        return addData.followUpScheduled?.notes || "";
+    });
 
     // Prescription / referral inline state
     const [rxText, setRxText] = useState(() => {
@@ -406,6 +425,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 setVitalsModalOpen(false);
                 setDeosModalOpen(false);
                 router.refresh();
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("rhu-vitals-updated"));
+                }
             } else {
                 toast.error(res.error || "Failed to update status.");
             }
@@ -417,6 +439,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     };
 
     const handleOpenCheckInModal = () => {
+        if (!canInputVitals) {
+            toast.error("Only Assistant Secretary accounts are authorized to check in patients and record vital signs.");
+            return;
+        }
         setVitals(p => ({
             ...p,
             recordedBy: p.recordedBy || currentUser?.name || ""
@@ -435,6 +461,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     };
 
     const handleConfirmCheckIn = () => {
+        if (!canInputVitals) {
+            toast.error("Only Assistant Secretary accounts are authorized to record patient vitals.");
+            return;
+        }
         const errors: Record<string, boolean> = {};
         if (!vitals.height.trim()) errors.height = true;
         if (!vitals.weight.trim()) errors.weight = true;
@@ -456,9 +486,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         setConfirmCheckInDialogOpen(false);
         const vitalsDataToSave = {
             ...vitals,
-            recordedBy: currentUser?.name || "RHU Staff"
+            recordedBy: currentUser?.name || "Assistant Secretary"
         };
-        handleUpdateStatus("CHECK_IN", undefined, undefined, vitalsDataToSave);
+        const targetStatus = effectiveStatus === "APPOINTMENT_BOOKED" ? "CHECK_IN" : effectiveStatus;
+        handleUpdateStatus(targetStatus, undefined, undefined, vitalsDataToSave);
     };
 
     const formatPhysician = (name?: string) => {
@@ -651,6 +682,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     };
 
     const handleConfirmPrescription = () => {
+        if (userRole === "ASST_SEC") {
+            toast.error("Forbidden: Assistant Secretary accounts are not authorized to issue clinical diagnoses or prescriptions. Only licensed physicians may sign off.");
+            return;
+        }
         const errors: Record<string, boolean> = {};
         if (!deos.diagnosis.trim()) errors.diagnosis = true;
         if (!deos.examinationFindings.trim()) errors.examinationFindings = true;
@@ -672,10 +707,40 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         };
         
         const validVaccines = vaccines.filter((v: any) => v.name.trim() !== "");
-        const extraData = {
+        const extraData: any = {
             vaccines: validVaccines,
             rxText: rxText.trim()
         };
+
+        if (scheduleFollowUp && followUpDate) {
+            extraData.followUpScheduled = {
+                scheduledDate: new Date(followUpDate).toISOString(),
+                notes: followUpNotes.trim(),
+                doctorName: deosDataToSave.attendingPhysician,
+                scheduledAt: new Date().toISOString()
+            };
+
+            // Persist follow-up appointment record
+            scheduleRHUFollowUp({
+                patientId: transaction.userId || (transaction as any).residentProfile?.userId || resident.id || transaction.id,
+                patientName: patientName,
+                doctorId: currentUser?.id || null,
+                doctorName: deosDataToSave.attendingPhysician,
+                healthCenterId: currentCenterId || null,
+                healthCenterName: txAddData.healthCenterName || null,
+                scheduledDate: followUpDate,
+                notes: followUpNotes,
+                sourceTransactionId: transaction.id
+            }).then(res => {
+                if (res.success) {
+                    toast.success("Follow-up return visit scheduled successfully!");
+                } else {
+                    console.error("Follow-up schedule error:", res.error);
+                }
+            }).catch(err => {
+                console.error("Failed to schedule follow-up:", err);
+            });
+        }
 
         const referralDataToSave = (referralFacility.trim() || referralReason.trim())
             ? { facility: referralFacility.trim(), reason: referralReason.trim() }
@@ -1120,11 +1185,43 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <p className="text-xs font-black text-white uppercase tracking-wide">Recorded at Check-In</p>
                                     </div>
                                 </div>
-                                {addData.checkedInAt && (
-                                    <span className="text-[9px] font-mono font-bold text-slate-300 bg-white/5 border border-white/10 px-3 py-1 rounded-xl">
-                                        {new Date(addData.checkedInAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {addData.checkedInAt && (
+                                        <span className="text-[9px] font-mono font-bold text-slate-300 bg-white/5 border border-white/10 px-3 py-1 rounded-xl">
+                                            {new Date(addData.checkedInAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                                        </span>
+                                    )}
+                                    {canInputVitals ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                if (addData.vitals) {
+                                                    setVitals({
+                                                        height: addData.vitals.height || "",
+                                                        weight: addData.vitals.weight || "",
+                                                        systolic: addData.vitals.systolic || "",
+                                                        diastolic: addData.vitals.diastolic || "",
+                                                        temperature: addData.vitals.temperature || "",
+                                                        pulseRate: addData.vitals.pulseRate || "",
+                                                        philhealthNumber: addData.vitals.philhealthNumber || "",
+                                                        konsultationNumber: addData.vitals.konsultationNumber || "",
+                                                        recordedBy: addData.vitals.recordedBy || currentUser?.name || "",
+                                                    });
+                                                }
+                                                setVitalsModalOpen(true);
+                                            }}
+                                            className="h-7 text-[10px] font-black uppercase tracking-wider text-rose-400 border-rose-500/30 hover:bg-rose-500/10 rounded-xl"
+                                        >
+                                            <Edit3 className="w-3 h-3 mr-1" />
+                                            Update Vitals
+                                        </Button>
+                                    ) : (
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-500/10 border border-slate-500/20 px-2.5 py-1 rounded-lg">
+                                            READ ONLY (SECRETARY TRIAGE)
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <div className="p-6 space-y-4">
                                 {/* Critical Vitals Alert Banner */}
@@ -1159,14 +1256,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <div className="space-y-0.5">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1.5">
                                                 <UserCheck className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                                                Recorded / Checked-In By Staff (Accountability)
+                                                Triage Encoder (Assistant Secretary)
                                             </p>
                                             <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                                                {addData.vitals?.recordedBy || addData.checkedInBy || "RHU Check-In Staff"}
+                                                {addData.vitals?.recordedBy || addData.checkedInBy || "RHU Assistant Secretary"}
                                             </p>
                                         </div>
                                         <span className="text-[9px] font-black uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20">
-                                            ENCODER VERIFIED
+                                            SECRETARY ENCODED
                                         </span>
                                     </div>
                                     {/* Height */}
@@ -1626,36 +1723,72 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                                 <div className="space-y-3">
                                     {effectiveStatus === "APPOINTMENT_BOOKED" && (
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={handleOpenCheckInModal}
-                                            className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
-                                        >
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            CHECK IN PATIENT
-                                        </Button>
+                                        canInputVitals ? (
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={handleOpenCheckInModal}
+                                                className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
+                                            >
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                CHECK IN PATIENT (RECORD VITALS)
+                                            </Button>
+                                        ) : (
+                                            <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-left space-y-1.5">
+                                                <div className="flex items-center gap-2 text-indigo-400 font-black text-xs uppercase tracking-wider">
+                                                    <Activity className="w-4 h-4 text-indigo-400 shrink-0" />
+                                                    Awaiting Secretary Triage
+                                                </div>
+                                                <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                                                    Patient check-in and initial triage vital signs must be recorded by the Assistant Secretary before medical consultation.
+                                                </p>
+                                            </div>
+                                        )
                                     )}
 
                                     {effectiveStatus === "CHECK_IN" && (
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={handleOpenDeosModal}
-                                            className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
-                                        >
-                                            <ClipboardList className="w-4 h-4" />
-                                            START CONSULTATION
-                                        </Button>
+                                        userRole === "ASST_SEC" ? (
+                                            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left space-y-1">
+                                                <div className="flex items-center gap-1.5 text-amber-500 font-black text-xs uppercase tracking-wider">
+                                                    <Stethoscope className="w-4 h-4" />
+                                                    Awaiting Attending Physician
+                                                </div>
+                                                <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                                                    Patient check-in & triage vitals recorded. Consultation, diagnosis, and prescription are restricted to licensed physicians.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={handleOpenDeosModal}
+                                                className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
+                                            >
+                                                <ClipboardList className="w-4 h-4" />
+                                                START CONSULTATION
+                                            </Button>
+                                        )
                                     )}
 
                                     {effectiveStatus === "IN_CONSULTATION" && (
-                                        <Button
-                                            disabled={submitting}
-                                            onClick={handleOpenDeosModal}
-                                            className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
-                                        >
-                                            <ClipboardList className="w-4 h-4" />
-                                            FINISH CONSULTATION & PRESCRIBE
-                                        </Button>
+                                        userRole === "ASST_SEC" ? (
+                                            <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl text-left space-y-1">
+                                                <div className="flex items-center gap-1.5 text-teal-400 font-black text-xs uppercase tracking-wider">
+                                                    <Stethoscope className="w-4 h-4" />
+                                                    Physician Consultation In Progress
+                                                </div>
+                                                <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                                                    Attending doctor is evaluating patient and generating prescription.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <Button
+                                                disabled={submitting}
+                                                onClick={handleOpenDeosModal}
+                                                className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-md flex items-center justify-center gap-2"
+                                            >
+                                                <ClipboardList className="w-4 h-4" />
+                                                FINISH CONSULTATION & PRESCRIBE
+                                            </Button>
+                                        )
                                     )}
 
                                     {effectiveStatus === "PRESCRIBED" && (() => {
@@ -1840,9 +1973,11 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             </div>
                             <div>
                                 <DialogTitle className="text-xl font-black italic uppercase tracking-tight text-white leading-none">
-                                    Patient Check-In
+                                    {effectiveStatus === "APPOINTMENT_BOOKED" ? "Patient Check-In" : "Update Vital Signs"}
                                 </DialogTitle>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Record Vitals Before Consultation</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                                    {effectiveStatus === "APPOINTMENT_BOOKED" ? "Record Vitals Before Consultation" : "Assistant Secretary Vitals Triage"}
+                                </p>
                             </div>
                         </div>
                         <div className="mt-4 p-3 bg-white/[0.04] border border-white/10 rounded-2xl">
@@ -2052,7 +2187,9 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             className="h-11 px-8 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-2"
                         >
                             <CheckCircle2 className="w-4 h-4" />
-                            {submitting ? "Checking In..." : "Confirm Check-In"}
+                            {submitting
+                                ? (effectiveStatus === "APPOINTMENT_BOOKED" ? "Checking In..." : "Saving...")
+                                : (effectiveStatus === "APPOINTMENT_BOOKED" ? "Confirm Check-In" : "Save Vitals")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2262,6 +2399,30 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 <p className="text-slate-200 text-xs mt-0.5 leading-relaxed bg-black/10 p-2 rounded-lg border border-white/5">{referralReason}</p>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Follow-Up / Return Visit Review */}
+                            {scheduleFollowUp && followUpDate && (
+                                <div className="relative overflow-hidden bg-slate-950/40 border border-teal-500/30 p-3.5 rounded-2xl space-y-2">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-teal-500" />
+                                    <div className="flex items-center gap-2 border-b border-white/5 pb-1.5">
+                                        <Repeat className="w-4 h-4 text-teal-400 shrink-0" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-teal-400">Scheduled Return Consultation (Follow-Up)</span>
+                                    </div>
+                                    <div className="bg-teal-500/10 p-3 rounded-xl border border-teal-500/20 text-xs space-y-1">
+                                        <p className="text-white font-bold">
+                                            Return Date: <span className="text-teal-300 font-black">{new Date(followUpDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</span>
+                                        </p>
+                                        {followUpNotes.trim() && (
+                                            <p className="text-slate-300 text-xs mt-1 leading-relaxed">
+                                                Instructions: <span className="italic text-white">{followUpNotes}</span>
+                                            </p>
+                                        )}
+                                        <p className="text-[10px] text-teal-400/90 font-bold uppercase tracking-wider pt-1 flex items-center gap-1">
+                                            <Activity className="w-3 h-3 text-teal-400" /> Automated Queue Injection: Patient will feed into daily queue on this date with visual badge &quot;Return Patient / Follow-up&quot;.
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -2505,6 +2666,25 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             </div>
 
                             <div className="overflow-y-auto flex-1 p-6 space-y-5 min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                {/* Return Patient / Follow-up Banner if applicable */}
+                                {(addData.isFollowUp || addData.returnPatient) && (
+                                    <div className="bg-indigo-500/15 border border-indigo-500/30 p-3.5 rounded-2xl space-y-1.5 animate-pulse">
+                                        <div className="flex items-center gap-1.5 text-indigo-400">
+                                            <Repeat className="w-3.5 h-3.5" />
+                                            <p className="text-[9px] font-black uppercase tracking-wider">RETURN PATIENT / FOLLOW-UP</p>
+                                        </div>
+                                        <p className="text-xs text-white font-bold">
+                                            Scheduled By: <span className="text-indigo-300 font-black">{addData.originalDoctor || "Attending Physician"}</span>
+                                        </p>
+                                        {addData.followUpNotes && (
+                                            <div className="bg-black/30 p-2.5 rounded-xl border border-indigo-500/20 mt-1">
+                                                <p className="text-[8px] font-black uppercase tracking-wider text-slate-400">Return Instructions</p>
+                                                <p className="text-[11px] text-slate-200 italic mt-0.5 leading-relaxed">&ldquo;{addData.followUpNotes}&rdquo;</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Patient Identity */}
                                 <div className="space-y-3">
                                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 border-b border-white/5 pb-2">Patient Identity</p>
@@ -2588,17 +2768,20 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                             {/* Tabs */}
                             <div className="flex border-b border-white/10 shrink-0">
-                                {(["deos", "vaccine", "rx"] as const).map((tab) => (
+                                {(["deos", "vaccine", "rx", "followup"] as const).map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
-                                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 ${
                                             activeTab === tab
                                                 ? "bg-teal-500/10 text-teal-400 border-b-2 border-teal-500"
                                                 : "text-slate-500 hover:text-slate-300"
                                         }`}
                                     >
-                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : "RX / Referral"}
+                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : tab === "rx" ? "RX / Referral" : "Schedule Follow-up"}
+                                        {tab === "followup" && scheduleFollowUp && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
+                                        )}
                                     </button>
                                 ))}
                             </div>
@@ -2607,6 +2790,17 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             <div className="overflow-y-auto flex-1 p-6 space-y-4 min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 {activeTab === "deos" && (
                                     <div className="space-y-4">
+                                        {userRole === "ASST_SEC" && (
+                                            <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-start gap-3">
+                                                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="text-xs font-black uppercase text-rose-400 tracking-wider">Physician Sign-Off Restricted</p>
+                                                    <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                                                        Assistant Secretary accounts cannot create, edit, or sign off on clinical diagnoses, prescriptions, or physician orders. This consultation must be completed by the licensed attending physician.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Diagnosis · Examination · Orders · Status</p>
 
                                         {/* Attending Physician / Prescribing Doctor */}
@@ -2884,6 +3078,129 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         </div>
                                     </div>
                                 )}
+
+                                {activeTab === "followup" && (
+                                    <div className="space-y-5">
+                                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-teal-400">Return Visit & Queue Injection</p>
+                                                <p className="text-xs font-black text-white uppercase">Schedule Return Consultation</p>
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                                scheduleFollowUp 
+                                                    ? "bg-teal-500/15 text-teal-400 border-teal-500/30" 
+                                                    : "bg-white/5 text-slate-400 border-white/10"
+                                            }`}>
+                                                {scheduleFollowUp ? "RETURN VISIT ACTIVE" : "NO FOLLOW-UP SCHEDULED"}
+                                            </span>
+                                        </div>
+
+                                        {/* Toggle Card */}
+                                        <div 
+                                            onClick={() => setScheduleFollowUp(!scheduleFollowUp)}
+                                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                                                scheduleFollowUp 
+                                                    ? "bg-teal-500/10 border-teal-500/40 shadow-lg shadow-teal-500/5" 
+                                                    : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3.5">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                                                    scheduleFollowUp ? "bg-teal-500 text-slate-950 font-black" : "bg-white/10 text-slate-400"
+                                                }`}>
+                                                    <Repeat className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-black text-white uppercase tracking-wider">
+                                                        Schedule Follow-Up Return Visit
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                                        Automated midnight job will push this patient into the daily queue on the scheduled date.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
+                                                scheduleFollowUp ? "bg-teal-500 border-teal-400 text-slate-950" : "border-slate-600 bg-transparent"
+                                            }`}>
+                                                {scheduleFollowUp && <CheckCircle2 className="w-4 h-4 text-slate-950 stroke-[3]" />}
+                                            </div>
+                                        </div>
+
+                                        {scheduleFollowUp && (
+                                            <div className="space-y-4 pt-1 animate-in fade-in-50 duration-200">
+                                                {/* Date Selection */}
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                                        <Calendar className="w-3.5 h-3.5 text-teal-400" />
+                                                        Return Consultation Date <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={followUpDate}
+                                                        min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                                                        onChange={(e) => setFollowUpDate(e.target.value)}
+                                                        className="h-11 rounded-xl bg-white/5 text-white font-mono text-xs border border-white/10 focus-visible:ring-teal-500"
+                                                    />
+
+                                                    {/* Quick Presets */}
+                                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">Quick Presets:</span>
+                                                        {[
+                                                            { label: "+3 Days", days: 3 },
+                                                            { label: "+1 Week", days: 7 },
+                                                            { label: "+2 Weeks", days: 14 },
+                                                            { label: "+1 Month", days: 30 },
+                                                        ].map((preset) => (
+                                                            <button
+                                                                key={preset.label}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const d = new Date();
+                                                                    d.setDate(d.getDate() + preset.days);
+                                                                    setFollowUpDate(d.toISOString().split("T")[0]);
+                                                                }}
+                                                                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-teal-500/20 text-[10px] font-black uppercase tracking-wider text-teal-300 border border-white/10 hover:border-teal-500/30 transition-colors"
+                                                            >
+                                                                {preset.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Clinical Instructions / Notes */}
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Clinical Follow-Up Notes & Instructions
+                                                    </Label>
+                                                    <Textarea
+                                                        placeholder="e.g. Blood pressure monitoring, review repeat fasting blood sugar, evaluate post-antibiotic treatment, suture removal..."
+                                                        value={followUpNotes}
+                                                        onChange={(e) => setFollowUpNotes(e.target.value)}
+                                                        rows={4}
+                                                        className="rounded-xl bg-white/5 text-white placeholder:text-slate-600 font-medium text-xs resize-none border border-white/10 focus-visible:ring-teal-500"
+                                                    />
+                                                </div>
+
+                                                {/* Visual Badge Indicator Notice */}
+                                                <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-start gap-3">
+                                                    <Activity className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                                                    <div className="space-y-0.5">
+                                                        <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Live Queue Visual Flag Badge</p>
+                                                        <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                            When this patient is pushed into the active queue on <strong className="text-white">{followUpDate ? new Date(followUpDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "the scheduled date"}</strong>, the ticket will display the badge:
+                                                        </p>
+                                                        <div className="pt-1.5">
+                                                            <span className="text-[9px] font-black tracking-wider uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-full italic inline-flex items-center gap-1.5">
+                                                                <Repeat className="w-3 h-3 text-indigo-400" />
+                                                                Return Patient / Follow-up
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Footer */}
@@ -2895,14 +3212,24 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 >
                                     Cancel
                                 </Button>
-                                <Button
-                                    disabled={submitting}
-                                    onClick={handleConfirmPrescription}
-                                    className="h-11 px-8 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-2"
-                                >
-                                    <Activity className="w-4 h-4" />
-                                    {submitting ? "Prescribing..." : "Finish Consultation & Prescribe"}
-                                </Button>
+                                {userRole === "ASST_SEC" ? (
+                                    <Button
+                                        disabled
+                                        className="h-11 px-8 bg-slate-800 text-slate-400 font-bold uppercase text-xs rounded-xl cursor-not-allowed flex items-center gap-2 border border-white/10"
+                                    >
+                                        <Lock className="w-4 h-4" />
+                                        Physician Sign-off Required
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        disabled={submitting}
+                                        onClick={handleConfirmPrescription}
+                                        className="h-11 px-8 bg-rose-600 hover:bg-rose-700 text-white font-black italic uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-2"
+                                    >
+                                        <Activity className="w-4 h-4" />
+                                        {submitting ? "Prescribing..." : "Finish Consultation & Prescribe"}
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>

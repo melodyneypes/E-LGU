@@ -71,7 +71,10 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
     const zoningClearanceInputRef = useRef<HTMLInputElement>(null);
+    const uploadSectionRef = useRef<HTMLDivElement>(null);
+    const feesSectionRef = useRef<HTMLDivElement>(null);
 
     // Modals state
     const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -244,13 +247,22 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
 
     const handleSubmitZoningClearance = async () => {
-        if (!zoningClearanceUrl) {
-            toast.error("Please upload the Zoning Clearance first.");
-            return;
-        }
+        setHasAttemptedSubmit(true);
 
-        if (!isZoningFeesValid || totalZoningAmount <= 0) {
-            toast.error("Please specify required zoning fees with positive amounts before endorsing.");
+        const isClearanceMissing = !zoningClearanceUrl;
+        const isFeeMissingOrInvalid = !isZoningFeesValid || totalZoningAmount <= 0;
+
+        if (isClearanceMissing || isFeeMissingOrInvalid) {
+            if (isClearanceMissing && isFeeMissingOrInvalid) {
+                toast.error("Please upload the Zoning Clearance and enter valid zoning fees.");
+                uploadSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else if (isClearanceMissing) {
+                toast.error("Please upload the required Zoning Clearance.");
+                uploadSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else {
+                toast.error("Please specify required zoning fees with positive amounts before endorsing.");
+                feesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
             return;
         }
 
@@ -559,10 +571,21 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             onChange={handleZoningClearanceInputChange}
                         />
 
-                        <div className="rounded-[1.5rem] border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03] p-6 sm:p-8">
+                        <div
+                            ref={uploadSectionRef}
+                            className={`rounded-[1.5rem] border border-dashed transition-all duration-300 p-6 sm:p-8 ${
+                                hasAttemptedSubmit && !zoningClearanceUrl
+                                    ? "border-red-500 ring-2 ring-red-500/30 bg-red-500/[0.03] shadow-[0_0_20px_rgba(239,68,68,0.1)]"
+                                    : "border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03]"
+                            }`}
+                        >
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                                        hasAttemptedSubmit && !zoningClearanceUrl
+                                            ? "bg-red-500/10 text-red-500"
+                                            : "bg-primary/10 text-primary"
+                                    }`}>
                                         <ArrowLeft className="w-5 h-5 rotate-90" />
                                     </div>
                                     <div className="space-y-1">
@@ -591,7 +614,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             type="button"
                                             onClick={triggerZoningClearancePicker}
                                             disabled={uploading || isViewOnly}
-                                            className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[10px] px-5 disabled:opacity-50"
+                                            className={`h-11 rounded-xl font-black uppercase tracking-widest italic text-[10px] px-5 disabled:opacity-50 ${
+                                                hasAttemptedSubmit && !zoningClearanceUrl
+                                                    ? "bg-red-600 hover:bg-red-700 text-white ring-2 ring-red-500/40"
+                                                    : "bg-primary hover:bg-primary/90 text-white"
+                                            }`}
                                         >
                                             {uploading ? "Uploading..." : "Choose File"}
                                         </Button>
@@ -617,12 +644,18 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     </p>
                                 </div>
                             </div>
+                            {hasAttemptedSubmit && !zoningClearanceUrl && (
+                                <div className="mt-4 pt-3 border-t border-red-500/20 flex items-center gap-2 text-red-500 dark:text-red-400 text-xs font-bold animate-in fade-in slide-in-from-top-1">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>Zoning Clearance document is required to endorse.</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     )}
 
                     {/* Specify Official Endorsement Fees Block */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                    <div ref={feesSectionRef} className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-primary/10 rounded-lg"><Coins className="text-primary w-4 h-4" /></div>
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Specify Official Endorsement Fees</span>
@@ -638,9 +671,18 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Zoning Clearance Charges</Label>
                                     </div>
 
+                                    {hasAttemptedSubmit && zoningMunicipalCharges.length === 0 && (
+                                        <div className="p-3 rounded-xl border border-red-500/40 bg-red-500/5 text-red-500 text-xs font-bold flex items-center gap-2">
+                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                            <span>At least one zoning fee is required. Please click &quot;+ Add Zoning Fee&quot; below.</span>
+                                        </div>
+                                    )}
+
                                     {zoningMunicipalCharges.map((charge, index) => {
                                         const isNameEmpty = !isViewOnly && !charge.name.trim();
                                         const isAmountInvalid = !isViewOnly && (!charge.amount || Number(charge.amount) <= 0);
+                                        const showNameError = isNameEmpty && (hasAttemptedSubmit || charge.name !== "");
+                                        const showAmountError = isAmountInvalid && (hasAttemptedSubmit || charge.amount !== "");
                                         return (
                                             <div key={index} className="space-y-1">
                                                 <div className="flex items-start gap-4">
@@ -656,12 +698,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                             }}
                                                             disabled={isViewOnly || userRole !== "MPDC_ZONING"}
                                                             className={`h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1 transition-all ${
-                                                                isNameEmpty
-                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5"
+                                                                showNameError
+                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5 ring-1 ring-red-500/30"
                                                                     : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
                                                             }`}
                                                         />
-                                                        {isNameEmpty && (
+                                                        {showNameError && (
                                                             <p className="text-[10px] text-red-500 font-medium ml-1">
                                                                 Fee Name is required
                                                             </p>
@@ -682,12 +724,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                             }}
                                                             disabled={isViewOnly || userRole !== "MPDC_ZONING"}
                                                             className={`h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-full transition-all ${
-                                                                isAmountInvalid
-                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5"
+                                                                showAmountError
+                                                                    ? "border-red-500 focus-visible:ring-red-500 bg-red-500/5 ring-1 ring-red-500/30"
                                                                     : "border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
                                                             }`}
                                                         />
-                                                        {isAmountInvalid && (
+                                                        {showAmountError && (
                                                             <p className="text-[10px] text-red-500 font-medium ml-1">
                                                                 Amount must be &gt; ₱0.00
                                                             </p>
@@ -866,21 +908,21 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <div className="space-y-2">
                                 <Button
                                     onClick={handleSubmitZoningClearance}
-                                    disabled={actionLoading || uploading || !zoningClearanceUrl || !isZoningFeesValid || totalZoningAmount <= 0}
+                                    disabled={actionLoading || uploading}
                                     className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:scale-100"
                                 >
                                     <Check className="w-4 h-4 mr-2" /> Endorse Payment Fees + Zoning Clearance
                                 </Button>
-                                {(!isZoningFeesValid || totalZoningAmount <= 0) && (
-                                    <p className="text-[10px] font-semibold text-amber-500 italic flex items-center justify-center gap-1 text-center">
+                                {hasAttemptedSubmit && (!isZoningFeesValid || totalZoningAmount <= 0) && (
+                                    <p className="text-[10px] font-semibold text-rose-500 italic flex items-center justify-center gap-1 text-center animate-in fade-in">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                        Please specify the required zoning fees to enable endorsement.
+                                        Please specify valid zoning fees above.
                                     </p>
                                 )}
-                                {!zoningClearanceUrl && (
-                                    <p className="text-[10px] font-semibold text-amber-500 italic flex items-center justify-center gap-1 text-center">
+                                {hasAttemptedSubmit && !zoningClearanceUrl && (
+                                    <p className="text-[10px] font-semibold text-rose-500 italic flex items-center justify-center gap-1 text-center animate-in fade-in">
                                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                        Please upload the required Zoning Clearance above to enable endorsement.
+                                        Please upload the required Zoning Clearance above.
                                     </p>
                                 )}
                             </div>

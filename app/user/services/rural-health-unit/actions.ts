@@ -360,8 +360,8 @@ export async function updateCenterAppointmentConfig(
 
         const role = ((session.user as any)?.role || "").toUpperCase();
         const email = session.user.email || "";
-        const isCenterAdmin = role === "RHU_CENTER_ADMIN";
-        const canManageSchedule = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN";
+        const isCenterAdmin = role === "RHU_CENTER_ADMIN" || role === "ASST_SEC";
+        const canManageSchedule = role === "ADMIN" || role === "RHU_ADMIN" || role === "RHU_CENTER_ADMIN" || role === "ASST_SEC";
 
         if (!canManageSchedule) {
             return { success: false, error: "Access Denied: Only RHU Center Medical Admins and Administrators can update schedule settings." };
@@ -382,8 +382,10 @@ export async function updateCenterAppointmentConfig(
                 healthCenters = [];
             }
 
+            const assignedDoctorId = (session.user as any).assignedDoctorId;
             const matchedCenter = healthCenters.find((c: any) =>
                 (c.userId && String(c.userId) === String(session.user.id)) ||
+                (assignedDoctorId && c.userId && String(c.userId) === String(assignedDoctorId)) ||
                 (c.accountEmail && email && String(c.accountEmail).toLowerCase() === String(email).toLowerCase()) ||
                 (email && String(email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
                 (email && String(email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
@@ -661,7 +663,7 @@ export async function getAmbulanceSettings() {
 
         if (session?.user) {
             const role = ((session.user as any)?.role || "").toUpperCase();
-            isClientAdmin = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_") || role === "ADMIN_AIDE" || role === "RHU_CENTER_ADMIN" || role === "RHU_STAFF" || role === "RHU_DOCTOR";
+            isClientAdmin = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_") || role === "ADMIN_AIDE" || role === "RHU_CENTER_ADMIN" || role === "RHU_STAFF" || role === "RHU_DOCTOR" || role === "ASST_SEC";
             
             if (isClientAdmin) {
                 const matchedCenter = await getMatchedCenterForUser(session.user);
@@ -738,7 +740,7 @@ export async function updateAmbulanceSettings(fleet: any[], hotlines: any[]) {
         }
 
         const role = ((session.user as any)?.role || "").toUpperCase();
-        const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_");
+        const canManage = role === "ADMIN" || role === "RHU_ADMIN" || role.startsWith("RHU_") || role === "ASST_SEC";
         if (!canManage) {
             return { success: false, error: "Access Denied" };
         }

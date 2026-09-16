@@ -6,6 +6,7 @@ import {
   Clock,
   Check,
   MapPin,
+  Flame,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -210,209 +211,246 @@ export function EvaluationStep({
             const isEngineeringRejected = selectedApplication?.status === "REJECTED";
             const isEngineeringCancelled = !!selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED";
             const isEngineeringApproved = ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "");
+            const feeAssessment = selectedApplication?.additionalData?.feeAssessment;
+            const isDispatched = Boolean(feeAssessment?.engineerEndorsedToZoning && feeAssessment?.bfpSubmitted) || Boolean(feeAssessment?.engineeringApproved) || isEngineeringApproved;
+            
             const isZoningRejected = selectedApplication?.additionalData?.zoningStatus === "REJECTED";
-            const isZoningApproved = !!selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed || selectedApplication?.additionalData?.zoningStatus === "EVALUATED";
-            const isBfpSubmitted = !!selectedApplication?.additionalData?.feeAssessment?.bfpSubmitted;
+            const isZoningApproved = !!feeAssessment?.zoningEndorsed || selectedApplication?.additionalData?.zoningStatus === "EVALUATED";
+            
+            const isBfpRejected = selectedApplication?.additionalData?.bfpStatus === "REJECTED";
             const isBfpAcknowledged = selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED";
             const isBfpCompleted = selectedApplication?.additionalData?.bfpStatus === "COMPLETED" || Boolean(selectedApplication?.additionalData?.bfpClearanceUrl);
 
             return (
               <>
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                      <div className="flex items-start gap-4">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                          isEngineeringRejected || isEngineeringCancelled || isZoningRejected
-                            ? "bg-red-100 text-red-500 dark:bg-red-500/20"
-                            : !isEngineeringApproved
-                              ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                              : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
-                        )}>
-                          {isEngineeringRejected || isEngineeringCancelled || isZoningRejected ? (
-                             <AlertCircle className="w-5 h-5" />
-                          ) : !isEngineeringApproved ? (
-                             <Clock className="w-5 h-5" />
-                          ) : isZoningApproved ? (
-                             <Check className="w-5 h-5" />
-                          ) : (
-                             <MapPin className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                            {isEngineeringRejected
-                              ? "Zoning Review Halted"
-                              : isEngineeringCancelled
-                                ? "Zoning Review Cancelled"
-                                : !isEngineeringApproved
-                                  ? "Awaiting Engineering Approval"
-                                  : isZoningRejected
-                                    ? "Zoning Review Rejected"
-                                    : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                      ? "Scheduled for Zoning Site Inspection"
-                                      : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                        ? "Scheduled for Zoning Site Re-inspection"
-                                        : isZoningApproved
-                                          ? "Zoning Assessment Approved"
-                                          : "Zoning Clearance Under Review"}
-                          </p>
-                          <p className="text-xs text-slate-500 leading-normal">
-                            {isEngineeringRejected
-                              ? "Zoning review halted due to Engineering Department rejection."
-                              : isEngineeringCancelled
-                                ? "Zoning review halted due to application cancellation."
-                                : !isEngineeringApproved
-                                  ? "Engineering approval is required before Zoning evaluation can proceed."
-                                  : isZoningRejected
-                                    ? "Zoning clearance rejected by MPDC Zoning Office."
-                                    : isZoningApproved
-                                      ? "Your zoning requirements have been evaluated and endorsed by MPDC."
-                                      : "Zoning Officer is currently evaluating your application."}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                        isEngineeringCancelled || isEngineeringRejected || isZoningRejected
-                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : !isEngineeringApproved
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                            : isZoningApproved
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
-                      )}>
-                        {isEngineeringCancelled
-                          ? "Cancelled"
-                          : isEngineeringRejected || isZoningRejected
-                            ? "REJECTED"
-                            : !isEngineeringApproved
-                              ? "PENDING"
-                              : isZoningApproved
-                                ? "APPROVED"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                  ? "For Inspection"
-                                  : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                    ? "For Revision"
-                                    : "Pending Review"}
-                      </span>
-                    </div>
-
-                    {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
-                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
-                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
-                          {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
-                        </p>
-                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
-                      </div>
-                    )}
-
-                    {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
-                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                          {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
-                          </div>
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
-                          </div>
-                          {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
-                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
-                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
-                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">&quot;{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}&quot;</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                <div className="pt-2 space-y-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      Concurrent Departmental Reviews (Parallel Processing)
+                    </span>
+                    <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                        isEngineeringCancelled || isEngineeringRejected || isZoningRejected
-                          ? "bg-red-100 text-red-500 dark:bg-red-500/20"
-                          : isBfpCompleted || isBfpAcknowledged
-                            ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                            : isBfpSubmitted
-                              ? "bg-blue-100 dark:bg-blue-500/20 text-blue-500"
-                              : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                      )}>
-                        {isEngineeringCancelled || isEngineeringRejected || isZoningRejected ? (
-                          <AlertCircle className="w-5 h-5 text-red-500" />
-                        ) : isBfpCompleted || isBfpAcknowledged || isBfpSubmitted ? (
-                          <Check className="w-5 h-5" />
-                        ) : (
-                          <Clock className="w-5 h-5 text-amber-500" />
+                  <div className="space-y-4">
+                    {/* MPDC Zoning Card */}
+                    <div className="space-y-3">
+                      <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                        <span>MPDC Zoning Review</span>
+                        {isDispatched && !isZoningApproved && !isZoningRejected && (
+                          <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">concurrent stream</span>
+                        )}
+                      </h3>
+                      <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                          <div className="flex items-start gap-4">
+                            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                              isEngineeringRejected || isEngineeringCancelled || isZoningRejected
+                                ? "bg-red-100 text-red-500 dark:bg-red-500/20"
+                                : !isDispatched
+                                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                                  : isZoningApproved
+                                    ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20"
+                                    : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
+                            )}>
+                              {isEngineeringRejected || isEngineeringCancelled || isZoningRejected ? (
+                                 <AlertCircle className="w-5 h-5" />
+                              ) : !isDispatched ? (
+                                 <Clock className="w-5 h-5" />
+                              ) : isZoningApproved ? (
+                                 <Check className="w-5 h-5" />
+                              ) : (
+                                 <MapPin className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                                {isEngineeringRejected
+                                  ? "Zoning Review Halted"
+                                  : isEngineeringCancelled
+                                    ? "Zoning Review Cancelled"
+                                    : !isDispatched
+                                      ? "Awaiting Engineering Gate Approval"
+                                      : isZoningRejected
+                                        ? "Zoning Review Rejected"
+                                        : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                          ? "Scheduled for Zoning Site Inspection"
+                                          : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                            ? "Scheduled for Zoning Site Re-inspection"
+                                            : isZoningApproved
+                                              ? "Zoning Assessment Approved"
+                                              : "Zoning Clearance Under Review"}
+                              </p>
+                              <p className="text-xs text-slate-500 leading-normal">
+                                {isEngineeringRejected
+                                  ? "Zoning review halted due to Engineering Department rejection."
+                                  : isEngineeringCancelled
+                                    ? "Zoning review halted due to application cancellation."
+                                    : !isDispatched
+                                      ? "Engineering evaluation and site inspection are conducted first. Once preliminary approved, digital copies are dispatched here concurrently."
+                                      : isZoningRejected
+                                        ? "Zoning clearance rejected by MPDC Zoning Office."
+                                        : isZoningApproved
+                                          ? "Your zoning requirements have been evaluated and endorsed by MPDC."
+                                          : "MPDC Zoning Officer is concurrently evaluating your application and assessing zoning charges."}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                            isEngineeringCancelled || isEngineeringRejected || isZoningRejected
+                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                              : !isDispatched
+                                ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                : isZoningApproved
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                  : "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
+                          )}>
+                            {isEngineeringCancelled
+                              ? "Cancelled"
+                              : isEngineeringRejected || isZoningRejected
+                                ? "REJECTED"
+                                : !isDispatched
+                                  ? "WAITING ON GATE"
+                                  : isZoningApproved
+                                    ? "APPROVED"
+                                    : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                      ? "For Inspection"
+                                      : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                        ? "For Revision"
+                                        : "Under Review"}
+                          </span>
+                        </div>
+
+                        {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
+                          <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
+                            <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
+                              {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
+                            </p>
+                            <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
+                          </div>
+                        )}
+
+                        {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
+                          <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                              {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
+                              <div>
+                                <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
+                                {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
+                              </div>
+                              <div>
+                                <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
+                                {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
+                                {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
+                              </div>
+                              {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
+                                <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
+                                  <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
+                                  <p className="italic text-purple-700 dark:text-purple-300 font-medium">&quot;{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}&quot;</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                          {isEngineeringRejected || isZoningRejected
-                            ? "Endorsement to BFP Halted"
-                            : isEngineeringCancelled
-                              ? "Endorsement to BFP Cancelled"
-                              : "Endorsement to BFP"}
-                        </p>
-                        <p className="text-xs text-slate-500 leading-normal">
-                          {isEngineeringRejected
-                            ? "Endorsement halted due to Engineering Department rejection."
-                            : isZoningRejected
-                              ? "Endorsement halted due to MPDC Zoning Office rejection."
-                              : isEngineeringCancelled
-                                ? "Endorsement cancelled due to application cancellation."
+                    </div>
+
+                    {/* BFP Fire Safety Card */}
+                    <div className="space-y-3">
+                      <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                        <span>BFP Fire Safety Review</span>
+                        {isDispatched && !isBfpCompleted && !isBfpRejected && (
+                          <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">concurrent stream</span>
+                        )}
+                      </h3>
+                      <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                            isEngineeringCancelled || isEngineeringRejected || isBfpRejected
+                              ? "bg-red-100 text-red-500 dark:bg-red-500/20"
+                              : !isDispatched
+                                ? "bg-slate-100 dark:bg-slate-800 text-slate-400"
                                 : isBfpCompleted
-                                  ? "Fire Safety Clearance has been approved and submitted to the Engineer"
+                                  ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
                                   : isBfpAcknowledged
-                                    ? "BFP has successfully acknowledged your application"
-                                    : isBfpSubmitted
-                                      ? "Endorsed successfully to BFP"
-                                      : (isEngineeringApproved && isZoningApproved)
-                                        ? "Awaiting Municipal Engineer endorsement to BFP"
-                                        : "Awaiting Engineering and Zoning approval"}
-                        </p>
+                                    ? "bg-orange-100 dark:bg-orange-500/20 text-orange-500"
+                                    : "bg-red-100 dark:bg-red-500/20 text-red-500"
+                          )}>
+                            {isEngineeringCancelled || isEngineeringRejected || isBfpRejected ? (
+                              <AlertCircle className="w-5 h-5 text-red-500" />
+                            ) : isBfpCompleted ? (
+                              <Check className="w-5 h-5" />
+                            ) : !isDispatched ? (
+                              <Clock className="w-5 h-5" />
+                            ) : (
+                              <Flame className="w-5 h-5" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                              {isEngineeringRejected
+                                ? "BFP Review Halted"
+                                : isEngineeringCancelled
+                                  ? "BFP Review Cancelled"
+                                  : !isDispatched
+                                    ? "Awaiting Engineering Gate Approval"
+                                    : isBfpRejected
+                                      ? "Fire Safety Clearance Rejected"
+                                      : isBfpCompleted
+                                        ? "Fire Safety Clearance Approved"
+                                        : isBfpAcknowledged
+                                          ? "BFP Evaluation Acknowledged"
+                                          : "Dispatched for Fire Safety Review"}
+                            </p>
+                            <p className="text-xs text-slate-500 leading-normal">
+                              {isEngineeringRejected
+                                ? "BFP review halted due to Engineering Department rejection."
+                                : isEngineeringCancelled
+                                  ? "BFP review halted due to application cancellation."
+                                  : !isDispatched
+                                    ? "Engineering evaluation and site inspection are conducted first. Once preliminary approved, digital copies are dispatched here concurrently."
+                                    : isBfpRejected
+                                      ? "Fire Safety Clearance was rejected by the Bureau of Fire Protection."
+                                      : isBfpCompleted
+                                        ? "Fire Safety Inspection Certificate (FSIC) clearance has been approved and uploaded."
+                                        : isBfpAcknowledged
+                                          ? "BFP has acknowledged the application dossier. Fire safety inspection and evaluation are actively in progress."
+                                          : "Digital application copies dispatched concurrently to BFP. Parallel fire safety review is underway."}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                          isEngineeringCancelled || isEngineeringRejected || isBfpRejected
+                            ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                            : !isDispatched
+                              ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                              : isBfpCompleted
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                : isBfpAcknowledged
+                                  ? "bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-500"
+                                  : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                        )}>
+                          {isEngineeringCancelled
+                            ? "Cancelled"
+                            : isEngineeringRejected || isBfpRejected
+                              ? "REJECTED"
+                              : !isDispatched
+                                ? "WAITING ON GATE"
+                                : isBfpCompleted
+                                  ? "APPROVED"
+                                  : isBfpAcknowledged
+                                    ? "ACKNOWLEDGED"
+                                    : "UNDER REVIEW"}
+                        </span>
                       </div>
                     </div>
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                      isEngineeringCancelled || isEngineeringRejected || isZoningRejected
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : selectedApplication?.status === "UNPAID"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : isBfpCompleted || isBfpAcknowledged
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                            : isBfpSubmitted
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                    )}>
-                      {isEngineeringCancelled
-                        ? "Cancelled"
-                        : isEngineeringRejected || isZoningRejected
-                          ? "REJECTED"
-                          : selectedApplication?.status === "UNPAID"
-                            ? "UNPAID"
-                            : isBfpCompleted
-                              ? "APPROVED"
-                              : isBfpAcknowledged
-                                ? "ACKNOWLEDGED"
-                                : isBfpSubmitted
-                                  ? "SUBMITTED"
-                                  : "PENDING"}
-                    </span>
                   </div>
                 </div>
               </>

@@ -74,6 +74,12 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { getSecureUploadUrlsAction } from "@/app/auth/actions";
 import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
+import {
+  OCCUPANCY_CATEGORIES,
+  OCCUPANCY_OPTIONS,
+  RESIDENTIAL_ANCILLARY_OPTIONS,
+  getOccupancyRequirements
+} from "@/lib/transactions/occupancy-requirements";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -83,67 +89,6 @@ const STEPS = [
   { id: "BFP", label: "Treasury", icon: Landmark },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
-
-const OCCUPANCY_CATEGORIES = [
-  "Residential",
-  "Commercial",
-  "Industrial",
-  "Institutional",
-  "Agricultural",
-  "Street Furniture, Landscaping & Signboards",
-  "Other Construction"
-] as const;
-
-const OCCUPANCY_OPTIONS: Record<string, { label: string; code: string }[]> = {
-  "Residential": [
-    { label: "Single", code: "11" },
-    { label: "Duplex", code: "12" },
-    { label: "Rowhouse / Accessoria", code: "13" },
-    { label: "Others (Specify)", code: "10" }
-  ],
-  "Commercial": [
-    { label: "Bank", code: "21" },
-    { label: "Store", code: "22" },
-    { label: "Hotel/Motel, etc.", code: "23" },
-    { label: "Office Condominium/Business Office Building", code: "24" },
-    { label: "Restaurant etc.", code: "25" },
-    { label: "Shop (e.g. Dress Shop, Tailoring Shop, Barber Shop etc.)", code: "26" },
-    { label: "Gasoline Station", code: "27" },
-    { label: "Market", code: "28" },
-    { label: "Dormitory or Other Lodging House", code: "29" },
-    { label: "Others (Specify)", code: "20" }
-  ],
-  "Industrial": [
-    { label: "Factory/Plant", code: "31" },
-    { label: "Repair Shop, Machine Shop", code: "32" },
-    { label: "Refinery", code: "33" },
-    { label: "Printing Press", code: "34" },
-    { label: "Warehouse", code: "35" },
-    { label: "Others (Specify)", code: "30" }
-  ],
-  "Institutional": [
-    { label: "School", code: "41" },
-    { label: "Church and other religious structures", code: "42" },
-    { label: "Hospital or similar structures", code: "43" },
-    { label: "Welfare and charitable structures", code: "44" },
-    { label: "Theater, Auditorium, Gymnasium, Court", code: "45" },
-    { label: "Others (Specify)", code: "40" }
-  ],
-  "Agricultural": [
-    { label: "Barn(s), Poultry House(s), etc.", code: "51" },
-    { label: "Grain Mill", code: "52" },
-    { label: "Others (Specify)", code: "50" }
-  ],
-  "Street Furniture, Landscaping & Signboards": [
-    { label: "Parks, Plazas, Monuments, Pools, Plant Boxes etc.", code: "71" },
-    { label: "Sidewalks, Promenades, Terraces, Lamposts, Electric Poles, Telephone Poles, etc.", code: "72" },
-    { label: "Outdoor Ads, Signboard, etc.", code: "73" },
-    { label: "Fence Enclosure", code: "74" }
-  ],
-  "Other Construction": [
-    { label: "Specify", code: "60" }
-  ]
-};
 
 function parseDescriptionOfWork(desc: string) {
   const result = {
@@ -229,9 +174,17 @@ function parseOccupancyUse(occupancyUse: string) {
   let category = "Residential";
   let subs: string[] = [];
   let specify = "";
+  let ancillaries: string[] = [];
 
   if (!occupancyUse) {
-    return { category, subs, specify };
+    return { category, subs, specify, ancillaries };
+  }
+
+  // Extract [Ancillary: ...] if present
+  const ancillaryMatch = occupancyUse.match(/\[Ancillary:\s*([^\]]+)\]/i);
+  if (ancillaryMatch) {
+    ancillaries = ancillaryMatch[1].split(",").map(s => s.trim()).filter(Boolean);
+    occupancyUse = occupancyUse.replace(/\[Ancillary:\s*[^\]]+\]/i, "").trim();
   }
 
   if (occupancyUse.startsWith("Other Construction - ")) {
@@ -239,9 +192,10 @@ function parseOccupancyUse(occupancyUse: string) {
       category: "Other Construction",
       subs: ["Specify"],
       specify: occupancyUse.replace("Other Construction - ", ""),
+      ancillaries
     };
   } else if (occupancyUse === "Other Construction") {
-    return { category: "Other Construction", subs: ["Specify"], specify: "" };
+    return { category: "Other Construction", subs: ["Specify"], specify: "", ancillaries };
   }
 
   const parts = occupancyUse.split(": ");
@@ -296,7 +250,7 @@ function parseOccupancyUse(occupancyUse: string) {
     }
   }
 
-  return { category, subs, specify };
+  return { category, subs, specify, ancillaries };
 }
 
 function formatWithCommas(val: string | number) {
@@ -529,6 +483,7 @@ export default function BuildingPermitPage() {
     occupancyCategory: "",
     selectedSubOccupancies: [] as string[],
     subOccupancyOthersSpecify: "",
+    selectedAncillaryStructures: [] as string[],
     estimatedCost: "",
     locationOfConstruction: "",
     locationHouseNumber: "",
@@ -677,15 +632,28 @@ export default function BuildingPermitPage() {
       return true;
     });
 
+  const dynamicOccupancyRequirements = React.useMemo(() => {
+    return getOccupancyRequirements(
+      formData.occupancyCategory,
+      formData.selectedSubOccupancies,
+      formData.selectedAncillaryStructures
+    );
+  }, [formData.occupancyCategory, formData.selectedSubOccupancies, formData.selectedAncillaryStructures]);
+
   // Mandatory requirements that must be provided to submit (Construction Logbook - index 19 is optional)
   const requiredRequirementIndexes = applicableRequirementIndexes.filter(index => index !== 19);
-  const requiredRequirementsCount = requiredRequirementIndexes.length;
+  const dynamicOccupancyReqKeys = dynamicOccupancyRequirements.map(d => d.key);
+  const allRequiredRequirementKeys = [
+    ...requiredRequirementIndexes.map(index => `req_${index}`),
+    ...dynamicOccupancyReqKeys
+  ];
+  const requiredRequirementsCount = allRequiredRequirementKeys.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_")),
     ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
   ]);
-  const requirementsProgress = requiredRequirementIndexes
-    .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
+  const requirementsProgress = allRequiredRequirementKeys
+    .filter(key => uploadedRequirementKeys.has(key)).length;
 
   const requiredPermitIndexes: number[] = [];
   const requiredPermitsCount = 4;
@@ -830,6 +798,7 @@ export default function BuildingPermitPage() {
         occupancyCategory: parsedOccupancy.category,
         selectedSubOccupancies: parsedOccupancy.subs,
         subOccupancyOthersSpecify: parsedOccupancy.specify,
+        selectedAncillaryStructures: addData.selectedAncillaryStructures || parsedOccupancy.ancillaries || [],
         estimatedCost: addData.estimatedCost || "",
         locationOfConstruction: addData.locationOfConstruction || "",
         locationHouseNumber: parsedLoc.houseNumber,
@@ -862,7 +831,7 @@ export default function BuildingPermitPage() {
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
           const idx = parseInt(key.replace("req_", ""), 10);
-          if (idx >= documentRequirementsList.length) {
+          if (idx >= documentRequirementsList.length && idx < 100) {
             const label = labels[key] || `Additional Document ${idx - documentRequirementsList.length + 1}`;
             loadedReqs[idx - documentRequirementsList.length] = { label };
           }
@@ -1503,11 +1472,14 @@ export default function BuildingPermitPage() {
       const customLabels: Record<string, string> = {};
       const existingLabels = selectedApplication?.additionalData?.customLabels || {};
       Object.assign(customLabels, existingLabels);
+      dynamicOccupancyRequirements.forEach(req => {
+        customLabels[req.key] = req.label;
+      });
       customRequirements.forEach((req, idx) => {
-        customLabels[`req_${10 + idx}`] = req.label;
+        customLabels[`req_${documentRequirementsList.length + idx}`] = req.label;
       });
       customPermits.forEach((permit, idx) => {
-        customLabels[`permit_${7 + idx}`] = permit.label;
+        customLabels[`permit_${permitTypesList.length + idx}`] = permit.label;
       });
 
       const data = new FormData();
@@ -1522,10 +1494,15 @@ export default function BuildingPermitPage() {
       const finalDescription = parts.join("; ");
       data.append("descriptionOfWork", finalDescription);
 
-      const finalOccupancy = formData.occupancyCategory === "Other Construction"
+      let finalOccupancy = formData.occupancyCategory === "Other Construction"
         ? `Other Construction - ${formData.subOccupancyOthersSpecify}`
         : `${formData.occupancyCategory}: ${formData.selectedSubOccupancies.join(", ")}${formData.selectedSubOccupancies.includes("Others (Specify)") ? ` (${formData.subOccupancyOthersSpecify})` : ""}`;
+      
+      if (formData.occupancyCategory === "Residential" && formData.selectedAncillaryStructures.length > 0) {
+        finalOccupancy += ` [Ancillary: ${formData.selectedAncillaryStructures.join(", ")}]`;
+      }
       data.append("occupancyUse", finalOccupancy);
+      data.append("selectedAncillaryStructures", JSON.stringify(formData.selectedAncillaryStructures));
 
       data.append("estimatedCost", formData.estimatedCost);
       data.append("locationOfConstruction", formData.locationOfConstruction);
@@ -1784,6 +1761,7 @@ export default function BuildingPermitPage() {
               descriptionOfWorkLegacyText: "",
               occupancyCategory: "",
               selectedSubOccupancies: [],
+              selectedAncillaryStructures: [],
               subOccupancyOthersSpecify: "",
               estimatedCost: "",
               locationOfConstruction: "",
@@ -2912,7 +2890,8 @@ export default function BuildingPermitPage() {
                                 ...formData,
                                 occupancyCategory: value,
                                 selectedSubOccupancies: [],
-                                subOccupancyOthersSpecify: ""
+                                subOccupancyOthersSpecify: "",
+                                selectedAncillaryStructures: []
                               });
                             }}
                             disabled={!isEditable}
@@ -2982,6 +2961,86 @@ export default function BuildingPermitPage() {
                                     onChange={e => setFormData({ ...formData, subOccupancyOthersSpecify: e.target.value })}
                                     disabled={!isEditable}
                                   />
+                                </div>
+                              )}
+
+                              {formData.occupancyCategory === "Residential" && (
+                                <div className="mt-6 pt-5 border-t border-slate-200/80 dark:border-white/10 space-y-3">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                    <div>
+                                      <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                        Residential Ancillary Structures & Installations
+                                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 normal-case">(Optional)</span>
+                                      </p>
+                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                        Select any ancillary facilities to automatically generate their required engineering plans:
+                                      </p>
+                                    </div>
+                                    {formData.selectedAncillaryStructures.length > 0 && (
+                                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 w-fit">
+                                        {formData.selectedAncillaryStructures.length} Selected
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                    {RESIDENTIAL_ANCILLARY_OPTIONS.map((ancillary) => {
+                                      const isSelected = formData.selectedAncillaryStructures.includes(ancillary.label);
+                                      return (
+                                        <div
+                                          key={ancillary.label}
+                                          onClick={() => {
+                                            if (!isEditable) return;
+                                            const next = isSelected
+                                              ? formData.selectedAncillaryStructures.filter(s => s !== ancillary.label)
+                                              : [...formData.selectedAncillaryStructures, ancillary.label];
+                                            setFormData({
+                                              ...formData,
+                                              selectedAncillaryStructures: next
+                                            });
+                                          }}
+                                          className={cn(
+                                            "flex items-start space-x-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none",
+                                            isSelected
+                                              ? "bg-primary/10 border-primary/40 text-primary shadow-sm ring-1 ring-primary/20"
+                                              : "bg-white/40 dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300"
+                                          )}
+                                        >
+                                          <Checkbox
+                                            id={`ancillary-${ancillary.label}`}
+                                            checked={isSelected}
+                                            disabled={!isEditable}
+                                            className="mt-0.5 pointer-events-none"
+                                          />
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-xs md:text-sm font-bold">{ancillary.label}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-snug">
+                                              {ancillary.description}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {dynamicOccupancyRequirements.length > 0 && (
+                                <div className="mt-5 p-3.5 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/30 flex items-center justify-between gap-3 shadow-sm">
+                                  <div className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <Building2 className="w-5 h-5 text-primary shrink-0" />
+                                    <div>
+                                      <span className="font-black text-primary uppercase tracking-wider text-[11px] mr-1">Specialized Engineering Requirements:</span>
+                                      <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                                        {dynamicOccupancyRequirements.length} extra technical plan upload slot{dynamicOccupancyRequirements.length > 1 ? "s" : ""} will automatically appear in the Upload step.
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-primary text-white shadow-sm shrink-0">
+                                    +{dynamicOccupancyRequirements.length} Plans
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -3363,6 +3422,7 @@ export default function BuildingPermitPage() {
               setActiveDocTab={setActiveDocTab}
               requiredRequirementsCount={requiredRequirementsCount}
               documentRequirementsList={documentRequirementsList}
+              dynamicOccupancyRequirements={dynamicOccupancyRequirements}
               customRequirements={customRequirements}
               permitTypesList={permitTypesList}
               customPermits={customPermits}

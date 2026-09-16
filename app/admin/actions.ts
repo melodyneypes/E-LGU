@@ -3688,6 +3688,7 @@ export async function createUser(formData: FormData) {
         const managedBarangay = formData.get("managedBarangay") as string;
         const department = formData.get("department") as string;
         const accessiblePages = formData.getAll("accessiblePages") as string[];
+        const assignedDoctorId = (formData.get("assignedDoctorId") as string) || null;
 
         if (!name || !email || !password || !role) {
             return { success: false, error: "Missing required fields" };
@@ -3723,6 +3724,7 @@ export async function createUser(formData: FormData) {
                 managedBarangay: role === "BARANGAY_ADMIN" ? managedBarangay : null,
                 department: department || null,
                 accessiblePages: accessiblePages || [],
+                assignedDoctorId: role === "ASST_SEC" ? (assignedDoctorId || null) : null,
                 isEmailVerified: true,
                 isPasswordChanged: true, // Admin set, bypass forced change
                 emailVerified: new Date(),
@@ -3810,6 +3812,7 @@ export async function updateUser(userId: string, formData: FormData) {
             managedBarangay: isBarangayRole ? managedBarangay : null,
             department: department || null,
             accessiblePages: accessiblePages || [],
+            assignedDoctorId: role === "ASST_SEC" ? ((formData.get("assignedDoctorId") as string) || null) : null,
         };
 
         if (isEmailVerifiedParam !== null) {
@@ -4364,5 +4367,36 @@ export async function deleteReviewAction(reviewId: string) {
     } catch (error: any) {
         console.error("Error in deleteReviewAction:", error);
         return { success: false, error: error.message || "Failed to delete citizen review." };
+    }
+}
+
+/**
+ * Fetch available doctors for Assistant Secretary assignment
+ */
+export async function getDoctorsList() {
+    try {
+        const doctors = await prisma.user.findMany({
+            where: {
+                OR: [
+                    { role: "RHU_DOCTOR" },
+                    { role: "RHU_CENTER_ADMIN" },
+                    { role: "RHU_ADMIN" },
+                    { department: { contains: "Doctor", mode: "insensitive" } },
+                    { name: { contains: "Dr.", mode: "insensitive" } }
+                ]
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+            },
+            orderBy: {
+                name: "asc"
+            }
+        });
+        return { success: true, data: doctors };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to fetch doctors" };
     }
 }

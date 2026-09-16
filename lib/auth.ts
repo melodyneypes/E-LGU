@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
                 let user: any = null;
                 try {
                     const rawUsers: any[] = await prisma.$queryRaw`
-                        SELECT "id", "name", "email", "password", "role"::text as "role", "isEmailVerified", "isPasswordChanged", "rejectionCount", "managedBarangay", "department", "accessiblePages"
+                        SELECT "id", "name", "email", "password", "role"::text as "role", "isEmailVerified", "isPasswordChanged", "rejectionCount", "managedBarangay", "department", "accessiblePages", "assignedDoctorId"
                         FROM "User" WHERE LOWER("email") = ${emailClean}
                     `;
                     user = rawUsers[0] || null;
@@ -94,6 +94,7 @@ export const authOptions: NextAuthOptions = {
                     managedBarangay: user.managedBarangay,
                     department: user.department,
                     accessiblePages: user.accessiblePages || [],
+                    assignedDoctorId: user.assignedDoctorId || null,
                 };
             },
         }),
@@ -128,6 +129,7 @@ export const authOptions: NextAuthOptions = {
                 token.managedBarangay = (user as any).managedBarangay;
                 token.department = (user as any).department;
                 token.accessiblePages = (user as any).accessiblePages || [];
+                token.assignedDoctorId = (user as any).assignedDoctorId || null;
             }
 
             // Sync Database dynamically with Session to Auto-Logout rejected/pending/deceased users!
@@ -181,7 +183,7 @@ export const authOptions: NextAuthOptions = {
                 let dbUser: any = null;
                 try {
                     const rawUsers: any[] = await prisma.$queryRaw`
-                        SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified", "managedBarangay"
+                        SELECT "role"::text as "role", "department", "accessiblePages", "isPasswordChanged", "isEmailVerified", "managedBarangay", "assignedDoctorId"
                         FROM "User" WHERE "id" = ${token.id as string}
                     `;
                     dbUser = rawUsers[0] || null;
@@ -195,7 +197,8 @@ export const authOptions: NextAuthOptions = {
                                 accessiblePages: true,
                                 isPasswordChanged: true,
                                 isEmailVerified: true,
-                                managedBarangay: true
+                                managedBarangay: true,
+                                assignedDoctorId: true
                             }
                         });
                     } catch {
@@ -210,6 +213,7 @@ export const authOptions: NextAuthOptions = {
                     token.isPasswordChanged = dbUser.isPasswordChanged;
                     token.isEmailVerified = dbUser.isEmailVerified;
                     token.managedBarangay = dbUser.managedBarangay || token.managedBarangay;
+                    token.assignedDoctorId = dbUser.assignedDoctorId || null;
                 } else {
                     token.exp = 1;
                     token.deactivated = true;
@@ -236,6 +240,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).managedBarangay = token.managedBarangay;
                 (session.user as any).department = token.department || null;
                 (session.user as any).accessiblePages = (token as any).accessiblePages || [];
+                (session.user as any).assignedDoctorId = (token as any).assignedDoctorId || null;
             }
             return session;
         },

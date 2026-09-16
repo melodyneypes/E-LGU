@@ -709,38 +709,40 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                                     Approve payment (Move to Paid)
                                                                 </Button>
                                                             </DialogTrigger>
-                                                            <DialogContent className="max-w-md bg-white dark:bg-[#0c111d] border-slate-100 dark:border-white/5 rounded-[2.5rem] p-10">
-                                                                <DialogHeader className="space-y-3">
-                                                                    <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                                                                        Treasury <span className="text-emerald-500">Receipt</span>
-                                                                    </DialogTitle>
-                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Process Payment / Upload Receipt</p>
-                                                                </DialogHeader>
-                                                                <div className="space-y-6 py-4">
-                                                                    <div className="space-y-3">
+                                                            <DialogContent className="max-w-md w-full max-h-[88vh] bg-white dark:bg-[#0c111d] border-slate-100 dark:border-white/5 rounded-[2rem] p-0 flex flex-col overflow-hidden shadow-2xl">
+                                                                <div className="p-6 pb-4 border-b border-slate-100 dark:border-white/5 shrink-0 pr-12">
+                                                                    <DialogHeader className="space-y-1.5 text-left">
+                                                                        <DialogTitle className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                                                                            Treasury <span className="text-emerald-500">Receipt</span>
+                                                                        </DialogTitle>
+                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Process Payment / Upload Receipt</p>
+                                                                    </DialogHeader>
+                                                                </div>
+                                                                <div className="overflow-y-auto px-6 py-5 space-y-5 flex-1 overscroll-contain">
+                                                                    <div className="space-y-2">
                                                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">O.R. Number / Reference No. (Required for Cash)</Label>
                                                                         <Input 
                                                                             placeholder="Enter O.R. or Reference Number" 
                                                                             value={orSeriesNumber || ""} 
                                                                             onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                                                            className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                            className="h-11 rounded-xl text-sm border-slate-200 dark:border-white/10"
                                                                         />
                                                                     </div>
-                                                                    <div className="space-y-3">
+                                                                    <div className="space-y-2">
                                                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Paid (₱)</Label>
                                                                         <Input 
                                                                             type="number"
                                                                             placeholder="Enter Amount" 
                                                                             value={amountPaid} 
                                                                             onChange={(e) => setAmountPaid(e.target.value)}
-                                                                            className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                            className="h-11 rounded-xl text-sm border-slate-200 dark:border-white/10"
                                                                         />
                                                                     </div>
-                                                                    <div className="space-y-3">
+                                                                    <div className="space-y-2">
                                                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scanned Receipt (Optional)</Label>
                                                                         {receiptPreview ? (
                                                                             <div className="relative rounded-2xl border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 p-2 overflow-hidden group">
-                                                                                <div className="aspect-[4/3] w-full relative rounded-xl overflow-hidden bg-white/50">
+                                                                                <div className="aspect-[4/3] max-h-44 w-full relative rounded-xl overflow-hidden bg-white/50">
                                                                                     <Image src={receiptPreview} alt="Receipt Preview" fill className="object-contain" />
                                                                                 </div>
                                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
@@ -751,40 +753,42 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                                                             setReceiptFile(null);
                                                                                             setReceiptPreview(null);
                                                                                         }}
-                                                                                        className="w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all"
+                                                                                        className="w-11 h-11 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all"
                                                                                     >
                                                                                         <Trash2 className="w-5 h-5" />
                                                                                     </Button>
                                                                                 </div>
                                                                             </div>
                                                                         ) : (
-                                                                            <label className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                                                                                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform mb-4">
-                                                                                    <Upload className="w-6 h-6" />
+                                                                            <label className="flex flex-col items-center justify-center h-36 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                                                                                <div className="w-11 h-11 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform mb-2">
+                                                                                    <Upload className="w-5 h-5" />
                                                                                 </div>
                                                                                 <span className="text-[11px] font-black italic uppercase tracking-widest text-slate-500 dark:text-slate-400">Click to upload receipt</span>
-                                                                                <span className="text-[9px] text-slate-400 uppercase tracking-widest mt-1">JPG, PNG, PDF</span>
+                                                                                <span className="text-[9px] text-slate-400 uppercase tracking-widest mt-0.5">JPG, PNG, PDF</span>
                                                                                 <input type="file" accept="image/*,.pdf" onChange={handleReceiptFileSelect} className="hidden" />
                                                                             </label>
                                                                         )}
                                                                     </div>
-                                                                    <div className="space-y-3">
+                                                                    <div className="space-y-2">
                                                                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Additional Notes</Label>
                                                                         <Textarea
                                                                             placeholder="Optional notes for this payment..."
                                                                             value={remarks}
                                                                             onChange={(e) => setRemarks(e.target.value)}
-                                                                            className="min-h-[100px] rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                            className="min-h-[80px] rounded-xl text-sm border-slate-200 dark:border-white/10 resize-none"
                                                                         />
                                                                     </div>
                                                                 </div>
-                                                                <Button
-                                                                    onClick={() => handleConfirmPayment(amountPaid)}
-                                                                    disabled={actionLoading || (!orSeriesNumber && !receiptFile)}
-                                                                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
-                                                                >
-                                                                    {actionLoading ? "Processing..." : "Confirm & Save Receipt"}
-                                                                </Button>
+                                                                <div className="p-5 border-t border-slate-100 dark:border-white/5 shrink-0 bg-slate-50/50 dark:bg-white/[0.02]">
+                                                                    <Button
+                                                                        onClick={() => handleConfirmPayment(amountPaid)}
+                                                                        disabled={actionLoading || (!orSeriesNumber && !receiptFile)}
+                                                                        className="w-full h-12 sm:h-13 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
+                                                                    >
+                                                                        {actionLoading ? "Processing..." : "Confirm & Save Receipt"}
+                                                                    </Button>
+                                                                </div>
                                                             </DialogContent>
                                                         </Dialog>
 

@@ -50,13 +50,14 @@ export function getPostLoginDestination(
         role === "RHU_CENTER_ADMIN" ||
         role === "RHU_DOCTOR" ||
         role === "RHU_STAFF" ||
+        role === "ASST_SEC" ||
         department === "RHU" ||
         department === "HEALTH" ||
         department === "RURAL_HEALTH_UNIT" ||
         department.includes("RHU CENTER") ||
         department.includes("MEDICAL ADMIN")
     ) {
-        return "/admin/rhu/centers";
+        return "/admin/rhu/consultations";
     }
     if (user.accessiblePages?.length) return user.accessiblePages[0];
     return "/admin/dashboard";
