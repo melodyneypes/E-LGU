@@ -12,7 +12,6 @@ import {
     MapPin,
     Building2,
     RefreshCw,
-    HardHat,
     CheckCircle2,
     Trash2,
     UploadCloud,
@@ -25,12 +24,6 @@ import {
     Clock,
     RotateCcw,
     Pencil,
-    Receipt,
-    ShieldCheck,
-    FileCheck2,
-    Landmark,
-    User,
-    Hash,
     Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -225,8 +218,8 @@ export default function EngineerArchiveClient({
         estimatedCost: "",
 
         // Responsible Signatories
-        engineerInCharge: "ARCHT. ALVIN C. ABROGAR",
-        buildingOfficial: "ENGR. ANGELO C. ABROGAR",
+        engineerInCharge: "",
+        buildingOfficial: "",
 
         remarks: "",
     });
@@ -388,8 +381,8 @@ export default function EngineerArchiveClient({
             scopeOfWork: "",
             estimatedCost: "",
 
-            engineerInCharge: "ARCHT. ALVIN C. ABROGAR",
-            buildingOfficial: "ENGR. ANGELO C. ABROGAR",
+            engineerInCharge: "",
+            buildingOfficial: "",
             remarks: "",
         });
         setMainPermitFile(null);
@@ -460,8 +453,8 @@ export default function EngineerArchiveClient({
             scopeOfWork: item.scopeOfWork || "",
             estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
 
-            engineerInCharge: item.engineerInCharge || "ARCHT. ALVIN C. ABROGAR",
-            buildingOfficial: item.buildingOfficial || "ENGR. ANGELO C. ABROGAR",
+            engineerInCharge: item.engineerInCharge || "",
+            buildingOfficial: item.buildingOfficial || "",
             remarks: item.remarks || "",
         });
 
@@ -836,16 +829,13 @@ export default function EngineerArchiveClient({
                                         {/* Card 1: Official NBC Header & Control Numbers */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <div className="flex items-center gap-2">
-                                                    <Landmark className="w-4 h-4 text-indigo-500" />
-                                                    <div>
-                                                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                                            NBC Form No. B - 01B • Building Permit
-                                                        </h3>
-                                                        <p className="text-[10px] text-slate-400 font-medium">
-                                                            Office of the Building Official • Municipality of Mapandan
-                                                        </p>
-                                                    </div>
+                                                <div>
+                                                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                        NBC Form No. B - 01B • Building Permit
+                                                    </h3>
+                                                    <p className="text-[10px] text-slate-400 font-medium">
+                                                        Office of the Building Official • Municipality of Mapandan
+                                                    </p>
                                                 </div>
 
                                                 {/* Permit Type Radio / Checkbox Selector */}
@@ -874,8 +864,7 @@ export default function EngineerArchiveClient({
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                                 {/* Building Permit Number */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <Hash className="w-3.5 h-3.5 text-indigo-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         Building Permit No. <span className="text-rose-500">*</span>
                                                     </Label>
                                                     <Input
@@ -889,8 +878,7 @@ export default function EngineerArchiveClient({
 
                                                 {/* Date Issued */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         Date Issued
                                                     </Label>
                                                     <Input
@@ -903,8 +891,7 @@ export default function EngineerArchiveClient({
 
                                                 {/* Official Receipt (OR) Number */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <Receipt className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         Official Receipt (OR) No.
                                                     </Label>
                                                     <Input
@@ -917,8 +904,7 @@ export default function EngineerArchiveClient({
 
                                                 {/* Date Paid */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         Date Paid
                                                     </Label>
                                                     <Input
@@ -931,8 +917,7 @@ export default function EngineerArchiveClient({
 
                                                 {/* FSEC Number */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         FSEC No. (Fire Clearance)
                                                     </Label>
                                                     <Input
@@ -945,8 +930,7 @@ export default function EngineerArchiveClient({
 
                                                 {/* FSEC Date Issued */}
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         FSEC Date Issued
                                                     </Label>
                                                     <Input
@@ -961,8 +945,7 @@ export default function EngineerArchiveClient({
 
                                         {/* Card 2: Permittee & Project Title */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <User className="w-4 h-4 text-indigo-500" />
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                                                     Owner / Permittee & Project Title
                                                 </h3>
@@ -999,8 +982,7 @@ export default function EngineerArchiveClient({
 
                                         {/* Card 3: Location of Construction (Cadastral Details & Barangay) */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <MapPin className="w-4 h-4 text-indigo-500" />
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                                                     Location of Construction
                                                 </h3>
@@ -1092,8 +1074,7 @@ export default function EngineerArchiveClient({
 
                                         {/* Card 4: Character of Occupancy & Scope of Work */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <Building2 className="w-4 h-4 text-indigo-500" />
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                                                     Use or Character of Occupancy & Scope of Work
                                                 </h3>
@@ -1154,8 +1135,7 @@ export default function EngineerArchiveClient({
                                                 ) : (
                                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                                                         <div className="flex items-center justify-between">
-                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                                                                <Building2 className="w-3.5 h-3.5" />
+                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
                                                                 Classified As <span className="text-rose-500">*</span>
                                                             </Label>
                                                             <button
@@ -1184,8 +1164,7 @@ export default function EngineerArchiveClient({
                                             {/* Scope of Work with Clickable Quick Chips */}
                                             <div className="space-y-2 pt-1">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                                        <HardHat className="w-3.5 h-3.5 text-indigo-500" />
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                         Scope of Work
                                                     </Label>
                                                     <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
@@ -1251,8 +1230,7 @@ export default function EngineerArchiveClient({
 
                                         {/* Card 5: Valuation & Signatories */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <FileCheck2 className="w-4 h-4 text-indigo-500" />
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                                                     Valuation & Key Signatories
                                                 </h3>
@@ -1279,7 +1257,7 @@ export default function EngineerArchiveClient({
                                                         Professional In Charge of Construction
                                                     </Label>
                                                     <Input
-                                                        placeholder="e.g. ARCHT. ALVIN C. ABROGAR"
+                                                        placeholder="Enter name (e.g. Architect / Civil Engineer)"
                                                         value={formData.engineerInCharge}
                                                         onChange={e => setFormData({ ...formData, engineerInCharge: e.target.value })}
                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase"
@@ -1292,7 +1270,7 @@ export default function EngineerArchiveClient({
                                                         Building Official / Permit Issued By
                                                     </Label>
                                                     <Input
-                                                        placeholder="e.g. ENGR. ANGELO C. ABROGAR"
+                                                        placeholder="Enter name of Building Official / Municipal Engineer"
                                                         value={formData.buildingOfficial}
                                                         onChange={e => setFormData({ ...formData, buildingOfficial: e.target.value })}
                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase font-bold"
