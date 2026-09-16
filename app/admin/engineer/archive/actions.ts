@@ -388,7 +388,7 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         // Official Receipts & Clearances
         const orNumber = (formData.get("orNumber") as string)?.trim() || "";
-        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || "";
+        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || (formData.get("datePaid") as string)?.trim() || "";
         const fsecNo = (formData.get("fsecNo") as string)?.trim() || "";
         const fsecDateIssued = (formData.get("fsecDateIssued") as string)?.trim() || "";
 
@@ -663,7 +663,7 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
         }
 
         const orNumber = (formData.get("orNumber") as string)?.trim() || "";
-        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || "";
+        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || (formData.get("datePaid") as string)?.trim() || "";
         const fsecNo = (formData.get("fsecNo") as string)?.trim() || "";
         const fsecDateIssued = (formData.get("fsecDateIssued") as string)?.trim() || "";
 

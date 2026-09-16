@@ -391,14 +391,14 @@ export default function EngineerArchiveClient({
                     { id: toastId, duration: 4000 }
                 );
             } else {
-                toast.error(res.error || "Unable to read permit cleanly. Please verify details manually.", {
+                toast.error("Could not read permit clearly. Please try scanning again.", {
                     id: toastId,
                     duration: 4000,
                 });
             }
         } catch (err: any) {
             console.error("AI Building Permit Scan error:", err);
-            toast.error("Failed to process scanned document. Please input details manually.", { id: toastId });
+            toast.error("Scan failed. Please try scanning or uploading again.", { id: toastId, duration: 4000 });
         } finally {
             setIsScanningAi(false);
         }

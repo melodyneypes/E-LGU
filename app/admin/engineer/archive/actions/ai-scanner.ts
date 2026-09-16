@@ -152,7 +152,7 @@ STRICT JSON RULES:
         console.error("AI Building Permit Scanner error:", err);
         return {
             success: false,
-            error: err.message || "Failed to process building permit scan with AI.",
+            error: "Unable to extract permit details. Please check the scan clarity and try again.",
         };
     }
 }
