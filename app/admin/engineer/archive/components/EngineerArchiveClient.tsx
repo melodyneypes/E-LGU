@@ -11,7 +11,6 @@ import {
     FolderArchive,
     Calendar,
     MapPin,
-    Building2,
     RefreshCw,
     CheckCircle2,
     Trash2,

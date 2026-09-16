@@ -12,9 +12,7 @@ import {
     FolderArchive,
     Calendar,
     MapPin,
-    Building2,
     RefreshCw,
-    HardHat,
     CheckCircle2,
     Trash2,
     UploadCloud,
@@ -28,7 +26,6 @@ import {
     Clock,
     Link2,
     ShieldCheck,
-    RotateCcw,
     Sparkles,
     X,
 } from "lucide-react";
