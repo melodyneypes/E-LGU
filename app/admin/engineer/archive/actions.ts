@@ -103,6 +103,12 @@ export async function getArchivedBuildingPermits(params?: {
                     }
                 },
                 {
+                    residentSnapshot: {
+                        path: ["fullName"],
+                        string_contains: search
+                    }
+                },
+                {
                     additionalData: {
                         path: ["permitNumber"],
                         string_contains: search
@@ -111,6 +117,36 @@ export async function getArchivedBuildingPermits(params?: {
                 {
                     additionalData: {
                         path: ["applicantName"],
+                        string_contains: search
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ["ownerName"],
+                        string_contains: search
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ["projectTitle"],
+                        string_contains: search
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ["orNumber"],
+                        string_contains: search
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ["fsecNo"],
+                        string_contains: search
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ["tctNo"],
                         string_contains: search
                     }
                 }
@@ -198,9 +234,9 @@ export async function getArchivedBuildingPermits(params?: {
             const isPhysical = Boolean(addData.isPhysicalArchive);
 
             // Construct Applicant Name
-            let applicantName = bp?.applicantName || addData.applicantName || "";
-            if (!applicantName && (resSnap.firstName || resSnap.lastName)) {
-                applicantName = `${resSnap.firstName || ""} ${resSnap.lastName || ""}`.trim();
+            let applicantName = bp?.applicantName || addData.ownerName || addData.applicantName || "";
+            if (!applicantName && (resSnap.fullName || resSnap.firstName || resSnap.lastName)) {
+                applicantName = resSnap.fullName || `${resSnap.firstName || ""} ${resSnap.lastName || ""}`.trim();
             }
             if (!applicantName && tx.user?.name) {
                 applicantName = tx.user.name;
@@ -213,7 +249,7 @@ export async function getArchivedBuildingPermits(params?: {
             const location = bp?.location || addData.locationOfConstruction || resSnap.address || "Mapandan, Pangasinan";
             const permitNumber = bp?.permitNumber || addData.permitNumber || `BP-PENDING-${tx.id.slice(-6).toUpperCase()}`;
             const dateIssued = bp?.dateIssued || addData.dateIssued || tx.createdAt;
-            const projectType = bp?.projectType || addData.projectType || addData.descriptionOfWork || "Building Construction";
+            const projectType = bp?.projectType || addData.projectTitle || addData.projectType || addData.descriptionOfWork || "Building Construction";
             const occupancyUse = bp?.occupancyUse || addData.occupancyUse || "Residential";
             const estimatedCost = bp?.estimatedCost || Number(addData.estimatedCost) || 0;
 
@@ -274,7 +310,7 @@ export async function getArchivedBuildingPermits(params?: {
                 houseNumber: resSnap.houseNumber || addData.houseNumber || "",
                 street: resSnap.street || addData.street || "",
                 location,
-                barangay: addData.barangay || resSnap.barangay || "Poblacion",
+                barangay: addData.barangay || resSnap.barangay || "Torres",
                 dateIssued,
                 projectType,
                 occupancyUse,
@@ -288,6 +324,22 @@ export async function getArchivedBuildingPermits(params?: {
                 status: tx.status,
                 documents,
                 createdAt: tx.createdAt,
+
+                // NBC Form No. B - 01B Specific Fields
+                permitType: addData.permitType || "NEW",
+                orNumber: addData.orNumber || "",
+                orDatePaid: addData.orDatePaid || "",
+                fsecNo: addData.fsecNo || "",
+                fsecDateIssued: addData.fsecDateIssued || "",
+                ownerName: addData.ownerName || applicantName,
+                projectTitle: addData.projectTitle || projectType,
+                lotNo: addData.lotNo || "",
+                blkNo: addData.blkNo || "",
+                tctNo: addData.tctNo || "",
+                occupancyGroup: addData.occupancyGroup || "GROUP A",
+                scopeOfWork: addData.scopeOfWork || "",
+                engineerInCharge: addData.engineerInCharge || "",
+                buildingOfficial: addData.buildingOfficial || bp?.issuedBy || "ENGR. ANGELO C. ABROGAR",
             };
         });
 
@@ -305,46 +357,68 @@ export async function getArchivedBuildingPermits(params?: {
 }
 
 /**
- * Encode and digitize a physical building permit paper record.
+ * Encode and digitize a physical building permit paper record (NBC FORM NO. B - 01B).
  */
 export async function createArchivedBuildingPermit(formData: FormData) {
     try {
         const { user } = await assertEngineerSession();
 
+        const permitType = (formData.get("permitType") as string)?.trim() || "NEW";
         const permitNumber = (formData.get("permitNumber") as string)?.trim();
-        // Applicant Demographic & Location Fields
-        const firstName = (formData.get("firstName") as string)?.trim() || "";
-        const lastName = (formData.get("lastName") as string)?.trim() || "";
-        const applicantName = `${firstName} ${lastName}`.trim();
 
         if (!permitNumber) {
-            return { success: false, error: "Official Permit Number is required." };
+            return { success: false, error: "Official Building Permit Number is required." };
         }
 
-        if (!firstName || !lastName) {
-            return { success: false, error: "Both Applicant First Name and Last Name are required." };
+        // Permittee / Owner Details
+        const ownerName = (formData.get("ownerName") as string)?.trim() || "";
+        let firstName = (formData.get("firstName") as string)?.trim() || "";
+        let lastName = (formData.get("lastName") as string)?.trim() || "";
+
+        if (!firstName && !lastName && ownerName) {
+            const parts = ownerName.split(" ");
+            firstName = parts[0] || "";
+            lastName = parts.slice(1).join(" ") || parts[0];
+        }
+        const applicantName = ownerName || `${firstName} ${lastName}`.trim();
+
+        if (!applicantName) {
+            return { success: false, error: "Owner / Permittee Name is required." };
         }
 
-        const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
-        const email = (formData.get("email") as string)?.trim() || "";
-        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
-        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
-        const barangay = (formData.get("barangay") as string)?.trim() || "Amanoaoac";
-        const houseNumber = (formData.get("houseNumber") as string)?.trim() || "";
+        // Official Receipts & Clearances
+        const orNumber = (formData.get("orNumber") as string)?.trim() || "";
+        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || "";
+        const fsecNo = (formData.get("fsecNo") as string)?.trim() || "";
+        const fsecDateIssued = (formData.get("fsecDateIssued") as string)?.trim() || "";
+
+        // Project Title & Cadastral Location
+        const projectTitle = (formData.get("projectTitle") as string)?.trim() || (formData.get("projectType") as string)?.trim() || "Building Construction";
+        const lotNo = (formData.get("lotNo") as string)?.trim() || "";
+        const blkNo = (formData.get("blkNo") as string)?.trim() || "";
+        const tctNo = (formData.get("tctNo") as string)?.trim() || "";
         const street = (formData.get("street") as string)?.trim() || "";
+        const barangay = (formData.get("barangay") as string)?.trim() || "Torres";
+        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
+        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const zipCode = (formData.get("zipCode") as string)?.trim() || "2429";
+
+        // Technical Specs & Occupancy
+        const occupancyGroup = (formData.get("occupancyGroup") as string)?.trim() || "GROUP A";
+        const occupancyUse = (formData.get("occupancyUse") as string)?.trim() || "Residential";
+        const scopeOfWork = (formData.get("scopeOfWork") as string)?.trim() || "";
+        const estimatedCost = parseFloat(formData.get("estimatedCost") as string) || 0;
+
+        // Signatories & Notes
+        const engineerInCharge = (formData.get("engineerInCharge") as string)?.trim() || "";
+        const buildingOfficial = (formData.get("buildingOfficial") as string)?.trim() || "ENGR. ANGELO C. ABROGAR";
+        const remarks = (formData.get("remarks") as string)?.trim() || "";
 
         const dateIssuedStr = formData.get("dateIssued") as string;
         const dateIssued = dateIssuedStr ? new Date(dateIssuedStr) : new Date();
-        const projectType = (formData.get("projectType") as string)?.trim() || "Building Construction";
-        const occupancyUse = (formData.get("occupancyUse") as string)?.trim() || "Residential";
-        const estimatedCost = parseFloat(formData.get("estimatedCost") as string) || 0;
-        const totalFloors = parseInt(formData.get("totalFloors") as string, 10) || 1;
-        const isLotOwner = (formData.get("isLotOwner") as string)?.trim() || "Yes";
-        const remarks = (formData.get("remarks") as string)?.trim() || "";
 
-        if (!permitNumber) {
-            return { success: false, error: "Permit Number is required." };
-        }
+        const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
+        const email = (formData.get("email") as string)?.trim() || "";
 
         // Check if permit number already exists in BuildingPermit table
         const existingPermit = await prisma.buildingPermit.findUnique({
@@ -366,13 +440,16 @@ export async function createArchivedBuildingPermit(formData: FormData) {
 
         // Build full address location string
         const locationParts = [
-            houseNumber ? `No. ${houseNumber}` : "",
+            lotNo ? `Lot ${lotNo}` : "",
+            blkNo ? `Blk ${blkNo}` : "",
+            tctNo ? `TCT ${tctNo}` : "",
             street,
             barangay ? `Brgy. ${barangay}` : "",
             municipality,
-            province
+            province,
+            zipCode ? `ZIP ${zipCode}` : ""
         ].filter(Boolean);
-        const fullLocation = locationParts.join(", ");
+        const fullLocation = locationParts.join(", ") || `${barangay}, Mapandan, Pangasinan`;
 
         // Process File Uploads (Scanned Documents strictly into documents map)
         const documents: Record<string, string> = {};
@@ -419,19 +496,36 @@ export async function createArchivedBuildingPermit(formData: FormData) {
             province,
             contactNumber,
             email,
-            houseNumber,
             street,
             address: fullLocation,
         };
 
-        // Prepare Additional Data JSON (Strictly for Scanned Documents & Archive Metadata)
+        // Prepare Additional Data JSON (Strictly for Scanned Documents & NBC Form Metadata)
         const additionalData = {
             isPhysicalArchive: true,
             sourceType: "PHYSICAL_COPY",
             encodedBy: user.name || user.email || "Engineering Admin",
             remarks,
-            totalFloors,
-            isLotOwner,
+            permitType,
+            orNumber,
+            orDatePaid,
+            fsecNo,
+            fsecDateIssued,
+            ownerName: applicantName,
+            projectTitle,
+            lotNo,
+            blkNo,
+            tctNo,
+            street,
+            barangay,
+            municipality,
+            province,
+            zipCode,
+            occupancyGroup,
+            occupancyClassification: occupancyUse,
+            scopeOfWork,
+            engineerInCharge,
+            buildingOfficial,
             documents,
         };
 
@@ -452,13 +546,13 @@ export async function createArchivedBuildingPermit(formData: FormData) {
                     create: {
                         permitNumber,
                         applicantName,
-                        projectType,
+                        projectType: projectTitle,
                         occupancyUse,
                         location: fullLocation,
                         estimatedCost,
                         documentUrl: primaryDocumentUrl,
                         dateIssued,
-                        issuedBy: user.name || "Municipal Engineer",
+                        issuedBy: buildingOfficial || user.name || "Municipal Engineer",
                     }
                 }
             },
@@ -480,7 +574,8 @@ export async function createArchivedBuildingPermit(formData: FormData) {
             metadata: {
                 permitNumber,
                 applicantName,
-                projectType,
+                projectTitle,
+                occupancyGroup,
                 occupancyUse,
                 estimatedCost,
                 location: fullLocation,
@@ -531,16 +626,26 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
         }
 
         const permitNumber = (formData.get("permitNumber") as string)?.trim();
-        const firstName = (formData.get("firstName") as string)?.trim() || "";
-        const lastName = (formData.get("lastName") as string)?.trim() || "";
-        const applicantName = `${firstName} ${lastName}`.trim();
+        const permitType = (formData.get("permitType") as string)?.trim() || "NEW";
+
+        // Permittee / Owner Details
+        const ownerName = (formData.get("ownerName") as string)?.trim() || "";
+        let firstName = (formData.get("firstName") as string)?.trim() || "";
+        let lastName = (formData.get("lastName") as string)?.trim() || "";
+
+        if (!firstName && !lastName && ownerName) {
+            const parts = ownerName.split(" ");
+            firstName = parts[0] || "";
+            lastName = parts.slice(1).join(" ") || parts[0];
+        }
+        const applicantName = ownerName || `${firstName} ${lastName}`.trim();
 
         if (!permitNumber) {
             return { success: false, error: "Official Permit Number is required." };
         }
 
-        if (!firstName || !lastName) {
-            return { success: false, error: "Both Applicant First Name and Last Name are required." };
+        if (!applicantName) {
+            return { success: false, error: "Owner / Permittee Name is required." };
         }
 
         // Check for permit number conflict with other records
@@ -557,21 +662,44 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
             };
         }
 
+        const orNumber = (formData.get("orNumber") as string)?.trim() || "";
+        const orDatePaid = (formData.get("orDatePaid") as string)?.trim() || "";
+        const fsecNo = (formData.get("fsecNo") as string)?.trim() || "";
+        const fsecDateIssued = (formData.get("fsecDateIssued") as string)?.trim() || "";
+
+        const projectTitle = (formData.get("projectTitle") as string)?.trim() || (formData.get("projectType") as string)?.trim() || "Building Construction";
+        const lotNo = (formData.get("lotNo") as string)?.trim() || "";
+        const blkNo = (formData.get("blkNo") as string)?.trim() || "";
+        const tctNo = (formData.get("tctNo") as string)?.trim() || "";
+        const street = (formData.get("street") as string)?.trim() || "";
+        const barangay = (formData.get("barangay") as string)?.trim() || "Torres";
+        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
+        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
+        const zipCode = (formData.get("zipCode") as string)?.trim() || "2429";
+
+        const occupancyGroup = (formData.get("occupancyGroup") as string)?.trim() || "GROUP A";
+        const occupancyUse = (formData.get("occupancyUse") as string)?.trim() || "Residential";
+        const scopeOfWork = (formData.get("scopeOfWork") as string)?.trim() || "";
+        const estimatedCost = parseFloat((formData.get("estimatedCost") as string) || "0");
+
+        const engineerInCharge = (formData.get("engineerInCharge") as string)?.trim() || "";
+        const buildingOfficial = (formData.get("buildingOfficial") as string)?.trim() || "ENGR. ANGELO C. ABROGAR";
+        const remarks = (formData.get("remarks") as string)?.trim() || "";
+
         const contactNumber = (formData.get("contactNumber") as string)?.trim() || "";
         const email = (formData.get("email") as string)?.trim() || "";
-        const province = (formData.get("province") as string)?.trim() || "PANGASINAN";
-        const municipality = (formData.get("municipality") as string)?.trim() || "MAPANDAN";
-        const barangay = (formData.get("barangay") as string)?.trim() || "Poblacion";
-        const street = (formData.get("street") as string)?.trim() || "";
-        const houseNumber = (formData.get("houseNumber") as string)?.trim() || "";
-        const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
 
-        const projectType = (formData.get("projectType") as string)?.trim() || "Building Construction";
-        const occupancyUse = (formData.get("occupancyUse") as string)?.trim() || "Residential";
-        const estimatedCost = parseFloat((formData.get("estimatedCost") as string) || "0");
-        const totalFloors = (formData.get("totalFloors") as string)?.trim() || "1";
-        const isLotOwner = (formData.get("isLotOwner") as string)?.trim() || "Yes";
-        const remarks = (formData.get("remarks") as string)?.trim() || "";
+        const locationParts = [
+            lotNo ? `Lot ${lotNo}` : "",
+            blkNo ? `Blk ${blkNo}` : "",
+            tctNo ? `TCT ${tctNo}` : "",
+            street,
+            barangay ? `Brgy. ${barangay}` : "",
+            municipality,
+            province,
+            zipCode ? `ZIP ${zipCode}` : ""
+        ].filter(Boolean);
+        const fullLocation = locationParts.join(", ") || `${barangay}, Mapandan, Pangasinan`;
 
         const dateIssuedRaw = formData.get("dateIssued") as string;
         const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : (tx.buildingPermit?.dateIssued || new Date());
@@ -589,13 +717,13 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
             const uploadedUrl = await uploadFile(mainFile, path);
             if (uploadedUrl) {
                 primaryDocumentUrl = uploadedUrl;
-                documents["Official Signed Permit"] = uploadedUrl;
+                documents["Official Signed Building Permit"] = uploadedUrl;
             }
         } else {
             const existingMainUrl = (formData.get("existingMainUrl") as string || "").trim();
             if (existingMainUrl) {
                 primaryDocumentUrl = existingMainUrl;
-                documents["Official Signed Permit"] = existingMainUrl;
+                documents["Official Signed Building Permit"] = existingMainUrl;
             }
         }
 
@@ -648,7 +776,6 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
             province,
             contactNumber,
             email,
-            houseNumber,
             street,
             address: fullLocation,
         };
@@ -662,8 +789,26 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
             lastEditedBy: user.name || user.email || "Engineering Admin",
             lastEditedAt: new Date().toISOString(),
             remarks,
-            totalFloors,
-            isLotOwner,
+            permitType,
+            orNumber,
+            orDatePaid,
+            fsecNo,
+            fsecDateIssued,
+            ownerName: applicantName,
+            projectTitle,
+            lotNo,
+            blkNo,
+            tctNo,
+            street,
+            barangay,
+            municipality,
+            province,
+            zipCode,
+            occupancyGroup,
+            occupancyClassification: occupancyUse,
+            scopeOfWork,
+            engineerInCharge,
+            buildingOfficial,
             documents,
         };
 
@@ -697,24 +842,25 @@ export async function updateArchivedBuildingPermit(formData: FormData) {
                 update: {
                     permitNumber,
                     applicantName,
-                    projectType,
+                    projectType: projectTitle,
                     occupancyUse,
                     location: fullLocation,
                     estimatedCost,
                     documentUrl: primaryDocumentUrl,
                     dateIssued,
+                    issuedBy: buildingOfficial || user.name || "Municipal Engineer",
                 },
                 create: {
                     transactionId,
                     permitNumber,
                     applicantName,
-                    projectType,
+                    projectType: projectTitle,
                     occupancyUse,
                     location: fullLocation,
                     estimatedCost,
                     documentUrl: primaryDocumentUrl,
                     dateIssued,
-                    issuedBy: user.name || "Municipal Engineer",
+                    issuedBy: buildingOfficial || user.name || "Municipal Engineer",
                 }
             }),
             prisma.transaction.update({
