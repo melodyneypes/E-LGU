@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getArchivedBuildingPermits, createArchivedBuildingPermit, updateArchivedBuildingPermit } from "../actions";
+import { scanBuildingPermitDocument } from "../actions/ai-scanner";
 import {
     Search,
     Plus,
@@ -10,9 +11,7 @@ import {
     FolderArchive,
     Calendar,
     MapPin,
-    Building2,
     RefreshCw,
-    HardHat,
     CheckCircle2,
     Trash2,
     UploadCloud,
@@ -25,6 +24,8 @@ import {
     Clock,
     RotateCcw,
     Pencil,
+    Check,
+    Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,21 @@ const MAPANDAN_BARANGAYS = [
     "Torres",
 ];
 
+const PERMIT_TYPES = ["NEW", "RENEWAL", "AMENDATORY"] as const;
+
+const OCCUPANCY_GROUPS = [
+    { value: "GROUP A", label: "GROUP A — Residential Dwellings" },
+    { value: "GROUP B", label: "GROUP B — Residential, Hotels & Apartments" },
+    { value: "GROUP C", label: "GROUP C — Education & Recreation" },
+    { value: "GROUP D", label: "GROUP D — Institutional & Healthcare" },
+    { value: "GROUP E", label: "GROUP E — Business & Mercantile" },
+    { value: "GROUP F", label: "GROUP F — Industrial & Manufacturing" },
+    { value: "GROUP G", label: "GROUP G — Storage & Hazardous" },
+    { value: "GROUP H", label: "GROUP H — Assembly (Theaters, Auditoriums)" },
+    { value: "GROUP I", label: "GROUP I — Assembly (Without Stage)" },
+    { value: "GROUP J", label: "GROUP J — Accessory, Agriculture & Others" },
+];
+
 const OCCUPANCY_TYPES = [
     "Residential",
     "Commercial",
@@ -83,8 +99,23 @@ const OCCUPANCY_TYPES = [
     "Other Construction",
 ];
 
+const COMMON_SCOPES = [
+    "CONCRETE WORKS",
+    "LUMBER AND CARPENTRY WORKS",
+    "TINSMITHY WORKS",
+    "FINISHED HARDWARE",
+    "ELECTRICAL WORKS",
+    "PLUMBING WORKS",
+    "PAINTING WORKS",
+    "MASONRY WORKS",
+    "STRUCTURAL STEEL",
+    "DEMOLITION"
+];
+
 const DOCUMENT_PRESETS = [
-    "Architectural Plans",
+    "Official Receipt (OR)",
+    "Fire Safety Evaluation Clearance (FSEC)",
+    "Approved Architectural Plans",
     "Structural / Civil Plans",
     "Sanitary & Plumbing Clearance",
     "Electrical Permit & Wiring Layout",
@@ -156,24 +187,41 @@ export default function EngineerArchiveClient({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
 
-    // Form inputs state for physical encoding (Strictly First Name + Last Name)
+    // Form inputs state for physical encoding (NBC FORM NO. B - 01B Alignment)
     const [formData, setFormData] = useState({
+        // Header & Clearances
+        permitType: "NEW" as "NEW" | "RENEWAL" | "AMENDATORY",
         permitNumber: "",
-        firstName: "",
-        lastName: "",
-        province: "Pangasinan",
-        municipality: "Mapandan",
-        barangay: "Poblacion",
-        contactNumber: "",
-        email: "",
-        houseNumber: "",
-        street: "",
         dateIssued: new Date().toISOString().split("T")[0],
-        projectType: "",
+        orNumber: "",
+        datePaid: "",
+        fsecNo: "",
+        fsecDateIssued: "",
+
+        // Permittee & Project Title
+        ownerName: "",
+        projectTitle: "",
+
+        // Location of Construction & Cadastral
+        lotNo: "",
+        blkNo: "",
+        tctNo: "",
+        street: "",
+        barangay: "Torres",
+        municipality: "MAPANDAN",
+        province: "PANGASINAN",
+        zipCode: "2429",
+
+        // Character of Occupancy & Scope
+        occupancyGroup: "GROUP A",
         occupancyUse: "Residential",
+        scopeOfWork: "",
         estimatedCost: "",
-        totalFloors: "1",
-        isLotOwner: "Yes",
+
+        // Responsible Signatories
+        engineerInCharge: "",
+        buildingOfficial: "",
+
         remarks: "",
     });
 
@@ -214,6 +262,7 @@ export default function EngineerArchiveClient({
     // Scanner Station Quick Ingestion State
     const [scannerGuideOpen, setScannerGuideOpen] = useState(false);
     const [isCustomOccupancy, setIsCustomOccupancy] = useState(false);
+    const [isScanningAi, setIsScanningAi] = useState(false);
 
     // Clean up created object URLs on unmount or form reset
     const cleanupAttachmentUrls = useCallback(() => {
@@ -233,8 +282,129 @@ export default function EngineerArchiveClient({
         };
     }, [cleanupAttachmentUrls]);
 
+    // AI OCR Document Scan and Auto-populate form for NBC Form No. B - 01B
+    const triggerAiBuildingPermitScan = async (fileToScan: File) => {
+        setIsScanningAi(true);
+        const toastId = toast.loading("Analyzing permit scan and extracting NBC Form No. B - 01B fields...");
+        try {
+            // Convert file to Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve, reject) => {
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    const base64Clean = result.split(",")[1];
+                    resolve(base64Clean);
+                };
+                reader.onerror = err => reject(err);
+            });
+            reader.readAsDataURL(fileToScan);
+            const base64Data = await base64Promise;
+
+            const res = await scanBuildingPermitDocument({
+                base64Data,
+                mimeType: fileToScan.type || "image/jpeg",
+            });
+
+            if (res.success && res.data) {
+                const d = res.data;
+                let countExtracted = 0;
+
+                setFormData(prev => {
+                    const updated = { ...prev };
+
+                    // Permit Control & Clearances
+                    if (d.permitType) updated.permitType = d.permitType;
+                    if (d.permitNumber) { updated.permitNumber = d.permitNumber; countExtracted++; }
+                    if (d.dateIssued) { updated.dateIssued = d.dateIssued; countExtracted++; }
+                    if (d.orNumber) { updated.orNumber = d.orNumber; countExtracted++; }
+                    if (d.datePaid) { updated.datePaid = d.datePaid; countExtracted++; }
+                    if (d.fsecNo) { updated.fsecNo = d.fsecNo; countExtracted++; }
+                    if (d.fsecDateIssued) { updated.fsecDateIssued = d.fsecDateIssued; countExtracted++; }
+
+                    // Permittee & Project Title
+                    if (d.ownerName) { updated.ownerName = d.ownerName; countExtracted++; }
+                    if (d.projectTitle) { updated.projectTitle = d.projectTitle; countExtracted++; }
+
+                    // Location / Cadastral
+                    if (d.lotNo) { updated.lotNo = d.lotNo; countExtracted++; }
+                    if (d.blkNo) { updated.blkNo = d.blkNo; countExtracted++; }
+                    if (d.tctNo) { updated.tctNo = d.tctNo; countExtracted++; }
+                    if (d.street) { updated.street = d.street; countExtracted++; }
+
+                    // Match or normalize Barangay
+                    if (d.barangay) {
+                        const matchedBrgy = MAPANDAN_BARANGAYS.find(
+                            b => b.toLowerCase() === d.barangay!.trim().toLowerCase()
+                        );
+                        if (matchedBrgy) {
+                            updated.barangay = matchedBrgy;
+                            countExtracted++;
+                        }
+                    }
+
+                    // Occupancy & Scope
+                    if (d.occupancyGroup) {
+                        const matchedGrp = OCCUPANCY_GROUPS.find(
+                            g => g.value.toLowerCase() === d.occupancyGroup!.trim().toLowerCase() ||
+                                 g.label.toLowerCase().includes(d.occupancyGroup!.trim().toLowerCase())
+                        );
+                        if (matchedGrp) {
+                            updated.occupancyGroup = matchedGrp.value;
+                        } else {
+                            updated.occupancyGroup = d.occupancyGroup;
+                        }
+                        countExtracted++;
+                    }
+
+                    if (d.occupancyUse) {
+                        const standardOcc = OCCUPANCY_TYPES.find(
+                            o => o.toLowerCase() === d.occupancyUse!.trim().toLowerCase()
+                        );
+                        if (standardOcc) {
+                            updated.occupancyUse = standardOcc;
+                            setIsCustomOccupancy(false);
+                        } else {
+                            updated.occupancyUse = d.occupancyUse;
+                            setIsCustomOccupancy(true);
+                        }
+                        countExtracted++;
+                    }
+
+                    if (d.scopeOfWork) { updated.scopeOfWork = d.scopeOfWork; countExtracted++; }
+                    if (d.estimatedCost) { updated.estimatedCost = d.estimatedCost; countExtracted++; }
+
+                    // Signatories
+                    if (d.engineerInCharge) { updated.engineerInCharge = d.engineerInCharge; countExtracted++; }
+                    if (d.buildingOfficial) { updated.buildingOfficial = d.buildingOfficial; countExtracted++; }
+
+                    // Remarks
+                    if (d.remarks) { updated.remarks = d.remarks; countExtracted++; }
+
+                    return updated;
+                });
+
+                toast.success(
+                    countExtracted > 0
+                        ? `NBC Form No. B - 01B analyzed! Auto-filled ${countExtracted} fields.`
+                        : `Permit analyzed! Review and verify form fields.`,
+                    { id: toastId, duration: 4000 }
+                );
+            } else {
+                toast.error("Could not read permit clearly. Please try scanning again.", {
+                    id: toastId,
+                    duration: 4000,
+                });
+            }
+        } catch (err: any) {
+            console.error("AI Building Permit Scan error:", err);
+            toast.error("Scan failed. Please try scanning or uploading again.", { id: toastId, duration: 4000 });
+        } finally {
+            setIsScanningAi(false);
+        }
+    };
+
     // Update main permit file and generate live preview
-    const handleMainPermitChange = (file: File | null, scannedAt?: number) => {
+    const handleMainPermitChange = async (file: File | null, scannedAt?: number) => {
         if (mainPermitPreview) {
             URL.revokeObjectURL(mainPermitPreview);
             setMainPermitPreview(null);
@@ -250,6 +420,11 @@ export default function EngineerArchiveClient({
         setMainPermitScannedAt(scannedAt || file.lastModified || null);
         const url = URL.createObjectURL(file);
         setMainPermitPreview(url);
+
+        // Auto-trigger AI extraction when adding a fresh scan in CREATE mode
+        if (modalMode === "CREATE") {
+            await triggerAiBuildingPermitScan(file);
+        }
     };
 
     // Debounce search input
@@ -309,22 +484,33 @@ export default function EngineerArchiveClient({
     const resetForm = () => {
         cleanupAttachmentUrls();
         setFormData({
+            permitType: "NEW",
             permitNumber: "",
-            firstName: "",
-            lastName: "",
-            province: "Pangasinan",
-            municipality: "Mapandan",
-            barangay: "Poblacion",
-            contactNumber: "",
-            email: "",
-            houseNumber: "",
-            street: "",
             dateIssued: new Date().toISOString().split("T")[0],
-            projectType: "",
+            orNumber: "",
+            datePaid: "",
+            fsecNo: "",
+            fsecDateIssued: "",
+
+            ownerName: "",
+            projectTitle: "",
+
+            lotNo: "",
+            blkNo: "",
+            tctNo: "",
+            street: "",
+            barangay: "Torres",
+            municipality: "MAPANDAN",
+            province: "PANGASINAN",
+            zipCode: "2429",
+
+            occupancyGroup: "GROUP A",
             occupancyUse: "Residential",
+            scopeOfWork: "",
             estimatedCost: "",
-            totalFloors: "1",
-            isLotOwner: "Yes",
+
+            engineerInCharge: "",
+            buildingOfficial: "",
             remarks: "",
         });
         setMainPermitFile(null);
@@ -337,14 +523,14 @@ export default function EngineerArchiveClient({
         setAdditionalAttachments([
             {
                 id: `init-${Date.now()}-1`,
-                label: "Approved Architectural Plans",
+                label: "Official Receipt (OR)",
                 file: null,
                 isImage: false,
                 isPdf: false,
             },
             {
                 id: `init-${Date.now()}-2`,
-                label: "Tax Declaration / Land Title (TCT)",
+                label: "Fire Safety Evaluation Clearance (FSEC)",
                 file: null,
                 isImage: false,
                 isPdf: false,
@@ -370,22 +556,33 @@ export default function EngineerArchiveClient({
         setIsCustomOccupancy(!isStandard);
 
         setFormData({
+            permitType: (item.permitType || "NEW") as any,
             permitNumber: item.permitNumber || "",
-            firstName: item.firstName || "",
-            lastName: item.lastName || "",
-            province: "Pangasinan",
-            municipality: "Mapandan",
-            barangay: item.barangay || "Poblacion",
-            contactNumber: item.contactNumber && item.contactNumber !== "N/A" ? item.contactNumber : "",
-            email: item.email || "",
-            houseNumber: item.houseNumber || "",
-            street: item.street || "",
             dateIssued: item.dateIssued ? new Date(item.dateIssued).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-            projectType: item.projectType || "",
+            orNumber: item.orNumber || "",
+            datePaid: item.orDatePaid ? new Date(item.orDatePaid).toISOString().split("T")[0] : "",
+            fsecNo: item.fsecNo || "",
+            fsecDateIssued: item.fsecDateIssued ? new Date(item.fsecDateIssued).toISOString().split("T")[0] : "",
+
+            ownerName: item.ownerName || item.applicantName || "",
+            projectTitle: item.projectTitle || item.projectType || "",
+
+            lotNo: item.lotNo || "",
+            blkNo: item.blkNo || "",
+            tctNo: item.tctNo || "",
+            street: item.street || "",
+            barangay: item.barangay || "Torres",
+            municipality: "MAPANDAN",
+            province: "PANGASINAN",
+            zipCode: "2429",
+
+            occupancyGroup: item.occupancyGroup || "GROUP A",
             occupancyUse: currentOccupancy === "Other Construction" ? "" : currentOccupancy,
+            scopeOfWork: item.scopeOfWork || "",
             estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
-            totalFloors: item.totalFloors || "1",
-            isLotOwner: item.isLotOwner || "Yes",
+
+            engineerInCharge: item.engineerInCharge || "",
+            buildingOfficial: item.buildingOfficial || "",
             remarks: item.remarks || "",
         });
 
@@ -569,12 +766,17 @@ export default function EngineerArchiveClient({
         e.preventDefault();
 
         if (!formData.permitNumber.trim()) {
-            toast.error("Please enter the Official Permit Number.");
+            toast.error("Please enter the Official Building Permit Number.");
             return;
         }
 
-        if (!formData.firstName.trim() || !formData.lastName.trim()) {
-            toast.error("Please enter both First Name and Last Name of the applicant.");
+        if (!formData.ownerName.trim()) {
+            toast.error("Please enter the Owner / Permittee Name.");
+            return;
+        }
+
+        if (!formData.projectTitle.trim()) {
+            toast.error("Please enter the Project Title.");
             return;
         }
 
@@ -751,172 +953,289 @@ export default function EngineerArchiveClient({
                             <form id="archive-encoding-form" onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 md:p-8">
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                                     {/* Left Column: Data & Project Metadata (7 Cols) */}
-                                    <div className="lg:col-span-7 space-y-6">
-                                        {/* Section 1: Permit & Applicant Information */}
-                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                             <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                 <HardHat className="w-4 h-4 text-indigo-500" />
-                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                                     Permit & Applicant Details
-                                                 </h3>
-                                             </div>
-
-                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                 <div className="space-y-1.5 sm:col-span-1">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Official Permit Number <span className="text-rose-500">*</span>
-                                                     </Label>
-                                                     <Input
-                                                         required
-                                                         placeholder="e.g. BP-2024-00123"
-                                                         value={formData.permitNumber}
-                                                         onChange={e => setFormData({ ...formData, permitNumber: e.target.value })}
-                                                         className="rounded-xl h-11 font-mono font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5 sm:col-span-1">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Official Date Issued
-                                                     </Label>
-                                                     <Input
-                                                         type="date"
-                                                         value={formData.dateIssued}
-                                                         onChange={e => setFormData({ ...formData, dateIssued: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 {/* First Name & Last Name */}
-                                                 {/* First Name & Last Name (Required) */}
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         First Name <span className="text-rose-500">*</span>
-                                                     </Label>
-                                                     <Input
-                                                         required
-                                                         placeholder="Enter applicant's first name"
-                                                         value={formData.firstName}
-                                                         onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                                                         className="rounded-xl h-11 font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Last Name <span className="text-rose-500">*</span>
-                                                     </Label>
-                                                     <Input
-                                                         required
-                                                         placeholder="Enter applicant's last name"
-                                                         value={formData.lastName}
-                                                         onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                                                         className="rounded-xl h-11 font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-
-
-                                                 {/* Contact Number & Email */}
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Contact Number
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="+63 9XX XXX XXXX"
-                                                         value={formData.contactNumber}
-                                                         onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Email Address
-                                                     </Label>
-                                                     <Input
-                                                         type="email"
-                                                         placeholder="e.g. applicant@email.com"
-                                                         value={formData.email}
-                                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 {/* Address Hierarchy */}
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Province
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Pangasinan"
-                                                         value={formData.province}
-                                                         onChange={e => setFormData({ ...formData, province: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Municipality / City
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Mapandan"
-                                                         value={formData.municipality}
-                                                         onChange={e => setFormData({ ...formData, municipality: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         Barangay
-                                                     </Label>
-                                                     <Select
-                                                         value={formData.barangay}
-                                                         onValueChange={val => setFormData({ ...formData, barangay: val })}
-                                                     >
-                                                         <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
-                                                             <SelectValue placeholder="Select Barangay" />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                             {MAPANDAN_BARANGAYS.map(brgy => (
-                                                                 <SelectItem key={brgy} value={brgy}>
-                                                                     Brgy. {brgy}
-                                                                 </SelectItem>
-                                                             ))}
-                                                         </SelectContent>
-                                                     </Select>
-                                                 </div>
-
-                                                 <div className="space-y-1.5">
-                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                         House / Lot & Street
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="e.g. Lot 4 Block 2, Rizal St."
-                                                         value={formData.street}
-                                                         onChange={e => setFormData({ ...formData, street: e.target.value })}
-                                                         className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                     />
-                                                 </div>
-                                             </div>
-                                         </div>
-
-                                        {/* Section 2: Building Specifications & Cost */}
+                                    <div className="lg:col-span-7 space-y-5">
+                                        {/* Card 1: Official NBC Header & Control Numbers */}
                                         <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
-                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
-                                                <Building2 className="w-4 h-4 text-indigo-500" />
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                <div>
+                                                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                        NBC Form No. B - 01B • Building Permit
+                                                    </h3>
+                                                    <p className="text-[10px] text-slate-400 font-medium">
+                                                        Office of the Building Official • Municipality of Mapandan
+                                                    </p>
+                                                </div>
+
+                                                {/* Permit Type Radio / Checkbox Selector */}
+                                                <div className="flex items-center gap-1.5 bg-white dark:bg-[#121622] p-1 rounded-xl border border-slate-200 dark:border-[#2a3040]">
+                                                    {PERMIT_TYPES.map(type => {
+                                                        const isSelected = formData.permitType === type;
+                                                        return (
+                                                            <button
+                                                                key={type}
+                                                                type="button"
+                                                                onClick={() => setFormData({ ...formData, permitType: type })}
+                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                                                                    isSelected
+                                                                        ? "bg-indigo-600 text-white shadow-sm"
+                                                                        : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                                                }`}
+                                                            >
+                                                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                                {type}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                {/* Building Permit Number */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Building Permit No. <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        required
+                                                        placeholder="e.g. BP-0888-2609-1213"
+                                                        value={formData.permitNumber}
+                                                        onChange={e => setFormData({ ...formData, permitNumber: e.target.value })}
+                                                        className="rounded-xl h-11 font-mono font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                {/* Date Issued */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Date Issued
+                                                    </Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.dateIssued}
+                                                        onChange={e => setFormData({ ...formData, dateIssued: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                {/* Official Receipt (OR) Number */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Official Receipt (OR) No.
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. 4795753"
+                                                        value={formData.orNumber}
+                                                        onChange={e => setFormData({ ...formData, orNumber: e.target.value })}
+                                                        className="rounded-xl h-11 font-mono bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                {/* Date Paid */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Date Paid
+                                                    </Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.datePaid}
+                                                        onChange={e => setFormData({ ...formData, datePaid: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                {/* FSEC Number */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        FSEC No. (Fire Clearance)
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. R--10429-5411695"
+                                                        value={formData.fsecNo}
+                                                        onChange={e => setFormData({ ...formData, fsecNo: e.target.value })}
+                                                        className="rounded-xl h-11 font-mono bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                {/* FSEC Date Issued */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        FSEC Date Issued
+                                                    </Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={formData.fsecDateIssued}
+                                                        onChange={e => setFormData({ ...formData, fsecDateIssued: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 2: Permittee & Project Title */}
+                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                                    Building Specifications & Scope
+                                                    Owner / Permittee & Project Title
                                                 </h3>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Owner / Permittee <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        required
+                                                        placeholder="e.g. ANGELENE S. MATIAS"
+                                                        value={formData.ownerName}
+                                                        onChange={e => setFormData({ ...formData, ownerName: e.target.value })}
+                                                        className="rounded-xl h-11 font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Project Title <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        required
+                                                        placeholder="e.g. 1 BEDROOM BUNGALOW"
+                                                        value={formData.projectTitle}
+                                                        onChange={e => setFormData({ ...formData, projectTitle: e.target.value })}
+                                                        className="rounded-xl h-11 font-bold text-sm bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 3: Location of Construction (Cadastral Details & Barangay) */}
+                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                    Location of Construction
+                                                </h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Lot No.
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. 12"
+                                                        value={formData.lotNo}
+                                                        onChange={e => setFormData({ ...formData, lotNo: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Blk No.
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. 4"
+                                                        value={formData.blkNo}
+                                                        onChange={e => setFormData({ ...formData, blkNo: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        TCT No. (Land Title)
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. T-123456"
+                                                        value={formData.tctNo}
+                                                        onChange={e => setFormData({ ...formData, tctNo: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Street / Sitio
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="e.g. Rizal St."
+                                                        value={formData.street}
+                                                        onChange={e => setFormData({ ...formData, street: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Barangay <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Select
+                                                        value={formData.barangay}
+                                                        onValueChange={val => setFormData({ ...formData, barangay: val })}
+                                                    >
+                                                        <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
+                                                            <SelectValue placeholder="Select Barangay" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {MAPANDAN_BARANGAYS.map(brgy => (
+                                                                <SelectItem key={brgy} value={brgy}>
+                                                                    Brgy. {brgy}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Municipality & ZIP
+                                                    </Label>
+                                                    <div className="h-11 px-3.5 rounded-xl bg-slate-100/70 dark:bg-[#121622]/60 border border-slate-200 dark:border-[#2a3040] flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                        <span>MAPANDAN</span>
+                                                        <span className="font-mono text-indigo-600 dark:text-indigo-400">2429</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 4: Character of Occupancy & Scope of Work */}
+                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                    Use or Character of Occupancy & Scope of Work
+                                                </h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                {/* Occupancy Group */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        Occupancy Group
+                                                    </Label>
+                                                    <Select
+                                                        value={formData.occupancyGroup}
+                                                        onValueChange={val => setFormData({ ...formData, occupancyGroup: val })}
+                                                    >
+                                                        <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
+                                                            <SelectValue placeholder="Select Group" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {OCCUPANCY_GROUPS.map(grp => (
+                                                                <SelectItem key={grp.value} value={grp.value}>
+                                                                    {grp.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                {/* Occupancy Classification */}
                                                 {!isCustomOccupancy ? (
                                                     <div className="space-y-1.5">
                                                         <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                            Occupancy Classification <span className="text-rose-500">*</span>
+                                                            Classified As <span className="text-rose-500">*</span>
                                                         </Label>
                                                         <Select
                                                             value={formData.occupancyUse}
@@ -930,7 +1249,7 @@ export default function EngineerArchiveClient({
                                                             }}
                                                         >
                                                             <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
-                                                                <SelectValue placeholder="Select Occupancy" />
+                                                                <SelectValue placeholder="Select Classification" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {OCCUPANCY_TYPES.map(occ => (
@@ -944,9 +1263,8 @@ export default function EngineerArchiveClient({
                                                 ) : (
                                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                                                         <div className="flex items-center justify-between">
-                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                                                                <Building2 className="w-3.5 h-3.5" />
-                                                                Occupancy Classification <span className="text-rose-500">*</span>
+                                                            <Label className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                                                Classified As <span className="text-rose-500">*</span>
                                                             </Label>
                                                             <button
                                                                 type="button"
@@ -955,90 +1273,149 @@ export default function EngineerArchiveClient({
                                                                     setFormData({ ...formData, occupancyUse: "Residential" });
                                                                 }}
                                                                 className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer transition-colors"
-                                                                title="Switch back to preset dropdown choices"
                                                             >
-                                                                <RotateCcw className="w-3 h-3" />
-                                                                Select from list
+                                                                <RotateCcw className="w-3 h-3" /> Select from list
                                                             </button>
                                                         </div>
                                                         <Input
-                                                            placeholder="Type specific classification (e.g. Grain Silo, Telecom Tower, Guardhouse)..."
+                                                            placeholder="Type specific classification..."
                                                             value={formData.occupancyUse}
                                                             onChange={e => setFormData({ ...formData, occupancyUse: e.target.value })}
                                                             required
                                                             autoFocus
-                                                            className="h-11 rounded-xl text-sm border-amber-300 dark:border-amber-700/60 focus:ring-amber-500 bg-amber-50/20 dark:bg-amber-950/10 font-medium"
+                                                            className="h-11 rounded-xl text-sm border-amber-300 dark:border-amber-700/60 bg-amber-50/20 dark:bg-amber-950/10 font-medium"
                                                         />
                                                     </div>
                                                 )}
+                                            </div>
 
-                                                <div className="space-y-1.5">
+                                            {/* Scope of Work with Clickable Quick Chips */}
+                                            <div className="space-y-2 pt-1">
+                                                <div className="flex items-center justify-between">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Work Scope / Project Type
+                                                        Scope of Work
                                                     </Label>
-                                                    <Input
-                                                        placeholder="e.g. 2-Storey Commercial Building"
-                                                        value={formData.projectType}
-                                                        onChange={e => setFormData({ ...formData, projectType: e.target.value })}
-                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
-                                                    />
+                                                    <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                                                        Click tags below to append quickly
+                                                    </span>
                                                 </div>
 
+                                                <Textarea
+                                                    placeholder="e.g. CONCRETE WORKS, LUMBER AND CARPENTRY WORKS, TINSMITHY WORKS, FINISHED HARDWARE, ELECTRICAL WORKS, PLUMBING WORKS, AND PAINTING WORKS"
+                                                    value={formData.scopeOfWork}
+                                                    onChange={e => setFormData({ ...formData, scopeOfWork: e.target.value })}
+                                                    className="rounded-xl min-h-[75px] bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] text-xs font-medium uppercase"
+                                                />
+
+                                                {/* Scope chips */}
+                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                    {COMMON_SCOPES.map(scope => {
+                                                        const isAdded = formData.scopeOfWork.toUpperCase().includes(scope.toUpperCase());
+                                                        return (
+                                                            <button
+                                                                key={scope}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const current = formData.scopeOfWork.trim();
+                                                                    if (isAdded) {
+                                                                        // Cleanly remove the tag and redundant commas
+                                                                        const escaped = scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                                                        const regex = new RegExp(`(^|,\\s*)${escaped}(,\\s*|$)`, "gi");
+                                                                        const updated = current.replace(regex, (match, p1, p2) => {
+                                                                            if (p1 && p2) return ", ";
+                                                                            return "";
+                                                                        }).trim().replace(/^,\s*|,\s*$/g, "");
+                                                                        setFormData({ ...formData, scopeOfWork: updated });
+                                                                    } else {
+                                                                        const updated = current ? `${current}, ${scope}` : scope;
+                                                                        setFormData({ ...formData, scopeOfWork: updated });
+                                                                    }
+                                                                }}
+                                                                className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer select-none ${
+                                                                    isAdded
+                                                                        ? "bg-slate-200/90 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-300/70 dark:border-slate-700/60 opacity-60 hover:opacity-80"
+                                                                        : "bg-white dark:bg-[#121622] text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 border border-slate-200 dark:border-[#2a3040] shadow-xs"
+                                                                }`}
+                                                                title={isAdded ? `Already added: Click to remove ${scope}` : `Click to add ${scope}`}
+                                                            >
+                                                                {isAdded ? (
+                                                                    <>
+                                                                        <Check className="w-2.5 h-2.5 stroke-[3] text-emerald-500 shrink-0" />
+                                                                        <span className="line-through">{scope}</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span>+</span>
+                                                                        <span>{scope}</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 5: Valuation & Signatories */}
+                                        <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-[#151b2b]/60 border border-slate-200/80 dark:border-[#2a3040] space-y-4 shadow-sm">
+                                            <div className="pb-2 border-b border-slate-200/60 dark:border-[#2a3040]">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                    Valuation & Key Signatories
+                                                </h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                {/* Total Project Cost */}
                                                 <div className="space-y-1.5">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Estimated Cost (₱)
+                                                        Total Project Cost (₱)
                                                     </Label>
                                                     <Input
                                                         type="number"
-                                                        placeholder="e.g. 750000"
+                                                        placeholder="e.g. 1641945.00"
                                                         value={formData.estimatedCost}
                                                         onChange={e => setFormData({ ...formData, estimatedCost: e.target.value })}
-                                                        className="rounded-xl h-11 font-mono bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                        className="rounded-xl h-11 font-mono font-bold bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
                                                     />
                                                 </div>
 
+                                                {/* Professional In Charge */}
                                                 <div className="space-y-1.5">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Total Floors
+                                                        Professional In Charge of Construction
                                                     </Label>
                                                     <Input
-                                                        type="number"
-                                                        min="1"
-                                                        placeholder="1"
-                                                        value={formData.totalFloors}
-                                                        onChange={e => setFormData({ ...formData, totalFloors: e.target.value })}
-                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]"
+                                                        placeholder="Enter name (e.g. Architect / Civil Engineer)"
+                                                        value={formData.engineerInCharge}
+                                                        onChange={e => setFormData({ ...formData, engineerInCharge: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase"
                                                     />
                                                 </div>
 
+                                                {/* Building Official */}
                                                 <div className="space-y-1.5 sm:col-span-2">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                        Is Applicant the Lot Owner?
+                                                        Building Official / Permit Issued By
                                                     </Label>
-                                                    <Select
-                                                        value={formData.isLotOwner}
-                                                        onValueChange={val => setFormData({ ...formData, isLotOwner: val })}
-                                                    >
-                                                        <SelectTrigger className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040]">
-                                                            <SelectValue placeholder="Select Lot Ownership" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Yes">Yes (Owner of the Land / TCT)</SelectItem>
-                                                            <SelectItem value="No">No (Tenant / With Consent / Lease)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <Input
+                                                        placeholder="Enter name of Building Official / Municipal Engineer"
+                                                        value={formData.buildingOfficial}
+                                                        onChange={e => setFormData({ ...formData, buildingOfficial: e.target.value })}
+                                                        className="rounded-xl h-11 bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] uppercase font-bold"
+                                                    />
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-1.5 pt-2">
+                                            {/* Notes / Remarks */}
+                                            <div className="space-y-1.5 pt-1">
                                                 <Label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Archive Notes / Remarks
+                                                    Archive Reference / Storage Notes
                                                 </Label>
                                                 <Textarea
-                                                    placeholder="Add any specific physical folder tags, notes, or archive box reference..."
+                                                    placeholder="Add any specific archive box number, physical shelf reference, or remarks..."
                                                     value={formData.remarks}
                                                     onChange={e => setFormData({ ...formData, remarks: e.target.value })}
-                                                    className="rounded-xl min-h-[70px] bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] text-xs"
+                                                    className="rounded-xl min-h-[60px] bg-white dark:bg-[#121622] border-slate-200 dark:border-[#2a3040] text-xs"
                                                 />
                                             </div>
                                         </div>
@@ -1108,11 +1485,19 @@ export default function EngineerArchiveClient({
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
                                                         <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Official Signed Permit (Primary)
                                                     </Label>
-                                                    {mainPermitFile && (
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                                            <CheckCircle2 className="w-3 h-3" /> Ready
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-1.5">
+                                                        {isScanningAi && (
+                                                            <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
+                                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                                AI Extracting...
+                                                            </span>
+                                                        )}
+                                                        {mainPermitFile && !isScanningAi && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-3 h-3" /> Ready
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {mainPermitFile ? (
@@ -1159,6 +1544,17 @@ export default function EngineerArchiveClient({
                                                         </div>
 
                                                         <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                disabled={isScanningAi}
+                                                                onClick={() => triggerAiBuildingPermitScan(mainPermitFile)}
+                                                                className="h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                                                                title="Scan with AI to Auto-fill"
+                                                            >
+                                                                <Sparkles className={`w-4 h-4 ${isScanningAi ? "animate-spin" : ""}`} />
+                                                            </Button>
                                                             {mainPermitPreview && (
                                                                 <Button
                                                                     type="button"
@@ -1680,33 +2076,59 @@ export default function EngineerArchiveClient({
                                         key={record.id}
                                         className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors border-b border-slate-100 dark:border-[#2a3040]"
                                     >
-                                        {/* Permit # & Project Type */}
+                                        {/* Permit # & Project Details */}
                                         <TableCell className="py-4">
                                             <div className="space-y-1">
-                                                <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400 block">
-                                                    {record.permitNumber}
-                                                </span>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
-                                                    {record.projectType} • {record.occupancyUse}
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400 block">
+                                                        {record.permitNumber}
+                                                    </span>
+                                                    {record.permitType && (
+                                                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                                            {record.permitType}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1 uppercase">
+                                                    {record.projectTitle || record.projectType}
+                                                </p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
+                                                    {record.occupancyGroup ? `${record.occupancyGroup} • ` : ""}{record.occupancyUse}
                                                 </p>
                                             </div>
                                         </TableCell>
 
-                                        {/* Applicant Name */}
+                                        {/* Applicant & Receipts */}
                                         <TableCell className="py-4">
-                                            <span className="font-bold text-sm text-slate-900 dark:text-white block">
-                                                {record.applicantName}
+                                            <span className="font-bold text-sm text-slate-900 dark:text-white block uppercase">
+                                                {record.ownerName || record.applicantName}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 font-medium">
-                                                ID: {record.id.slice(-8)}
-                                            </span>
+                                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
+                                                {record.orNumber && (
+                                                    <span className="text-emerald-600 dark:text-emerald-400 font-mono">
+                                                        OR #{record.orNumber}
+                                                    </span>
+                                                )}
+                                                {record.fsecNo && (
+                                                    <span className="text-amber-600 dark:text-amber-400 font-mono">
+                                                        FSEC: {record.fsecNo}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </TableCell>
 
                                         {/* Location */}
                                         <TableCell className="py-4">
-                                            <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
-                                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                <span className="line-clamp-1">{record.location}</span>
+                                            <div className="flex items-start gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="line-clamp-1">{record.location}</span>
+                                                    {(record.lotNo || record.blkNo || record.tctNo) && (
+                                                        <span className="text-[10px] text-slate-400 font-mono block">
+                                                            {[record.lotNo ? `Lot ${record.lotNo}` : '', record.blkNo ? `Blk ${record.blkNo}` : '', record.tctNo ? `TCT ${record.tctNo}` : ''].filter(Boolean).join(" • ")}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
 
@@ -1723,15 +2145,22 @@ export default function EngineerArchiveClient({
                                             )}
                                         </TableCell>
 
-                                        {/* Date Issued */}
+                                        {/* Valuation & Date Issued */}
                                         <TableCell className="py-4">
-                                            <div className="text-xs text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
-                                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                                {new Date(record.dateIssued).toLocaleDateString("en-PH", {
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    year: "numeric",
-                                                })}
+                                            <div className="space-y-0.5">
+                                                {record.estimatedCost > 0 && (
+                                                    <span className="font-mono font-bold text-xs text-slate-900 dark:text-white block">
+                                                        ₱{Number(record.estimatedCost).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                    {new Date(record.dateIssued).toLocaleDateString("en-PH", {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        year: "numeric",
+                                                    })}
+                                                </div>
                                             </div>
                                         </TableCell>
 
