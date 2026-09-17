@@ -66,9 +66,21 @@ export async function getAppointmentDetailsAction(id: string) {
             return { success: false, error: "Forbidden: You do not have access to view this appointment." };
         }
 
+        let followUpAppointment: any = null;
+        try {
+            followUpAppointment = await prisma.followUpAppointment.findFirst({
+                where: { sourceTransactionId: id }
+            });
+        } catch (fuErr) {
+            console.warn("Could not query followUpAppointment:", fuErr);
+        }
+
         return {
             success: true,
-            data: transaction,
+            data: {
+                ...transaction,
+                followUpAppointment
+            },
             themeColor: themeSetting?.value || "#2563eb"
         };
     } catch (error: any) {

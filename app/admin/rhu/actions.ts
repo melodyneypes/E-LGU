@@ -481,7 +481,15 @@ export async function updateRHUAppointmentStatus(
         }
 
         if (vitalsData) {
-            // Guard: Only Assistant Secretary accounts (and overall admins) can input or edit vitals
+            // Guard: Vitals are immutable once recorded at check-in
+            if (additionalData.vitals && existing.checkedIn) {
+                return {
+                    success: false,
+                    error: "Patient vital signs have already been officially recorded at check-in and cannot be updated."
+                };
+            }
+
+            // Guard: Only Assistant Secretary accounts (and overall admins) can input vitals
             if (role !== "ASST_SEC" && role !== "ADMIN" && role !== "RHU_ADMIN") {
                 return {
                     success: false,
@@ -567,16 +575,21 @@ export async function updateRHUAppointmentStatus(
             };
 
             // If this transaction originated from a scheduled return visit / follow-up, mark the follow-up as Completed
-            if (additionalData.followUpAppointmentId) {
-                try {
+            try {
+                if (additionalData.followUpAppointmentId) {
                     await prisma.$executeRaw`
                         UPDATE follow_up_appointments
                         SET status = 'Completed', updated_at = NOW()
                         WHERE id = ${additionalData.followUpAppointmentId}
                     `;
-                } catch (fuErr) {
-                    console.warn("Could not mark follow-up appointment as completed:", fuErr);
                 }
+                await prisma.$executeRaw`
+                    UPDATE follow_up_appointments
+                    SET status = 'Completed', updated_at = NOW()
+                    WHERE injected_transaction_id = ${transactionId}
+                `;
+            } catch (fuErr) {
+                console.warn("Could not mark follow-up appointment as completed:", fuErr);
             }
         }
 
@@ -866,6 +879,9 @@ export async function registerRHUWalkInConsultation(payload: {
     chiefComplaint?: string;
     isPriorityLane?: boolean;
     priorityReason?: string;
+    followUpAppointmentId?: string;
+    sourceTransactionId?: string;
+    isFollowUp?: boolean;
     vitals?: {
         height?: string;
         weight?: string;
@@ -884,6 +900,35 @@ export async function registerRHUWalkInConsultation(payload: {
 
         const user = session.user as any;
         const role = user?.role || "";
+
+        // If linking to a scheduled follow-up appointment, ensure its scheduled date has arrived
+        if (payload.followUpAppointmentId) {
+            const fuCheck: any[] = await prisma.$queryRaw`
+                SELECT id, scheduled_date FROM follow_up_appointments WHERE id = ${payload.followUpAppointmentId} LIMIT 1
+            `;
+            if (fuCheck && fuCheck[0]) {
+                const manilaDateString = new Intl.DateTimeFormat("en-US", {
+                    timeZone: "Asia/Manila",
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                }).format(new Date());
+                const [mMonth, mDay, mYear] = manilaDateString.split("/");
+                const endOfToday = new Date(`${mYear}-${mMonth}-${mDay}T23:59:59.999+08:00`);
+                if (new Date(fuCheck[0].scheduled_date) > endOfToday) {
+                    const formattedDate = new Date(fuCheck[0].scheduled_date).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric"
+                    });
+                    return {
+                        success: false,
+                        error: `Cannot check in patient before scheduled date. This follow-up visit is scheduled for ${formattedDate}.`
+                    };
+                }
+            }
+        }
+
         const matchedCenter = await getMatchedCenterForUser(user);
 
         // 1. Resolve target Health Center
@@ -988,17 +1033,44 @@ export async function registerRHUWalkInConsultation(payload: {
             philhealthNumber: payload.philhealthNumber?.trim() || "",
         };
 
+        const isFollowUpConsultation = Boolean(
+            payload.isFollowUp || 
+            payload.followUpAppointmentId || 
+            payload.checkupType?.toLowerCase().includes("follow") || 
+            payload.checkupType?.toLowerCase().includes("return")
+        );
+
+        let sourceTxAddData: any = {};
+        if (payload.sourceTransactionId) {
+            try {
+                const stx = await prisma.transaction.findUnique({ where: { id: payload.sourceTransactionId } });
+                if (stx?.additionalData) {
+                    sourceTxAddData = typeof stx.additionalData === "string" ? JSON.parse(stx.additionalData) : stx.additionalData;
+                }
+            } catch {}
+        }
+        const followUpSequence = isFollowUpConsultation ? ((Number(sourceTxAddData?.followUpSequence) || 0) + 1) : null;
+
+        const hasVitals = Boolean(payload.vitals && (payload.vitals.height || payload.vitals.weight || payload.vitals.systolic || payload.vitals.temperature));
+
         const additionalData: any = {
-            checkupType: payload.checkupType || "General Consultation",
+            checkupType: payload.checkupType || (isFollowUpConsultation ? "Return Patient / Follow-up" : "General Consultation"),
             healthCenterId: targetCenterId,
             healthCenterName: targetCenterName,
             chiefComplaint: payload.chiefComplaint?.trim() || "",
             isWalkIn: true,
+            isFollowUp: isFollowUpConsultation,
+            returnPatient: isFollowUpConsultation,
+            followUpSequence,
+            followUpAppointmentId: payload.followUpAppointmentId || null,
+            sourceTransactionId: payload.sourceTransactionId || null,
+            previousTransactionId: payload.sourceTransactionId || null,
             isPriorityLane: isPriority,
             priorityReason: payload.priorityReason || null,
-            rhuStatus: "CHECK_IN",
-            checkedInBy: staffName,
-            checkedInAt: now.toISOString(),
+            rhuStatus: hasVitals ? "CHECK_IN" : "APPOINTMENT_BOOKED",
+            checkedIn: hasVitals,
+            checkedInBy: hasVitals ? staffName : null,
+            checkedInAt: hasVitals ? now.toISOString() : null,
             registeredBy: staffName,
             registeredByEmail: user.email || null,
             registeredAt: now.toISOString(),
@@ -1036,7 +1108,7 @@ export async function registerRHUWalkInConsultation(payload: {
             data: {
                 userId: linkedUserId,
                 typeId: txType.id,
-                status: "FOR_INSPECTION", // Mapped to CHECK_IN in RHU effective status
+                status: "FOR_INSPECTION", // Mapped to APPOINTMENT_BOOKED or CHECK_IN based on rhuStatus & vitals
                 residentSnapshot,
                 additionalData,
                 totalAmount: 0,
@@ -1046,6 +1118,19 @@ export async function registerRHUWalkInConsultation(payload: {
                 isPriority,
             }
         });
+
+        // If this walk-in fulfilled a pending follow-up appointment, link the injected transaction
+        if (payload.followUpAppointmentId) {
+            try {
+                await prisma.$executeRaw`
+                    UPDATE follow_up_appointments
+                    SET injected_transaction_id = ${newTransaction.id}, updated_at = NOW()
+                    WHERE id = ${payload.followUpAppointmentId}
+                `;
+            } catch (fuErr) {
+                console.warn("Could not link followUpAppointment to walk-in transaction:", fuErr);
+            }
+        }
 
         revalidatePath("/admin/rhu");
         revalidatePath("/admin/rhu/consultations");
@@ -1253,19 +1338,19 @@ export async function getRHUFollowUpAppointments(filters?: {
         const conditions: Prisma.Sql[] = [Prisma.sql`1=1`];
 
         if (filters?.status && filters.status !== "ALL") {
-            conditions.push(Prisma.sql`status = ${filters.status}`);
+            conditions.push(Prisma.sql`fa.status = ${filters.status}`);
         }
 
         if (filters?.healthCenterId) {
-            conditions.push(Prisma.sql`health_center_id = ${filters.healthCenterId}`);
+            conditions.push(Prisma.sql`fa.health_center_id = ${filters.healthCenterId}`);
         }
 
         if (filters?.search && filters.search.trim()) {
             const term = `%${filters.search.trim().toLowerCase()}%`;
             conditions.push(Prisma.sql`(
-                LOWER(patient_name) LIKE ${term}
-                OR LOWER(doctor_name) LIKE ${term}
-                OR LOWER(notes) LIKE ${term}
+                LOWER(fa.patient_name) LIKE ${term}
+                OR LOWER(fa.doctor_name) LIKE ${term}
+                OR LOWER(fa.notes) LIKE ${term}
             )`);
         }
 
@@ -1279,35 +1364,40 @@ export async function getRHUFollowUpAppointments(filters?: {
             const [month, day, year] = manilaDateString.split("/");
             const startOfToday = new Date(`${year}-${month}-${day}T00:00:00.000+08:00`);
             const endOfToday = new Date(`${year}-${month}-${day}T23:59:59.999+08:00`);
-            conditions.push(Prisma.sql`scheduled_date >= ${startOfToday} AND scheduled_date <= ${endOfToday}`);
+            conditions.push(Prisma.sql`fa.scheduled_date >= ${startOfToday} AND fa.scheduled_date <= ${endOfToday}`);
         } else if (filters?.dateFilter === "upcoming") {
             const now = new Date();
-            conditions.push(Prisma.sql`scheduled_date >= ${now}`);
+            conditions.push(Prisma.sql`fa.scheduled_date >= ${now}`);
         } else if (filters?.dateFilter === "past") {
             const now = new Date();
-            conditions.push(Prisma.sql`scheduled_date < ${now}`);
+            conditions.push(Prisma.sql`fa.scheduled_date < ${now}`);
         }
 
         const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
         const appointments: any[] = await prisma.$queryRaw`
             SELECT 
-                id,
-                patient_id as "patientId",
-                patient_name as "patientName",
-                doctor_id as "doctorId",
-                doctor_name as "doctorName",
-                health_center_id as "healthCenterId",
-                health_center_name as "healthCenterName",
-                scheduled_date as "scheduledDate",
-                status,
-                notes,
-                source_transaction_id as "sourceTransactionId",
-                injected_transaction_id as "injectedTransactionId",
-                created_at as "createdAt",
-                updated_at as "updatedAt"
-            FROM follow_up_appointments
+                fa.id,
+                fa.patient_id as "patientId",
+                fa.patient_name as "patientName",
+                fa.doctor_id as "doctorId",
+                fa.doctor_name as "doctorName",
+                fa.health_center_id as "healthCenterId",
+                fa.health_center_name as "healthCenterName",
+                fa.scheduled_date as "scheduledDate",
+                fa.status,
+                fa.notes,
+                fa.source_transaction_id as "sourceTransactionId",
+                fa.injected_transaction_id as "injectedTransactionId",
+                fa.created_at as "createdAt",
+                fa.updated_at as "updatedAt",
+                t.status as "injectedStatus",
+                t."additionalData"->>'rhuStatus' as "injectedRhuStatus",
+                t."additionalData"->>'dispensedAt' as "injectedDispensedAt",
+                t."queueNumber" as "injectedQueueNumber"
+            FROM follow_up_appointments fa
+            LEFT JOIN "Transaction" t ON fa.injected_transaction_id = t.id
             ${whereClause}
-            ORDER BY scheduled_date ASC
+            ORDER BY fa.scheduled_date ASC
         `;
 
         return { success: true, data: appointments };
@@ -1456,18 +1546,32 @@ export async function injectDailyFollowUpQueue() {
                 category: "RHU"
             });
 
+            let sourceTxAddData: any = {};
+            if (fu.source_transaction_id) {
+                try {
+                    const stx = await prisma.transaction.findUnique({ where: { id: fu.source_transaction_id } });
+                    if (stx?.additionalData) {
+                        sourceTxAddData = typeof stx.additionalData === "string" ? JSON.parse(stx.additionalData) : stx.additionalData;
+                    }
+                } catch {}
+            }
+            const followUpSequence = (Number(sourceTxAddData?.followUpSequence) || 0) + 1;
+
             const additionalData = {
                 checkupType: "Return Patient / Follow-up",
                 isFollowUp: true,
                 returnPatient: true,
+                followUpSequence,
                 followUpAppointmentId: fu.id,
+                sourceTransactionId: fu.source_transaction_id || null,
+                previousTransactionId: fu.source_transaction_id || null,
                 followUpNotes: fu.notes || "Scheduled return visit",
                 originalDoctor: fu.doctor_name || "Attending Physician",
                 healthCenterId: fu.health_center_id || null,
                 healthCenterName: fu.health_center_name || null,
-                checkedIn: true,
-                checkedInAt: now.toISOString(),
-                rhuStatus: "FOR_INSPECTION",
+                checkedIn: false,
+                checkedInAt: null,
+                rhuStatus: "APPOINTMENT_BOOKED",
                 autoInjectedByCron: true
             };
 
@@ -1557,6 +1661,271 @@ export async function completeRHUFollowUp(appointmentId: string) {
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to complete follow-up." };
+    }
+}
+
+export async function checkInRHUFollowUpPatient(followUpId: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized: Please log in." };
+        }
+
+        const user = session.user as any;
+        const role = user?.role || "";
+        const allowedRoles = ["ASST_SEC", "ADMIN", "RHU_ADMIN"];
+        if (!allowedRoles.includes(role)) {
+            return { success: false, error: "Forbidden: Only Assistant Secretary accounts are authorized to check in patients and record vital signs." };
+        }
+
+        const fuRows: any[] = await prisma.$queryRaw`
+            SELECT * FROM follow_up_appointments WHERE id = ${followUpId} LIMIT 1
+        `;
+        const fu = fuRows[0];
+        if (!fu) {
+            return { success: false, error: "Follow-up appointment record not found." };
+        }
+
+        // Validate that scheduled date has arrived (today or earlier)
+        const manilaDateString = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(new Date());
+        const [mMonth, mDay, mYear] = manilaDateString.split("/");
+        const endOfToday = new Date(`${mYear}-${mMonth}-${mDay}T23:59:59.999+08:00`);
+
+        if (new Date(fu.scheduled_date) > endOfToday) {
+            const formattedDate = new Date(fu.scheduled_date).toLocaleDateString("en-PH", {
+                month: "short",
+                day: "numeric",
+                year: "numeric"
+            });
+            return {
+                success: false,
+                error: `Cannot check in patient before scheduled date. This follow-up visit is scheduled for ${formattedDate}.`
+            };
+        }
+
+        // If an injected transaction already exists and is not cancelled, return it
+        if (fu.injected_transaction_id) {
+            const existingTx = await prisma.transaction.findUnique({
+                where: { id: fu.injected_transaction_id }
+            });
+            if (existingTx && !existingTx.isCancelled) {
+                return { success: true, transactionId: existingTx.id, queueNumber: existingTx.queueNumber };
+            }
+        }
+
+        // Retrieve resident snapshot & details from source transaction or fallback
+        let residentSnapshot: any = {
+            firstName: fu.patient_name?.split(" ")[0] || "Return",
+            lastName: fu.patient_name?.split(" ").slice(1).join(" ") || "Patient",
+            middleName: "",
+            gender: "UNSPECIFIED",
+            barangay: "Poblacion",
+            municipality: "Mapandan",
+            province: "Pangasinan"
+        };
+
+        let userId: string | null = null;
+        let sourceTxAddData: any = {};
+
+        if (fu.source_transaction_id) {
+            const sourceTx = await prisma.transaction.findUnique({
+                where: { id: fu.source_transaction_id }
+            });
+            if (sourceTx) {
+                if (sourceTx.residentSnapshot) {
+                    residentSnapshot = typeof sourceTx.residentSnapshot === "string"
+                        ? JSON.parse(sourceTx.residentSnapshot)
+                        : sourceTx.residentSnapshot;
+                }
+                userId = sourceTx.userId || null;
+                if (sourceTx.additionalData) {
+                    sourceTxAddData = typeof sourceTx.additionalData === "string"
+                        ? JSON.parse(sourceTx.additionalData)
+                        : sourceTx.additionalData;
+                }
+            }
+        }
+
+        if (!userId && fu.patient_id && !fu.patient_id.startsWith("WALK_IN") && !fu.patient_id.startsWith("fu_")) {
+            const matchedUser = await prisma.user.findUnique({ where: { id: fu.patient_id } });
+            if (matchedUser) userId = matchedUser.id;
+        }
+
+        // Resolve RHU TransactionType
+        let rhuType = await prisma.transactionType.findFirst({
+            where: {
+                OR: [
+                    { code: "RHU_CONSULTATION" },
+                    { code: "rhu_consultation_v1" },
+                    { code: { startsWith: "rhu" } },
+                    { category: { in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH"] } }
+                ]
+            }
+        });
+        if (!rhuType) {
+            rhuType = await prisma.transactionType.findFirst();
+        }
+        if (!rhuType) {
+            return { success: false, error: "No RHU Consultation transaction type found in system." };
+        }
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentSlot = currentHour < 12 ? "08:00 AM - 11:00 AM" : "01:00 PM - 04:00 PM";
+        const queueNumber = await generateQueueNumber({
+            source: "kiosk",
+            isPriority: false,
+            appointmentDate: now,
+            appointmentSlot: currentSlot,
+            category: "RHU"
+        });
+
+        const followUpSequence = (Number(sourceTxAddData?.followUpSequence) || 0) + 1;
+
+        const additionalData = {
+            checkupType: "Return Patient / Follow-up",
+            isFollowUp: true,
+            returnPatient: true,
+            followUpSequence,
+            followUpAppointmentId: fu.id,
+            sourceTransactionId: fu.source_transaction_id || null,
+            previousTransactionId: fu.source_transaction_id || null,
+            followUpNotes: fu.notes || "Scheduled return visit",
+            originalDoctor: fu.doctor_name || "Attending Physician",
+            healthCenterId: fu.health_center_id || null,
+            healthCenterName: fu.health_center_name || null,
+            checkedIn: false,
+            rhuStatus: "APPOINTMENT_BOOKED",
+            checkedInBySecretaryId: user.id || null,
+            checkedInBySecretaryName: user.name || "Assistant Secretary",
+            checkedInAt: null,
+            autoInjectedByCron: false
+        };
+
+        const newTx = await prisma.transaction.create({
+            data: {
+                typeId: rhuType.id,
+                userId,
+                status: "FOR_INSPECTION", // Effective status APPOINTMENT_BOOKED awaiting Secretary triage vitals
+                appointmentDate: now,
+                appointmentSlot: currentSlot,
+                queueNumber,
+                residentSnapshot,
+                additionalData,
+                totalAmount: 0,
+                isPaid: true
+            }
+        });
+
+        await prisma.$executeRaw`
+            UPDATE follow_up_appointments
+            SET injected_transaction_id = ${newTx.id}, updated_at = NOW()
+            WHERE id = ${fu.id}
+        `;
+
+        try {
+            revalidatePath("/admin/rhu");
+            revalidatePath("/admin/rhu/follow-ups");
+            revalidatePath("/admin/rhu/consultations");
+            revalidatePath("/admin/rhu/queue");
+            revalidatePath(`/admin/rhu/${newTx.id}`);
+        } catch {}
+
+        return { success: true, transactionId: newTx.id, queueNumber };
+    } catch (error: any) {
+        console.error("checkInRHUFollowUpPatient error:", error);
+        return { success: false, error: error.message || "Failed to check in follow-up patient." };
+    }
+}
+
+export async function getPatientConsultationHistory(params: {
+    userId?: string | null;
+    patientName?: string | null;
+    currentTransactionId?: string | null;
+}) {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const conditions: Prisma.Sql[] = [
+            Prisma.sql`t.status::text IN ('COMPLETED', 'RELEASED', 'DELIVERED', 'PRESCRIBED', 'FOR_CLAIM', 'IN_CONSULTATION', 'CHECK_IN')`,
+            Prisma.sql`t."isCancelled" = FALSE`,
+            Prisma.sql`(tt.category = 'RHU' OR tt.code LIKE 'RHU%' OR (t."additionalData"->>'checkupType') IS NOT NULL)`
+        ];
+
+        if (params.currentTransactionId) {
+            conditions.push(Prisma.sql`t.id != ${params.currentTransactionId}`);
+        }
+
+        if (params.userId) {
+            conditions.push(Prisma.sql`t."userId" = ${params.userId}`);
+        } else if (params.patientName && params.patientName.trim()) {
+            const term = `%${params.patientName.trim().toLowerCase()}%`;
+            conditions.push(Prisma.sql`(
+                LOWER(CONCAT(t."residentSnapshot"->>'firstName', ' ', t."residentSnapshot"->>'lastName')) LIKE ${term}
+                OR LOWER(t."residentSnapshot"->>'lastName') LIKE ${term}
+            )`);
+        } else {
+            return { success: true, data: [] };
+        }
+
+        const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
+
+        const transactions: any[] = await prisma.$queryRaw`
+            SELECT 
+                t.id,
+                t.status,
+                t."queueNumber",
+                t."appointmentDate",
+                t."createdAt",
+                t."residentSnapshot",
+                t."additionalData"
+            FROM "Transaction" t
+            LEFT JOIN "TransactionType" tt ON t."typeId" = tt.id
+            ${whereClause}
+            ORDER BY t."createdAt" DESC
+            LIMIT 10
+        `;
+
+        const data = transactions.map(tx => {
+            const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData) : (tx.additionalData || {});
+            const physician = addData.deos?.attendingPhysician || addData.attendingPhysician || addData.originalDoctor || "Attending Physician";
+            const visitDate = tx.appointmentDate || tx.createdAt;
+            return {
+                id: tx.id,
+                queueNumber: tx.queueNumber,
+                controlNumber: tx.queueNumber || tx.id.slice(0, 10),
+                date: visitDate,
+                createdAt: tx.createdAt,
+                completedAt: tx.createdAt,
+                status: tx.status,
+                rhuStatus: addData.rhuStatus || tx.status,
+                checkupType: addData.checkupType || "General Consultation",
+                attendingPhysician: physician,
+                doctor: physician,
+                vitals: addData.vitals || null,
+                deos: addData.deos || null,
+                diagnosis: addData.deos?.diagnosis || null,
+                examinationFindings: addData.deos?.examinationFindings || null,
+                orders: addData.deos?.orders || null,
+                dispenseInfo: addData.dispenseInfo || null,
+                isFollowUp: !!addData.isFollowUp,
+                followUpSequence: addData.followUpSequence || null,
+                followUpScheduled: addData.followUpScheduled || null
+            };
+        });
+
+        return { success: true, data };
+    } catch (error: any) {
+        console.error("getPatientConsultationHistory error:", error);
+        return { success: false, error: error.message || "Failed to fetch patient consultation history." };
     }
 }
 
