@@ -284,18 +284,42 @@ export async function getArchivedOccupancyPermits(params?: {
                 addDoc(tx.eCopyUrl, "Electronic Copy (e-Copy)", "electronic_copy.webp");
             }
 
+            const occupancyType = addData.occupancyType || "FULL";
+            const fsicNo = addData.fsicNo || "";
+            const fsicDateIssued = addData.fsicDateIssued || "";
+            const orNumber = addData.orNumber || "";
+            const orDatePaid = addData.orDatePaid || "";
+            const buildingPermitDate = addData.buildingPermitDate || "";
+            const ownerName = op?.applicantName || addData.ownerName || addData.applicantName || applicantName;
+            const projectTitle = op?.projectType || addData.projectTitle || addData.nameOfProject || projectType;
+            const occupancyGroup = addData.occupancyGroup || "GROUP A";
+            const buildingOfficial = op?.issuedBy || addData.buildingOfficial || "";
+            const buildingOfficialDate = addData.buildingOfficialDate || "";
+
             return {
                 id: tx.id,
+                occupancyPermitId: op?.id || null,
                 permitNumber,
+                occupancyType,
+                fsicNo,
+                fsicDateIssued,
+                orNumber,
+                orDatePaid,
                 buildingPermitNumber,
-                applicantName,
+                buildingPermitDate,
+                applicantName: ownerName,
+                ownerName,
                 location,
-                projectType,
+                projectType: projectTitle,
+                projectTitle,
+                occupancyGroup,
                 occupancyUse,
                 estimatedCost,
                 dateIssued,
                 dateOfCompletion,
-                issuedBy: op?.issuedBy || addData.encodedBy || "Municipal Engineer",
+                issuedBy: buildingOfficial,
+                buildingOfficial,
+                buildingOfficialDate,
                 verificationId: op?.verificationId || null,
                 isPhysicalArchive: isPhysical,
                 sourceType: isPhysical ? "PHYSICAL" : "ONLINE",
@@ -303,17 +327,12 @@ export async function getArchivedOccupancyPermits(params?: {
                 documents,
                 totalDocumentsCount: documents.length,
                 remarks: addData.remarks || "",
-                totalFloors: addData.noOfStoreys || addData.totalFloors || "1",
                 contactNumber: resSnap.contactNumber || addData.contactNumber || "",
                 email: resSnap.email || addData.email || "",
                 barangay: resSnap.barangay || addData.barangay || "Poblacion",
                 street: resSnap.street || addData.street || "",
-                houseNumber: resSnap.houseNumber || addData.houseNumber || "",
                 province: resSnap.province || addData.province || "Pangasinan",
                 municipality: resSnap.municipality || addData.municipality || "Mapandan",
-                isLotOwner: addData.isLotOwner || "Yes",
-                firstName: resSnap.firstName || "",
-                lastName: resSnap.lastName || "",
                 createdAt: tx.createdAt,
             };
         });
@@ -345,43 +364,56 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
     try {
         const { user } = await assertEngineerSession();
 
-        const permitNumber = (formData.get("permitNumber") as string || "").trim();
+        // Certificate Header & Clearances
+        const permitNumber = (formData.get("permitNumber") as string || "").trim(); // COC No.
+        const occupancyType = (formData.get("occupancyType") as string || "FULL").trim();
+        const dateIssuedRaw = formData.get("dateIssued") as string;
+        const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : new Date();
+
+        const fsicNo = (formData.get("fsicNo") as string || "").trim();
+        const fsicDateIssued = (formData.get("fsicDateIssued") as string || "").trim();
+        const orNumber = (formData.get("orNumber") as string || "").trim();
+        const orDatePaid = (formData.get("orDatePaid") as string || formData.get("datePaid") as string || "").trim();
+
+        // Associated Building Permit
         const buildingPermitNumber = (formData.get("buildingPermitNumber") as string || "").trim();
+        const buildingPermitDate = (formData.get("buildingPermitDate") as string || "").trim();
+
+        // Owner & Project
+        const ownerNameInput = (formData.get("ownerName") as string || formData.get("applicantName") as string || "").trim();
         const firstName = (formData.get("firstName") as string || "").trim();
         const lastName = (formData.get("lastName") as string || "").trim();
-        const applicantNameInput = (formData.get("applicantName") as string || "").trim();
-        const applicantName = applicantNameInput || `${firstName} ${lastName}`.trim();
+        const ownerName = ownerNameInput || `${firstName} ${lastName}`.trim();
 
-        const barangay = (formData.get("barangay") as string || "").trim();
+        const projectTitle = (formData.get("projectTitle") as string || formData.get("projectType") as string || "").trim();
+        const dateOfCompletionRaw = formData.get("dateOfCompletion") as string;
+        const dateOfCompletion = dateOfCompletionRaw ? new Date(dateOfCompletionRaw) : null;
+
+        // Occupancy Character & Location
+        const occupancyGroup = (formData.get("occupancyGroup") as string || "GROUP A").trim();
+        const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
+
+        const barangay = (formData.get("barangay") as string || "Amanoaoac").trim();
         const street = (formData.get("street") as string || "").trim();
-        const houseNumber = (formData.get("houseNumber") as string || "").trim();
         const province = (formData.get("province") as string || "").trim() || "Pangasinan";
         const municipality = (formData.get("municipality") as string || "").trim() || "Mapandan";
-        const isLotOwner = (formData.get("isLotOwner") as string || "Yes").trim();
-        const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
+        const zipCode = (formData.get("zipCode") as string || "2429").trim();
+
+        const fullLocation = [street, barangay ? `Brgy. ${barangay}` : "", municipality, province, zipCode].filter(Boolean).join(", ") || `${barangay}, Mapandan, Pangasinan`;
+
+        // Signatories & Notes
+        const buildingOfficial = (formData.get("buildingOfficial") as string || "").trim();
+        const buildingOfficialDate = (formData.get("buildingOfficialDate") as string || "").trim();
+        const remarks = (formData.get("remarks") as string || "").trim();
 
         const contactNumber = (formData.get("contactNumber") as string || "").trim();
         const email = (formData.get("email") as string || "").trim();
 
-        const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
-        const projectTypeInput = (formData.get("projectType") as string || "").trim();
-        const projectType = projectTypeInput || occupancyUse;
-        const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
-        const totalFloors = (formData.get("totalFloors") as string || "1").trim();
-
-        const dateIssuedRaw = formData.get("dateIssued") as string;
-        const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : new Date();
-
-        const dateOfCompletionRaw = formData.get("dateOfCompletion") as string;
-        const dateOfCompletion = dateOfCompletionRaw ? new Date(dateOfCompletionRaw) : null;
-
-        const remarks = (formData.get("remarks") as string || "").trim();
-
         if (!permitNumber) {
-            return { success: false, error: "Occupancy Permit Number is required." };
+            return { success: false, error: "Certificate of Occupancy Number (COC No.) is required." };
         }
-        if (!applicantName) {
-            return { success: false, error: "Applicant Name is required." };
+        if (!ownerName) {
+            return { success: false, error: "Name of Owner is required." };
         }
 
         // Ensure unique permit number
@@ -391,7 +423,7 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         if (existing) {
             return { 
                 success: false, 
-                error: `Occupancy Permit Number "${permitNumber}" already exists in the system.` 
+                error: `Occupancy Certificate Number "${permitNumber}" already exists in the system.` 
             };
         }
 
@@ -399,7 +431,6 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         let opType = await getOccupancyPermitType();
 
         if (!opType) {
-            // Auto-create transaction type if missing in clean environments
             opType = await prisma.transactionType.create({
                 data: {
                     name: "Occupancy Permit",
@@ -417,7 +448,7 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         const timestamp = Date.now();
 
         // 1. Process Main Certificate of Occupancy Scan
-        const mainFile = formData.get("mainPermitScan") as File | null;
+        const mainFile = (formData.get("mainPermitScan") || formData.get("mainPermitFile")) as File | null;
         if (mainFile && mainFile instanceof File && mainFile.size > 0) {
             const safeName = mainFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
             const path = `occupancy-permits/archives/${timestamp}-OCCUPANCY-${safeName}`;
@@ -436,43 +467,69 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
         }
 
         // 2. Process Supplementary Documents
-        const attachmentCount = parseInt((formData.get("attachmentCount") as string) || "0", 10);
-        for (let i = 0; i < attachmentCount; i++) {
-            const file = formData.get(`attachmentFile_${i}`) as File | null;
-            const label = (formData.get(`attachmentLabel_${i}`) as string) || `Attachment ${i + 1}`;
+        const attachedFiles = formData.getAll("attachedFiles");
+        const attachedLabels = formData.getAll("attachedLabels");
 
-            if (file && file instanceof File && file.size > 0) {
-                const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-                const path = `occupancy-permits/archives/${timestamp}-${i}-${safeName}`;
-                const fileUrl = await uploadFile(file, path);
+        if (attachedFiles.length > 0) {
+            for (let i = 0; i < attachedFiles.length; i++) {
+                const file = attachedFiles[i] as File;
+                const label = (attachedLabels[i] as string) || `Attachment ${i + 1}`;
 
-                if (fileUrl) {
-                    documents.push({
-                        title: label,
-                        url: fileUrl,
-                        fileName: safeName,
-                    });
+                if (file && file instanceof File && file.size > 0) {
+                    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+                    const path = `occupancy-permits/archives/${timestamp}-${i}-${safeName}`;
+                    const fileUrl = await uploadFile(file, path);
 
-                    if (!primaryDocumentUrl) {
-                        primaryDocumentUrl = fileUrl;
+                    if (fileUrl) {
+                        documents.push({
+                            title: label,
+                            url: fileUrl,
+                            fileName: safeName,
+                        });
+
+                        if (!primaryDocumentUrl) {
+                            primaryDocumentUrl = fileUrl;
+                        }
                     }
-                } else {
-                    console.error(`[Occupancy Archive] Failed to upload supplementary file: ${file.name}`);
+                }
+            }
+        } else {
+            // Fallback for indexed attachment input
+            const attachmentCount = parseInt((formData.get("attachmentCount") as string) || "0", 10);
+            for (let i = 0; i < attachmentCount; i++) {
+                const file = formData.get(`attachmentFile_${i}`) as File | null;
+                const label = (formData.get(`attachmentLabel_${i}`) as string) || `Attachment ${i + 1}`;
+
+                if (file && file instanceof File && file.size > 0) {
+                    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+                    const path = `occupancy-permits/archives/${timestamp}-${i}-${safeName}`;
+                    const fileUrl = await uploadFile(file, path);
+
+                    if (fileUrl) {
+                        documents.push({
+                            title: label,
+                            url: fileUrl,
+                            fileName: safeName,
+                        });
+
+                        if (!primaryDocumentUrl) {
+                            primaryDocumentUrl = fileUrl;
+                        }
+                    }
                 }
             }
         }
 
         // Resident Snapshot JSON
         const residentSnapshot = {
+            fullName: ownerName,
             firstName,
             lastName,
-            fullName: applicantName,
             barangay,
             municipality,
             province,
             contactNumber,
             email,
-            houseNumber,
             street,
             address: fullLocation,
         };
@@ -482,13 +539,32 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
             isPhysicalArchive: true,
             sourceType: "PHYSICAL_COPY",
             encodedBy: user.name || user.email || "Engineering Admin",
+            occupancyType,
+            permitNumber,
+            dateIssued: dateIssued.toISOString(),
+            fsicNo,
+            fsicDateIssued,
+            orNumber,
+            orDatePaid,
             buildingPermitNo: buildingPermitNumber,
+            buildingPermitNumber,
+            buildingPermitDate,
+            ownerName,
+            applicantName: ownerName,
+            nameOfProject: projectTitle,
+            projectTitle,
             dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : null,
-            totalFloors,
-            isLotOwner,
-            projectType,
+            occupancyGroup,
+            occupancyClassification: occupancyUse,
+            street,
+            barangay,
+            municipality,
+            province,
+            zipCode,
+            buildingOfficial,
+            buildingOfficialDate,
             remarks,
-            documents, // Lean: [{ title, url, fileName }]
+            documents,
         };
 
         const sanitizedAdditionalData = sanitizeObject(additionalData);
@@ -507,14 +583,14 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
                 occupancyPermit: {
                     create: {
                         permitNumber,
-                        applicantName,
-                        projectType,
+                        applicantName: ownerName,
+                        projectType: projectTitle || occupancyUse,
                         occupancyUse,
                         location: fullLocation,
-                        estimatedCost,
+                        estimatedCost: 0,
                         documentUrl: primaryDocumentUrl,
                         dateIssued,
-                        issuedBy: user.name || "Municipal Engineer",
+                        issuedBy: buildingOfficial || user.name || "Municipal Engineer",
                     }
                 }
             },
@@ -528,15 +604,14 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
             action: "DIGITIZE",
             entityType: "OccupancyPermit",
             entityId: transaction.occupancyPermit?.id || transaction.id,
-            entityName: `Permit #${permitNumber} (${applicantName})`,
-            description: `Digitized physical Certificate of Occupancy for ${applicantName} at ${fullLocation}`,
+            entityName: `Permit #${permitNumber} (${ownerName})`,
+            description: `Digitized physical Certificate of Occupancy for ${ownerName} at ${fullLocation}`,
             metadata: {
                 permitNumber,
                 buildingPermitNumber,
-                applicantName,
-                projectType,
+                ownerName,
+                projectTitle,
                 occupancyUse,
-                estimatedCost,
                 location: fullLocation,
                 dateIssued
             }
@@ -550,7 +625,7 @@ export async function createArchivedOccupancyPermit(formData: FormData) {
                 recordId: transaction.id,
                 details: {
                     permitNumber,
-                    applicantName,
+                    applicantName: ownerName,
                     isPhysicalArchive: true,
                 }
             });
@@ -696,27 +771,38 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
 
         const permitNumber = (formData.get("permitNumber") as string || "").trim();
         const buildingPermitNumber = (formData.get("buildingPermitNumber") as string || "").trim();
+        const buildingPermitDate = (formData.get("buildingPermitDate") as string || "").trim();
+        
+        // Single applicant/owner name on hardcopy
+        const ownerName = (formData.get("ownerName") as string || formData.get("applicantName") as string || "").trim();
         const firstName = (formData.get("firstName") as string || "").trim();
         const lastName = (formData.get("lastName") as string || "").trim();
-        const applicantNameInput = (formData.get("applicantName") as string || "").trim();
-        const applicantName = applicantNameInput || `${firstName} ${lastName}`.trim();
+        const applicantName = ownerName || [firstName, lastName].filter(Boolean).join(" ").trim();
 
+        // Certificate metadata
+        const occupancyType = ((formData.get("occupancyType") as string) || "FULL").toUpperCase().trim();
+        const fsicNo = (formData.get("fsicNo") as string || "").trim();
+        const fsicDateIssued = (formData.get("fsicDateIssued") as string || "").trim();
+        const orNumber = (formData.get("orNumber") as string || "").trim();
+        const orDatePaid = (formData.get("orDatePaid") as string || formData.get("datePaid") as string || "").trim();
+        const buildingOfficial = (formData.get("buildingOfficial") as string || "").trim();
+        const buildingOfficialDate = (formData.get("buildingOfficialDate") as string || "").trim();
+        const occupancyGroup = (formData.get("occupancyGroup") as string || "GROUP A").trim();
+
+        // Location & Project
         const barangay = (formData.get("barangay") as string || "").trim();
         const street = (formData.get("street") as string || "").trim();
-        const houseNumber = (formData.get("houseNumber") as string || "").trim();
-        const province = (formData.get("province") as string || "").trim() || "Pangasinan";
-        const municipality = (formData.get("municipality") as string || "").trim() || "Mapandan";
-        const isLotOwner = (formData.get("isLotOwner") as string || "Yes").trim();
-        const fullLocation = [houseNumber, street, barangay, municipality, province].filter(Boolean).join(", ");
+        const province = (formData.get("province") as string || "").trim() || "PANGASINAN";
+        const municipality = (formData.get("municipality") as string || "").trim() || "MAPANDAN";
+        const zipCode = (formData.get("zipCode") as string || "2429").trim();
+        const fullLocation = [street, barangay, municipality, province, zipCode].filter(Boolean).join(", ");
 
         const contactNumber = (formData.get("contactNumber") as string || "").trim();
         const email = (formData.get("email") as string || "").trim();
 
         const occupancyUse = (formData.get("occupancyUse") as string || "Residential").trim();
-        const projectTypeInput = (formData.get("projectType") as string || "").trim();
-        const projectType = projectTypeInput || occupancyUse;
-        const estimatedCost = parseFloat(formData.get("estimatedCost") as string || "0");
-        const totalFloors = (formData.get("totalFloors") as string || "1").trim();
+        const projectTitle = (formData.get("projectTitle") as string || formData.get("projectType") as string || "").trim();
+        const projectType = projectTitle || occupancyUse;
 
         const dateIssuedRaw = formData.get("dateIssued") as string;
         const dateIssued = dateIssuedRaw ? new Date(dateIssuedRaw) : (tx.occupancyPermit?.dateIssued || new Date());
@@ -730,7 +816,7 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
             return { success: false, error: "Occupancy Permit Number is required." };
         }
         if (!applicantName) {
-            return { success: false, error: "Applicant Name is required." };
+            return { success: false, error: "Applicant / Owner Name is required." };
         }
 
         // Ensure permit number is unique across other records
@@ -753,7 +839,7 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
         let primaryDocumentUrl = tx.occupancyPermit?.documentUrl || tx.eCopyUrl || null;
 
         // 1. Process Main Permit Scan (New upload or retain existing)
-        const mainFile = formData.get("mainPermitScan") as File | null;
+        const mainFile = (formData.get("mainPermitScan") || formData.get("mainPermitFile")) as File | null;
         if (mainFile && mainFile instanceof File && mainFile.size > 0) {
             const safeName = mainFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
             const path = `occupancy-permits/archives/${timestamp}-OCCUPANCY-${safeName}`;
@@ -829,15 +915,15 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
         const prevResSnap = (tx.residentSnapshot as any) || {};
         const residentSnapshot = {
             ...prevResSnap,
-            firstName,
-            lastName,
+            firstName: firstName || applicantName,
+            lastName: lastName || "",
             fullName: applicantName,
             barangay,
             municipality,
             province,
+            zipCode,
             contactNumber,
             email,
-            houseNumber,
             street,
             address: fullLocation,
         };
@@ -850,10 +936,20 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
             sourceType: "PHYSICAL_COPY",
             lastEditedBy: user.name || user.email || "Engineering Admin",
             lastEditedAt: new Date().toISOString(),
+            occupancyType,
+            fsicNo,
+            fsicDateIssued,
+            orNumber,
+            orDatePaid,
+            datePaid: orDatePaid,
             buildingPermitNo: buildingPermitNumber,
-            dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : null,
-            totalFloors,
-            isLotOwner,
+            buildingPermitDate,
+            ownerName: applicantName,
+            projectTitle,
+            occupancyGroup,
+            buildingOfficial,
+            buildingOfficialDate,
+            dateOfCompletion: dateOfCompletion ? dateOfCompletion.toISOString() : (prevAddData.dateOfCompletion || null),
             projectType,
             remarks,
             documents,
@@ -892,7 +988,6 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
                     projectType,
                     occupancyUse,
                     location: fullLocation,
-                    estimatedCost,
                     documentUrl: primaryDocumentUrl,
                     dateIssued,
                 },
@@ -903,10 +998,10 @@ export async function updateArchivedOccupancyPermit(formData: FormData) {
                     projectType,
                     occupancyUse,
                     location: fullLocation,
-                    estimatedCost,
+                    estimatedCost: 0,
                     documentUrl: primaryDocumentUrl,
                     dateIssued,
-                    issuedBy: user.name || "Municipal Engineer",
+                    issuedBy: buildingOfficial || user.name || "Municipal Engineer",
                 }
             }),
             prisma.transaction.update({
