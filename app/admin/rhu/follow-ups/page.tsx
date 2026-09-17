@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     Repeat,
@@ -11,10 +12,14 @@ import {
     RefreshCw,
     Search,
     Stethoscope,
-    ExternalLink,
     AlertTriangle,
     X,
-    CalendarDays
+    CalendarDays,
+    FileText,
+    PlayCircle,
+    Lock,
+    Pill,
+    Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +43,8 @@ import { toast } from "sonner";
 import {
     getRHUFollowUpAppointments,
     injectDailyFollowUpQueue,
-    cancelRHUFollowUp
+    cancelRHUFollowUp,
+    checkInRHUFollowUpPatient
 } from "../actions";
 
 interface FollowUpItem {
@@ -56,22 +62,80 @@ interface FollowUpItem {
     injectedTransactionId: string | null;
     createdAt: string | Date;
     updatedAt: string | Date;
+    injectedStatus?: string | null;
+    injectedRhuStatus?: string | null;
+    injectedDispensedAt?: string | null;
+    injectedQueueNumber?: string | null;
 }
 
 export default function RHUFollowUpsPage() {
     const router = useRouter();
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role || "";
+    const userEmail = ((session?.user as any)?.email || "").toLowerCase();
+    const isSecretary = userRole === "ASST_SEC" || userRole === "ADMIN" || userRole === "RHU_ADMIN";
+    const isPharmacy = userRole === "RHU_PHARMACY" || userEmail.includes("pharmacy");
+    const isDoctor = userRole === "RHU_DOCTOR" || userRole === "RHU_STAFF";
+    const isCenterAdmin = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userRole === "ADMIN_AIDE";
+
     const [appointments, setAppointments] = useState<FollowUpItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [dateFilter, setDateFilter] = useState<string>("all");
     const [syncing, setSyncing] = useState(false);
+    const [checkingInId, setCheckingInId] = useState<string | null>(null);
 
     // Cancel modal state
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<FollowUpItem | null>(null);
     const [cancelReason, setCancelReason] = useState("");
     const [cancelling, setCancelling] = useState(false);
+
+    // Check In / Open Follow-up Consultation
+    const handleCheckInFollowUp = async (appointment: FollowUpItem) => {
+        if (appointment.injectedTransactionId) {
+            const isRx = appointment.injectedStatus === "PRESCRIBED";
+            router.push(`/admin/rhu/${appointment.injectedTransactionId}${isRx && isPharmacy ? '?dispense=true' : ''}`);
+            return;
+        }
+
+        // If not secretary and not already checked in:
+        if (!isSecretary) {
+            toast.error("Only Assistant Secretary accounts are authorized to check in patients and record vital signs.");
+            return;
+        }
+
+        // Guard against premature check-in (cannot check in before scheduled date)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const scheduled = new Date(appointment.scheduledDate);
+        scheduled.setHours(0, 0, 0, 0);
+        if (scheduled.getTime() > today.getTime()) {
+            const formatted = new Date(appointment.scheduledDate).toLocaleDateString("en-PH", {
+                month: "short",
+                day: "numeric",
+                year: "numeric"
+            });
+            toast.error(`Cannot check in yet: this follow-up is scheduled for ${formatted}.`);
+            return;
+        }
+
+        setCheckingInId(appointment.id);
+        try {
+            const res = await checkInRHUFollowUpPatient(appointment.id);
+            if (res.success && res.transactionId) {
+                toast.success(`Patient checked in for follow-up! Queue #${res.queueNumber || ""}`);
+                router.push(`/admin/rhu/${res.transactionId}`);
+            } else {
+                toast.error(res.error || "Failed to check in patient.");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to check in patient.");
+        } finally {
+            setCheckingInId(null);
+        }
+    };
 
     // Fetch follow-ups
     const loadFollowUps = useCallback(async () => {
@@ -459,31 +523,278 @@ export default function RHUFollowUpsPage() {
                                             <TableCell>
                                                 {renderStatusBadge(a.status)}
                                             </TableCell>
-                                            <TableCell>
-                                                {a.injectedTransactionId ? (
-                                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                                                        <Repeat className="w-2.5 h-2.5" /> In Queue
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400 italic">
-                                                        Pending Midnight Job
-                                                    </span>
-                                                )}
+                                             <TableCell>
+                                                {a.injectedTransactionId ? (() => {
+                                                    const txStatus = a.injectedStatus || a.injectedRhuStatus || "CHECK_IN";
+                                                    if (txStatus === "PRESCRIBED") {
+                                                        return (
+                                                            <button
+                                                                onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}${isPharmacy ? '?dispense=true' : ''}`)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30 hover:bg-teal-500/30 transition-all cursor-pointer"
+                                                                title="Click to dispense prescribed medication"
+                                                            >
+                                                                <Pill className="w-3 h-3 text-teal-400" /> Awaiting Dispense
+                                                            </button>
+                                                        );
+                                                    }
+                                                    if (txStatus === "FOR_CLAIM" || txStatus === "PO_APPROVED") {
+                                                        return (
+                                                            <button
+                                                                onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all cursor-pointer"
+                                                                title="Click to view / approve PO"
+                                                            >
+                                                                <Clock className="w-3 h-3 text-amber-400" /> Dispensed · Awaiting PO
+                                                            </button>
+                                                        );
+                                                    }
+                                                    if (txStatus === "COMPLETED") {
+                                                        return (
+                                                            <button
+                                                                onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all cursor-pointer"
+                                                                title="Click to view completed consultation"
+                                                            >
+                                                                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Completed
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <button
+                                                            onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all cursor-pointer"
+                                                            title="Click to open active consultation"
+                                                        >
+                                                            <Repeat className="w-3 h-3 text-indigo-400" /> In Consultation
+                                                        </button>
+                                                    );
+                                                })() : (() => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    const scheduled = new Date(a.scheduledDate);
+                                                    scheduled.setHours(0, 0, 0, 0);
+                                                    const isFuture = scheduled.getTime() > today.getTime();
+
+                                                    if (a.status === "Pending") {
+                                                        if (isFuture) {
+                                                            return (
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+                                                                    <Clock className="w-3 h-3 text-slate-500" /> Upcoming Schedule
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <span className="inline-flex items-center gap-1.5 text-[10px] text-amber-400 font-bold">
+                                                                <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> Ready for Triage
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="text-[10px] text-slate-400 italic">
+                                                            Scheduled / Pending Check-In
+                                                        </span>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    {/* Prior consultation record */}
                                                     {a.sourceTransactionId && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => router.push(`/admin/rhu/${a.sourceTransactionId}`)}
                                                             className="h-8 px-2.5 text-[10px] font-black uppercase text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 gap-1 rounded-xl"
-                                                            title="View Source Consultation"
+                                                            title="View Previous Consultation Record & Diagnosis"
                                                         >
-                                                            <ExternalLink className="w-3 h-3" /> Record
+                                                            <FileText className="w-3 h-3" /> Prior Record
                                                         </Button>
                                                     )}
 
+                                                    {/* Check In / Dispense / Open Consultation */}
+                                                    {a.status === "Pending" && (() => {
+                                                        const today = new Date();
+                                                        today.setHours(0, 0, 0, 0);
+                                                        const scheduled = new Date(a.scheduledDate);
+                                                        scheduled.setHours(0, 0, 0, 0);
+                                                        const isFuture = scheduled.getTime() > today.getTime();
+
+                                                        if (a.injectedTransactionId) {
+                                                            const txStatus = a.injectedStatus || a.injectedRhuStatus || "CHECK_IN";
+
+                                                            // Status is PRESCRIBED -> Ready for Pharmacy dispensing
+                                                            if (txStatus === "PRESCRIBED") {
+                                                                if (isPharmacy || isCenterAdmin) {
+                                                                    return (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}?dispense=true`)}
+                                                                            className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl transition-all shadow-sm bg-teal-600 hover:bg-teal-700 text-white shadow-teal-600/20"
+                                                                        >
+                                                                            <Pill className="w-3.5 h-3.5" />
+                                                                            Dispense
+                                                                        </Button>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                        className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl border-teal-500/30 text-teal-400 hover:bg-teal-500/10"
+                                                                    >
+                                                                        <Eye className="w-3 h-3" />
+                                                                        At Pharmacy
+                                                                    </Button>
+                                                                );
+                                                            }
+
+                                                            // Status is in consultation (CHECK_IN or IN_CONSULTATION)
+                                                            if (txStatus === "CHECK_IN" || txStatus === "IN_CONSULTATION") {
+                                                                if (isDoctor || isCenterAdmin) {
+                                                                    return (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                            className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl transition-all shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20"
+                                                                        >
+                                                                            <Stethoscope className="w-3 h-3" />
+                                                                            Open Consultation
+                                                                        </Button>
+                                                                    );
+                                                                }
+                                                                if (isPharmacy) {
+                                                                    return (
+                                                                        <span
+                                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 select-none"
+                                                                            title="Patient is currently in consultation with the attending physician."
+                                                                        >
+                                                                            <Clock className="w-3 h-3 text-indigo-400 animate-pulse" />
+                                                                            In Consultation
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                        className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+                                                                    >
+                                                                        <Eye className="w-3 h-3" />
+                                                                        In Consultation
+                                                                    </Button>
+                                                                );
+                                                            }
+
+                                                            // Status is FOR_CLAIM or PO_APPROVED
+                                                            if (txStatus === "FOR_CLAIM" || txStatus === "PO_APPROVED") {
+                                                                if (isCenterAdmin) {
+                                                                    return (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                            className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl transition-all shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                                                        >
+                                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                            Approve PO
+                                                                        </Button>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <span
+                                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 select-none"
+                                                                    >
+                                                                        <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                                                                        Awaiting PO
+                                                                    </span>
+                                                                );
+                                                            }
+
+                                                            // Status is COMPLETED
+                                                            if (txStatus === "COMPLETED") {
+                                                                return (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                        className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                                                    >
+                                                                        <CheckCircle2 className="w-3 h-3" />
+                                                                        View Record
+                                                                    </Button>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                                    className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl transition-all shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20"
+                                                                >
+                                                                    <PlayCircle className="w-3 h-3" />
+                                                                    Open Consultation
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        if (isFuture) {
+                                                            return (
+                                                                <Button
+                                                                    size="sm"
+                                                                    disabled
+                                                                    className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/5 cursor-not-allowed shadow-none"
+                                                                    title={`Cannot check in yet. This follow-up visit is scheduled on ${new Date(a.scheduledDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}.`}
+                                                                >
+                                                                    <Lock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                                                                    Not Yet Due
+                                                                </Button>
+                                                            );
+                                                        }
+
+                                                        if (!isSecretary) {
+                                                            return (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 select-none shadow-none"
+                                                                    title="Patient check-in and vital signs intake is handled by the Assistant Secretary."
+                                                                >
+                                                                    <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
+                                                                    Awaiting Secretary Triage
+                                                                </span>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <Button
+                                                                size="sm"
+                                                                disabled={checkingInId === a.id}
+                                                                onClick={() => handleCheckInFollowUp(a)}
+                                                                className="h-8 px-3 text-[10px] font-black uppercase tracking-wider gap-1.5 rounded-xl transition-all shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                                            >
+                                                                {checkingInId === a.id ? (
+                                                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                ) : (
+                                                                    <CheckCircle2 className="w-3 h-3" />
+                                                                )}
+                                                                Check In (Triage)
+                                                            </Button>
+                                                        );
+                                                    })()}
+
+                                                    {/* Completed Follow-Up Link */}
+                                                    {a.status === "Completed" && a.injectedTransactionId && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => router.push(`/admin/rhu/${a.injectedTransactionId}`)}
+                                                            className="h-8 px-2.5 text-[10px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1 rounded-xl border border-emerald-500/30"
+                                                            title="View Completed Consultation Record"
+                                                        >
+                                                            <CheckCircle2 className="w-3 h-3" /> Record
+                                                        </Button>
+                                                    )}
+
+                                                    {/* Cancel button */}
                                                     {a.status === "Pending" && (
                                                         <Button
                                                             variant="ghost"
