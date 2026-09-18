@@ -14,8 +14,19 @@ export default async function RHUCentersPage() {
     const session = await getServerSession(authOptions);
     const currentUser = session?.user as any;
 
+    const userRole = (currentUser?.role || "").toUpperCase();
+    const userDept = (currentUser?.department || "").toLowerCase();
+    const userEmail = (currentUser?.email || "").toLowerCase();
+
+    // Only Municipal / Overall RHU Admin can view all centers
+    const isGlobalAdmin = (userRole === "ADMIN" || userRole === "RHU_ADMIN") &&
+        !userDept.includes("medical staff") &&
+        !userDept.includes("doctor") &&
+        userEmail !== "kenneth@mapandan.gov.ph" &&
+        userEmail !== "dr.al@mapandan.gov.ph";
+
     const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
-    const isCenterScoped = !!matchedCenter;
+    const isCenterScoped = !isGlobalAdmin;
 
     const centersRes = await getRHUHealthCenters();
     const personnelRes = await getRHUMedicalPersonnel();
@@ -32,6 +43,10 @@ export default async function RHUCentersPage() {
         initialCenters = initialCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
         const validCenterIds = new Set(initialCenters.map((c: any) => c.id));
         initialPersonnel = initialPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId) || !p.healthCenterId || p.healthCenterId === "NONE");
+    } else if (!isGlobalAdmin) {
+        // Staff, Doctors, and Secretaries without a matched center should not see all municipal centers
+        initialCenters = [];
+        initialPersonnel = [];
     }
 
     return (

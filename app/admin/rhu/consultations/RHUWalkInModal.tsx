@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
+import { useSession } from "next-auth/react";
 import {
     Dialog,
     DialogContent,
@@ -71,6 +72,9 @@ export function RHUWalkInModal({
     centerName
 }: RHUWalkInModalProps) {
     const [isPending, startTransition] = useTransition();
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role || "";
+    const canInputVitals = userRole === "ASST_SEC" || userRole === "ADMIN" || userRole === "RHU_ADMIN";
     const [tab, setTab] = useState<"SEARCH" | "FORM">("SEARCH");
 
     // Centers List
@@ -299,7 +303,7 @@ export function RHUWalkInModal({
                 chiefComplaint,
                 isPriorityLane,
                 priorityReason: isPriorityLane ? priorityReason : undefined,
-                vitals: showVitals ? {
+                vitals: (canInputVitals && showVitals) ? {
                     systolic,
                     diastolic,
                     temperature,
@@ -312,6 +316,9 @@ export function RHUWalkInModal({
             if (res.success && res.data) {
                 toast.success(`Walk-in patient registered! Queue #${res.data.queueNumber}`);
                 setGeneratedTicket(res.data);
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("rhu-vitals-updated"));
+                }
                 if (onSuccess) onSuccess();
             } else {
                 toast.error(res.error || "Failed to register walk-in patient.");
@@ -808,91 +815,107 @@ export function RHUWalkInModal({
                         </div>
 
                         {/* SECTION: OPTIONAL INITIAL VITALS */}
-                        <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowVitals(!showVitals)}
-                                className="w-full flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors cursor-pointer"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <HeartPulse className="w-4 h-4 text-rose-500" />
-                                    Initial Triage Vitals (Optional)
-                                </span>
-                                <ChevronDown className={cn("w-4 h-4 transition-transform", showVitals && "rotate-180")} />
-                            </button>
+                        {canInputVitals ? (
+                            <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowVitals(!showVitals)}
+                                    className="w-full flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors cursor-pointer"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <HeartPulse className="w-4 h-4 text-rose-500" />
+                                        Initial Triage Vitals (Optional)
+                                    </span>
+                                    <ChevronDown className={cn("w-4 h-4 transition-transform", showVitals && "rotate-180")} />
+                                </button>
 
-                            {showVitals && (
-                                <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 space-y-3 animate-in fade-in-50 duration-200">
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">BP Systolic</Label>
-                                            <Input
-                                                value={systolic}
-                                                onChange={(e) => setSystolic(e.target.value)}
-                                                placeholder="120"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
+                                {showVitals && (
+                                    <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 space-y-3 animate-in fade-in-50 duration-200">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">BP Systolic</Label>
+                                                <Input
+                                                    value={systolic}
+                                                    onChange={(e) => setSystolic(e.target.value)}
+                                                    placeholder="120"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">BP Diastolic</Label>
+                                                <Input
+                                                    value={diastolic}
+                                                    onChange={(e) => setDiastolic(e.target.value)}
+                                                    placeholder="80"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">Temp (°C)</Label>
+                                                <Input
+                                                    value={temperature}
+                                                    onChange={(e) => setTemperature(e.target.value)}
+                                                    placeholder="36.5"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">Pulse (bpm)</Label>
+                                                <Input
+                                                    value={pulseRate}
+                                                    onChange={(e) => setPulseRate(e.target.value)}
+                                                    placeholder="75"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">BP Diastolic</Label>
-                                            <Input
-                                                value={diastolic}
-                                                onChange={(e) => setDiastolic(e.target.value)}
-                                                placeholder="80"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Temp (°C)</Label>
-                                            <Input
-                                                value={temperature}
-                                                onChange={(e) => setTemperature(e.target.value)}
-                                                placeholder="36.5"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Pulse (bpm)</Label>
-                                            <Input
-                                                value={pulseRate}
-                                                onChange={(e) => setPulseRate(e.target.value)}
-                                                placeholder="75"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">Height (cm)</Label>
+                                                <Input
+                                                    value={height}
+                                                    onChange={(e) => setHeight(e.target.value)}
+                                                    placeholder="165"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold uppercase text-slate-400">Weight (kg)</Label>
+                                                <Input
+                                                    value={weight}
+                                                    onChange={(e) => setWeight(e.target.value)}
+                                                    placeholder="60"
+                                                    className="h-8 text-xs rounded-xl"
+                                                />
+                                            </div>
+                                            {calculatedBmi && (
+                                                <div className="p-2 bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl text-center">
+                                                    <span className="text-[9px] font-black uppercase text-slate-400 block">Calculated BMI</span>
+                                                    <span className="text-xs font-black text-rose-600 dark:text-rose-400">
+                                                        {calculatedBmi.value} ({calculatedBmi.category})
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Height (cm)</Label>
-                                            <Input
-                                                value={height}
-                                                onChange={(e) => setHeight(e.target.value)}
-                                                placeholder="165"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Weight (kg)</Label>
-                                            <Input
-                                                value={weight}
-                                                onChange={(e) => setWeight(e.target.value)}
-                                                placeholder="60"
-                                                className="h-8 text-xs rounded-xl"
-                                            />
-                                        </div>
-                                        {calculatedBmi && (
-                                            <div className="p-2 bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl text-center">
-                                                <span className="text-[9px] font-black uppercase text-slate-400 block">Calculated BMI</span>
-                                                <span className="text-xs font-black text-rose-600 dark:text-rose-400">
-                                                    {calculatedBmi.value} ({calculatedBmi.category})
-                                                </span>
-                                            </div>
-                                        )}
+                                )}
+                            </div>
+                        ) : (
+                            <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                                <div className="p-3.5 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3">
+                                    <HeartPulse className="w-5 h-5 text-rose-500 shrink-0" />
+                                    <div className="text-xs">
+                                        <p className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                                            Patient Triage & Vitals Restricted
+                                        </p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                            Initial vital signs and physical triage must be recorded by the Assistant Secretary upon check-in.
+                                        </p>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         {/* Modal Footer Actions */}
                         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">

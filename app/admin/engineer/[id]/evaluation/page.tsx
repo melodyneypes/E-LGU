@@ -412,6 +412,19 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         });
     }, [fetchTransaction]);
 
+    // Auto-forward if transaction is already past evaluation and not in forced archival view
+    useEffect(() => {
+        if (transaction && !isForcedView && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION") {
+            if (transaction.status === "FOR_INSPECTION") {
+                router.replace(`/admin/engineer/${id}/inspection`);
+            } else if (transaction.status === "FOR_REINSPECTION") {
+                router.replace(`/admin/engineer/${id}/reinspection`);
+            } else if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
+                router.replace(`/admin/engineer/${id}/fees`);
+            }
+        }
+    }, [transaction, isForcedView, router, id]);
+
     const handleScheduleInspection = async () => {
         const missing: string[] = [];
         const errs: { date?: string; time?: string; inspectorName?: string } = {};
@@ -454,11 +467,11 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
         if (res.success) {
             toast.success("Inspection scheduled successfully!");
-            router.push(`/admin/engineer/${id}`);
+            router.replace(`/admin/engineer/${id}/inspection`);
         } else {
             toast.error(res.error || "Failed to schedule inspection");
+            setActionLoading(false);
         }
-        setActionLoading(false);
     };
 
     const handleReject = async () => {
@@ -554,10 +567,10 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     );
 
     const steps = [
-        { id: "ENGINEERING", label: "ENGINEERING" },
-        { id: "ZONING", label: "ZONING CLEARANCE" },
-        { id: "ENGINEER_REVIEW", label: "ENGINEER REVIEW" },
-        { id: "BFP", label: "BFP ACKNOWLEDGMENT" }
+        { id: "ENGINEERING", label: "ENGINEERING EVALUATION" },
+        { id: "CONCURRENT_REVIEWS", label: "ZONING & BFP REVIEWS" },
+        { id: "PAYMENT", label: "TREASURY PAYMENT" },
+        { id: "ISSUANCE", label: "PERMIT ISSUANCE" }
     ];
 
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
@@ -566,18 +579,23 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         if (!transaction || isRejected) return -1;
         
         if (["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(transaction.status)) {
-            return 0; // Engineering
+            return 0; // Engineering Evaluation
         }
         
         if (["EVALUATED", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
             const feeAssessment = transaction.additionalData?.feeAssessment;
-            const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
-            const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
-            const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
+            const isDispatched = Boolean(feeAssessment?.engineerEndorsedToZoning && feeAssessment?.bfpSubmitted) || Boolean(feeAssessment?.engineeringApproved);
+            const isEndorsed = feeAssessment?.endorsed === true;
             
-            if (bfpSubmitted) return 3; // BFP Acknowledgment
-            if (zoningEndorsed && !bfpSubmitted) return 2; // Engineer Review
-            if (engineerEndorsedToZoning && !zoningEndorsed) return 1; // Zoning Clearance
+            if (["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status)) {
+                return 3; // Permit Issuance
+            }
+            if (["UNPAID", "PAYMENT_SUBMITTED", "PAID"].includes(transaction.status) || isEndorsed) {
+                return 2; // Treasury Payment
+            }
+            if (isDispatched) {
+                return 1; // Concurrent Reviews (Zoning & BFP)
+            }
             return 0; // Engineering
         }
         

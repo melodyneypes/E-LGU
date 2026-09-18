@@ -102,6 +102,144 @@ async function executeRawSafe(query: string, params: any[] = []): Promise<number
     }
 }
 
+// =========================================================================
+// DATE-BASED ASSET TAG & REFERENCE GENERATORS (Format: MonthDay MMDD e.g. 0914)
+// =========================================================================
+
+function getDayMonthCode(date = new Date()): string {
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${mm}${dd}`;
+}
+
+async function generateUniqueAssetTag(facCode: string, year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseTag = `PROP-${year}-${facCode}-${dm}`;
+    const existing = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" = $1 LIMIT 1`, [baseTag]);
+    if (!existing || existing.length === 0) {
+        return baseTag;
+    }
+    const matches = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" LIKE $1`, [`${baseTag}%`]);
+    const existingTags = new Set(matches.map((m: any) => m.assetTagNo));
+    let counter = 1;
+    while (existingTags.has(`${baseTag}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseTag}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueTransferTag(parentTagNo: string): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseTag = `${parentTagNo}-TR${dm}`;
+    const existing = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" = $1 LIMIT 1`, [baseTag]);
+    if (!existing || existing.length === 0) {
+        return baseTag;
+    }
+    const matches = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" LIKE $1`, [`${baseTag}%`]);
+    const existingTags = new Set(matches.map((m: any) => m.assetTagNo));
+    let counter = 1;
+    while (existingTags.has(`${baseTag}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseTag}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueDefectTag(parentTagNo: string): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseTag = `${parentTagNo}-DEF${dm}`;
+    const existing = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" = $1 LIMIT 1`, [baseTag]);
+    if (!existing || existing.length === 0) {
+        return baseTag;
+    }
+    const matches = await queryRawSafe(`SELECT "assetTagNo" FROM "MedicalAsset" WHERE "assetTagNo" LIKE $1`, [`${baseTag}%`]);
+    const existingTags = new Set(matches.map((m: any) => m.assetTagNo));
+    let counter = 1;
+    while (existingTags.has(`${baseTag}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseTag}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniquePONumber(year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const basePO = `PO-${year}-RHU-${dm}`;
+    const existing = await queryRawSafe(`SELECT "poNumber" FROM "EquipmentPurchaseOrder" WHERE "poNumber" = $1 LIMIT 1`, [basePO]);
+    if (!existing || existing.length === 0) {
+        return basePO;
+    }
+    const matches = await queryRawSafe(`SELECT "poNumber" FROM "EquipmentPurchaseOrder" WHERE "poNumber" LIKE $1`, [`${basePO}%`]);
+    const existingPOs = new Set(matches.map((m: any) => m.poNumber));
+    let counter = 1;
+    while (existingPOs.has(`${basePO}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${basePO}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueRONumber(facCode: string, year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseRO = `RO-${year}-${facCode}-${dm}`;
+    const existing = await queryRawSafe(`SELECT "roNumber" FROM "EquipmentRequestOrder" WHERE "roNumber" = $1 LIMIT 1`, [baseRO]);
+    if (!existing || existing.length === 0) {
+        return baseRO;
+    }
+    const matches = await queryRawSafe(`SELECT "roNumber" FROM "EquipmentRequestOrder" WHERE "roNumber" LIKE $1`, [`${baseRO}%`]);
+    const existingROs = new Set(matches.map((m: any) => m.roNumber));
+    let counter = 1;
+    while (existingROs.has(`${baseRO}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseRO}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueSONumber(year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseSO = `SO-${year}-RHU-${dm}`;
+    const existing = await queryRawSafe(`SELECT "soNumber" FROM "EquipmentStockTransfer" WHERE "soNumber" = $1 LIMIT 1`, [baseSO]);
+    if (!existing || existing.length === 0) {
+        return baseSO;
+    }
+    const matches = await queryRawSafe(`SELECT "soNumber" FROM "EquipmentStockTransfer" WHERE "soNumber" LIKE $1`, [`${baseSO}%`]);
+    const existingSOs = new Set(matches.map((m: any) => m.soNumber));
+    let counter = 1;
+    while (existingSOs.has(`${baseSO}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseSO}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueTicketNumber(year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseTicket = `SRT-${year}-${dm}`;
+    const existing = await queryRawSafe(`SELECT "ticketNumber" FROM "EquipmentStockReturnTicket" WHERE "ticketNumber" = $1 LIMIT 1`, [baseTicket]);
+    if (!existing || existing.length === 0) {
+        return baseTicket;
+    }
+    const matches = await queryRawSafe(`SELECT "ticketNumber" FROM "EquipmentStockReturnTicket" WHERE "ticketNumber" LIKE $1`, [`${baseTicket}%`]);
+    const existingTickets = new Set(matches.map((m: any) => m.ticketNumber));
+    let counter = 1;
+    while (existingTickets.has(`${baseTicket}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseTicket}-${String(counter).padStart(2, "0")}`;
+}
+
+async function generateUniqueDocRef(prefix: string, year = new Date().getFullYear()): Promise<string> {
+    const dm = getDayMonthCode();
+    const baseDoc = `${prefix}-${year}-${dm}`;
+    const existing = await queryRawSafe(`SELECT "documentReference" FROM "MedicalAsset" WHERE "documentReference" = $1 LIMIT 1`, [baseDoc]);
+    if (!existing || existing.length === 0) {
+        return baseDoc;
+    }
+    const matches = await queryRawSafe(`SELECT "documentReference" FROM "MedicalAsset" WHERE "documentReference" LIKE $1`, [`${baseDoc}%`]);
+    const existingDocs = new Set(matches.map((m: any) => m.documentReference));
+    let counter = 1;
+    while (existingDocs.has(`${baseDoc}-${String(counter).padStart(2, "0")}`)) {
+        counter++;
+    }
+    return `${baseDoc}-${String(counter).padStart(2, "0")}`;
+}
+
 let isCatalogTableEnsured = false;
 let cachedSiteLogo: string | null = null;
 
@@ -312,11 +450,12 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
             isReadOnly: perm.isReadOnly,
             isGlobalAdmin: Boolean(perm.isGlobalAdmin),
             canDispatchSO: Boolean(perm.canDispatchSO),
-            canFileRO: Boolean(perm.canFileRO)
+            canFileRO: Boolean(perm.canFileRO),
+            currentUserName: auth.user?.name || ""
         };
     } catch (error: any) {
         console.error("[getRHUEquipmentData] Error:", error);
-        return { success: false, error: error.message, siteLogo: "", assets: [], stockroomAssets: [], catalogItems: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true, isGlobalAdmin: false, canDispatchSO: false, canFileRO: false };
+        return { success: false, error: error.message, siteLogo: "", assets: [], stockroomAssets: [], catalogItems: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true, isGlobalAdmin: false, canDispatchSO: false, canFileRO: false, currentUserName: "" };
     }
 }
 
@@ -449,7 +588,10 @@ export async function saveMedicalAsset(formData: FormData) {
         const unitCost = parseFloat(formData.get("unitCost") as string) || 0;
         let currentFacility = sanitize(formData.get("currentFacility") as string);
         const assignedRoom = sanitize(formData.get("assignedRoom") as string);
-        const accountablePerson = sanitize(formData.get("accountablePerson") as string) || "Unassigned";
+        let accountablePerson = sanitize(formData.get("accountablePerson") as string);
+        if (!accountablePerson || accountablePerson.toLowerCase() === "dr") {
+            accountablePerson = auth.user?.name || "Unassigned";
+        }
         const accountableEmployeeId = sanitize(formData.get("accountableEmployeeId") as string) || null;
         const rawAcquisitionSource = formData.get("acquisitionSource") as string;
         if (!rawAcquisitionSource || !rawAcquisitionSource.trim()) {
@@ -562,9 +704,8 @@ export async function saveMedicalAsset(formData: FormData) {
             });
         } else {
             const facCode = currentFacility.includes("Main") ? "RHU" : "BHS";
-            const randomCode = Math.floor(1000 + Math.random() * 9000);
-            const assetTagNo = `PROP-${year}-${facCode}-${randomCode}`;
-            const documentReference = `${docPrefix}-${year}-${randomCode}`;
+            const assetTagNo = await generateUniqueAssetTag(facCode, year);
+            const documentReference = await generateUniqueDocRef(docPrefix, year);
 
             const currentStatus = isLegacyBHS 
                 ? "PENDING_VERIFICATION" 
@@ -738,8 +879,7 @@ export async function fileDefectRepairRequest(formData: FormData) {
             `, [remainingQty, parent.id]);
 
             const splitAssetId = randomUUID();
-            const randSuffix = Math.floor(1000 + Math.random() * 9000);
-            const splitTagNo = `${parent.assetTagNo}-DEF${randSuffix}`;
+            const splitTagNo = await generateUniqueDefectTag(parent.assetTagNo);
 
             const inserted = await queryRawSafe(`
                 INSERT INTO "MedicalAsset" (
@@ -883,8 +1023,7 @@ export async function createEquipmentPO(data: {
         await executeRawSafe(`ALTER TABLE "EquipmentRequestOrder" ADD COLUMN IF NOT EXISTS "linkedPoNumber" TEXT;`);
 
         const year = new Date().getFullYear();
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        const poNumber = `PO-${year}-RHU-${rand}`;
+        const poNumber = await generateUniquePONumber(year);
         const poId = randomUUID();
 
         let totalAmount = 0;
@@ -1020,9 +1159,8 @@ export async function intakePOToStockroom(
 
             if (count > 0) {
                 const category = Number(item.unitCost) > 50000 ? "PPE" : "SEMI_EXPENDABLE";
-                const rand = Math.floor(1000 + Math.random() * 9000);
-                const assetTagNo = `PROP-${year}-RHU-${rand}`;
-                const docRef = `${category === "PPE" ? "PAR" : "ICS"}-${year}-${rand}`;
+                const assetTagNo = await generateUniqueAssetTag("RHU", year);
+                const docRef = await generateUniqueDocRef(category === "PPE" ? "PAR" : "ICS", year);
                 const assetId = randomUUID();
 
                 await executeRawSafe(`
@@ -1120,9 +1258,13 @@ export async function createEquipmentRO(data: {
 
         const year = new Date().getFullYear();
         const facCode = facility.replace(/[^A-Za-z0-9]/g, "").substring(0, 8).toUpperCase();
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        const roNumber = `RO-${year}-${facCode}-${rand}`;
+        const roNumber = await generateUniqueRONumber(facCode, year);
         const roId = randomUUID();
+
+        let requestedBy = sanitize(data.requestedBy);
+        if (!requestedBy || requestedBy.toLowerCase() === "dr") {
+            requestedBy = auth.user?.name || "BHS Health Staff";
+        }
 
         const insertedRO = await queryRawSafe(`
             INSERT INTO "EquipmentRequestOrder" (
@@ -1134,7 +1276,7 @@ export async function createEquipmentRO(data: {
             ) RETURNING *
         `, [
             roId, roNumber, facility, data.requestedRoom,
-            data.requestedBy, data.justification?.trim() || null
+            requestedBy, data.justification?.trim() || null
         ]);
 
         const ro = insertedRO[0];
@@ -1198,9 +1340,13 @@ export async function dispatchStockTransfer(data: {
         }
 
         const year = new Date().getFullYear();
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        const soNumber = `SO-${year}-RHU-${rand}`;
+        const soNumber = await generateUniqueSONumber(year);
         const soId = randomUUID();
+
+        let dispatchedBy = sanitize(data.dispatchedBy);
+        if (!dispatchedBy || dispatchedBy.toLowerCase() === "dr") {
+            dispatchedBy = auth.user?.name || "RHU Supply Custodian";
+        }
 
         // Fetch selected stockroom assets
         const placeholders = data.selectedAssetIds.map((_, i) => `$${i + 1}`).join(",");
@@ -1208,7 +1354,7 @@ export async function dispatchStockTransfer(data: {
 
         const isPPE = assets.some((a: any) => a.category === "PPE" || Number(a.unitCost) > 50000);
         const documentType = isPPE ? "PAR" : "ICS";
-        const documentReference = `${documentType}-${year}-${rand}`;
+        const documentReference = await generateUniqueDocRef(documentType, year);
 
         const insertedSO = await queryRawSafe(`
             INSERT INTO "EquipmentStockTransfer" (
@@ -1222,7 +1368,7 @@ export async function dispatchStockTransfer(data: {
             ) RETURNING *
         `, [
             soId, soNumber, data.linkedRoNumber || null, data.targetFacility, data.targetRoom,
-            data.dispatchedBy, documentType,
+            dispatchedBy, documentType,
             documentReference, data.notes?.trim() || null
         ]);
 
@@ -1278,8 +1424,7 @@ export async function dispatchStockTransfer(data: {
                 `, [remainingStock, a.id]);
 
                 const transferredAssetId = randomUUID();
-                const randSuffix = Math.floor(1000 + Math.random() * 9000);
-                const transferredTagNo = `${a.assetTagNo}-TR${randSuffix}`;
+                const transferredTagNo = await generateUniqueTransferTag(a.assetTagNo);
 
                 await executeRawSafe(`
                     INSERT INTO "MedicalAsset" (
@@ -1374,12 +1519,17 @@ export async function receiveStockTransfer(data: {
 
         const items = await queryRawSafe(`SELECT * FROM "EquipmentSOItem" WHERE "soId" = $1`, [data.soId]);
 
+        let receivedBy = sanitize(data.receivedBy);
+        if (!receivedBy || receivedBy.toLowerCase() === "dr") {
+            receivedBy = auth.user?.name || "RHU Medical Staff";
+        }
+
         if (data.acceptedFull) {
             await executeRawSafe(`
                 UPDATE "EquipmentStockTransfer"
                 SET "status" = 'ACCEPTED_FULL', "receivedAt" = NOW(), "receivedBy" = $1
                 WHERE id = $2
-            `, [data.receivedBy, so.id]);
+            `, [receivedBy, so.id]);
 
             for (const item of items) {
                 if (item.assetId) {
@@ -1391,7 +1541,7 @@ export async function receiveStockTransfer(data: {
                             "accountablePerson" = $3,
                             "updatedAt" = NOW()
                         WHERE id = $4
-                    `, [so.targetFacility, so.targetRoom, data.receivedBy, item.assetId]);
+                    `, [so.targetFacility, so.targetRoom, receivedBy, item.assetId]);
                 }
             }
 
@@ -1400,7 +1550,7 @@ export async function receiveStockTransfer(data: {
                 entityType: "EquipmentSO",
                 entityId: so.id,
                 entityName: so.soNumber,
-                description: `${so.targetFacility} accepted full delivery on SO ${so.soNumber}.`
+                description: `${so.targetFacility} accepted full delivery on SO ${so.soNumber} (Received by ${receivedBy}).`
             });
         } else {
             const missing = Number(data.missingCount) || 0;
@@ -1408,15 +1558,14 @@ export async function receiveStockTransfer(data: {
             const actualReceived = Number(data.actualReceivedCount) || 0;
 
             const now = new Date();
-            const rand = Math.floor(1000 + Math.random() * 9000);
-            const ticketNumber = `SRT-${now.getFullYear()}-${rand}`;
+            const ticketNumber = await generateUniqueTicketNumber(now.getFullYear());
             const ticketId = randomUUID();
 
             await executeRawSafe(`
                 UPDATE "EquipmentStockTransfer"
                 SET "status" = 'ACCEPTED_WITH_RETURN', "receivedAt" = NOW(), "receivedBy" = $1
                 WHERE id = $2
-            `, [data.receivedBy, so.id]);
+            `, [receivedBy, so.id]);
 
             await executeRawSafe(`
                 INSERT INTO "EquipmentStockReturnTicket" (
@@ -1429,7 +1578,7 @@ export async function receiveStockTransfer(data: {
                     NOW(), NOW()
                 )
             `, [
-                ticketId, ticketNumber, so.soNumber, so.targetFacility, data.receivedBy,
+                ticketId, ticketNumber, so.soNumber, so.targetFacility, receivedBy,
                 missing, defective, data.reasonNotes?.trim() || "Shipment receiving discrepancy logged."
             ]);
 
@@ -1445,7 +1594,7 @@ export async function receiveStockTransfer(data: {
                                 "accountablePerson" = $3,
                                 "updatedAt" = NOW()
                             WHERE id = $4
-                        `, [so.targetFacility, so.targetRoom, data.receivedBy, item.assetId]);
+                        `, [so.targetFacility, so.targetRoom, receivedBy, item.assetId]);
                         receivedCounter++;
                     } else {
                         await executeRawSafe(`
@@ -1495,11 +1644,10 @@ export async function createDirectStockReturnTicket(data: {
         }
 
         const now = new Date();
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        const ticketNumber = `SRT-${now.getFullYear()}-${rand}`;
+        const ticketNumber = await generateUniqueTicketNumber(now.getFullYear());
         const ticketId = randomUUID();
 
-        const soNumber = data.soNumber?.trim() || `SO-MANUAL-${now.getFullYear()}-${rand}`;
+        const soNumber = data.soNumber?.trim() || `SO-MANUAL-${now.getFullYear()}-${getDayMonthCode()}`;
         const missing = Number(data.missingQuantity) || 0;
         const defective = Number(data.defectiveQuantity) || 0;
 

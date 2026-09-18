@@ -18,6 +18,7 @@ export default async function Page() {
                 createdAt: true,
                 accessiblePages: true,
                 rfid: true,
+                assignedDoctorId: true,
                 residentProfile: {
                     select: {
                         id: true,

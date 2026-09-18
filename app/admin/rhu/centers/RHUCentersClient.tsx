@@ -103,6 +103,7 @@ export const STANDARD_HEALTH_SERVICES = [
 
 export const PRESET_ROLES = [
     { value: "DOCTOR", label: "Doctor / Physician" },
+    { value: "SECRETARY", label: "Assistant Secretary / Doctor's Assistant" },
     { value: "ADMIN", label: "Center Medical Admin" },
     { value: "PHARMACY", label: "Center Pharmacy Staff" }
 ];
@@ -394,9 +395,16 @@ export default function RHUCentersClient({
         }
 
         if ((isCenterAdmin || matchedCenter) && currentUser) {
-            const activeMatchedCenter = matchedCenter || fetchedCenters.find((c: any) =>
+            const activeMatchedCenter = matchedCenter || myCenter || fetchedCenters.find((c: any) =>
+                (c.id && ((matchedCenter && c.id === matchedCenter.id) || (myCenter && c.id === myCenter.id))) ||
                 (c.userId && String(c.userId) === String(currentUser.id)) ||
                 (c.accountEmail && currentUser.email && String(c.accountEmail).toLowerCase() === String(currentUser.email).toLowerCase()) ||
+                (c.personnel && c.personnel.some((p: any) =>
+                    (p.userId && String(p.userId) === String(currentUser.id)) ||
+                    (p.email && currentUser.email && String(p.email).toLowerCase() === String(currentUser.email).toLowerCase()) ||
+                    (p.accountEmail && currentUser.email && String(p.accountEmail).toLowerCase() === String(currentUser.email).toLowerCase()) ||
+                    (currentUser.assignedDoctorId && p.userId && String(p.userId) === String(currentUser.assignedDoctorId))
+                )) ||
                 (currentUser.email && String(currentUser.email).toLowerCase().includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
                 (currentUser.email && String(currentUser.email).toLowerCase().includes("main") && String(c.name).toLowerCase().includes("main"))
             );
@@ -407,6 +415,9 @@ export default function RHUCentersClient({
                 fetchedCenters = fetchedCenters.filter((c: any) => c.barangay === currentUser.managedBarangay);
                 const validCenterIds = new Set(fetchedCenters.map((c: any) => c.id));
                 fetchedPersonnel = fetchedPersonnel.filter((p: any) => validCenterIds.has(p.healthCenterId) || !p.healthCenterId || p.healthCenterId === "NONE");
+            } else {
+                fetchedCenters = [];
+                fetchedPersonnel = [];
             }
         }
 
@@ -950,6 +961,13 @@ export default function RHUCentersClient({
                     badgeClass: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
                     icon: Briefcase
                 };
+            case "SECRETARY":
+            case "ASST_SEC":
+                return {
+                    label: "Assistant Secretary / Doctor's Assistant",
+                    badgeClass: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
+                    icon: UserCheck
+                };
             default:
                 return {
                     label: role || "Medical Staff",
@@ -1239,7 +1257,8 @@ export default function RHUCentersClient({
             {activeTab === "centers" && (
                 <div className="space-y-5">
                     {/* CENTER ADMIN DEDICATED WORKSPACE */}
-                    {isCenterAdmin && myCenter ? (
+                    {isCenterAdmin ? (
+                        myCenter ? (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Left Panel: Center Information Card */}
                             <div className="lg:col-span-1 space-y-5">
@@ -1562,6 +1581,14 @@ export default function RHUCentersClient({
                             </div>
                         </div>
                     ) : (
+                        <Card className="p-12 text-center rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 space-y-3">
+                            <Hospital className="w-12 h-12 text-rose-500/40 mx-auto" />
+                            <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">No Health Center Station Assigned</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto font-medium">
+                                Your account is active, but you are not currently assigned to a specific Health Center station. Please contact your RHU Administrator to link your account to your clinic facility.
+                            </p>
+                        </Card>
+                    )) : (
                         <>
                             {/* Filter & Search Toolbar */}
                             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">

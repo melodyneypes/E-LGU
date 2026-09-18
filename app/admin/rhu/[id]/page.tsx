@@ -54,7 +54,7 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
 
     const userRole = (session.user as any)?.role;
     const userEmail = ((session.user as any)?.email || "").toLowerCase();
-    const isCenterAdmin = userRole === "RHU_CENTER_ADMIN" || userRole === "RHU_DOCTOR" || userRole === "RHU_STAFF";
+    const isCenterAdmin = userRole === "RHU_CENTER_ADMIN" || userRole === "RHU_DOCTOR" || userRole === "RHU_STAFF" || userRole === "ASST_SEC";
 
     if (isCenterAdmin && transaction.additionalData) {
         const addData = typeof transaction.additionalData === "string"
@@ -69,8 +69,10 @@ export default async function RHUTransactionDetailPage({ params }: PageProps) {
                 SELECT "id", "name", "code", "barangay", "accountEmail", "userId" FROM "RHUHealthCenter"
             `;
 
+            const assignedDoctorId = (session.user as any).assignedDoctorId;
             const matchedCenter = centers.find((c: any) =>
                 (c.userId && String(c.userId) === String((session.user as any).id)) ||
+                (assignedDoctorId && c.userId && String(c.userId) === String(assignedDoctorId)) ||
                 (c.accountEmail && String(c.accountEmail).toLowerCase() === userEmail) ||
                 (userEmail.includes("lalas") && String(c.name).toLowerCase().includes("lalas")) ||
                 (userEmail.includes("main") && String(c.name).toLowerCase().includes("main")) ||

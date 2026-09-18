@@ -49,11 +49,34 @@ export async function GET() {
             residentsWhere.barangay = managedBarangay;
         }
 
+        const role = user.role;
+        const department = ((user.department as string) || "").toUpperCase();
+
+        const isRhuRole = [
+            "ADMIN",
+            "RHU_ADMIN",
+            "RHU_CENTER_ADMIN",
+            "RHU_DOCTOR",
+            "RHU_STAFF",
+            "RHU_PHARMACY"
+        ].includes(role);
+
+        const isLcrRole = [
+            "ADMIN",
+            "ADMIN_AIDE",
+            "ASST_SEC"
+        ].includes(role) || department.includes("REGISTRAR") || department.includes("LCR");
+
+        const isReportsRole = isBarangayAdmin || [
+            "ADMIN",
+            "MDRRMO_ADMIN"
+        ].includes(role) || department.includes("MDRRMO") || department.includes("DISASTER");
+
         const [pendingReportsCount, pendingResidentsCount, pendingTransactionsCount, lcrTransactions] = await Promise.all([
-            prisma.report.count({ where: reportsWhere }),
-            prisma.resident.count({ where: residentsWhere }),
-            prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }),
-            prisma.transaction.findMany({
+            isReportsRole ? prisma.report.count({ where: reportsWhere }).catch(() => 0) : Promise.resolve(0),
+            isReportsRole ? prisma.resident.count({ where: residentsWhere }).catch(() => 0) : Promise.resolve(0),
+            (role === "ADMIN" || role === "TREASURY_STAFF") ? prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0) : Promise.resolve(0),
+            isLcrRole ? prisma.transaction.findMany({
                 where: {
                     status: "FOR_INSPECTION",
                     isCancelled: false,
@@ -69,7 +92,7 @@ export async function GET() {
                     id: true,
                     type: { select: { code: true } }
                 }
-            })
+            }).catch(() => []) : Promise.resolve([])
         ]);
 
         const codeToCategory: Record<string, string> = {
@@ -86,7 +109,7 @@ export async function GET() {
         };
 
         const unviewedLcrCounts: Record<string, number> = {};
-        if (lcrTransactions) {
+        if (lcrTransactions && lcrTransactions.length > 0) {
             for (const tx of lcrTransactions) {
                 const code = tx.type?.code || "";
                 const category = codeToCategory[code];
@@ -107,13 +130,15 @@ export async function GET() {
         }
 
         let rhuEquipmentNotificationCount = 0;
-        try {
-            const rhuRes = await getRHUEquipmentNotificationCount();
-            if (rhuRes?.success) {
-                rhuEquipmentNotificationCount = rhuRes.count;
+        if (isRhuRole) {
+            try {
+                const rhuRes = await getRHUEquipmentNotificationCount();
+                if (rhuRes?.success) {
+                    rhuEquipmentNotificationCount = rhuRes.count;
+                }
+            } catch {
+                rhuEquipmentNotificationCount = 0;
             }
-        } catch {
-            rhuEquipmentNotificationCount = 0;
         }
 
         const responseData = {

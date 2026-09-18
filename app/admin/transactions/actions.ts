@@ -1984,28 +1984,31 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             include: { user: true }
         }) as any;
 
-        // Trigger email notification for payment / processing
+        // Trigger email notification for payment / processing (non-blocking)
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             if (newStatus === "EVALUATED" || newStatus === "UNPAID") {
-                await sendEmail({
-                    type: "FOR_PAYMENT",
-                    to: updatedTransaction.user.email,
-                    name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
-                    transactionId: sanitizedId.slice(-8).toUpperCase(),
-                    amount: result!.totalAmount,
-                    remarks: sanitizedAdminNotes,
-                    serviceName: updatedTransaction.type?.name
-                });
+                // For Building Permits, site inspection approval precedes fee assessment (fees are 0 here), so payment email is handled at endorsement
+                if (!isEngineeringPermit) {
+                    sendEmail({
+                        type: "FOR_PAYMENT",
+                        to: updatedTransaction.user.email,
+                        name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
+                        transactionId: sanitizedId.slice(-8).toUpperCase(),
+                        amount: result!.totalAmount,
+                        remarks: sanitizedAdminNotes,
+                        serviceName: updatedTransaction.type?.name
+                    }).catch(err => console.error("Evaluate email notification error:", err));
+                }
             } else if (newStatus === "FOR_PROCESSING") {
-                await sendEmail({
+                sendEmail({
                     type: "PROCESSING",
                     to: updatedTransaction.user.email,
                     name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                     transactionId: sanitizedId.slice(-8).toUpperCase(),
                     remarks: sanitizedAdminNotes,
                     serviceName: updatedTransaction.type?.name || "Business Permit"
-                });
+                }).catch(err => console.error("Processing email notification error:", err));
             }
         }
 
@@ -3495,7 +3498,18 @@ export async function getEngineerTransactions(params?: string | {
         };
 
         if (user.role === "MPDC_ZONING") {
-            // Zoning sees all building permits
+            // Initial Review Gate: Zoning only acts on applications that have been approved/dispatched by the Engineering Office
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { additionalData: { path: ['feeAssessment', 'engineerEndorsedToZoning'], equals: true } },
+                        { additionalData: { path: ['feeAssessment', 'engineeringApproved'], equals: true } },
+                        { status: { in: ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
+                        ...(status === "CANCELLED" || status === "REJECTED" ? [{ isCancelled: true }, { status: "REJECTED" as any }] : [])
+                    ]
+                }
+            ];
         } else {
             // No strict exclusion needed for Engineer by default here unless specified
         }
@@ -3660,6 +3674,9 @@ export async function getEngineerPendingCount() {
             
             const allTxs = await prisma.transaction.findMany({ where });
             const pendingCount = allTxs.filter(tx => {
+                const assess = (tx.additionalData as any)?.feeAssessment;
+                const isClearedGate = assess?.engineerEndorsedToZoning === true || assess?.engineeringApproved === true || ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM"].includes(tx.status as string || "");
+                if (!isClearedGate || tx.isCancelled || tx.status === "REJECTED") return false;
                 const zStatus = (tx.additionalData as any)?.zoningStatus || "FOR_REQUESTING";
                 return ["FOR_REQUESTING", "FOR_INSPECTION", "PAID", "FOR_CLAIM", "FOR_PROCESSING"].includes(zStatus);
             }).length;
@@ -3810,10 +3827,10 @@ export async function scheduleBuildingInspection(id: string, details: any) {
             include: { type: true, user: true }
         });
 
-        // Send an email notification about the inspection
+        // Send an email notification about the inspection (non-blocking)
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "FOR_INSPECTION",
                 to: transaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
@@ -3821,7 +3838,7 @@ export async function scheduleBuildingInspection(id: string, details: any) {
                 serviceName: transaction.type?.name || "Building Permit",
                 remarks: `Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time} | Notes: ${details.notes || 'None'}`,
                 department: isZoningRequest ? "ZONING" : "ENGINEERING"
-            });
+            }).catch(err => console.error("Inspection schedule email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -3924,11 +3941,11 @@ export async function markForReinspection(id: string, reason: string, details?: 
             include: { type: true, user: true }
         });
 
-        // Email notification
+        // Email notification (non-blocking)
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
 
-            await sendEmail({
+            sendEmail({
                 type: count >= 3 ? "REJECTED" : "FOR_REINSPECTION",
                 to: transaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
@@ -3936,7 +3953,7 @@ export async function markForReinspection(id: string, reason: string, details?: 
                 serviceName: transaction.type?.name || "Building Permit",
                 remarks: count >= 3 ? reason : `Attempt ${count} of 3. Reason: ${reason} ${details ? `| Date: ${details.date} | Time: ${details.time}` : ''}`,
                 department: isZoningRequest ? "ZONING" : "ENGINEERING"
-            });
+            }).catch(err => console.error("Reinspection email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -3952,7 +3969,7 @@ export async function markForReinspection(id: string, reason: string, details?: 
 export async function endorseBuildingPermitFees(
     id: string,
     fees: {
-        actionType?: "ENGINEER_TO_ZONING" | "ZONING_TO_ENGINEER" | "ENGINEER_TO_BFP" | "ENGINEER_TO_TREASURY";
+        actionType?: "ENGINEER_DISPATCH_CONCURRENT" | "ENGINEER_TO_ZONING" | "ZONING_TO_ENGINEER" | "ENGINEER_TO_BFP" | "ENGINEER_TO_TREASURY";
         buildingPermitFee?: number;
         engineerMunicipalCharges?: { name: string, amount: number }[];
         zoningMunicipalCharges?: { name: string, amount: number }[];
@@ -3982,16 +3999,42 @@ export async function endorseBuildingPermitFees(
         let remarks = "";
         let department: "ENGINEERING" | "ZONING" | undefined;
 
-        if (fees.actionType === "ENGINEER_TO_ZONING") {
+        if (fees.actionType === "ENGINEER_DISPATCH_CONCURRENT" || fees.actionType === "ENGINEER_TO_ZONING" || fees.actionType === "ENGINEER_TO_BFP") {
+            const allDocs = Object.keys(currentAdditionalData.documents || {});
+            const selectedZoningDocs = (fees.zoningVisibleDocs && fees.zoningVisibleDocs.length > 0)
+                ? fees.zoningVisibleDocs
+                : (existingFeeAssessment.zoningVisibleDocs && existingFeeAssessment.zoningVisibleDocs.length > 0)
+                    ? existingFeeAssessment.zoningVisibleDocs
+                    : allDocs;
+
+            const selectedBfpDocs = (fees.bfpVisibleDocs && fees.bfpVisibleDocs.length > 0)
+                ? fees.bfpVisibleDocs
+                : (existingFeeAssessment.bfpVisibleDocs && existingFeeAssessment.bfpVisibleDocs.length > 0)
+                    ? existingFeeAssessment.bfpVisibleDocs
+                    : allDocs;
+
             updatedFeeAssessment = {
                 ...updatedFeeAssessment,
-                buildingPermitFee: Number(fees.buildingPermitFee || 0),
-                engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
+                buildingPermitFee: fees.buildingPermitFee !== undefined ? Number(fees.buildingPermitFee || 0) : updatedFeeAssessment.buildingPermitFee,
+                engineerMunicipalCharges: fees.engineerMunicipalCharges || updatedFeeAssessment.engineerMunicipalCharges || [],
+                engineeringApproved: true,
+                engineeringApprovedAt: updatedFeeAssessment.engineeringApprovedAt || new Date(),
+                engineeringApprovedBy: updatedFeeAssessment.engineeringApprovedBy || user.name || "Municipal Engineer",
                 engineerEndorsedToZoning: true,
+                zoningVisibleDocs: selectedZoningDocs,
+                bfpSubmitted: true,
+                bfpSubmittedAt: updatedFeeAssessment.bfpSubmittedAt || new Date(),
+                bfpSubmittedBy: updatedFeeAssessment.bfpSubmittedBy || user.name || "Municipal Engineer",
+                bfpVisibleDocs: selectedBfpDocs
             };
-            remarks = "Initial assessment completed by the Municipal Engineer. Awaiting Zoning fee endorsement.";
+            remarks = "Application approved by the Municipal Engineer. Dispatched concurrently to Zoning and BFP Offices for parallel review.";
             department = "ENGINEERING";
-            newZoningStatus = "FOR_REQUESTING";
+            if (!currentAdditionalData.zoningStatus || currentAdditionalData.zoningStatus === "PENDING") {
+                newZoningStatus = "FOR_REQUESTING";
+            }
+            if (!currentAdditionalData.bfpStatus) {
+                currentAdditionalData.bfpStatus = "PENDING";
+            }
         } else if (fees.actionType === "ZONING_TO_ENGINEER" || (!fees.actionType && user.role === "MPDC_ZONING")) {
             const zoningCharges = fees.zoningMunicipalCharges || [];
             const validCharges = zoningCharges.filter(c => c.name && c.name.trim() && Number(c.amount) > 0);
@@ -4011,16 +4054,6 @@ export async function endorseBuildingPermitFees(
             newZoningStatus = "ENDORSED";
             remarks = "Assessment endorsed by the Zoning Officer. Awaiting final Engineering review.";
             department = "ZONING";
-        } else if (fees.actionType === "ENGINEER_TO_BFP") {
-            updatedFeeAssessment = {
-                ...updatedFeeAssessment,
-                bfpVisibleDocs: fees.bfpVisibleDocs || [],
-                bfpSubmitted: true,
-                bfpSubmittedAt: new Date(),
-                bfpSubmittedBy: user.name || "Municipal Engineer"
-            };
-            remarks = "Application endorsements and supporting files have been forwarded by the Municipal Engineer to the BFP Office for evaluation.";
-            department = "ENGINEERING";
         } else if (fees.actionType === "ENGINEER_TO_TREASURY" || (!fees.actionType && user.role !== "MPDC_ZONING")) {
             if (fees.buildingPermitFee !== undefined) {
                 updatedFeeAssessment.buildingPermitFee = Number(fees.buildingPermitFee || 0);
@@ -4084,14 +4117,14 @@ export async function endorseBuildingPermitFees(
             include: { user: true, type: true }
         });
 
-        // Send email notification
+        // Send email notification (non-blocking)
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             const totalFees = finalTotal;
 
             const feeBreakdown = lineItems.filter(item => Number(item.amount || 0) > 0);
 
-            await sendEmail({
+            sendEmail({
                 type: "EVALUATED",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
@@ -4101,7 +4134,7 @@ export async function endorseBuildingPermitFees(
                 feeBreakdown,
                 remarks: remarks,
                 department: department
-            });
+            }).catch(err => console.error("Endorse fees email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -4140,17 +4173,17 @@ export async function approveBuildingPermit(id: string) {
             include: { user: true, type: true }
         });
 
-        // Send FOR_PROCESSING email
+        // Send FOR_PROCESSING email (non-blocking)
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "FOR_PROCESSING",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 remarks: "Your application is now officially being processed by the Engineer's Office."
-            });
+            }).catch(err => console.error("Approve building permit email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -4207,17 +4240,17 @@ export async function reviseBuildingPermitClearancesAction(id: string, reason: s
             include: { user: true, type: true }
         });
 
-        // Send FOR_REVISION email
+        // Send FOR_REVISION email (non-blocking)
         if (updatedTransaction.user?.email) {
             const resident = (transaction as any).residentSnapshot || {};
-            await sendEmail({
+            sendEmail({
                 type: "FOR_REVISION",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 remarks: `Please revise your submitted clearances. Reason: ${reason}`
-            });
+            }).catch(err => console.error("Revise clearances email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -4628,17 +4661,17 @@ export async function releaseBuildingPermitAction(id: string) {
             return updatedTx;
         });
 
-        // Send RELEASED email
+        // Send RELEASED email (non-blocking)
         if (updatedTransaction.user?.email) {
             const residentSnap = (transaction as any).residentSnapshot || {};
-            await sendEmail({
+            sendEmail({
                 type: "RELEASED",
                 to: updatedTransaction.user.email,
                 name: residentSnap?.firstName ? `${residentSnap.firstName} ${residentSnap.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 remarks: `Your ${updatedTransaction.type?.name || "permit"} has been officially released.`
-            });
+            }).catch(err => console.error("Release permit email error:", err));
         }
 
         revalidatePath("/admin/engineer");
@@ -4710,17 +4743,17 @@ export async function declinePaymentProofAction(id: string, reason: string) {
             include: { user: true, type: true }
         });
 
-        // Send FOR_REVISION email about payment decline
+        // Send FOR_REVISION email about payment decline (non-blocking)
         if (updatedTransaction.user?.email) {
             const resident = (transaction as any).residentSnapshot || {};
-            await sendEmail({
+            sendEmail({
                 type: "FOR_REVISION",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 remarks: `Your payment proof was declined. Reason: ${reason}. Please submit a valid payment proof.`
-            });
+            }).catch(err => console.error("Decline payment email error:", err));
         }
 
         revalidatePath("/admin/treasury");
@@ -5844,10 +5877,10 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
             orderBy: { updatedAt: "desc" }
         });
         
-        // Manual filter to ensure zoningEndorsed is true and Engineer has forwarded to BFP
+        // BFP filter: Dispatched by Municipal Engineer for Fire Safety evaluation
         transactions = transactions.filter((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            return assess && assess.bfpSubmitted === true && assess.zoningEndorsed === true;
+            return assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true);
         });
         
         if (status === "PENDING") {
@@ -5883,7 +5916,7 @@ export async function getBFPStatusCounts() {
         
         transactions.forEach((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            if (assess && assess.bfpSubmitted === true && assess.zoningEndorsed === true) {
+            if (assess && (assess.bfpSubmitted === true || assess.engineeringApproved === true)) {
                 if (tx.additionalData?.bfpStatus === "COMPLETED" || tx.additionalData?.bfpClearanceUrl) {
                     completed++;
                     return;
@@ -6060,7 +6093,7 @@ export async function scheduleZoningInspection(id: string, details: any) {
 
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "FOR_INSPECTION",
                 to: transaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
@@ -6068,7 +6101,7 @@ export async function scheduleZoningInspection(id: string, details: any) {
                 serviceName: transaction.type?.name || "Building Permit",
                 remarks: `Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time} | Notes: ${details.notes || 'None'}`,
                 department: "ZONING"
-            });
+            }).catch(err => console.error("Zoning inspection email error:", err));
         }
 
         revalidatePath("/admin/zoning");
@@ -6225,7 +6258,7 @@ export async function markZoningForReinspection(id: string, reason: string, deta
 
         if (transaction.user?.email && count < 3) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "FOR_INSPECTION",
                 to: transaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
@@ -6233,17 +6266,17 @@ export async function markZoningForReinspection(id: string, reason: string, deta
                 serviceName: transaction.type?.name || "Building Permit",
                 remarks: `Re-inspection Reason: ${reason}. Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time}`,
                 department: "ZONING"
-            });
+            }).catch(err => console.error("Zoning reinspection email error:", err));
         } else if (transaction.user?.email && count >= 3) {
              const resident = transaction.residentSnapshot as any;
-             await sendEmail({
+             sendEmail({
                 type: "REJECTED",
                 to: transaction.user.email,
                 name: resident?.firstName || transaction.user.name || "Resident",
                 remarks: remarks || "",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: transaction.type?.name
-             });
+             }).catch(err => console.error("Zoning auto-rejection email error:", err));
         }
 
         revalidatePath("/admin/zoning");

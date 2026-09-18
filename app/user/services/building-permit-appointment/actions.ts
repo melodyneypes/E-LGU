@@ -51,10 +51,21 @@ export async function submitBuildingPermit(formData: FormData) {
       }
     }
 
+    const selectedAncillaryStructuresRaw = formData.get("selectedAncillaryStructures") as string;
+    let selectedAncillaryStructures: string[] = [];
+    if (selectedAncillaryStructuresRaw) {
+      try {
+        selectedAncillaryStructures = JSON.parse(selectedAncillaryStructuresRaw);
+      } catch (e) {
+        console.error("Error parsing selectedAncillaryStructures", e);
+      }
+    }
+
     // Prepare JSON for additional Data
     const additionalData: any = {
       descriptionOfWork,
       occupancyUse,
+      selectedAncillaryStructures,
       estimatedCost,
       locationOfConstruction,
       isLotOwner,
@@ -297,6 +308,15 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     if (street) additionalData.street = street;
     if (barangay) additionalData.barangay = barangay;
     if (totalFloors !== undefined) additionalData.totalFloors = totalFloors;
+
+    const selectedAncillaryStructuresRaw = formData.get("selectedAncillaryStructures") as string;
+    if (selectedAncillaryStructuresRaw) {
+      try {
+        additionalData.selectedAncillaryStructures = JSON.parse(selectedAncillaryStructuresRaw);
+      } catch (e) {
+        console.error("Error parsing selectedAncillaryStructures in resubmit", e);
+      }
+    }
 
     // Helper to upload and store URL
     const processFile = async (key: string, folder: string) => {

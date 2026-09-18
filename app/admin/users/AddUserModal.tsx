@@ -22,7 +22,7 @@ import { UserRole } from "@prisma/client";
 import { Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { createUser, getBarangaysList } from "../actions";
+import { createUser, getBarangaysList, getDoctorsList } from "../actions";
 import { AVAILABLE_PAGES } from "./availablePages";
 
 interface AddUserModalProps {
@@ -41,12 +41,16 @@ export function AddUserModal({
   const [barangays, setBarangays] = useState<{ id: string; name: string }[]>(
     [],
   );
+  const [doctors, setDoctors] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
   const [role, setRole] = useState<UserRole>("USER");
 
   useEffect(() => {
     if (isOpen) {
       getBarangaysList().then((res) => {
         if (res.success) setBarangays(res.data || []);
+      });
+      getDoctorsList().then((res) => {
+        if (res.success) setDoctors(res.data || []);
       });
     }
   }, [isOpen]);
@@ -174,6 +178,7 @@ export function AddUserModal({
                       <SelectItem value="MAYOR">Municipal Mayor</SelectItem>
                       <SelectItem value="ASSESSOR">Municipal Assessor</SelectItem>
                       <SelectItem value="MDRRMO_ADMIN">MDRRMO Administrator</SelectItem>
+                      <SelectItem value="ASST_SEC">Assistant Secretary (Doctor&apos;s Assistant)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -230,6 +235,32 @@ export function AddUserModal({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {role === "ASST_SEC" && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label
+                    htmlFor="assignedDoctorId"
+                    className="text-[10px] font-black uppercase tracking-[0.2em] italic text-slate-400"
+                  >
+                    Assigned Supervising Doctor
+                  </Label>
+                  <Select name="assignedDoctorId">
+                    <SelectTrigger className="!h-12 !w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 italic font-medium px-3 text-sm">
+                      <SelectValue placeholder="Select Doctor / Clinic" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-100 dark:border-white/10 bg-white dark:bg-[#151b2b]">
+                      {doctors.map((doc) => (
+                        <SelectItem key={doc.id} value={doc.id}>
+                          {doc.name || doc.email || "Doctor"} ({doc.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-slate-400 italic">
+                    The assistant secretary will inherit schedule and appointment queue management for this doctor.
+                  </p>
                 </div>
               )}
 
