@@ -21,7 +21,8 @@ import {
     Building2,
     ExternalLink,
     ClipboardList,
-    Calendar
+    Calendar,
+    CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
@@ -630,6 +631,125 @@ export default function AppointmentDetailsPage() {
                                 </div>
                             )}
                         </Card>
+
+                        {/* Scheduled Follow-Up / Return Visit Card */}
+                        {isRHU && (request.followUpAppointment || additionalData.followUpScheduled) && (() => {
+                            const fu = request.followUpAppointment || additionalData.followUpScheduled;
+                            const fuDate = fu?.scheduledDate ? new Date(fu.scheduledDate) : null;
+                            const fuDoctor = fu?.doctorName || additionalData.followUpScheduled?.doctorName || additionalData.deos?.attendingPhysician || "Attending Physician";
+                            const fuLocation = fu?.healthCenterName || additionalData.healthCenterName || "RHU Health Center";
+                            const fuNotes = fu?.notes || additionalData.followUpScheduled?.notes || "";
+                            const fuStatus = (fu?.status || "Pending").toUpperCase();
+
+                            let daysRemaining: number | null = null;
+                            if (fuDate) {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const target = new Date(fuDate);
+                                target.setHours(0, 0, 0, 0);
+                                daysRemaining = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            }
+
+                            const isPending = fuStatus === "PENDING";
+                            const isCompleted = fuStatus === "COMPLETED";
+                            const isCancelled = fuStatus === "CANCELLED";
+                            const isMissed = fuStatus === "MISSED";
+
+                            return (
+                                <Card className="rounded-3xl border border-teal-500/30 dark:border-teal-500/20 bg-gradient-to-br from-teal-500/[0.07] via-emerald-500/[0.04] to-slate-900/40 shadow-xl overflow-hidden backdrop-blur-md">
+                                    <div className="relative border-b border-teal-500/20 px-6 py-5 flex flex-wrap items-center justify-between gap-3 bg-teal-500/10">
+                                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 via-emerald-400 to-transparent" />
+                                        <div className="flex items-center gap-3.5">
+                                            <div className="w-10 h-10 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0 shadow-inner">
+                                                <CalendarDays className="w-5 h-5 text-teal-400" />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-teal-600 dark:text-teal-400">Scheduled Return Visit</p>
+                                                    <span className="relative flex h-2 w-2">
+                                                        {isPending && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>}
+                                                        <span className={cn("relative inline-flex rounded-full h-2 w-2", isPending ? "bg-teal-500" : isCompleted ? "bg-emerald-500" : isCancelled ? "bg-red-500" : "bg-amber-500")}></span>
+                                                    </span>
+                                                </div>
+                                                <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight italic">
+                                                    Doctor&apos;s Clinical Follow-Up Check-Up
+                                                </h4>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 ml-auto">
+                                            {isPending && daysRemaining !== null && (
+                                                <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/30">
+                                                    {daysRemaining === 0 ? "Due Today" : daysRemaining === 1 ? "Tomorrow" : daysRemaining > 1 ? `In ${daysRemaining} Days` : "Due Date Passed"}
+                                                </span>
+                                            )}
+                                            <span className={cn(
+                                                "text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm",
+                                                isPending && "bg-teal-500 text-white border-teal-600 shadow-teal-500/20",
+                                                isCompleted && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+                                                isCancelled && "bg-red-500/20 text-red-500 border-red-500/30",
+                                                isMissed && "bg-amber-500/20 text-amber-500 border-amber-500/30"
+                                            )}>
+                                                {fuStatus}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 space-y-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Date Card */}
+                                            <div className="p-4 rounded-2xl border border-teal-500/20 bg-white/60 dark:bg-slate-900/60 shadow-sm space-y-1">
+                                                <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest">Return Date & Slot</span>
+                                                </div>
+                                                <p className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                                                    {fuDate ? fuDate.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }) : "Date not specified"}
+                                                </p>
+                                                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                                    Morning Session (8:00 AM - 12:00 PM)
+                                                </p>
+                                            </div>
+
+                                            {/* Doctor & Facility */}
+                                            <div className="p-4 rounded-2xl border border-teal-500/20 bg-white/60 dark:bg-slate-900/60 shadow-sm space-y-1">
+                                                <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                                                    <UserCheck className="w-3.5 h-3.5" />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest">Attending Physician & Station</span>
+                                                </div>
+                                                <p className="text-base font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                                    {fuDoctor}
+                                                </p>
+                                                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                                                    {fuLocation}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Doctor's Specific Notes */}
+                                        <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/40 dark:bg-[#1a202c]/40 space-y-1">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                Physician&apos;s Return Instructions
+                                            </p>
+                                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                                                {fuNotes ? fuNotes : "Proceed to the clinic counter on your scheduled return date for re-evaluation and clinical follow-up."}
+                                            </p>
+                                        </div>
+
+                                        {/* Informative Queue Info Box */}
+                                        {isPending && (
+                                            <div className="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-start gap-3">
+                                                <Activity className="w-4 h-4 text-teal-500 shrink-0 mt-0.5" />
+                                                <div className="text-[11px] text-teal-900 dark:text-teal-200/90 leading-relaxed">
+                                                    <span className="font-bold">Automated Queue Injection:</span> You do not need to re-book online. On the morning of your scheduled date, your queue ticket will be automatically created and ready for inspection at the clinic counter.
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card>
+                            );
+                        })()}
 
                         {/* Doctor's Clinical Notes Card */}
                         {isRHU && additionalData.deos && (

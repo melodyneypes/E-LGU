@@ -46,6 +46,7 @@ const MAPANDAN_BARANGAYS = [
 
 const CHECKUP_OPTIONS = [
     "General Consultation",
+    "Return Patient / Follow-up",
     "Prenatal / Maternal",
     "Pediatric",
     "Dental",

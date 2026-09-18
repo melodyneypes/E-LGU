@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 // Display dates/times in Philippine Standard Time (Asia/Manila) regardless of server or client timezone
 function formatPHDate(date: string | Date): string {
     return new Intl.DateTimeFormat("en-PH", {
@@ -23,7 +23,9 @@ import {
     Truck,
     X,
     AlertCircle,
-    ArrowUpDown
+    ArrowUpDown,
+    CalendarDays,
+    Repeat
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -214,6 +216,16 @@ export default function UserAppointmentsPage() {
         return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
     });
 
+    const upcomingFollowUp = useMemo(() => {
+        return requests.find(r => {
+            const fu = r.additionalData?.followUpScheduled;
+            if (!fu?.scheduledDate) return false;
+            const targetDate = new Date(fu.scheduledDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return targetDate >= today && !r.isCancelled;
+        });
+    }, [requests]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-32">
@@ -291,6 +303,44 @@ export default function UserAppointmentsPage() {
                     </div>
                 </div>
 
+                {/* Upcoming Follow-Up Alert Banner */}
+                {upcomingFollowUp && (
+                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl border border-teal-500/30 bg-gradient-to-r from-teal-500/15 via-emerald-500/10 to-teal-500/5 p-4 md:p-6 shadow-xl shadow-teal-500/5 backdrop-blur-md">
+                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 via-emerald-400 to-transparent" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start sm:items-center gap-3.5">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0 shadow-inner">
+                                    <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-500/20 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
+                                            Doctor Follow-Up Scheduled
+                                        </span>
+                                        <span className="text-[10px] md:text-xs font-black text-slate-700 dark:text-slate-300">
+                                            {formatPHDate(upcomingFollowUp.additionalData.followUpScheduled.scheduledDate)} (Morning Session)
+                                        </span>
+                                    </div>
+                                    <p className="text-xs md:text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight italic">
+                                        Return Consultation with {upcomingFollowUp.additionalData.followUpScheduled.doctorName || "Attending Physician"}
+                                        {upcomingFollowUp.additionalData.healthCenterName ? ` • ${upcomingFollowUp.additionalData.healthCenterName}` : ""}
+                                    </p>
+                                    <p className="text-[10px] md:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                        Automated queue ticket will be activated at the clinic counter on this date.
+                                    </p>
+                                </div>
+                            </div>
+                            <Link
+                                href={`/user/appointment/${upcomingFollowUp.id}`}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-black text-[10px] md:text-xs uppercase tracking-wider transition-all shadow-lg shadow-teal-500/20 active:scale-95 shrink-0 self-end sm:self-auto"
+                            >
+                                <span>View Details</span>
+                                <span>&rarr;</span>
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
                 {/* Wide Appointment List */}
                 <div className="space-y-4">
                     {loading ? (
@@ -323,6 +373,12 @@ export default function UserAppointmentsPage() {
                                         </h3>
                                         <div className="flex flex-wrap items-center gap-2 md:gap-4 text-slate-400">
                                             <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest italic">{req.createdAt ? formatPHDate(req.createdAt) : "N/A"}</span>
+                                            {req.additionalData?.followUpScheduled?.scheduledDate && (
+                                                <span className="inline-flex items-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-md">
+                                                    <Repeat className="w-2.5 h-2.5 text-teal-500 shrink-0" />
+                                                    <span>Follow-Up: {formatPHDate(req.additionalData.followUpScheduled.scheduledDate)}</span>
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
