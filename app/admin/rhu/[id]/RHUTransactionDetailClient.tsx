@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -9,8 +10,8 @@ import {
     Activity, Stethoscope, ClipboardList,
     ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
     Search, Pill, Clock, UserCheck, ShieldAlert, Lock,
-    Syringe, FileText, Building, X, Edit3,
-    Repeat, Calendar
+    Syringe, FileText, Building, X,
+    Repeat, Calendar, History, Loader2, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateRHUAppointmentStatus, getRHUHealthCenters, scheduleRHUFollowUp } from "../actions";
+import { updateRHUAppointmentStatus, getRHUHealthCenters, scheduleRHUFollowUp, getPatientConsultationHistory } from "../actions";
 import { getRHUInventoryItems, dispenseRHUMedicines } from "@/app/admin/rhu/inventory/actions";
 import PrintReferralSlip from "@/components/shared/PrintReferralSlip";
 
@@ -193,11 +194,15 @@ function getItemDisplayExpiry(item: any): { text: string; isExpired: boolean; is
 
 export default function RHUTransactionDetailClient({ transaction, currentUser }: { transaction: any; currentUser?: any }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const themeColor = "#0d9488"; // RHU Teal Theme
     const [submitting, setSubmitting] = useState(false);
 
     const resident = getResidentSnapshot(transaction);
     const addData = getAdditionalData(transaction);
+    const patientName = resident.firstName
+        ? `${resident.firstName} ${resident.middleName ? resident.middleName + ' ' : ''}${resident.lastName}`
+        : transaction.user?.name || "N/A";
 
     const userRole = currentUser?.role || "";
     const userEmail = (currentUser?.email || "").toLowerCase();
@@ -207,6 +212,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                               userRole === "RHU_ADMIN" || 
                               userRole === "RHU_PHARMACY" || 
                               userEmail.includes("pharmacy");
+    const isAlreadyDispensed = !!(addData?.dispenseInfo || addData?.dispensedAt || addData?.poDispensedByPharmacy);
 
     // Cancel modal state
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -363,8 +369,37 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
         }];
     });
 
+    // Patient Consultation History state
+    const [consultationHistory, setConsultationHistory] = useState<any[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        const loadHistory = async () => {
+            try {
+                setLoadingHistory(true);
+                const res = await getPatientConsultationHistory({
+                    userId: transaction.userId,
+                    patientName: patientName,
+                    currentTransactionId: transaction.id
+                });
+                if (isMounted && res.success && res.data) {
+                    setConsultationHistory(res.data);
+                }
+            } catch (err) {
+                console.error("Failed to load patient consultation history:", err);
+            } finally {
+                if (isMounted) setLoadingHistory(false);
+            }
+        };
+        loadHistory();
+        return () => { isMounted = false; };
+    }, [transaction.id, transaction.userId, patientName]);
+
     // Active console tab
-    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx" | "followup">("deos");
+    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx" | "followup" | "history">("deos");
 
     // Follow-up return visit state
     const [scheduleFollowUp, setScheduleFollowUp] = useState<boolean>(() => {
@@ -386,10 +421,6 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const [rxText, setRxText] = useState(() => {
         return addData.rxText || "";
     });
-
-    const patientName = resident.firstName
-        ? `${resident.firstName} ${resident.middleName ? resident.middleName + ' ' : ''}${resident.lastName}`
-        : transaction.user?.name || "N/A";
 
     const isPriority = addData.isPriorityLane;
     const checkupDisplay = addData.checkupType === "OTHER"
@@ -443,6 +474,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             toast.error("Only Assistant Secretary accounts are authorized to check in patients and record vital signs.");
             return;
         }
+        if (addData.vitals) {
+            toast.error("Patient vital signs have already been recorded at check-in and cannot be updated.");
+            return;
+        }
         setVitals(p => ({
             ...p,
             recordedBy: p.recordedBy || currentUser?.name || ""
@@ -463,6 +498,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const handleConfirmCheckIn = () => {
         if (!canInputVitals) {
             toast.error("Only Assistant Secretary accounts are authorized to record patient vitals.");
+            return;
+        }
+        if (addData.vitals) {
+            toast.error("Patient vital signs have already been recorded at check-in and cannot be updated.");
             return;
         }
         const errors: Record<string, boolean> = {};
@@ -774,8 +813,11 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 if (matchesSearch(name, 2) || 
                     matchesSearch(generic, 3) || 
                     matchesSearch(brand, 3)) {
-                    if (!matched.some(m => m.id === inv.id)) {
-                        const availableStock = getUnexpiredStock(inv);
+                    const normalizedName = (inv.name || "").trim().toLowerCase();
+                    const availableStock = getUnexpiredStock(inv);
+                    const existingIdx = matched.findIndex(m => m.id === inv.id || m.name.trim().toLowerCase() === normalizedName);
+
+                    if (existingIdx === -1) {
                         matched.push({
                             id: inv.id,
                             name: inv.name,
@@ -783,6 +825,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             unit: inv.unit || "pcs",
                             qtyToDispense: availableStock > 0 ? "" : "0"
                         });
+                    } else if (availableStock > matched[existingIdx].currentStock) {
+                        matched[existingIdx] = {
+                            id: inv.id,
+                            name: inv.name,
+                            currentStock: availableStock,
+                            unit: inv.unit || "pcs",
+                            qtyToDispense: availableStock > 0 ? "" : "0"
+                        };
                     }
                 }
             });
@@ -803,6 +853,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
             autoPopulateDispenseItems(inventoryItems);
         }
     };
+
+    // Auto-open dispense modal if navigated with ?dispense=true query param
+    React.useEffect(() => {
+        if (searchParams?.get("dispense") === "true" && !isAlreadyDispensed && isPharmacyAccount) {
+            handleOpenDispenseModal();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, isAlreadyDispensed, isPharmacyAccount]);
 
     const handleConfirmDispenseAndComplete = () => {
         // Enforce non-expired stock validation (only if they input a quantity > 0)
@@ -1051,6 +1109,46 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         </p>
                     </Card>
 
+                    {/* Follow-Up / Return Patient Banner */}
+                    {(addData.isFollowUp || addData.returnPatient) && (
+                        <div className="p-5 rounded-3xl bg-indigo-500/10 border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-indigo-500/5">
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                                    <Repeat className="w-5 h-5" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black uppercase text-indigo-400 tracking-wider">
+                                            Return Patient Consultation {addData.followUpSequence ? `(Cycle #${addData.followUpSequence})` : ""}
+                                        </span>
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                            Fresh Session
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-300 font-medium">
+                                        Physician: <strong className="text-white">{addData.originalDoctor || "Attending Physician"}</strong>
+                                        {addData.followUpNotes && <span className="text-slate-400 italic"> — &ldquo;{addData.followUpNotes}&rdquo;</span>}
+                                    </p>
+                                </div>
+                            </div>
+                            {consultationHistory.length > 0 && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSelectedHistoryItem(null);
+                                        setHistoryModalOpen(true);
+                                    }}
+                                    className="h-9 px-3.5 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-bold gap-1.5 shrink-0"
+                                >
+                                    <History className="w-3.5 h-3.5" />
+                                    Past Visits ({consultationHistory.length})
+                                </Button>
+                            )}
+                        </div>
+                    )}
+
                     {/* Patient Profile & Record Details Card */}
                     <Card className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#151922] shadow-sm p-6 md:p-8 space-y-6">
                         <div>
@@ -1191,36 +1289,10 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                             {new Date(addData.checkedInAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
                                         </span>
                                     )}
-                                    {canInputVitals ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                                if (addData.vitals) {
-                                                    setVitals({
-                                                        height: addData.vitals.height || "",
-                                                        weight: addData.vitals.weight || "",
-                                                        systolic: addData.vitals.systolic || "",
-                                                        diastolic: addData.vitals.diastolic || "",
-                                                        temperature: addData.vitals.temperature || "",
-                                                        pulseRate: addData.vitals.pulseRate || "",
-                                                        philhealthNumber: addData.vitals.philhealthNumber || "",
-                                                        konsultationNumber: addData.vitals.konsultationNumber || "",
-                                                        recordedBy: addData.vitals.recordedBy || currentUser?.name || "",
-                                                    });
-                                                }
-                                                setVitalsModalOpen(true);
-                                            }}
-                                            className="h-7 text-[10px] font-black uppercase tracking-wider text-rose-400 border-rose-500/30 hover:bg-rose-500/10 rounded-xl"
-                                        >
-                                            <Edit3 className="w-3 h-3 mr-1" />
-                                            Update Vitals
-                                        </Button>
-                                    ) : (
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-500/10 border border-slate-500/20 px-2.5 py-1 rounded-lg">
-                                            READ ONLY (SECRETARY TRIAGE)
-                                        </span>
-                                    )}
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                                        <Lock className="w-3 h-3 text-emerald-400" />
+                                        OFFICIAL TRIAGE RECORD (LOCKED)
+                                    </span>
                                 </div>
                             </div>
                             <div className="p-6 space-y-4">
@@ -1565,6 +1637,83 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <Clock className="w-3.5 h-3.5 text-emerald-400" /> Dispensed on: {new Date(addData.dispenseInfo.dispensedAt).toLocaleString("en-US", { timeZone: "Asia/Manila" })}
                                     </p>
                                 )}
+                            </div>
+                        </Card>
+                    )}
+
+                    {/* Previous Consultations & Medical History Card */}
+                    {consultationHistory.length > 0 && (
+                        <Card className="rounded-3xl border border-teal-500/30 bg-white dark:bg-[#151922] shadow-sm overflow-hidden">
+                            <div className="border-b border-teal-500/20 px-6 py-4 flex items-center justify-between bg-teal-500/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 shrink-0">
+                                        <History className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
+                                            Prior Consultations &amp; Clinical History
+                                        </h3>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                            {consultationHistory.length} Previous RHU Visit{consultationHistory.length === 1 ? "" : "s"} On File
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setSelectedHistoryItem(null);
+                                        setHistoryModalOpen(true);
+                                    }}
+                                    className="h-8 px-3 rounded-xl border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-xs font-black uppercase tracking-wider"
+                                >
+                                    View Full Records
+                                </Button>
+                            </div>
+                            <div className="p-6 space-y-3">
+                                {consultationHistory.slice(0, 2).map((item, idx) => (
+                                    <div
+                                        key={item.id || idx}
+                                        className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-2 text-xs"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/50 dark:border-white/5 pb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-slate-900 dark:text-white">
+                                                    {formatDateTime(item.date)}
+                                                </span>
+                                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-500 border border-teal-500/20">
+                                                    {item.isFollowUp ? `Follow-up #${item.followUpSequence || 1}` : "Initial Consultation"}
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
+                                                Attending: <strong className="text-slate-700 dark:text-slate-200">{item.attendingPhysician}</strong>
+                                            </span>
+                                        </div>
+
+                                        {item.vitals && (
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                                <span>BP: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.bloodPressure || "N/A"}</strong></span>
+                                                <span>Temp: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.temperature ? `${item.vitals.temperature}°C` : "N/A"}</strong></span>
+                                                <span>Weight: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.weight ? `${item.vitals.weight}kg` : "N/A"}</strong></span>
+                                            </div>
+                                        )}
+
+                                        {item.diagnosis && (
+                                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                                <span className="text-[9px] font-black uppercase text-amber-500 mr-1.5">Diagnosis:</span>
+                                                {item.diagnosis}
+                                            </p>
+                                        )}
+
+                                        {item.orders && (
+                                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-500/20 font-mono text-[11px] text-teal-900 dark:text-teal-200 whitespace-pre-wrap">
+                                                <span className="text-[9px] font-sans font-black uppercase text-teal-600 dark:text-teal-400 block mb-1">Prescription Orders:</span>
+                                                {item.orders}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </Card>
                     )}
@@ -1983,6 +2132,14 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         <div className="mt-4 p-3 bg-white/[0.04] border border-white/10 rounded-2xl">
                             <p className="text-xs font-black text-white uppercase tracking-wide">{patientName}</p>
                             <p className="text-[10px] text-rose-400 uppercase tracking-widest font-bold mt-0.5">{checkupDisplay}</p>
+                            {consultationHistory.length > 0 && consultationHistory[0]?.vitals && (
+                                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-1 text-[10px]">
+                                    <span className="font-bold text-teal-400">Previous Baseline ({formatDateTime(consultationHistory[0].date)}):</span>
+                                    <span className="font-mono text-slate-300">
+                                        BP: {consultationHistory[0].vitals.bloodPressure || 'N/A'} · Temp: {consultationHistory[0].vitals.temperature ? `${consultationHistory[0].vitals.temperature}°C` : 'N/A'} · Wt: {consultationHistory[0].vitals.weight ? `${consultationHistory[0].vitals.weight}kg` : 'N/A'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -2667,11 +2824,20 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                             <div className="overflow-y-auto flex-1 p-6 space-y-5 min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 {/* Return Patient / Follow-up Banner if applicable */}
-                                {(addData.isFollowUp || addData.returnPatient) && (
-                                    <div className="bg-indigo-500/15 border border-indigo-500/30 p-3.5 rounded-2xl space-y-1.5 animate-pulse">
-                                        <div className="flex items-center gap-1.5 text-indigo-400">
-                                            <Repeat className="w-3.5 h-3.5" />
-                                            <p className="text-[9px] font-black uppercase tracking-wider">RETURN PATIENT / FOLLOW-UP</p>
+                                {(addData.isFollowUp || addData.returnPatient || addData.followUpAppointmentId) && (
+                                    <div className="bg-indigo-500/15 border border-indigo-500/30 p-3.5 rounded-2xl space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-indigo-400">
+                                                <Repeat className="w-3.5 h-3.5" />
+                                                <p className="text-[9px] font-black uppercase tracking-wider">
+                                                    RETURN PATIENT · {addData.followUpSequence ? `CYCLE #${addData.followUpSequence}` : "FOLLOW-UP"}
+                                                </p>
+                                            </div>
+                                            {addData.followUpSequence && (
+                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                                                    Visit #{addData.followUpSequence + 1}
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-xs text-white font-bold">
                                             Scheduled By: <span className="text-indigo-300 font-black">{addData.originalDoctor || "Attending Physician"}</span>
@@ -2682,6 +2848,51 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 <p className="text-[11px] text-slate-200 italic mt-0.5 leading-relaxed">&ldquo;{addData.followUpNotes}&rdquo;</p>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Prior Consultations Quick Sidebar */}
+                                {consultationHistory.length > 0 && (
+                                    <div className="space-y-2.5 pt-1">
+                                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-1.5">
+                                                <History className="w-3.5 h-3.5 text-indigo-400" />
+                                                Prior Visits ({consultationHistory.length})
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab("history")}
+                                                className="text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 hover:underline"
+                                            >
+                                                View Tab &rarr;
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {consultationHistory.slice(0, 3).map((item, idx) => (
+                                                <div 
+                                                    key={item.id || idx}
+                                                    onClick={() => {
+                                                        setSelectedHistoryItem(item);
+                                                        setHistoryModalOpen(true);
+                                                    }}
+                                                    className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer space-y-1"
+                                                >
+                                                    <div className="flex items-center justify-between text-[10px]">
+                                                        <span className="font-bold text-indigo-300">
+                                                            {item.isFollowUp ? `Follow-Up #${item.followUpSequence || idx + 1}` : "Initial Visit"}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-500 font-mono">
+                                                            {new Date(item.date || item.completedAt || item.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                                                        </span>
+                                                    </div>
+                                                    {item.diagnosis && (
+                                                        <p className="text-[11px] text-slate-300 font-medium line-clamp-1">
+                                                            Dx: {item.diagnosis}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 
@@ -2768,7 +2979,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                             {/* Tabs */}
                             <div className="flex border-b border-white/10 shrink-0">
-                                {(["deos", "vaccine", "rx", "followup"] as const).map((tab) => (
+                                {(["deos", "vaccine", "rx", "followup", "history"] as const).map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
@@ -2778,9 +2989,12 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 : "text-slate-500 hover:text-slate-300"
                                         }`}
                                     >
-                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : tab === "rx" ? "RX / Referral" : "Schedule Follow-up"}
+                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : tab === "rx" ? "RX / Referral" : tab === "followup" ? "Schedule Follow-up" : `History (${consultationHistory.length})`}
                                         {tab === "followup" && scheduleFollowUp && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
+                                        )}
+                                        {tab === "history" && consultationHistory.length > 0 && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                                         )}
                                     </button>
                                 ))}
@@ -3196,6 +3410,175 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                             </span>
                                                         </div>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeTab === "history" && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-teal-400">PATIENT CHRONICLES & PREVIOUS CONSULTATIONS</p>
+                                                <p className="text-xs font-black text-white uppercase">Historical Medical Record (Read-Only Archive)</p>
+                                            </div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                                                {consultationHistory.length} Previous Visit{consultationHistory.length === 1 ? "" : "s"}
+                                            </span>
+                                        </div>
+
+                                        {loadingHistory ? (
+                                            <div className="p-8 text-center space-y-2">
+                                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-teal-400" />
+                                                <p className="text-xs text-slate-400">Loading patient consultation history...</p>
+                                            </div>
+                                        ) : consultationHistory.length === 0 ? (
+                                            <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02] text-center space-y-2">
+                                                <FileText className="w-8 h-8 mx-auto text-slate-600" />
+                                                <p className="text-xs font-bold text-slate-300">No Prior Consultation History Found</p>
+                                                <p className="text-[11px] text-slate-500">
+                                                    This patient has no previously completed consultations or prescriptions on record in the RHU database.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <p className="text-[11px] text-slate-400">
+                                                    Review prior diagnoses and medications. You can copy past diagnosis or append past prescriptions directly into the current consultation.
+                                                </p>
+
+                                                <div className="space-y-3">
+                                                    {consultationHistory.map((item, idx) => (
+                                                        <div key={item.id || idx} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-teal-500/30 transition-all space-y-3">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                                                        {item.isFollowUp ? `Follow-Up Visit #${item.followUpSequence || idx + 1}` : "Initial Consultation"}
+                                                                    </span>
+                                                                    <span className="text-xs font-bold text-white">
+                                                                        {item.checkupType || "General Consultation"}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-xs font-mono font-bold text-slate-400">
+                                                                    {new Date(item.date || item.completedAt || item.createdAt).toLocaleDateString("en-PH", {
+                                                                        month: "short",
+                                                                        day: "numeric",
+                                                                        year: "numeric"
+                                                                    })}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Doctor & Status */}
+                                                            <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/5 pb-2">
+                                                                <div>
+                                                                    Physician: <strong className="text-slate-200 font-bold">{item.doctor || "Attending Physician"}</strong>
+                                                                </div>
+                                                                {item.controlNumber && (
+                                                                    <div className="font-mono text-[10px] text-slate-500">
+                                                                        Ref: #{item.controlNumber}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Vitals Summary */}
+                                                            {item.vitals && (
+                                                                <div className="flex flex-wrap gap-2 text-[10px]">
+                                                                    {item.vitals.bloodPressure && (
+                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
+                                                                            BP: <strong className="text-white">{item.vitals.bloodPressure}</strong>
+                                                                        </span>
+                                                                    )}
+                                                                    {item.vitals.temperature && (
+                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
+                                                                            Temp: <strong className="text-white">{item.vitals.temperature}°C</strong>
+                                                                        </span>
+                                                                    )}
+                                                                    {item.vitals.pulseRate && (
+                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
+                                                                            HR: <strong className="text-white">{item.vitals.pulseRate} bpm</strong>
+                                                                        </span>
+                                                                    )}
+                                                                    {item.vitals.weight && (
+                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
+                                                                            Wt: <strong className="text-white">{item.vitals.weight} kg</strong>
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Diagnosis */}
+                                                            {item.diagnosis && (
+                                                                <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 space-y-1">
+                                                                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Diagnosis</p>
+                                                                    <p className="text-xs text-slate-200 font-medium whitespace-pre-wrap">{item.diagnosis}</p>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Orders / Prescriptions */}
+                                                            {item.orders && (
+                                                                <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 space-y-1">
+                                                                    <p className="text-[9px] font-black uppercase tracking-wider text-teal-400">Prescription / Orders</p>
+                                                                    <p className="text-xs text-slate-200 font-medium whitespace-pre-wrap font-mono">{item.orders}</p>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Actions: Copy to current */}
+                                                            <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-white/5">
+                                                                {item.diagnosis && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => {
+                                                                            setDeos(prev => ({
+                                                                                ...prev,
+                                                                                diagnosis: prev.diagnosis
+                                                                                    ? `${prev.diagnosis}\n[Follow-up of previous: ${item.diagnosis}]`
+                                                                                    : item.diagnosis
+                                                                            }));
+                                                                            toast.success("Previous diagnosis copied to current consultation.");
+                                                                            setActiveTab("deos");
+                                                                        }}
+                                                                        className="h-8 px-3 rounded-lg border-white/10 text-slate-300 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-wider"
+                                                                    >
+                                                                        Copy Diagnosis
+                                                                    </Button>
+                                                                )}
+                                                                {item.orders && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => {
+                                                                            setDeos(prev => ({
+                                                                                ...prev,
+                                                                                orders: prev.orders
+                                                                                    ? `${prev.orders}\n\n[Previous Rx Ref (${new Date(item.completedAt || item.createdAt).toLocaleDateString("en-PH")})]:\n${item.orders}`
+                                                                                    : item.orders
+                                                                            }));
+                                                                            toast.success("Previous prescription orders appended.");
+                                                                            setActiveTab("deos");
+                                                                        }}
+                                                                        className="h-8 px-3 rounded-lg border-teal-500/30 text-teal-300 hover:bg-teal-500/10 text-[10px] font-black uppercase tracking-wider"
+                                                                    >
+                                                                        Append Rx Orders
+                                                                    </Button>
+                                                                )}
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        setSelectedHistoryItem(item);
+                                                                        setHistoryModalOpen(true);
+                                                                    }}
+                                                                    className="h-8 px-3 rounded-lg text-slate-400 hover:text-white text-[10px] font-black uppercase tracking-wider"
+                                                                >
+                                                                    View Details &rarr;
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
@@ -3820,6 +4203,308 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                             <Printer className="w-4 h-4" />
                             Print Receipt
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Standalone Historical Consultation Record Modal */}
+            <Dialog open={historyModalOpen} onOpenChange={(open) => {
+                setHistoryModalOpen(open);
+                if (!open) setSelectedHistoryItem(null);
+            }}>
+                <DialogContent className="sm:max-w-[760px] max-h-[85vh] bg-[#0d1117] border border-white/10 text-white rounded-3xl shadow-2xl p-6 overflow-hidden flex flex-col">
+                    <DialogTitle className="sr-only">Historical Consultation Records</DialogTitle>
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                                <History className="w-5 h-5" />
+                            </div>
+                            <div>
+                                {selectedHistoryItem ? (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedHistoryItem(null)}
+                                                className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1"
+                                            >
+                                                &larr; All Past Visits
+                                            </button>
+                                        </div>
+                                        <h3 className="text-base font-black text-white uppercase mt-0.5">
+                                            {selectedHistoryItem.isFollowUp ? `Follow-Up Visit #${selectedHistoryItem.followUpSequence || 1}` : "Initial Consultation Visit"}
+                                        </h3>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">PATIENT CONSULTATION ARCHIVE</p>
+                                        <h3 className="text-base font-black text-white uppercase">
+                                            Past Visits &amp; Medical History
+                                        </h3>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-slate-300 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
+                            {selectedHistoryItem 
+                                ? new Date(selectedHistoryItem.date).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
+                                : `${consultationHistory.length} Previous Visit${consultationHistory.length === 1 ? "" : "s"}`}
+                        </span>
+                    </div>
+
+                    {/* Content */}
+                    <div className="overflow-y-auto flex-1 py-4 space-y-4 min-h-0 custom-scrollbar">
+                        {loadingHistory ? (
+                            <div className="p-12 text-center space-y-3">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-400" />
+                                <p className="text-xs font-bold text-slate-400">Loading patient consultation history...</p>
+                            </div>
+                        ) : consultationHistory.length === 0 ? (
+                            <div className="p-12 text-center rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                                <FileText className="w-8 h-8 mx-auto text-slate-600" />
+                                <p className="text-xs font-bold text-slate-300">No Prior Consultations on Record</p>
+                                <p className="text-[11px] text-slate-500">
+                                    This patient does not have any previously completed consultation records in the system.
+                                </p>
+                            </div>
+                        ) : selectedHistoryItem ? (
+                            /* DETAIL VIEW of a single selected historical visit */
+                            <div className="space-y-4 animate-in fade-in-50 duration-200">
+                                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 grid grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Patient</span>
+                                        <p className="font-bold text-white uppercase">{patientName}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Consultation Type</span>
+                                        <p className="font-bold text-amber-400 uppercase">{selectedHistoryItem.checkupType || "General Consultation"}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Attending Physician</span>
+                                        <p className="font-bold text-teal-300 uppercase">{selectedHistoryItem.attendingPhysician || "Attending Medical Officer"}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Queue / Ref ID</span>
+                                        <p className="font-mono text-slate-300 font-bold">#{selectedHistoryItem.queueNumber || selectedHistoryItem.id.slice(0, 10)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Historical Vitals */}
+                                {selectedHistoryItem.vitals && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recorded Vitals at That Visit</p>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                            {selectedHistoryItem.vitals.bloodPressure && (
+                                                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                                                    <span className="text-[9px] font-black uppercase text-indigo-400">BP</span>
+                                                    <p className="font-bold text-white">{selectedHistoryItem.vitals.bloodPressure} mmHg</p>
+                                                </div>
+                                            )}
+                                            {selectedHistoryItem.vitals.temperature && (
+                                                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                                                    <span className="text-[9px] font-black uppercase text-indigo-400">Temp</span>
+                                                    <p className="font-bold text-white">{selectedHistoryItem.vitals.temperature} °C</p>
+                                                </div>
+                                            )}
+                                            {selectedHistoryItem.vitals.pulseRate && (
+                                                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                                                    <span className="text-[9px] font-black uppercase text-indigo-400">Pulse</span>
+                                                    <p className="font-bold text-white">{selectedHistoryItem.vitals.pulseRate} bpm</p>
+                                                </div>
+                                            )}
+                                            {selectedHistoryItem.vitals.weight && (
+                                                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                                                    <span className="text-[9px] font-black uppercase text-indigo-400">Weight</span>
+                                                    <p className="font-bold text-white">{selectedHistoryItem.vitals.weight} kg</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Diagnosis & Findings */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Clinical Diagnosis & Findings</p>
+                                    <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2">
+                                        <div>
+                                            <span className="text-[9px] font-black uppercase text-teal-400">Diagnosis:</span>
+                                            <p className="text-xs text-white font-medium whitespace-pre-wrap mt-0.5">
+                                                {selectedHistoryItem.diagnosis || "No specific diagnosis recorded."}
+                                            </p>
+                                        </div>
+                                        {selectedHistoryItem.examinationFindings && (
+                                            <div className="pt-2 border-t border-white/5">
+                                                <span className="text-[9px] font-black uppercase text-slate-400">Examination Findings:</span>
+                                                <p className="text-xs text-slate-300 font-medium whitespace-pre-wrap mt-0.5">
+                                                    {selectedHistoryItem.examinationFindings}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Orders & Prescriptions */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prescription Orders</p>
+                                    <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10">
+                                        <p className="text-xs text-white font-mono whitespace-pre-wrap">
+                                            {selectedHistoryItem.orders || "No prescription orders recorded."}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Dispensed Items if available */}
+                                {selectedHistoryItem.dispenseInfo?.items && Array.isArray(selectedHistoryItem.dispenseInfo.items) && selectedHistoryItem.dispenseInfo.items.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Pharmacy Dispensed Medications</p>
+                                        <div className="space-y-1.5">
+                                            {selectedHistoryItem.dispenseInfo.items.map((m: any, mIdx: number) => (
+                                                <div key={mIdx} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 text-xs">
+                                                    <span className="font-bold text-white">{m.name}</span>
+                                                    <span className="font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                                        {m.quantity} {m.unit || "pcs"}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* MASTER LIST of all past visits */
+                            <div className="space-y-3">
+                                <p className="text-[11px] text-slate-400">
+                                    Showing all chronological previous consultations on record for <strong className="text-white uppercase">{patientName}</strong>. Click any visit to view full details or click &quot;Open Record Tab&quot; to view its full transaction ledger.
+                                </p>
+                                {consultationHistory.map((item, idx) => (
+                                    <div
+                                        key={item.id || idx}
+                                        className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 hover:border-indigo-500/40 transition-all space-y-3"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                                    {item.isFollowUp ? `Follow-Up #${item.followUpSequence || idx + 1}` : "Initial Visit"}
+                                                </span>
+                                                <span className="text-xs font-bold text-white uppercase">
+                                                    {item.checkupType || "General Consultation"}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs font-mono font-bold text-slate-300 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                                                {new Date(item.date).toLocaleDateString("en-PH", {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                    year: "numeric"
+                                                })}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/5 pb-2">
+                                            <div>
+                                                Physician: <strong className="text-slate-200">{item.attendingPhysician || "Attending Physician"}</strong>
+                                            </div>
+                                            {item.queueNumber && (
+                                                <div className="font-mono text-[10px] text-slate-400">
+                                                    Queue #{item.queueNumber}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Vitals Summary Pill */}
+                                        {item.vitals && (
+                                            <div className="flex flex-wrap gap-1.5 text-[10px]">
+                                                {item.vitals.bloodPressure && (
+                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                                        BP: <strong className="text-white">{item.vitals.bloodPressure}</strong>
+                                                    </span>
+                                                )}
+                                                {item.vitals.temperature && (
+                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                                        Temp: <strong className="text-white">{item.vitals.temperature}°C</strong>
+                                                    </span>
+                                                )}
+                                                {item.vitals.pulseRate && (
+                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                                        HR: <strong className="text-white">{item.vitals.pulseRate} bpm</strong>
+                                                    </span>
+                                                )}
+                                                {item.vitals.weight && (
+                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                                        Wt: <strong className="text-white">{item.vitals.weight} kg</strong>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Diagnosis snippet */}
+                                        {item.diagnosis && (
+                                            <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 text-xs">
+                                                <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Clinical Diagnosis:</span>
+                                                <p className="text-slate-200 font-medium line-clamp-2">{item.diagnosis}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setSelectedHistoryItem(item)}
+                                                className="h-8 px-3 rounded-lg border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 text-[10px] font-black uppercase tracking-wider gap-1"
+                                            >
+                                                View Full Record &rarr;
+                                            </Button>
+                                            <Link
+                                                href={`/admin/rhu/${item.id}`}
+                                                target="_blank"
+                                                className="h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                                Open Tab
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <DialogFooter className="flex gap-2 justify-between border-t border-white/10 pt-4 shrink-0">
+                        {selectedHistoryItem ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setSelectedHistoryItem(null)}
+                                className="h-10 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white"
+                            >
+                                &larr; Back to All Visits
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setHistoryModalOpen(false)}
+                                className="h-10 px-5 rounded-xl text-xs font-bold uppercase text-slate-400 hover:text-white"
+                            >
+                                Close
+                            </Button>
+                        )}
+                        <div className="flex gap-2">
+                            {selectedHistoryItem && (
+                                <Link
+                                    href={`/admin/rhu/${selectedHistoryItem.id}`}
+                                    target="_blank"
+                                    className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-1.5"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    Open Record Tab
+                                </Link>
+                            )}
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
