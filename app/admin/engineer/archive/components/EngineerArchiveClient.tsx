@@ -2175,7 +2175,7 @@ export default function EngineerArchiveClient({
                                                     className="rounded-xl text-xs font-bold uppercase tracking-wider border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 shadow-sm active:scale-95"
                                                     title="Inspect Scanned Documents"
                                                 >
-                                                    <Eye className="w-3.5 h-3.5 mr-1.5" /> View {docCount} Doc{docCount !== 1 ? "s" : ""}
+                                                    View {docCount} Doc{docCount !== 1 ? "s" : ""}
                                                 </Button>
 
                                                 {record.isPhysical && (
