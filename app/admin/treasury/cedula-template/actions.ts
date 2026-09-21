@@ -32,9 +32,20 @@ export async function getCedulaLayoutAction(): Promise<{ success: boolean; data:
                 ...DEFAULT_CEDULA_FIELDS,
                 ...(parsed.fields || {})
             };
-            // Ensure ctcNumber and taxableIncomeBasis are cleaned if previously saved
+            // Ensure ctcNumber, taxableIncomeBasis, and old taxpayerName are cleaned if previously saved
             delete (mergedFields as any).ctcNumber;
             delete (mergedFields as any).taxableIncomeBasis;
+            delete (mergedFields as any).taxpayerName;
+
+            // Ensure separate name fields exist
+            if (!mergedFields.lastName) mergedFields.lastName = DEFAULT_CEDULA_FIELDS.lastName;
+            if (!mergedFields.firstName) mergedFields.firstName = DEFAULT_CEDULA_FIELDS.firstName;
+            if (!mergedFields.middleName) mergedFields.middleName = DEFAULT_CEDULA_FIELDS.middleName;
+
+            // Ensure tin has default letterSpacing
+            if (mergedFields.tin && mergedFields.tin.letterSpacing === undefined) {
+                mergedFields.tin.letterSpacing = DEFAULT_CEDULA_FIELDS.tin.letterSpacing;
+            }
 
             // Remove any fields explicitly deleted by the user
             if (Array.isArray((parsed as any).deletedFields)) {

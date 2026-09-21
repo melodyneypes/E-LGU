@@ -45,6 +45,29 @@ export default function CedulaPrintPortal({
     const ctcNumber = cedulaRecord.ctcNumber || transaction.ctcNumber || additional.ctcNumber || "";
 
     // Parse resident details
+    const lastName = (
+        resident.lastName || additional.lastName || (resident.fullName ? resident.fullName.split(",")[0] : "") || ""
+    ).trim().toUpperCase();
+
+    const firstName = (
+        resident.firstName || additional.firstName || (resident.fullName ? resident.fullName.split(",")[1]?.trim().split(" ")[0] : "") || ""
+    ).trim().toUpperCase();
+
+    const middleName = (
+        resident.middleName || additional.middleName || (resident.fullName ? resident.fullName.split(",")[1]?.trim().split(" ").slice(1).join(" ") : "") || ""
+    ).trim().toUpperCase();
+
+    // Format TIN digits for individual boxes (e.g. 1 2 3  4 5 6  7 8 9  0 0 0)
+    const rawTin = String(resident.tin || additional.tin || "").replace(/[^0-9]/g, "");
+    let formattedTin = "";
+    if (rawTin.length > 0) {
+        // Group into sets of 3 with extra space between groups
+        const chunks = rawTin.match(/.{1,3}/g) || [];
+        formattedTin = chunks.map(c => c.split("").join(" ")).join("  ");
+    } else {
+        formattedTin = "";
+    }
+
     const fullName = (
         resident.lastName && resident.firstName
             ? `${resident.lastName}, ${resident.firstName} ${resident.middleName || ""}`
@@ -81,7 +104,10 @@ export default function CedulaPrintPortal({
         year: curYear,
         placeOfIssue: "MAPANDAN, PANGASINAN",
         dateIssued: dateFormatted,
-        tin: resident.tin || additional.tin || "N/A",
+        tin: formattedTin || resident.tin || additional.tin || "",
+        lastName: lastName,
+        firstName: firstName,
+        middleName: middleName,
         taxpayerName: fullName,
         address: fullAddress,
         sexMale: isMale ? "✓" : "",
@@ -187,6 +213,7 @@ export default function CedulaPrintPortal({
                                     fontSize: `${field.fontSize}pt`,
                                     fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                     textAlign: field.textAlign || "left",
+                                    letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                                     fontFamily: "'Courier New', Courier, monospace, sans-serif",
                                     lineHeight: 1.1,
                                     whiteSpace: "nowrap",

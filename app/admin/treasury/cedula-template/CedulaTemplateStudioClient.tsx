@@ -58,6 +58,18 @@ export default function CedulaTemplateStudioClient({
         const cleanedFields = { ...initial.fields };
         delete (cleanedFields as any).ctcNumber;
         delete (cleanedFields as any).taxableIncomeBasis;
+        delete (cleanedFields as any).taxpayerName;
+
+        // Make sure separate name fields exist
+        if (!cleanedFields.lastName) cleanedFields.lastName = DEFAULT_CEDULA_FIELDS.lastName;
+        if (!cleanedFields.firstName) cleanedFields.firstName = DEFAULT_CEDULA_FIELDS.firstName;
+        if (!cleanedFields.middleName) cleanedFields.middleName = DEFAULT_CEDULA_FIELDS.middleName;
+
+        // Make sure tin has default letterSpacing
+        if (cleanedFields.tin && cleanedFields.tin.letterSpacing === undefined) {
+            cleanedFields.tin.letterSpacing = DEFAULT_CEDULA_FIELDS.tin.letterSpacing;
+        }
+
         // Make sure sexMale and sexFemale exist
         if (!cleanedFields.sexMale) cleanedFields.sexMale = DEFAULT_CEDULA_FIELDS.sexMale;
         if (!cleanedFields.sexFemale) cleanedFields.sexFemale = DEFAULT_CEDULA_FIELDS.sexFemale;
@@ -79,7 +91,7 @@ export default function CedulaTemplateStudioClient({
             fields: cleanedFields
         };
     });
-    const [selectedFieldId, setSelectedFieldId] = useState<string>("taxpayerName");
+    const [selectedFieldId, setSelectedFieldId] = useState<string>("lastName");
     const [showBackground, setShowBackground] = useState<boolean>(true);
     const [showGrid, setShowGrid] = useState<boolean>(true);
     const [zoomLevel, setZoomLevel] = useState<number>(100);
@@ -186,6 +198,7 @@ export default function CedulaTemplateStudioClient({
                     font-size: ${f.fontSize}pt;
                     font-weight: ${f.fontWeight === "bold" ? "700" : "400"};
                     text-align: ${f.textAlign || "left"};
+                    letter-spacing: ${f.letterSpacing ? f.letterSpacing + "px" : "normal"};
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
@@ -578,6 +591,7 @@ export default function CedulaTemplateStudioClient({
                                             fontSize: `${field.fontSize * (zoomLevel / 100)}pt`,
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                             textAlign: field.textAlign || "left",
+                                            letterSpacing: field.letterSpacing ? `${field.letterSpacing * (zoomLevel / 100)}px` : undefined,
                                             color: "#000000"
                                         }}
                                         className={cn(
@@ -817,6 +831,48 @@ export default function CedulaTemplateStudioClient({
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Letter Spacing (Tracking / Digit Box Pitch) */}
+                                <div className="space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                            Letter Spacing / Kerning (px)
+                                        </Label>
+                                        <span className="text-[10px] font-mono font-bold text-primary">
+                                            {activeField.letterSpacing ? `${activeField.letterSpacing}px` : "Normal (0px)"}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <Input
+                                            type="number"
+                                            step="0.2"
+                                            min="-5"
+                                            max="30"
+                                            value={activeField.letterSpacing ?? 0}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                updateActiveField({ letterSpacing: isNaN(val) ? undefined : val });
+                                            }}
+                                            className="h-9 rounded-xl font-mono text-xs font-bold w-24"
+                                            placeholder="0"
+                                        />
+                                        <input
+                                            type="range"
+                                            min={0}
+                                            max={15}
+                                            step={0.2}
+                                            value={activeField.letterSpacing ?? 0}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                updateActiveField({ letterSpacing: val > 0 ? val : undefined });
+                                            }}
+                                            className="flex-1 accent-primary cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg"
+                                        />
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 block pt-0.5">
+                                        Adjust pitch to line up numbers perfectly inside TIN or serial boxes.
+                                    </span>
                                 </div>
 
                                 {/* Sample Test Value */}

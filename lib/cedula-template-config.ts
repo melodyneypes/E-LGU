@@ -15,6 +15,7 @@ export interface CedulaFieldConfig {
     fontSize: number;   // in pt (e.g. 8, 9, 10, 11)
     fontWeight?: "normal" | "bold";
     textAlign?: "left" | "center" | "right";
+    letterSpacing?: number; // Tracking / spacing between letters in px (e.g. 1.5, 3.0 for TIN boxes)
     visible: boolean;
     sampleValue: string;
 }
@@ -71,29 +72,56 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
     },
     tin: {
         id: "tin",
-        label: "Taxpayer TIN",
+        label: "Taxpayer TIN (Boxes)",
         category: "HEADER",
-        x: 68.0,
+        x: 68.8,
+        y: 20.8,
+        width: 24.5,
+        fontSize: 8.5,
+        fontWeight: "bold",
+        letterSpacing: 2.5,
+        textAlign: "left",
+        visible: true,
+        sampleValue: "1 2 3  4 5 6  7 8 9  0 0 0"
+    },
+    lastName: {
+        id: "lastName",
+        label: "Taxpayer Surname / Last Name",
+        category: "TAXPAYER",
+        x: 5.5,
         y: 22.5,
-        width: 28.0,
+        width: 20.0,
         fontSize: 8.5,
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "123-456-789-000"
+        sampleValue: "DELA CRUZ"
     },
-    taxpayerName: {
-        id: "taxpayerName",
-        label: "Taxpayer Name (Surname, First, Middle)",
+    firstName: {
+        id: "firstName",
+        label: "Taxpayer First Name",
         category: "TAXPAYER",
-        x: 5.5,
+        x: 26.5,
         y: 22.5,
-        width: 58.0,
-        fontSize: 9,
+        width: 24.0,
+        fontSize: 8.5,
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "DELA CRUZ, JUAN SANTOS"
+        sampleValue: "JUAN"
+    },
+    middleName: {
+        id: "middleName",
+        label: "Taxpayer Middle Name / Initial",
+        category: "TAXPAYER",
+        x: 51.5,
+        y: 22.5,
+        width: 12.0,
+        fontSize: 8.5,
+        fontWeight: "bold",
+        textAlign: "left",
+        visible: true,
+        sampleValue: "SANTOS"
     },
     address: {
         id: "address",
