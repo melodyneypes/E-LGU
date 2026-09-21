@@ -159,58 +159,6 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         visible: true,
         sampleValue: "170 cm"
     },
-    civilStatusSingle: {
-        id: "civilStatusSingle",
-        label: "Civil Status: Single (X)",
-        category: "STATUS",
-        x: 16.5,
-        y: 36.5,
-        width: 3.5,
-        fontSize: 8,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: "X"
-    },
-    civilStatusMarried: {
-        id: "civilStatusMarried",
-        label: "Civil Status: Married (X)",
-        category: "STATUS",
-        x: 16.5,
-        y: 38.5,
-        width: 3.5,
-        fontSize: 8,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: ""
-    },
-    civilStatusWidowed: {
-        id: "civilStatusWidowed",
-        label: "Civil Status: Widowed/Separated (X)",
-        category: "STATUS",
-        x: 28.5,
-        y: 36.5,
-        width: 3.5,
-        fontSize: 8,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: ""
-    },
-    civilStatusDivorced: {
-        id: "civilStatusDivorced",
-        label: "Civil Status: Divorced (X)",
-        category: "STATUS",
-        x: 28.5,
-        y: 38.5,
-        width: 3.5,
-        fontSize: 8,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: ""
-    },
     dateOfBirth: {
         id: "dateOfBirth",
         label: "Date of Birth",

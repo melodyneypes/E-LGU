@@ -46,6 +46,12 @@ export default function CedulaTemplateStudioClient({
         const initial = initialLayout || DEFAULT_CEDULA_LAYOUT;
         const cleanedFields = { ...initial.fields };
         delete (cleanedFields as any).ctcNumber;
+        delete (cleanedFields as any).sexMale;
+        delete (cleanedFields as any).sexFemale;
+        delete (cleanedFields as any).civilStatusSingle;
+        delete (cleanedFields as any).civilStatusMarried;
+        delete (cleanedFields as any).civilStatusWidowed;
+        delete (cleanedFields as any).civilStatusDivorced;
         return {
             ...initial,
             fields: cleanedFields
