@@ -15,12 +15,8 @@ import {
     Eye,
     Pencil,
     FolderArchive,
-    Baby,
-    HeartHandshake,
-    Cross,
     RefreshCw,
     CheckCircle2,
-    Sparkles,
     Trash2,
     UploadCloud,
     Loader2,
@@ -70,11 +66,11 @@ export interface RegistrarAttachmentItem {
     scannedAt?: number;
 }
 
-const REGISTRY_TYPES: Array<{ value: RegistryCategory; label: string; icon: any }> = [
-    { value: "ALL", label: "All Registries", icon: BookOpen },
-    { value: "BIRTH", label: "Birth Records", icon: Baby },
-    { value: "DEATH", label: "Death Records", icon: Cross },
-    { value: "MARRIAGE", label: "Marriage Records", icon: HeartHandshake },
+const REGISTRY_TYPES: Array<{ value: RegistryCategory; label: string }> = [
+    { value: "ALL", label: "All Registries" },
+    { value: "BIRTH", label: "Birth Records" },
+    { value: "DEATH", label: "Death Records" },
+    { value: "MARRIAGE", label: "Marriage Records" },
 ];
 
 const BIRTH_DOC_PRESETS = [
@@ -596,9 +592,6 @@ export default function RegistrarArchiveClient({
                         <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                             Total Digitized
                         </span>
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
-                            <FolderArchive className="w-5 h-5" />
-                        </div>
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -606,9 +599,8 @@ export default function RegistrarArchiveClient({
                         </span>
                         <span className="text-xs font-semibold text-slate-500">records in vault</span>
                     </div>
-                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>All Released Records</span>
+                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        All Released Records
                     </div>
                 </div>
 
@@ -625,9 +617,6 @@ export default function RegistrarArchiveClient({
                         <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                             Birth Records
                         </span>
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-                            <Baby className="w-5 h-5" />
-                        </div>
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -653,9 +642,6 @@ export default function RegistrarArchiveClient({
                         <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                             Death Records
                         </span>
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center">
-                            <Cross className="w-5 h-5" />
-                        </div>
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -681,9 +667,6 @@ export default function RegistrarArchiveClient({
                         <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                             Marriage Records
                         </span>
-                        <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-                            <HeartHandshake className="w-5 h-5" />
-                        </div>
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -727,10 +710,7 @@ export default function RegistrarArchiveClient({
                             <SelectContent>
                                 {REGISTRY_TYPES.map(t => (
                                     <SelectItem key={t.value} value={t.value}>
-                                        <div className="flex items-center gap-2">
-                                            <t.icon className="w-4 h-4 text-slate-500" />
-                                            <span>{t.label}</span>
-                                        </div>
+                                        <span>{t.label}</span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -749,7 +729,7 @@ export default function RegistrarArchiveClient({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Sources</SelectItem>
-                                <SelectItem value="PHYSICAL">Physical Vault Only</SelectItem>
+                                <SelectItem value="PHYSICAL">Physical Record Only</SelectItem>
                                 <SelectItem value="ONLINE">Online Portal</SelectItem>
                             </SelectContent>
                         </Select>
@@ -826,14 +806,17 @@ export default function RegistrarArchiveClient({
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70">
-                                <TableHead className="w-[80px] font-bold text-xs uppercase tracking-wider text-center">
+                                <TableHead className="w-[70px] font-bold text-xs uppercase tracking-wider text-center">
                                     No.
                                 </TableHead>
-                                <TableHead className="w-[130px] font-bold text-xs uppercase tracking-wider">
+                                <TableHead className="w-[120px] font-bold text-xs uppercase tracking-wider">
                                     Type
                                 </TableHead>
                                 <TableHead className="min-w-[220px] font-bold text-xs uppercase tracking-wider">
                                     Subject / Parties
+                                </TableHead>
+                                <TableHead className="w-[130px] font-bold text-xs uppercase tracking-wider text-center">
+                                    Source
                                 </TableHead>
                                 <TableHead className="w-[160px] font-bold text-xs uppercase tracking-wider">
                                     Event Date
@@ -852,7 +835,7 @@ export default function RegistrarArchiveClient({
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-64 text-center">
+                                    <TableCell colSpan={8} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                                             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                                             <p className="text-sm font-medium">Loading archived registry records...</p>
@@ -861,7 +844,7 @@ export default function RegistrarArchiveClient({
                                 </TableRow>
                             ) : records.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-64 text-center">
+                                    <TableCell colSpan={8} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                                             <FolderArchive className="w-12 h-12 text-slate-300 stroke-1" />
                                             <p className="text-base font-semibold text-slate-700 dark:text-slate-300">
@@ -896,39 +879,30 @@ export default function RegistrarArchiveClient({
                                             className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                                         >
                                             {/* Sequential Row Number */}
-                                            <TableCell className="font-mono text-center">
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                                                        {rowNumber}
-                                                    </span>
-                                                    {rec.isPhysical && (
-                                                        <span className="inline-block mt-0.5 text-[9px] font-sans font-semibold tracking-wider uppercase px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
-                                                            Physical
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <TableCell className="font-mono text-center font-bold text-slate-800 dark:text-slate-200">
+                                                {rowNumber}
                                             </TableCell>
 
                                             {/* Type Badge */}
                                             <TableCell>
                                                 {isBirth && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                                                        <Baby className="w-3 h-3" /> Birth
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                                        Birth
                                                     </span>
                                                 )}
                                                 {isDeath && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                                        <Cross className="w-3 h-3" /> Death
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                        Death
                                                     </span>
                                                 )}
                                                 {isMarriage && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
-                                                        <HeartHandshake className="w-3 h-3" /> Marriage
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                                                        Marriage
                                                     </span>
                                                 )}
                                                 {!isBirth && !isDeath && !isMarriage && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                                                        <FileText className="w-3 h-3" /> Legal Inst.
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                                                        Legal Inst.
                                                     </span>
                                                 )}
                                             </TableCell>
@@ -942,6 +916,19 @@ export default function RegistrarArchiveClient({
                                                     {isDeath && rec.causeOfDeath ? `Cause: ${rec.causeOfDeath}` : null}
                                                     {isMarriage && rec.solemnizingOfficer ? `Officer: ${rec.solemnizingOfficer}` : null}
                                                 </div>
+                                            </TableCell>
+
+                                            {/* Dedicated Record Source Column */}
+                                            <TableCell className="text-center">
+                                                {rec.isPhysical ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 shadow-xs">
+                                                        Physical Record
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/40 shadow-xs">
+                                                        Online Portal
+                                                    </span>
+                                                )}
                                             </TableCell>
 
                                             {/* Event Date */}
@@ -1157,13 +1144,12 @@ export default function RegistrarArchiveClient({
                                                     solemnizingOfficer: "",
                                                 }));
                                             }}
-                                            className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
+                                            className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center text-center transition-all ${
                                                 formType === "BIRTH"
                                                     ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20 font-bold"
                                                     : "border-slate-200 dark:border-slate-800 text-slate-600 hover:border-slate-300"
                                             }`}
                                         >
-                                            <Baby className="w-5 h-5" />
                                             <span className="text-xs">Birth Registry (Form 102)</span>
                                         </button>
 
@@ -1191,13 +1177,12 @@ export default function RegistrarArchiveClient({
                                                     solemnizingOfficer: "",
                                                 }));
                                             }}
-                                            className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
+                                            className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center text-center transition-all ${
                                                 formType === "DEATH"
                                                     ? "border-slate-600 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white ring-2 ring-slate-600/20 font-bold"
                                                     : "border-slate-200 dark:border-slate-800 text-slate-600 hover:border-slate-300"
                                             }`}
                                         >
-                                            <Cross className="w-5 h-5" />
                                             <span className="text-xs">Death Registry (Form 103)</span>
                                         </button>
 
@@ -1225,13 +1210,12 @@ export default function RegistrarArchiveClient({
                                                     solemnizingOfficer: "",
                                                 }));
                                             }}
-                                            className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
+                                            className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center text-center transition-all ${
                                                 formType === "MARRIAGE"
                                                     ? "border-rose-500 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 ring-2 ring-rose-500/20 font-bold"
                                                     : "border-slate-200 dark:border-slate-800 text-slate-600 hover:border-slate-300"
                                             }`}
                                         >
-                                            <HeartHandshake className="w-5 h-5" />
                                             <span className="text-xs">Marriage Registry (Form 97)</span>
                                         </button>
                                     </div>
@@ -1242,8 +1226,7 @@ export default function RegistrarArchiveClient({
                             {/* Section 2: Dynamic Registry Specific Information */}
                             {formType === "BIRTH" && (
                                 <div className="bg-emerald-50/30 dark:bg-emerald-950/10 p-5 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 space-y-4">
-                                    <div className="text-xs font-bold tracking-wider text-emerald-800 dark:text-emerald-300 uppercase flex items-center gap-2">
-                                        <Baby className="w-4 h-4" />
+                                    <div className="text-xs font-bold tracking-wider text-emerald-800 dark:text-emerald-300 uppercase">
                                         <span>Birth Certificate Details</span>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1318,8 +1301,7 @@ export default function RegistrarArchiveClient({
 
                             {formType === "DEATH" && (
                                 <div className="bg-slate-100/60 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-                                    <div className="text-xs font-bold tracking-wider text-slate-800 dark:text-slate-200 uppercase flex items-center gap-2">
-                                        <Cross className="w-4 h-4" />
+                                    <div className="text-xs font-bold tracking-wider text-slate-800 dark:text-slate-200 uppercase">
                                         <span>Death Record Information</span>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1377,8 +1359,7 @@ export default function RegistrarArchiveClient({
 
                             {formType === "MARRIAGE" && (
                                 <div className="bg-rose-50/30 dark:bg-rose-950/10 p-5 rounded-2xl border border-rose-200/60 dark:border-rose-800/40 space-y-4">
-                                    <div className="text-xs font-bold tracking-wider text-rose-800 dark:text-rose-300 uppercase flex items-center gap-2">
-                                        <HeartHandshake className="w-4 h-4" />
+                                    <div className="text-xs font-bold tracking-wider text-rose-800 dark:text-rose-300 uppercase">
                                         <span>Marriage Record Information</span>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

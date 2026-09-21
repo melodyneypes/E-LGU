@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock
+    Archive, Clock, LayoutTemplate
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -545,6 +545,18 @@ export default function TreasuryDashboard() {
                                     </div>
 
 
+
+                                    {categoryParam === "CEDULA" && (
+                                        <Button
+                                            onClick={() => router.push("/admin/treasury/cedula-template")}
+                                            variant="outline"
+                                            className="h-11 px-3 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary flex items-center gap-1.5"
+                                            title="Configure Cedula Template & Printing Layout"
+                                        >
+                                            <LayoutTemplate className="w-4 h-4 text-primary" />
+                                            <span className="hidden md:inline">Template Studio</span>
+                                        </Button>
+                                    )}
 
                                     <Button
                                         onClick={() => fetchTransactions()}

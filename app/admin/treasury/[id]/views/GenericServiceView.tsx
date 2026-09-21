@@ -20,7 +20,8 @@ import {
     Check,
     ExternalLink,
     Ban,
-    AlertCircle
+    AlertCircle,
+    Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +122,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         disputeAction,
         setDisputeAction,
         handleResolveDispute,
-        handleOnsitePayment
+        handleOnsitePayment,
+        handlePrintCedula
     } = props;
 
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
@@ -1033,6 +1035,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     </Button>
                                 )}
 
+                                {/* Quick Print Cedula preview */}
+                                {isCedula && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => handlePrintCedula ? handlePrintCedula() : window.print()}
+                                        variant="outline"
+                                        className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[10px] transition-all"
+                                    >
+                                        <Printer className="w-4 h-4 mr-2" />
+                                        Print Cedula Form
+                                    </Button>
+                                )}
+
                                 {transaction.status !== "FOR_PICKING" && transaction.status !== "FOR_CLAIM" ? (
                                     <>
                                         {transaction.status !== "PAID" && (
@@ -1094,6 +1109,21 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <p className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200 font-mono">
                                             {transaction.cedula.ctcNumber}
                                         </p>
+                                    </div>
+                                )}
+
+                                {/* Print Cedula Action for Completed Transactions */}
+                                {isCedula && (
+                                    <div className="pt-2">
+                                        <Button
+                                            type="button"
+                                            onClick={() => handlePrintCedula ? handlePrintCedula() : window.print()}
+                                            variant="outline"
+                                            className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[11px] transition-all shadow-md active:scale-95"
+                                        >
+                                            <Printer className="w-4 h-4 mr-2" />
+                                            Print Official Cedula Certificate
+                                        </Button>
                                     </div>
                                 )}
 

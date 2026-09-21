@@ -98,4 +98,6 @@ export interface TreasuryViewProps {
     handleProcessRequest?: () => Promise<void>;
     handleOnsitePayment?: (method: string, amountTendered?: number, paymentReference?: string) => Promise<void>;
     handleCollectPsaPayment?: () => Promise<void>;
+    cedulaLayoutConfig?: any;
+    handlePrintCedula?: () => void;
 }

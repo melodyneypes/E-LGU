@@ -28,7 +28,8 @@ import {
 import {
     confirmTransactionPaymentWithReceipt,
     releaseCedula,
-    processOnsitePaymentAndReleaseAction
+    processOnsitePaymentAndReleaseAction,
+    getCedulaSettings
 } from "@/app/admin/transactions/cedula-actions";
 import { processCedulaOnsitePaymentAndRelease } from "@/app/admin/transactions/treasury-cedula-actions";
 import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actions";
@@ -47,8 +48,9 @@ import { calculateCivilRegistryFee } from "@/lib/civil-registry";
 import { getEngineeringPermitLabel, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { collectPsaAppointmentPayment } from "@/app/admin/transactions/civil-registry-appointment-actions";
 import { calculateCedula } from "@/lib/cedula";
-import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
+import { getCedulaLayoutAction } from "@/app/admin/treasury/cedula-template/actions";
+import CedulaPrintPortal from "./components/CedulaPrintPortal";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
 import TreasuryDetailSkeleton from "./components/TreasuryDetailSkeleton";
@@ -291,6 +293,7 @@ export default function TreasuryDetailPage() {
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
+    const [cedulaLayout, setCedulaLayout] = useState<any>(null);
 
 
     useEffect(() => {
@@ -612,10 +615,15 @@ export default function TreasuryDetailPage() {
             });
         }
 
-        // 2. Cedula Settings
+        // 2. Cedula Settings & Layout
         getCedulaSettings().then(res => {
             if (res.success && res.data) {
                 setCedulaSettings(res.data);
+            }
+        });
+        getCedulaLayoutAction().then(res => {
+            if (res.success && res.data) {
+                setCedulaLayout(res.data);
             }
         });
 
@@ -2144,7 +2152,9 @@ export default function TreasuryDetailPage() {
         setOrSeriesNumber,
         miscFee,
         setMiscFee,
-        handleCollectPsaPayment
+        handleCollectPsaPayment,
+        cedulaLayoutConfig: cedulaLayout,
+        handlePrintCedula: () => window.print()
     };
 
     let renderView = null;
@@ -2190,6 +2200,13 @@ export default function TreasuryDetailPage() {
     return (
         <div className="space-y-6 pb-20">
             {renderView}
+
+            {typeCode.includes("CEDULA") && transaction && (
+                <CedulaPrintPortal
+                    transaction={transaction}
+                    layoutConfig={cedulaLayout}
+                />
+            )}
 
             <DocumentViewerModal
                 isOpen={viewerOpen}
