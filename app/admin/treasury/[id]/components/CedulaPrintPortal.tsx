@@ -147,7 +147,7 @@ export default function CedulaPrintPortal({
                 __html: `
                 @media print {
                     @page { 
-                        size: ${layout.widthMm}mm ${layout.heightMm}mm; 
+                        size: ${Math.max((layout.widthMm || 152) + (layout.leftSpaceMm || 0), 210)}mm ${(layout.heightMm || 101) + (layout.topSpaceMm || 0)}mm; 
                         margin: 0mm !important; 
                     }
                     @page :left {
@@ -169,12 +169,12 @@ export default function CedulaPrintPortal({
                     #cedula-print-portal {
                         display: block !important;
                         position: fixed !important;
-                        left: 0 !important;
-                        top: 0 !important;
+                        left: ${layout.leftSpaceMm || 0}mm !important;
+                        top: ${layout.topSpaceMm || 0}mm !important;
                         width: ${layout.widthMm}mm !important;
                         height: ${layout.heightMm}mm !important;
                         visibility: visible !important;
-                        overflow: hidden !important;
+                        overflow: visible !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         ${bgImageStyle}
@@ -200,12 +200,12 @@ export default function CedulaPrintPortal({
                     width: `${layout.widthMm}mm`,
                     height: `${layout.heightMm}mm`,
                     visibility: "hidden",
-                    overflow: "hidden",
+                    overflow: "visible",
                     zIndex: -1,
                     pointerEvents: "none"
                 }}
             >
-                <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                <div style={{ position: "relative", width: "100%", height: "100%", overflow: "visible" }}>
                     {Object.values(layout.fields).map(field => {
                         if (!field.visible) return null;
                         const text = fieldValues[field.id] ?? field.sampleValue ?? "";
@@ -225,8 +225,7 @@ export default function CedulaPrintPortal({
                                     fontFamily: "'Courier New', Courier, monospace, sans-serif",
                                     lineHeight: 1.1,
                                     whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
+                                    overflow: "visible",
                                     color: "black"
                                 }}
                             >

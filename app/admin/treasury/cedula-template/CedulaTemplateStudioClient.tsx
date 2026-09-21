@@ -848,6 +848,50 @@ export default function CedulaTemplateStudioClient({
                             </div>
                         </div>
 
+                        {/* Print Tray Offset Spacing */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+                            <div className="space-y-0.5">
+                                <span className="text-xs font-black uppercase tracking-wider text-primary italic block">
+                                    Printer Feed Tray Spacing (Offset)
+                                </span>
+                                <span className="text-[10px] text-slate-400 block">
+                                    Adjust Left Space (mm) so fields land dead-center on center-feed tray stubs.
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                                        Left Space (mm)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        step="1"
+                                        min="0"
+                                        max="100"
+                                        value={layout.leftSpaceMm ?? 0}
+                                        onChange={(e) => setLayout(prev => ({ ...prev, leftSpaceMm: parseFloat(e.target.value) || 0 }))}
+                                        className="h-10 rounded-xl font-bold font-mono text-primary"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                                        Top Space (mm)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        step="1"
+                                        min="0"
+                                        max="100"
+                                        value={layout.topSpaceMm ?? 0}
+                                        onChange={(e) => setLayout(prev => ({ ...prev, topSpaceMm: parseFloat(e.target.value) || 0 }))}
+                                        className="h-10 rounded-xl font-bold font-mono"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">Print Template Background</span>
@@ -991,7 +1035,7 @@ export default function CedulaTemplateStudioClient({
                         __html: `
                         @media print {
                             @page { 
-                                size: ${layout.widthMm}mm ${layout.heightMm}mm; 
+                                size: ${Math.max((layout.widthMm || 152) + (layout.leftSpaceMm || 0), 210)}mm ${(layout.heightMm || 101) + (layout.topSpaceMm || 0)}mm; 
                                 margin: 0mm !important; 
                             }
                             @page :left {
@@ -1013,12 +1057,12 @@ export default function CedulaTemplateStudioClient({
                             #cedula-test-print-portal {
                                 display: block !important;
                                 position: fixed !important;
-                                left: 0 !important;
-                                top: 0 !important;
+                                left: ${layout.leftSpaceMm || 0}mm !important;
+                                top: ${layout.topSpaceMm || 0}mm !important;
                                 width: ${layout.widthMm}mm !important;
                                 height: ${layout.heightMm}mm !important;
                                 visibility: visible !important;
-                                overflow: hidden !important;
+                                overflow: visible !important;
                                 margin: 0 !important;
                                 padding: 0 !important;
                                 ${layout.showBgInPrint
@@ -1047,12 +1091,12 @@ export default function CedulaTemplateStudioClient({
                             width: `${layout.widthMm}mm`,
                             height: `${layout.heightMm}mm`,
                             visibility: "hidden",
-                            overflow: "hidden",
+                            overflow: "visible",
                             zIndex: -1,
                             pointerEvents: "none"
                         }}
                     >
-                        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                        <div style={{ position: "relative", width: "100%", height: "100%", overflow: "visible" }}>
                             {Object.values(layout.fields).map(field => {
                                 if (!field.visible) return null;
                                 const text = field.sampleValue || "";
@@ -1072,8 +1116,7 @@ export default function CedulaTemplateStudioClient({
                                             fontFamily: "'Courier New', Courier, monospace, sans-serif",
                                             lineHeight: 1.1,
                                             whiteSpace: "nowrap",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
+                                            overflow: "visible",
                                             color: "black"
                                         }}
                                     >

@@ -23,6 +23,8 @@ export interface CedulaFieldConfig {
 export interface CedulaLayoutSettings {
     widthMm: number;        // Standard CTC paper width in mm (default: 180)
     heightMm: number;       // Standard CTC paper height in mm (default: 115)
+    leftSpaceMm?: number;   // Extra horizontal space/margin on left side in mm (e.g. for center-feed printer trays)
+    topSpaceMm?: number;    // Extra vertical space/margin on top in mm
     bgOpacity: number;      // 0 to 100
     showBgInPrint: boolean; // true for plain paper print, false for pre-printed form feed
     bgImageUrl?: string;    // Custom scan or default image url
@@ -466,6 +468,8 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
 export const DEFAULT_CEDULA_LAYOUT: CedulaLayoutSettings = {
     widthMm: 180,
     heightMm: 115,
+    leftSpaceMm: 0,
+    topSpaceMm: 0,
     bgOpacity: 85,
     showBgInPrint: true,
     bgImageUrl: "/images/cedula-template.png",
