@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
     CedulaLayoutSettings,
     CedulaFieldConfig,
@@ -100,6 +101,12 @@ export default function CedulaTemplateStudioClient({
     const [filterCategory, setFilterCategory] = useState<string>("ALL");
     const [fieldToDelete, setFieldToDelete] = useState<CedulaFieldConfig | null>(null);
 
+    const [mounted, setMounted] = useState<boolean>(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Drag state
     const canvasRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -179,96 +186,9 @@ export default function CedulaTemplateStudioClient({
         }
     };
 
-    // Test print
+    // Test print: direct in-page trigger (NO about:blank or popup)
     const handleTestPrint = () => {
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) {
-            toast.error("Please allow popups to open the print preview.");
-            return;
-        }
-
-        const fieldsHtml = Object.values(layout.fields)
-            .filter(f => f.visible)
-            .map(f => `
-                <div style="
-                    position: absolute;
-                    left: ${f.x}%;
-                    top: ${f.y}%;
-                    width: ${f.width}%;
-                    font-size: ${f.fontSize}pt;
-                    font-weight: ${f.fontWeight === "bold" ? "700" : "400"};
-                    text-align: ${f.textAlign || "left"};
-                    letter-spacing: ${f.letterSpacing ? f.letterSpacing + "px" : "normal"};
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    font-family: 'Courier New', Courier, monospace, sans-serif;
-                    color: black;
-                ">
-                    ${f.sampleValue || ""}
-                </div>
-            `).join("");
-
-        const bgStyle = layout.showBgInPrint
-            ? `background-image: url('${layout.bgImageUrl || "/images/cedula-template.png"}'); background-size: 100% 100%; background-repeat: no-repeat;`
-            : "background: white;";
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>Cedula Print Test Preview</title>
-                    <style>
-                        @page {
-                            size: ${layout.widthMm}mm ${layout.heightMm}mm;
-                            margin: 0;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                            background: #eee;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            min-height: 100vh;
-                            font-family: Arial, sans-serif;
-                        }
-                        .page-container {
-                            position: relative;
-                            width: ${layout.widthMm}mm;
-                            height: ${layout.heightMm}mm;
-                            ${bgStyle}
-                            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-                            overflow: hidden;
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                        }
-                        @media print {
-                            body {
-                                background: white !important;
-                                min-height: unset;
-                            }
-                            .page-container {
-                                box-shadow: none !important;
-                                margin: 0 !important;
-                            }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="page-container">
-                        ${fieldsHtml}
-                    </div>
-                    <script>
-                        window.onload = function() {
-                            window.focus();
-                            window.print();
-                        };
-                    </script>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
+        window.print();
     };
 
     // Update specific field properties
@@ -610,8 +530,8 @@ export default function CedulaTemplateStudioClient({
                     </div>
 
                     {/* Helpful tips */}
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 px-4 font-bold italic">
-                        <span>💡 Tip: Click any field on the canvas or right panel to inspect. Use keyboard arrow keys to nudge by 0.1% (Hold Shift for 1%).</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 px-4 font-bold italic gap-1">
+                        <span>💡 Tip: Click any field on canvas to inspect/nudge. In the Print Preview, uncheck <strong>&ldquo;Headers and footers&rdquo;</strong> under More Settings for a clean border.</span>
                         <span>Dimensions: {layout.widthMm}mm × {layout.heightMm}mm</span>
                     </div>
                 </div>
@@ -1063,6 +983,109 @@ export default function CedulaTemplateStudioClient({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Seamless In-Page Test Print Portal (NO popup, NO about:blank, stays on page) */}
+            {mounted && createPortal(
+                <>
+                    <style dangerouslySetInnerHTML={{
+                        __html: `
+                        @media print {
+                            @page { 
+                                size: ${layout.widthMm}mm ${layout.heightMm}mm; 
+                                margin: 0mm !important; 
+                            }
+                            @page :left {
+                                margin: 0mm !important;
+                            }
+                            @page :right {
+                                margin: 0mm !important;
+                            }
+                            html, body { 
+                                margin: 0mm !important; 
+                                padding: 0mm !important; 
+                                background: white !important;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            body > * { 
+                                display: none !important; 
+                            }
+                            #cedula-test-print-portal {
+                                display: block !important;
+                                position: fixed !important;
+                                left: 0 !important;
+                                top: 0 !important;
+                                width: ${layout.widthMm}mm !important;
+                                height: ${layout.heightMm}mm !important;
+                                visibility: visible !important;
+                                overflow: hidden !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                ${layout.showBgInPrint
+                                    ? `background-image: url('${layout.bgImageUrl || "/images/cedula-template.png"}'); background-size: 100% 100%; background-repeat: no-repeat;`
+                                    : "background: white;"
+                                }
+                                z-index: 999999 !important;
+                                color: black !important;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                            #cedula-test-print-portal * {
+                                visibility: visible !important;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                        }
+                    `}} />
+
+                    <div
+                        id="cedula-test-print-portal"
+                        style={{
+                            position: "fixed",
+                            left: "-9999px",
+                            top: 0,
+                            width: `${layout.widthMm}mm`,
+                            height: `${layout.heightMm}mm`,
+                            visibility: "hidden",
+                            overflow: "hidden",
+                            zIndex: -1,
+                            pointerEvents: "none"
+                        }}
+                    >
+                        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                            {Object.values(layout.fields).map(field => {
+                                if (!field.visible) return null;
+                                const text = field.sampleValue || "";
+
+                                return (
+                                    <div
+                                        key={field.id}
+                                        style={{
+                                            position: "absolute",
+                                            left: `${field.x}%`,
+                                            top: `${field.y}%`,
+                                            width: `${field.width}%`,
+                                            fontSize: `${field.fontSize}pt`,
+                                            fontWeight: field.fontWeight === "bold" ? "700" : "400",
+                                            textAlign: field.textAlign || "left",
+                                            letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
+                                            fontFamily: "'Courier New', Courier, monospace, sans-serif",
+                                            lineHeight: 1.1,
+                                            whiteSpace: "nowrap",
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            color: "black"
+                                        }}
+                                    >
+                                        {text}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
         </div>
     );
 }

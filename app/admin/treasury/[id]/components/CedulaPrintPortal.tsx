@@ -148,12 +148,20 @@ export default function CedulaPrintPortal({
                 @media print {
                     @page { 
                         size: ${layout.widthMm}mm ${layout.heightMm}mm; 
-                        margin: 0; 
+                        margin: 0mm !important; 
                     }
-                    body { 
-                        margin: 0 !important; 
-                        padding: 0 !important; 
+                    @page :left {
+                        margin: 0mm !important;
+                    }
+                    @page :right {
+                        margin: 0mm !important;
+                    }
+                    html, body { 
+                        margin: 0mm !important; 
+                        padding: 0mm !important; 
                         background: white !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     body > * { 
                         display: none !important; 
