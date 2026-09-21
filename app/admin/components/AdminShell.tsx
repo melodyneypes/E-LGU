@@ -155,7 +155,7 @@ export function AdminShell({
                 isRestricted = true;
             } else if ((deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") && !pathname.startsWith("/admin/rhu")) {
                 isRestricted = true;
-            } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
+            } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings") && !pathname.startsWith("/admin/treasury/cedula-template")) {
                 isRestricted = true;
             } else if (deptUpper === "POSO" && !pathname.startsWith("/admin/poso")) {
                 isRestricted = true;

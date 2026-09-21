@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, Store, Scale,
-    FolderArchive, MessageSquareHeart, Boxes, Pill
+    FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -871,6 +871,7 @@ export function Sidebar({
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
         { href: "/admin/treasury/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
+        { href: "/admin/treasury/cedula-template", label: "Cedula Template Studio", icon: LayoutTemplate, category: "Treasury Department" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury Department" },
         {
             href: "/admin/assessor",
