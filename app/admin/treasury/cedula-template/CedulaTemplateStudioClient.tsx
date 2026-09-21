@@ -29,8 +29,18 @@ import {
     ArrowUp,
     ArrowDown,
     ArrowLeft,
-    ArrowRight
+    ArrowRight,
+    Trash2,
+    AlertTriangle
 } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -47,13 +57,23 @@ export default function CedulaTemplateStudioClient({
         const initial = initialLayout || DEFAULT_CEDULA_LAYOUT;
         const cleanedFields = { ...initial.fields };
         delete (cleanedFields as any).ctcNumber;
-        delete (cleanedFields as any).civilStatusSingle;
-        delete (cleanedFields as any).civilStatusMarried;
-        delete (cleanedFields as any).civilStatusWidowed;
-        delete (cleanedFields as any).civilStatusDivorced;
+        delete (cleanedFields as any).taxableIncomeBasis;
         // Make sure sexMale and sexFemale exist
         if (!cleanedFields.sexMale) cleanedFields.sexMale = DEFAULT_CEDULA_FIELDS.sexMale;
         if (!cleanedFields.sexFemale) cleanedFields.sexFemale = DEFAULT_CEDULA_FIELDS.sexFemale;
+        // Make sure 4 civil status check fields exist and are positioned below FILIPINO
+        if (!cleanedFields.civilStatusSingle || cleanedFields.civilStatusSingle.x > 75) {
+            cleanedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
+        }
+        if (!cleanedFields.civilStatusMarried || cleanedFields.civilStatusMarried.x > 75) {
+            cleanedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
+        }
+        if (!cleanedFields.civilStatusWidowed || cleanedFields.civilStatusWidowed.x > 75) {
+            cleanedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
+        }
+        if (!cleanedFields.civilStatusDivorced || cleanedFields.civilStatusDivorced.x > 75) {
+            cleanedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
+        }
         return {
             ...initial,
             fields: cleanedFields
@@ -66,6 +86,7 @@ export default function CedulaTemplateStudioClient({
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [isResetting, setIsResetting] = useState<boolean>(false);
     const [filterCategory, setFilterCategory] = useState<string>("ALL");
+    const [fieldToDelete, setFieldToDelete] = useState<CedulaFieldConfig | null>(null);
 
     // Drag state
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -79,6 +100,34 @@ export default function CedulaTemplateStudioClient({
     });
 
     const activeField = layout.fields[selectedFieldId] || null;
+
+    // Handle field deletion after confirmation
+    const handleConfirmDelete = () => {
+        if (!fieldToDelete) return;
+        const targetId = fieldToDelete.id;
+
+        setLayout(prev => {
+            const nextFields = { ...prev.fields };
+            delete nextFields[targetId];
+
+            const nextDeleted = Array.from(new Set([...(prev.deletedFields || []), targetId]));
+
+            return {
+                ...prev,
+                deletedFields: nextDeleted,
+                fields: nextFields
+            };
+        });
+
+        // Switch selection if current field was deleted
+        if (selectedFieldId === targetId) {
+            const remaining = Object.keys(layout.fields).filter(id => id !== targetId);
+            setSelectedFieldId(remaining[0] || "");
+        }
+
+        toast.success(`"${fieldToDelete.label}" has been removed from template.`);
+        setFieldToDelete(null);
+    };
 
     // Save layout to server
     const handleSave = async () => {
@@ -581,6 +630,17 @@ export default function CedulaTemplateStudioClient({
                                         {activeField.visible ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
                                         {activeField.visible ? "Visible" : "Hidden"}
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setFieldToDelete(activeField)}
+                                        className="h-7 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider text-rose-500 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-all"
+                                        title="Delete this field from template"
+                                    >
+                                        <Trash2 className="w-3 h-3 mr-1" />
+                                        Delete
+                                    </Button>
                                     <Badge variant="outline" className="text-[9px] font-mono font-bold uppercase">
                                         {activeField.id}
                                     </Badge>
@@ -836,7 +896,7 @@ export default function CedulaTemplateStudioClient({
                                 Fields Directory ({fieldEntries.length})
                             </h4>
                             <div className="flex gap-1">
-                                {(["ALL", "HEADER", "TAXPAYER", "TAX_ASSESSMENT"] as const).map(cat => (
+                                {(["ALL", "HEADER", "TAXPAYER", "STATUS", "TAX_ASSESSMENT"] as const).map(cat => (
                                     <button
                                         key={cat}
                                         type="button"
@@ -858,31 +918,95 @@ export default function CedulaTemplateStudioClient({
                             {filteredFields.map(f => {
                                 const isSelected = f.id === selectedFieldId;
                                 return (
-                                    <button
+                                    <div
                                         key={f.id}
-                                        type="button"
                                         onClick={() => setSelectedFieldId(f.id)}
                                         className={cn(
-                                            "w-full flex items-center justify-between p-2 rounded-xl text-left text-xs font-bold transition-all",
+                                            "w-full flex items-center justify-between p-2 rounded-xl text-left text-xs font-bold transition-all cursor-pointer group",
                                             isSelected
                                                 ? "bg-primary text-white shadow-md shadow-primary/20"
                                                 : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
                                         )}
                                     >
                                         <div className="flex items-center gap-2 truncate pr-2">
-                                            <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-white" : "bg-primary/40")} />
+                                            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isSelected ? "bg-white" : "bg-primary/40")} />
                                             <span className="truncate">{f.label}</span>
                                         </div>
-                                        <span className={cn("text-[9px] font-mono", isSelected ? "text-white/80" : "text-slate-400")}>
-                                            {f.x}%, {f.y}%
-                                        </span>
-                                    </button>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className={cn("text-[9px] font-mono", isSelected ? "text-white/80" : "text-slate-400")}>
+                                                {f.x}%, {f.y}%
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFieldToDelete(f);
+                                                }}
+                                                title={`Delete ${f.label}`}
+                                                className={cn(
+                                                    "p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110",
+                                                    isSelected
+                                                        ? "text-white/80 hover:text-white hover:bg-white/20"
+                                                        : "text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                )}
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 );
                             })}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Field Delete Confirmation Modal */}
+            <Dialog open={!!fieldToDelete} onOpenChange={(open) => !open && setFieldToDelete(null)}>
+                <DialogContent className="max-w-md rounded-3xl p-6">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto sm:mx-0">
+                            <AlertTriangle className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                Delete Template Field?
+                            </DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+                                Are you sure you want to remove <span className="font-bold text-slate-800 dark:text-slate-200">&ldquo;{fieldToDelete?.label}&rdquo;</span> ({fieldToDelete?.id}) from the Cedula template?
+                            </DialogDescription>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-150 dark:border-white/5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                        <p className="font-bold text-slate-700 dark:text-slate-200">What happens:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                            <li>This element will no longer appear on the canvas.</li>
+                            <li>It will not be printed on the official Cedula document.</li>
+                            <li>You can restore it anytime by clicking &ldquo;Reset&rdquo; at the top.</li>
+                        </ul>
+                    </div>
+
+                    <DialogFooter className="flex items-center gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setFieldToDelete(null)}
+                            className="rounded-xl h-10 px-4 font-bold text-xs"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleConfirmDelete}
+                            className="rounded-xl h-10 px-5 font-black uppercase tracking-wider text-xs bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20"
+                        >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            Yes, Delete Field
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

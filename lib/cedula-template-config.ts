@@ -25,6 +25,7 @@ export interface CedulaLayoutSettings {
     bgOpacity: number;      // 0 to 100
     showBgInPrint: boolean; // true for plain paper print, false for pre-printed form feed
     bgImageUrl?: string;    // Custom scan or default image url
+    deletedFields?: string[]; // IDs of fields explicitly removed by the user
     fields: Record<string, CedulaFieldConfig>;
 }
 
@@ -133,6 +134,58 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         visible: true,
         sampleValue: "✓"
     },
+    civilStatusSingle: {
+        id: "civilStatusSingle",
+        label: "Single Box Check (✓)",
+        category: "STATUS",
+        x: 16.5,
+        y: 36.2,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: "✓"
+    },
+    civilStatusMarried: {
+        id: "civilStatusMarried",
+        label: "Married Box Check (✓)",
+        category: "STATUS",
+        x: 16.5,
+        y: 38.5,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: "✓"
+    },
+    civilStatusWidowed: {
+        id: "civilStatusWidowed",
+        label: "Widowed Box Check (✓)",
+        category: "STATUS",
+        x: 30.5,
+        y: 36.2,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: "✓"
+    },
+    civilStatusDivorced: {
+        id: "civilStatusDivorced",
+        label: "Divorced / Separated Check (✓)",
+        category: "STATUS",
+        x: 30.5,
+        y: 38.5,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: "✓"
+    },
     citizenship: {
         id: "citizenship",
         label: "Citizenship",
@@ -223,19 +276,6 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         textAlign: "left",
         visible: true,
         sampleValue: "GOVERNMENT EMPLOYEE"
-    },
-    taxableIncomeBasis: {
-        id: "taxableIncomeBasis",
-        label: "Taxable Amount Basis (Header)",
-        category: "TAX_ASSESSMENT",
-        x: 64.0,
-        y: 43.0,
-        width: 14.5,
-        fontSize: 7.5,
-        fontWeight: "bold",
-        textAlign: "right",
-        visible: true,
-        sampleValue: "350,000.00"
     },
     basicTax: {
         id: "basicTax",
