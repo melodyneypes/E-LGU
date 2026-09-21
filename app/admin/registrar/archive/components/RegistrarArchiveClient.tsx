@@ -729,7 +729,7 @@ export default function RegistrarArchiveClient({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Sources</SelectItem>
-                                <SelectItem value="PHYSICAL">Physical Vault Only</SelectItem>
+                                <SelectItem value="PHYSICAL">Physical Record Only</SelectItem>
                                 <SelectItem value="ONLINE">Online Portal</SelectItem>
                             </SelectContent>
                         </Select>
@@ -806,14 +806,17 @@ export default function RegistrarArchiveClient({
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70">
-                                <TableHead className="w-[80px] font-bold text-xs uppercase tracking-wider text-center">
+                                <TableHead className="w-[70px] font-bold text-xs uppercase tracking-wider text-center">
                                     No.
                                 </TableHead>
-                                <TableHead className="w-[130px] font-bold text-xs uppercase tracking-wider">
+                                <TableHead className="w-[120px] font-bold text-xs uppercase tracking-wider">
                                     Type
                                 </TableHead>
                                 <TableHead className="min-w-[220px] font-bold text-xs uppercase tracking-wider">
                                     Subject / Parties
+                                </TableHead>
+                                <TableHead className="w-[130px] font-bold text-xs uppercase tracking-wider text-center">
+                                    Source
                                 </TableHead>
                                 <TableHead className="w-[160px] font-bold text-xs uppercase tracking-wider">
                                     Event Date
@@ -832,7 +835,7 @@ export default function RegistrarArchiveClient({
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-64 text-center">
+                                    <TableCell colSpan={8} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                                             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                                             <p className="text-sm font-medium">Loading archived registry records...</p>
@@ -841,7 +844,7 @@ export default function RegistrarArchiveClient({
                                 </TableRow>
                             ) : records.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-64 text-center">
+                                    <TableCell colSpan={8} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                                             <FolderArchive className="w-12 h-12 text-slate-300 stroke-1" />
                                             <p className="text-base font-semibold text-slate-700 dark:text-slate-300">
@@ -876,17 +879,8 @@ export default function RegistrarArchiveClient({
                                             className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                                         >
                                             {/* Sequential Row Number */}
-                                            <TableCell className="font-mono text-center">
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                                                        {rowNumber}
-                                                    </span>
-                                                    {rec.isPhysical && (
-                                                        <span className="inline-block mt-0.5 text-[9px] font-sans font-semibold tracking-wider uppercase px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
-                                                            Physical
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <TableCell className="font-mono text-center font-bold text-slate-800 dark:text-slate-200">
+                                                {rowNumber}
                                             </TableCell>
 
                                             {/* Type Badge */}
@@ -922,6 +916,19 @@ export default function RegistrarArchiveClient({
                                                     {isDeath && rec.causeOfDeath ? `Cause: ${rec.causeOfDeath}` : null}
                                                     {isMarriage && rec.solemnizingOfficer ? `Officer: ${rec.solemnizingOfficer}` : null}
                                                 </div>
+                                            </TableCell>
+
+                                            {/* Dedicated Record Source Column */}
+                                            <TableCell className="text-center">
+                                                {rec.isPhysical ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 shadow-xs">
+                                                        Physical Record
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/40 shadow-xs">
+                                                        Online Portal
+                                                    </span>
+                                                )}
                                             </TableCell>
 
                                             {/* Event Date */}
