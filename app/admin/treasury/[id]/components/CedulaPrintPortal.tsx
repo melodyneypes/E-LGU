@@ -19,7 +19,7 @@ interface CedulaPrintPortalProps {
 export default function CedulaPrintPortal({
     transaction,
     layoutConfig = DEFAULT_CEDULA_LAYOUT,
-    onClose
+    onClose: _onClose
 }: CedulaPrintPortalProps) {
     const [mounted, setMounted] = useState(false);
     const layout = layoutConfig || DEFAULT_CEDULA_LAYOUT;
@@ -42,7 +42,7 @@ export default function CedulaPrintPortal({
         year: "numeric"
     });
 
-    const ctcNumber = cedulaRecord.ctcNumber || transaction.ctcNumber || additional.ctcNumber || "";
+    const _ctcNumber = cedulaRecord.ctcNumber || transaction.ctcNumber || additional.ctcNumber || "";
 
     // Parse resident details
     const lastName = (
