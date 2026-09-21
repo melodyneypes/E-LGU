@@ -107,6 +107,32 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         visible: true,
         sampleValue: "BRGY. POBLACION, MAPANDAN, PANGASINAN"
     },
+    sexMale: {
+        id: "sexMale",
+        label: "Sex: Male (✓ Check)",
+        category: "STATUS",
+        x: 71.0,
+        y: 26.2,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: "✓"
+    },
+    sexFemale: {
+        id: "sexFemale",
+        label: "Sex: Female (✓ Check)",
+        category: "STATUS",
+        x: 71.0,
+        y: 28.5,
+        width: 3.5,
+        fontSize: 10,
+        fontWeight: "bold",
+        textAlign: "center",
+        visible: true,
+        sampleValue: ""
+    },
     citizenship: {
         id: "citizenship",
         label: "Citizenship",

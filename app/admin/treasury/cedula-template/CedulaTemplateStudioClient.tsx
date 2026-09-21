@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
     CedulaLayoutSettings,
     CedulaFieldConfig,
-    DEFAULT_CEDULA_LAYOUT
+    DEFAULT_CEDULA_LAYOUT,
+    DEFAULT_CEDULA_FIELDS
 } from "@/lib/cedula-template-config";
 import { saveCedulaLayoutAction, resetCedulaLayoutAction } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -46,12 +47,13 @@ export default function CedulaTemplateStudioClient({
         const initial = initialLayout || DEFAULT_CEDULA_LAYOUT;
         const cleanedFields = { ...initial.fields };
         delete (cleanedFields as any).ctcNumber;
-        delete (cleanedFields as any).sexMale;
-        delete (cleanedFields as any).sexFemale;
         delete (cleanedFields as any).civilStatusSingle;
         delete (cleanedFields as any).civilStatusMarried;
         delete (cleanedFields as any).civilStatusWidowed;
         delete (cleanedFields as any).civilStatusDivorced;
+        // Make sure sexMale and sexFemale exist
+        if (!cleanedFields.sexMale) cleanedFields.sexMale = DEFAULT_CEDULA_FIELDS.sexMale;
+        if (!cleanedFields.sexFemale) cleanedFields.sexFemale = DEFAULT_CEDULA_FIELDS.sexFemale;
         return {
             ...initial,
             fields: cleanedFields

@@ -84,6 +84,8 @@ export default function CedulaPrintPortal({
         tin: resident.tin || additional.tin || "N/A",
         taxpayerName: fullName,
         address: fullAddress,
+        sexMale: isMale ? "✓" : "",
+        sexFemale: isFemale ? "✓" : "",
         citizenship: (resident.citizenship || "FILIPINO").toUpperCase(),
         icrNo: additional.icrNo || "N/A",
         placeOfBirth: (resident.placeOfBirth || additional.placeOfBirth || "MAPANDAN, PANGASINAN").toUpperCase(),

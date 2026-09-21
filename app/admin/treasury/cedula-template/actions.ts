@@ -34,8 +34,6 @@ export async function getCedulaLayoutAction(): Promise<{ success: boolean; data:
             };
             // Ensure removed fields are cleaned if previously saved
             delete (mergedFields as any).ctcNumber;
-            delete (mergedFields as any).sexMale;
-            delete (mergedFields as any).sexFemale;
             delete (mergedFields as any).civilStatusSingle;
             delete (mergedFields as any).civilStatusMarried;
             delete (mergedFields as any).civilStatusWidowed;
