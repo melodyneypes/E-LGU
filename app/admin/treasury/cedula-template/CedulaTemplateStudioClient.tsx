@@ -42,7 +42,15 @@ export default function CedulaTemplateStudioClient({
     themeColor,
     initialLayout
 }: CedulaTemplateStudioClientProps) {
-    const [layout, setLayout] = useState<CedulaLayoutSettings>(initialLayout || DEFAULT_CEDULA_LAYOUT);
+    const [layout, setLayout] = useState<CedulaLayoutSettings>(() => {
+        const initial = initialLayout || DEFAULT_CEDULA_LAYOUT;
+        const cleanedFields = { ...initial.fields };
+        delete (cleanedFields as any).ctcNumber;
+        return {
+            ...initial,
+            fields: cleanedFields
+        };
+    });
     const [selectedFieldId, setSelectedFieldId] = useState<string>("taxpayerName");
     const [showBackground, setShowBackground] = useState<boolean>(true);
     const [showGrid, setShowGrid] = useState<boolean>(true);
@@ -550,9 +558,24 @@ export default function CedulaTemplateStudioClient({
                                 </h3>
                             </div>
                             {activeField && (
-                                <Badge variant="outline" className="text-[9px] font-mono font-bold uppercase">
-                                    {activeField.id}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => updateActiveField({ visible: !activeField.visible })}
+                                        className={cn(
+                                            "h-7 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider",
+                                            activeField.visible ? "text-emerald-600 border-emerald-500/30" : "text-rose-500 border-rose-500/30"
+                                        )}
+                                    >
+                                        {activeField.visible ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
+                                        {activeField.visible ? "Visible" : "Hidden"}
+                                    </Button>
+                                    <Badge variant="outline" className="text-[9px] font-mono font-bold uppercase">
+                                        {activeField.id}
+                                    </Badge>
+                                </div>
                             )}
                         </div>
 

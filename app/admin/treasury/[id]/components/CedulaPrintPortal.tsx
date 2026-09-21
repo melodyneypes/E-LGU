@@ -81,7 +81,6 @@ export default function CedulaPrintPortal({
         year: curYear,
         placeOfIssue: "MAPANDAN, PANGASINAN",
         dateIssued: dateFormatted,
-        ctcNumber: ctcNumber,
         tin: resident.tin || additional.tin || "N/A",
         taxpayerName: fullName,
         address: fullAddress,

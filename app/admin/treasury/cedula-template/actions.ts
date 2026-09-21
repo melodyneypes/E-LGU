@@ -32,6 +32,9 @@ export async function getCedulaLayoutAction(): Promise<{ success: boolean; data:
                 ...DEFAULT_CEDULA_FIELDS,
                 ...(parsed.fields || {})
             };
+            // Ensure ctcNumber is removed if previously saved
+            delete (mergedFields as any).ctcNumber;
+
             return {
                 success: true,
                 data: {

@@ -68,19 +68,6 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         visible: true,
         sampleValue: "03/21/2026"
     },
-    ctcNumber: {
-        id: "ctcNumber",
-        label: "CTC Booklet Serial #",
-        category: "HEADER",
-        x: 73.0,
-        y: 10.5,
-        width: 22.0,
-        fontSize: 11,
-        fontWeight: "bold",
-        textAlign: "right",
-        visible: true,
-        sampleValue: "23327052"
-    },
     tin: {
         id: "tin",
         label: "Taxpayer TIN",
@@ -119,32 +106,6 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         textAlign: "left",
         visible: true,
         sampleValue: "BRGY. POBLACION, MAPANDAN, PANGASINAN"
-    },
-    sexMale: {
-        id: "sexMale",
-        label: "Sex: Male (Mark X)",
-        category: "STATUS",
-        x: 71.2,
-        y: 26.5,
-        width: 4.0,
-        fontSize: 9,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: "X"
-    },
-    sexFemale: {
-        id: "sexFemale",
-        label: "Sex: Female (Mark X)",
-        category: "STATUS",
-        x: 71.2,
-        y: 28.8,
-        width: 4.0,
-        fontSize: 9,
-        fontWeight: "bold",
-        textAlign: "center",
-        visible: true,
-        sampleValue: ""
     },
     citizenship: {
         id: "citizenship",
