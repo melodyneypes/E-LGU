@@ -528,13 +528,14 @@ export default function CedulaTemplateStudioClient({
                                             width: `${field.width}%`,
                                             fontSize: `${field.fontSize * (zoomLevel / 100)}pt`,
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
-                                            textAlign: field.textAlign || "left"
+                                            textAlign: field.textAlign || "left",
+                                            color: "#000000"
                                         }}
                                         className={cn(
                                             "absolute cursor-move transition-colors duration-75 px-1 py-0.5 rounded leading-tight font-mono z-10 truncate",
                                             isSelected
-                                                ? "ring-2 ring-blue-600 bg-blue-500/20 text-blue-950 dark:text-blue-200 shadow-md font-bold"
-                                                : "hover:ring-1 hover:ring-slate-400 bg-transparent text-slate-900 dark:text-slate-900"
+                                                ? "ring-2 ring-blue-500 bg-blue-500/10 text-black dark:text-black shadow-md font-bold"
+                                                : "hover:ring-1 hover:ring-slate-400 bg-transparent text-black dark:text-black"
                                         )}
                                         title={`${field.label} (Click to select, drag to move)`}
                                     >

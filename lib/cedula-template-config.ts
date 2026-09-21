@@ -109,7 +109,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
     },
     sexMale: {
         id: "sexMale",
-        label: "Sex: Male (✓ Check)",
+        label: "Male Box Check (✓)",
         category: "STATUS",
         x: 71.0,
         y: 26.2,
@@ -122,7 +122,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
     },
     sexFemale: {
         id: "sexFemale",
-        label: "Sex: Female (✓ Check)",
+        label: "Female Box Check (✓)",
         category: "STATUS",
         x: 71.0,
         y: 28.5,
@@ -131,7 +131,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         fontWeight: "bold",
         textAlign: "center",
         visible: true,
-        sampleValue: ""
+        sampleValue: "✓"
     },
     citizenship: {
         id: "citizenship",
