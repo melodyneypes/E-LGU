@@ -457,6 +457,18 @@ export default async function Home({
         });
     }
 
+    // 6. Fencing Permit Card
+    const activeFence = transactionTypes.find(t => t.code === "FENCING_PERMIT" || t.category?.toLowerCase() === "fencing permit");
+    if (activeFence) {
+        services.push({
+            id: activeFence.id,
+            code: "FENCING_PERMIT",
+            name: activeFence.name,
+            description: activeFence.description || "Apply for a fencing permit for perimeter walls, fences, and enclosures.",
+            fee: activeFence.baseFee
+        });
+    }
+
     // Sort services alphabetically to match original layout
     services.sort((a, b) => a.name.localeCompare(b.name));
 

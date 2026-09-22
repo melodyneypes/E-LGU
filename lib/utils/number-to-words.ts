@@ -62,3 +62,19 @@ export function numberToWords(amount: number): string {
 
   return result;
 }
+
+/**
+ * Splits a long amount in words into two lines for Cedula printing.
+ * Target: ~4 to 5 words on the first line, with the rest continuing on the second line.
+ */
+export function formatCedulaWordsTwoLines(words: string, maxWordsLine1 = 4): string {
+  if (!words) return "";
+  const parts = words.trim().split(/\s+/);
+  if (parts.length <= maxWordsLine1) {
+    return words;
+  }
+
+  const line1 = parts.slice(0, maxWordsLine1).join(" ");
+  const line2 = parts.slice(maxWordsLine1).join(" ");
+  return `${line1}\n${line2}`;
+}

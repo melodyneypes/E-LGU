@@ -44,7 +44,7 @@ model User {
   driverTransactions    Transaction[]            @relation("DriverTransactions")
   transactions          Transaction[]            @relation("ResidentTransactions")
   transactionFeedbacks  TransactionFeedback[]    @relation("UserFeedbacks")
-  assignedDoctor        User?                    @relation("DoctorSecretary", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
+  assignedDoctor        User?                    @relation("DoctorSecretary", fields: [assignedDoctorId], references: [id])
   secretaries           User[]                   @relation("DoctorSecretary")
 }
 
@@ -1689,6 +1689,29 @@ model RoadClosure {
   @@index([barangay])
 }
 
+model FollowUpAppointment {
+  id                    String   @id @default(cuid())
+  patientId             String   @map("patient_id")
+  patientName           String?  @map("patient_name")
+  doctorId              String?  @map("doctor_id")
+  doctorName            String?  @map("doctor_name")
+  healthCenterId        String?  @map("health_center_id")
+  healthCenterName      String?  @map("health_center_name")
+  scheduledDate         DateTime @map("scheduled_date")
+  status                String   @default("Pending")
+  notes                 String?
+  sourceTransactionId   String?  @map("source_transaction_id")
+  injectedTransactionId String?  @map("injected_transaction_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([scheduledDate])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@map("follow_up_appointments")
+}
+
 enum InventoryCategory {
   MEDICINE
   MEDICAL_SUPPLY
@@ -1880,27 +1903,4 @@ enum RoadClosureSeverity {
   MODERATE
   HIGH
   CRITICAL
-}
-
-model FollowUpAppointment {
-  id                    String   @id @default(cuid())
-  patientId             String   @map("patient_id")
-  patientName           String?  @map("patient_name")
-  doctorId              String?  @map("doctor_id")
-  doctorName            String?  @map("doctor_name")
-  healthCenterId        String?  @map("health_center_id")
-  healthCenterName      String?  @map("health_center_name")
-  scheduledDate         DateTime @map("scheduled_date")
-  status                String   @default("Pending")
-  notes                 String?  @db.Text
-  sourceTransactionId   String?  @map("source_transaction_id")
-  injectedTransactionId String?  @map("injected_transaction_id")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  @@index([scheduledDate])
-  @@index([patientId])
-  @@index([doctorId])
-  @@index([status])
-  @@map("follow_up_appointments")
 }

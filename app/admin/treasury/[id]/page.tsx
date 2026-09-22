@@ -51,6 +51,7 @@ import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { getCedulaLayoutAction } from "@/app/admin/treasury/cedula-template/actions";
 import CedulaPrintPortal from "./components/CedulaPrintPortal";
+import CedulaPreviewModal from "./components/CedulaPreviewModal";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
 import TreasuryDetailSkeleton from "./components/TreasuryDetailSkeleton";
@@ -294,6 +295,8 @@ export default function TreasuryDetailPage() {
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
     const [cedulaLayout, setCedulaLayout] = useState<any>(null);
+    const [cedulaPreviewOpen, setCedulaPreviewOpen] = useState(false);
+    const [cedulaIncludeBg, setCedulaIncludeBg] = useState(false);
 
 
     useEffect(() => {
@@ -2154,7 +2157,16 @@ export default function TreasuryDetailPage() {
         setMiscFee,
         handleCollectPsaPayment,
         cedulaLayoutConfig: cedulaLayout,
-        handlePrintCedula: () => window.print()
+        handlePrintCedula: () => window.print(),
+        openCedulaPreview: () => {
+            getCedulaLayoutAction().then(res => {
+                if (res.success && res.data) {
+                    setCedulaLayout(res.data);
+                }
+            }).finally(() => {
+                setCedulaPreviewOpen(true);
+            });
+        }
     };
 
     let renderView = null;
@@ -2201,11 +2213,28 @@ export default function TreasuryDetailPage() {
         <div className="space-y-6 pb-20">
             {renderView}
 
-            {typeCode.includes("CEDULA") && transaction && (
-                <CedulaPrintPortal
-                    transaction={transaction}
-                    layoutConfig={cedulaLayout}
-                />
+            {(typeCode.includes("CEDULA") || transaction?.type?.category?.toUpperCase() === "CEDULA") && transaction && (
+                <>
+                    <CedulaPrintPortal
+                        transaction={transaction}
+                        layoutConfig={cedulaLayout}
+                        includeBg={cedulaIncludeBg}
+                    />
+
+                    <CedulaPreviewModal
+                        isOpen={cedulaPreviewOpen}
+                        onClose={() => setCedulaPreviewOpen(false)}
+                        transaction={transaction}
+                        layoutConfig={cedulaLayout}
+                        onPrint={(includeBg: boolean) => {
+                            setCedulaIncludeBg(includeBg);
+                            // Allow microtask/DOM to update print styles before triggering print dialog
+                            setTimeout(() => {
+                                window.print();
+                            }, 100);
+                        }}
+                    />
+                </>
             )}
 
             <DocumentViewerModal
