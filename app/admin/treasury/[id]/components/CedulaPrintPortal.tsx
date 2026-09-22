@@ -8,6 +8,7 @@ import { numberToWords } from "@/lib/utils/number-to-words";
 interface CedulaPrintPortalProps {
     transaction: any;
     layoutConfig?: CedulaLayoutSettings | null;
+    includeBg?: boolean;
     onClose?: () => void;
 }
 
@@ -19,6 +20,7 @@ interface CedulaPrintPortalProps {
 export default function CedulaPrintPortal({
     transaction,
     layoutConfig = DEFAULT_CEDULA_LAYOUT,
+    includeBg = false,
     onClose: _onClose
 }: CedulaPrintPortalProps) {
     const [mounted, setMounted] = useState(false);
@@ -28,10 +30,20 @@ export default function CedulaPrintPortal({
         setMounted(true);
     }, []);
 
+    const parseSafe = (val: any) => {
+        if (!val) return {};
+        if (typeof val === "object") return val;
+        try {
+            return JSON.parse(val);
+        } catch {
+            return {};
+        }
+    };
+
     if (!mounted || !transaction) return null;
 
-    const resident = transaction.residentSnapshot || {};
-    const additional = transaction.additionalData || {};
+    const resident = parseSafe(transaction.residentSnapshot) || transaction.user?.residentProfile || {};
+    const additional = parseSafe(transaction.additionalData) || {};
     const cedulaRecord = transaction.cedula || {};
 
     const now = new Date();
@@ -90,14 +102,41 @@ export default function CedulaPrintPortal({
     const isWidowed = civStatus.includes("WIDOW");
     const isDivorced = civStatus.includes("DIVORCE") || civStatus.includes("SEPARATE");
 
-    // Tax Calculations
-    const basicTaxNum = cedulaRecord.basicTax ?? (transaction.status === "PAID" ? 5.0 : 5.0);
-    const additionalTaxNum = cedulaRecord.additionalTax ?? (transaction.totalAmount > basicTaxNum ? transaction.totalAmount - basicTaxNum : 0);
-    const penaltyNum = cedulaRecord.penalty ?? 0;
-    const totalAmountNum = transaction.totalAmount || (basicTaxNum + additionalTaxNum + penaltyNum) || 0;
+    const calcTax = additional.calculatedTax || {};
 
-    const profession = (additional.profession || additional.occupation || additional.businessName || resident.occupation || "N/A").toUpperCase();
+    // Basic Tax
+    const basicTaxNum = Number(calcTax.basicTax ?? cedulaRecord.basicTax ?? 5.0);
+
+    // Additional Tax (Gross income / profession tax)
+    const additionalTaxNum = Number(calcTax.additionalTax ?? cedulaRecord.additionalTax ?? 0);
+
+    // Interest / Penalty
+    const penaltyNum = Number(calcTax.penalty ?? cedulaRecord.penalty ?? 0);
+
+    // Total Amount
+    const totalAmountNum = Number(calcTax.totalAmount ?? transaction.totalAmount ?? (basicTaxNum + additionalTaxNum + penaltyNum));
+
+    // Income basis
     const incomeBasis = Number(additional.income || additional.basicSalary || additional.annualIncome || 0);
+
+    // Total Community Tax (Principal = Basic + Additional)
+    const totalCommunityTaxNum = basicTaxNum + additionalTaxNum;
+
+    // Profession / Occupation / Business: Read from transaction column first, then additionalData, then resident table
+    const profession = (
+        transaction.businessName ||
+        transaction.profession ||
+        transaction.occupation ||
+        additional.profession ||
+        additional.occupation ||
+        additional.businessName ||
+        additional.incomeSource ||
+        resident.occupation ||
+        resident.profession ||
+        "N/A"
+    ).toUpperCase();
+
+    const isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL");
 
     // Map dynamic field values
     const fieldValues: Record<string, string> = {
@@ -124,20 +163,21 @@ export default function CedulaPrintPortal({
         weight: resident.weight ? `${resident.weight} kg` : (additional.weight || "--"),
         profession: profession,
         basicTax: basicTaxNum.toFixed(2),
-        additionalTax1Basis: additional.applicantType === "JURIDICAL" ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax1Amount: additional.applicantType === "JURIDICAL" ? additionalTaxNum.toFixed(2) : "0.00",
-        additionalTax2Basis: additional.applicantType !== "JURIDICAL" ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax2Amount: additional.applicantType !== "JURIDICAL" ? additionalTaxNum.toFixed(2) : "0.00",
+        additionalTax1Basis: isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
+        additionalTax1Amount: isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
+        additionalTax2Basis: !isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
+        additionalTax2Amount: !isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
         additionalTax3Basis: "0.00",
         additionalTax3Amount: "0.00",
-        totalCommunityTax: (basicTaxNum + additionalTaxNum).toFixed(2),
+        totalCommunityTax: totalCommunityTaxNum.toFixed(2),
         penalty: penaltyNum.toFixed(2),
         totalAmountPaid: totalAmountNum.toFixed(2),
         totalAmountInWords: numberToWords(totalAmountNum),
         municipalTreasurer: "MUNICIPAL TREASURER"
     };
 
-    const bgImageStyle = layout.showBgInPrint
+    const shouldShowBg = includeBg ?? layout.showBgInPrint ?? false;
+    const bgImageStyle = shouldShowBg
         ? `background-image: url('${layout.bgImageUrl || "/images/cedula-template.png"}'); background-size: 100% 100%; background-repeat: no-repeat;`
         : "background: white;";
 

@@ -123,14 +123,17 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         setDisputeAction,
         handleResolveDispute,
         handleOnsitePayment,
-        handlePrintCedula
+        handlePrintCedula,
+        openCedulaPreview
     } = props;
 
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
     const [paymentReference, setPaymentReference] = React.useState('');
     const [isConfirmPaidModalOpen, setIsConfirmPaidModalOpen] = React.useState(false);
 
-    const isCedula = transaction.type?.code?.includes("CEDULA");
+    const isCedula = 
+        transaction.type?.category?.toUpperCase() === "CEDULA" || 
+        transaction.type?.code?.toUpperCase().includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
     const canApprove = (transaction.status === "FOR_REQUESTING") && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide;
     const hasDispute = transaction.status === "RETURN_REQUESTED" || transaction.status === "REFUND_REQUESTED" || !!transaction.disputeReason;
@@ -846,6 +849,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             {actionLoading ? "Processing..." : "Mark as Paid & Released"}
                                         </Button>
 
+                                        {/* Dedicated Print Cedula action - positioned right below Mark as Paid & Released */}
+                                        {isCedula && transaction.status === "FOR_PROCESSING" && (
+                                            <Button
+                                                type="button"
+                                                onClick={() => openCedulaPreview ? openCedulaPreview() : (handlePrintCedula ? handlePrintCedula() : window.print())}
+                                                variant="outline"
+                                                className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3"
+                                            >
+                                                <Printer className="w-4 h-4 mr-2" />
+                                                Preview & Print Cedula Form
+                                            </Button>
+                                        )}
+
                                         {hasCheckIn && (
                                             <Button
                                                 type="button"
@@ -1035,19 +1051,6 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     </Button>
                                 )}
 
-                                {/* Quick Print Cedula preview */}
-                                {isCedula && (
-                                    <Button
-                                        type="button"
-                                        onClick={() => handlePrintCedula ? handlePrintCedula() : window.print()}
-                                        variant="outline"
-                                        className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[10px] transition-all"
-                                    >
-                                        <Printer className="w-4 h-4 mr-2" />
-                                        Print Cedula Form
-                                    </Button>
-                                )}
-
                                 {transaction.status !== "FOR_PICKING" && transaction.status !== "FOR_CLAIM" ? (
                                     <>
                                         {transaction.status !== "PAID" && (
@@ -1080,6 +1083,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         </Button>
                                     )
                                 )}
+
+                                {/* Dedicated Print Cedula action - strictly visible ONLY when status is FOR_PROCESSING */}
+                                {isCedula && transaction.status === "FOR_PROCESSING" && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => openCedulaPreview ? openCedulaPreview() : (handlePrintCedula ? handlePrintCedula() : window.print())}
+                                        variant="outline"
+                                        className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95"
+                                    >
+                                        <Printer className="w-4 h-4 mr-2" />
+                                        Preview & Print Cedula Form
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1109,21 +1125,6 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <p className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200 font-mono">
                                             {transaction.cedula.ctcNumber}
                                         </p>
-                                    </div>
-                                )}
-
-                                {/* Print Cedula Action for Completed Transactions */}
-                                {isCedula && (
-                                    <div className="pt-2">
-                                        <Button
-                                            type="button"
-                                            onClick={() => handlePrintCedula ? handlePrintCedula() : window.print()}
-                                            variant="outline"
-                                            className="w-full h-14 rounded-2xl border-2 border-primary/30 text-primary hover:bg-primary/5 font-black italic uppercase tracking-widest text-[11px] transition-all shadow-md active:scale-95"
-                                        >
-                                            <Printer className="w-4 h-4 mr-2" />
-                                            Print Official Cedula Certificate
-                                        </Button>
                                     </div>
                                 )}
 

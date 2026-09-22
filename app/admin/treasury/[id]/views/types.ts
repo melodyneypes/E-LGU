@@ -100,4 +100,5 @@ export interface TreasuryViewProps {
     handleCollectPsaPayment?: () => Promise<void>;
     cedulaLayoutConfig?: any;
     handlePrintCedula?: () => void;
+    openCedulaPreview?: () => void;
 }
