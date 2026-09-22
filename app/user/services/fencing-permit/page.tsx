@@ -31,6 +31,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
+import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import { getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { toast } from "sonner";
+
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
@@ -39,12 +46,226 @@ const STEPS = [
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
 
+interface DocumentSlotConfig {
+  key: string;
+  label: string;
+  required: boolean;
+  agencyBadge: string;
+  description: string;
+}
+
+const MANDATORY_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
+  {
+    key: "proofOfOwnership",
+    label: "Proof of Land Ownership",
+    required: true,
+    agencyBadge: "Registry of Deeds",
+    description: "Certified True Copy of Transfer Certificate of Title (TCT/OCT), Notarized Deed of Absolute Sale, Lease Contract, or Special Power of Attorney (SPA).",
+  },
+  {
+    key: "taxDeclaration",
+    label: "Tax Declaration of Real Property",
+    required: true,
+    agencyBadge: "Municipal Assessor",
+    description: "Latest Certified True Copy of the Real Property Tax Declaration for the subject land parcel.",
+  },
+  {
+    key: "rptReceipt",
+    label: "Current RPT Official Receipt & Tax Clearance",
+    required: true,
+    agencyBadge: "Municipal Treasury",
+    description: "Official Receipt of Real Property Tax (Amilyar) payment for the current calendar year with Tax Clearance.",
+  },
+  {
+    key: "lotPlan",
+    label: "Certified Lot Plan & Boundary Survey",
+    required: true,
+    agencyBadge: "Geodetic Engineer",
+    description: "Original or certified Lot Plan with Vicinity Map signed and sealed by a licensed Geodetic Engineer certifying no encroachment.",
+  },
+  {
+    key: "fencingPlans",
+    label: "Architectural & Structural Fencing Plans",
+    required: true,
+    agencyBadge: "Civil Engineer / Architect",
+    description: "Complete drawings (site layout, elevations, footing & lintel beam details) signed and sealed by a licensed Civil Engineer or Architect.",
+  },
+  {
+    key: "billOfMaterials",
+    label: "Itemized Bill of Materials & Cost Estimate",
+    required: true,
+    agencyBadge: "Civil Engineer / Architect",
+    description: "Detailed specification and cost estimates for materials and labor signed and sealed by a licensed professional.",
+  },
+  {
+    key: "barangayClearance",
+    label: "Barangay Construction Clearance (Fencing)",
+    required: true,
+    agencyBadge: "Barangay LGU",
+    description: "Barangay Clearance certifying no boundary disputes with neighboring lot owners.",
+  },
+  {
+    key: "governmentId",
+    label: "Valid Government ID & Cedula",
+    required: true,
+    agencyBadge: "Government / LGU",
+    description: "Valid photo-bearing government ID with 3 specimen signatures and current Community Tax Certificate (Cedula).",
+  },
+];
+
+const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
+  {
+    key: "zoningClearance",
+    label: "Locational / Zoning Clearance",
+    required: false,
+    agencyBadge: "MPDO",
+    description: "Zoning / Locational clearance issued by the Municipal Planning & Development Office (if already obtained).",
+  },
+  {
+    key: "dpwhClearance",
+    label: "DPWH Clearance (National Highway)",
+    required: false,
+    agencyBadge: "DPWH",
+    description: "Required only if the proposed fencing adjoins or fronts a National Highway road right-of-way.",
+  },
+  {
+    key: "spaDocument",
+    label: "Special Power of Attorney (SPA)",
+    required: false,
+    agencyBadge: "Notary Public",
+    description: "Notarized authorization letter or SPA if the applicant is filing on behalf of the registered lot owner.",
+  },
+];
+
 export default function FencingPermitPage() {
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
+  const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
+
+  // Data Privacy & Security State
+  const [privacyAccepted, setPrivacyAccepted] = React.useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = React.useState(false);
+  const abandonedFilesRef = React.useRef<string[]>([]);
+
+  React.useEffect(() => {
+    getSystemSettingAction("theme_color").then((res) => {
+      if (res.success && res.data) {
+        setThemeColor(res.data);
+      }
+    });
+  }, []);
+
+  // Beacon Garbage Collector on page close / unload
+  React.useEffect(() => {
+    return () => {
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      }
+    };
+  }, []);
+
+  // Document Uploads State
+  const [uploadedFiles, setUploadedFiles] = React.useState<Record<string, File | null>>({});
+  const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
+  const [showValidationErrors, setShowValidationErrors] = React.useState(false);
+
+  // Document Viewer Modal State
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+  const [viewerFile, setViewerFile] = React.useState<File | null>(null);
+  const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = React.useState("");
+
+  const handleFileSelect = (key: string, file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    setUploadedFiles((prev) => ({ ...prev, [key]: file }));
+    setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
+    toast.success("Document attached and optimized successfully!");
+  };
+
+  const handleClearFile = (key: string) => {
+    setUploadedFiles((prev) => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+    setPreviewUrls((prev) => {
+      const copy = { ...prev };
+      if (copy[key]) {
+        URL.revokeObjectURL(copy[key]!);
+      }
+      delete copy[key];
+      return copy;
+    });
+  };
+
+  const handleViewDocument = (key: string, label: string) => {
+    const file = uploadedFiles[key] || null;
+    const url = previewUrls[key] || null;
+    if (file || url) {
+      setViewerFile(file);
+      setViewerUrl(url);
+      setViewerTitle(label);
+      setViewerOpen(true);
+    }
+  };
+
+  const mandatoryUploadedCount = MANDATORY_DOCUMENT_SLOTS.filter(
+    (slot) => !!uploadedFiles[slot.key]
+  ).length;
+  const isMandatoryComplete = mandatoryUploadedCount === MANDATORY_DOCUMENT_SLOTS.length;
+
+  const handleProceedToEvaluation = () => {
+    if (!isMandatoryComplete) {
+      setShowValidationErrors(true);
+      toast.error(`Please complete all 8 mandatory document uploads before proceeding.`);
+      return;
+    }
+
+    if (!privacyAccepted) {
+      setIsPrivacyModalOpen(true);
+      return;
+    }
+
+    setCurrentStep("EVALUATION");
+  };
+
+  const handlePrivacyAccept = () => {
+    setPrivacyAccepted(true);
+    setIsPrivacyModalOpen(false);
+    toast.success("Data Privacy & Consent confirmed!");
+    setCurrentStep("EVALUATION");
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-16 space-y-8">
         
+        {/* Security & Idle Protection */}
+        <SecureIdleTimer
+          timeoutSeconds={180}
+          warningSeconds={120}
+          themeColor={themeColor}
+        />
+
+        {/* Legal & Data Privacy Agreement Modal */}
+        <PrivacyTermsModal
+          isOpen={isPrivacyModalOpen}
+          onClose={() => setIsPrivacyModalOpen(false)}
+          onAccept={handlePrivacyAccept}
+          onDecline={() => {
+            setIsPrivacyModalOpen(false);
+            toast.info("Privacy agreement is required to submit building and fencing applications.");
+          }}
+          themeColor={themeColor}
+        />
+
+        {/* Document Fullscreen Viewer Modal */}
+        <DocumentViewerModal
+          isOpen={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          file={viewerFile}
+          fileUrl={viewerUrl}
+          title={viewerTitle}
+        />
+
         {/* Breadcrumb Navigation */}
         <Breadcrumb>
           <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
@@ -350,8 +571,151 @@ export default function FencingPermitPage() {
           </div>
         )}
 
-        {/* Placeholder for Steps 2 to 6 (Under Development) */}
-        {currentStep !== "GUIDE" && (
+        {/* Step 2: DOCUMENTS (UPLOAD) TAB CONTENT */}
+        {currentStep === "DOCUMENTS" && (
+          <div className="space-y-8 animate-in fade-in-50 duration-300">
+            {/* Section A: Mandatory Requirements */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                    <FileCheck2 className="w-5 h-5 text-primary" />
+                    Mandatory Engineering & Ownership Documents
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    All 8 items below must be attached before technical review can be initiated.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {MANDATORY_DOCUMENT_SLOTS.map((slot) => {
+                  const file = uploadedFiles[slot.key] || null;
+                  const previewUrl = previewUrls[slot.key] || null;
+                  const isMissing = showValidationErrors && !file;
+
+                  return (
+                    <div
+                      key={slot.key}
+                      className={cn(
+                        "p-5 rounded-2xl border bg-white/40 dark:bg-white/[0.02] backdrop-blur-sm space-y-3 transition-all",
+                        isMissing
+                          ? "border-red-500 ring-2 ring-red-500/20 bg-red-500/[0.02]"
+                          : "border-slate-200 dark:border-white/10 hover:border-primary/40"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
+                          {slot.agencyBadge}
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500">
+                          * Required
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100">
+                          {slot.label}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          {slot.description}
+                        </p>
+                      </div>
+
+                      <PremiumDocumentUpload
+                        label={slot.label}
+                        required={slot.required}
+                        file={file}
+                        previewUrl={previewUrl}
+                        onFileSelect={(selectedFile) => handleFileSelect(slot.key, selectedFile)}
+                        onClear={() => handleClearFile(slot.key)}
+                        onView={() => handleViewDocument(slot.key, slot.label)}
+                        error={isMissing ? "This document is required" : false}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section B: Conditional / Supplementary Documents */}
+            <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div>
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                  <Landmark className="w-5 h-5 text-slate-400" />
+                  Supplementary Clearances & Authorizations (Optional)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Attach only if applicable to your property situation, project location, or representation.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {CONDITIONAL_DOCUMENT_SLOTS.map((slot) => {
+                  const file = uploadedFiles[slot.key] || null;
+                  const previewUrl = previewUrls[slot.key] || null;
+
+                  return (
+                    <div
+                      key={slot.key}
+                      className="p-5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] backdrop-blur-sm space-y-3 hover:border-primary/40 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
+                          {slot.agencyBadge}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          Optional
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">
+                          {slot.label}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed line-clamp-2">
+                          {slot.description}
+                        </p>
+                      </div>
+
+                      <PremiumDocumentUpload
+                        label={slot.label}
+                        required={false}
+                        file={file}
+                        previewUrl={previewUrl}
+                        onFileSelect={(selectedFile) => handleFileSelect(slot.key, selectedFile)}
+                        onClear={() => handleClearFile(slot.key)}
+                        onView={() => handleViewDocument(slot.key, slot.label)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Navigation Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
+              <Button
+                variant="ghost"
+                onClick={() => setCurrentStep("GUIDE")}
+                className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Guidelines
+              </Button>
+              <Button
+                onClick={handleProceedToEvaluation}
+                className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
+              >
+                Proceed to Evaluation Step
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Placeholder for Steps 3 to 5 (Under Development) */}
+        {currentStep !== "GUIDE" && currentStep !== "DOCUMENTS" && (
           <div className="p-8 sm:p-14 rounded-3xl bg-transparent border border-slate-200 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-5 min-h-[380px]">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
               <Construction className="w-8 h-8 animate-pulse" />
@@ -361,17 +725,17 @@ export default function FencingPermitPage() {
                 {STEPS.find(s => s.id === currentStep)?.label} Step Under Assembly
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Naka-set na ang Guide tab! Ang module para sa <strong>{STEPS.find(s => s.id === currentStep)?.label}</strong> ay sunod nating bubuuin upang makumpleto ang buong fencing permit interactive workflow.
+                The Documents Upload module is complete! Next, we will construct the <strong>{STEPS.find(s => s.id === currentStep)?.label}</strong> module to complete the citizen application flow.
               </p>
             </div>
             <div className="pt-2 flex items-center gap-3">
               <Button
                 variant="outline"
-                onClick={() => setCurrentStep("GUIDE")}
+                onClick={() => setCurrentStep("DOCUMENTS")}
                 className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Bumalik sa Guide
+                Back to Document Upload
               </Button>
             </div>
           </div>
