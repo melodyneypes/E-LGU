@@ -36,6 +36,7 @@ import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { inspectFileMagicBytes, sanitizeImageBytes } from "@/lib/file-security";
 import { toast } from "sonner";
 
 const STEPS = [
@@ -174,11 +175,26 @@ export default function FencingPermitPage() {
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = React.useState("");
 
-  const handleFileSelect = (key: string, file: File) => {
-    const objectUrl = URL.createObjectURL(file);
-    setUploadedFiles((prev) => ({ ...prev, [key]: file }));
-    setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
-    toast.success("Document attached and optimized successfully!");
+  const handleFileSelect = async (key: string, file: File) => {
+    // 1. Deep Binary Inspection & Magic Bytes verification (re-verification layer)
+    const inspection = await inspectFileMagicBytes(file);
+    if (!inspection.isValid) {
+      toast.error(inspection.error || "Security validation failed. Only valid PDF, PNG, or JPEG files are allowed.");
+      return;
+    }
+
+    try {
+      // 2. EXIF, GPS, and Embedded Executable Payload Stripping (Sanitization)
+      const sanitizedFile = await sanitizeImageBytes(file);
+
+      const objectUrl = URL.createObjectURL(sanitizedFile);
+      setUploadedFiles((prev) => ({ ...prev, [key]: sanitizedFile }));
+      setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
+      toast.success("Document attached, sanitized, and verified securely!");
+    } catch (err) {
+      console.error("File sanitization error:", err);
+      toast.error("Failed to safely process and sanitize document.");
+    }
   };
 
   const handleClearFile = (key: string) => {
