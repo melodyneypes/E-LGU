@@ -249,6 +249,7 @@ export default function CedulaPrintPortal({
                     {Object.values(layout.fields).map(field => {
                         if (!field.visible) return null;
                         const text = fieldValues[field.id] ?? field.sampleValue ?? "";
+                        const isWords = field.id === "totalAmountInWords";
 
                         return (
                             <div
@@ -263,8 +264,9 @@ export default function CedulaPrintPortal({
                                     textAlign: field.textAlign || "left",
                                     letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                                     fontFamily: "'Courier New', Courier, monospace, sans-serif",
-                                    lineHeight: 1.1,
-                                    whiteSpace: "nowrap",
+                                    lineHeight: isWords ? 1.18 : 1.1,
+                                    whiteSpace: isWords ? "normal" : "nowrap",
+                                    wordBreak: isWords ? "break-word" : "normal",
                                     overflow: "visible",
                                     color: "black"
                                 }}

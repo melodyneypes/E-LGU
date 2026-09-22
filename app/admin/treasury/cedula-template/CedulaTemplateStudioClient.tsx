@@ -496,6 +496,8 @@ export default function CedulaTemplateStudioClient({
                                 if (!field.visible) return null;
                                 const isSelected = field.id === selectedFieldId;
 
+                                const isWords = field.id === "totalAmountInWords";
+
                                 return (
                                     <div
                                         key={field.id}
@@ -508,10 +510,14 @@ export default function CedulaTemplateStudioClient({
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                             textAlign: field.textAlign || "left",
                                             letterSpacing: field.letterSpacing ? `${field.letterSpacing * (zoomLevel / 100)}px` : undefined,
+                                            whiteSpace: isWords ? "normal" : "nowrap",
+                                            lineHeight: isWords ? 1.15 : 1.1,
+                                            wordBreak: isWords ? "break-word" : "normal",
                                             color: "#000000"
                                         }}
                                         className={cn(
-                                            "absolute cursor-move transition-colors duration-75 px-1 py-0.5 rounded leading-tight font-mono z-10 truncate",
+                                            "absolute cursor-move transition-colors duration-75 px-1 py-0.5 rounded font-mono z-10",
+                                            !isWords && "truncate leading-tight",
                                             isSelected
                                                 ? "ring-2 ring-blue-500 bg-blue-500/10 text-black dark:text-black shadow-md font-bold"
                                                 : "hover:ring-1 hover:ring-slate-400 bg-transparent text-black dark:text-black"
