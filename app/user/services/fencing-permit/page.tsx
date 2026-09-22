@@ -37,6 +37,15 @@ import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { HelpCircle, BookOpen } from "lucide-react";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -144,6 +153,7 @@ export default function FencingPermitPage() {
   // Data Privacy & Security State
   const [privacyAccepted, setPrivacyAccepted] = React.useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = React.useState(false);
+  const [selectedGuideSlot, setSelectedGuideSlot] = React.useState<DocumentSlotConfig | null>(null);
   const abandonedFilesRef = React.useRef<string[]>([]);
 
   React.useEffect(() => {
@@ -300,6 +310,63 @@ export default function FencingPermitPage() {
           fileUrl={viewerUrl}
           title={viewerTitle}
         />
+
+        {/* Dedicated Single-Document Upload Guide Modal */}
+        <Dialog open={!!selectedGuideSlot} onOpenChange={(open) => !open && setSelectedGuideSlot(null)}>
+          <DialogContent className="max-w-lg overflow-hidden flex flex-col p-0 rounded-3xl border-slate-200 dark:border-white/10">
+            <DialogHeader className="p-6 pb-4 border-b border-slate-200 dark:border-white/10 shrink-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 text-primary text-[10px] font-black uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-full">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Document Guideline
+                </span>
+                {selectedGuideSlot?.agencyBadge && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
+                    {selectedGuideSlot.agencyBadge}
+                  </span>
+                )}
+              </div>
+              <DialogTitle className="text-lg sm:text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white pt-1">
+                {selectedGuideSlot?.label}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Official criteria and submission requirements for this attachment.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-6 space-y-4 text-left">
+              <div className="p-4 rounded-2xl bg-primary/[0.03] border border-primary/20 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-primary block">
+                  Description & Specifications
+                </span>
+                <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
+                  {selectedGuideSlot?.description}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Important Reminders
+                </span>
+                <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1.5 list-disc pl-4 leading-relaxed">
+                  <li>Ensure all signatures, official dry seals, and registration stamps are fully legible.</li>
+                  <li>Accepted formats: <strong>PDF, PNG, or JPG</strong> (auto-compressed up to 15MB).</li>
+                  <li>Documents must be updated and valid for the current calendar year.</li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter className="p-4 border-t border-slate-200 dark:border-white/10 shrink-0 bg-slate-50 dark:bg-white/[0.02]">
+              <Button
+                type="button"
+                onClick={() => setSelectedGuideSlot(null)}
+                className="w-full rounded-xl font-black text-xs uppercase tracking-wider h-10"
+              >
+                Got it, Return to Upload
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Breadcrumb Navigation */}
         <Breadcrumb>
@@ -611,16 +678,14 @@ export default function FencingPermitPage() {
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Section A: Mandatory Requirements */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                    <FileCheck2 className="w-5 h-5 text-primary" />
-                    Mandatory Engineering & Ownership Documents
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    All 8 items below must be attached before technical review can be initiated.
-                  </p>
-                </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                  <FileCheck2 className="w-5 h-5 text-primary" />
+                  Mandatory Engineering & Ownership Documents
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  All 8 items below must be attached before technical review can be initiated.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -633,8 +698,22 @@ export default function FencingPermitPage() {
                     <div
                       key={slot.key}
                       id={`doc-slot-${slot.key}`}
-                      className="scroll-mt-28 transition-all"
+                      className="scroll-mt-28 transition-all space-y-1.5"
                     >
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {slot.agencyBadge}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGuideSlot(slot)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline hover:text-primary/80 transition-colors"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          Guide
+                        </button>
+                      </div>
+
                       <PremiumDocumentUpload
                         label={slot.label}
                         required={slot.required}
@@ -672,8 +751,22 @@ export default function FencingPermitPage() {
                     <div
                       key={slot.key}
                       id={`doc-slot-${slot.key}`}
-                      className="scroll-mt-28 transition-all"
+                      className="scroll-mt-28 transition-all space-y-1.5"
                     >
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {slot.agencyBadge}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGuideSlot(slot)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline hover:text-primary/80 transition-colors"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          Guide
+                        </button>
+                      </div>
+
                       <PremiumDocumentUpload
                         label={slot.label}
                         required={false}
