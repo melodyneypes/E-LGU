@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer, Eye, Sparkles } from "lucide-react";
 import { CedulaLayoutSettings, DEFAULT_CEDULA_LAYOUT } from "@/lib/cedula-template-config";
-import { numberToWords } from "@/lib/utils/number-to-words";
+import { numberToWords, formatCedulaWordsTwoLines } from "@/lib/utils/number-to-words";
 
 interface CedulaPreviewModalProps {
     isOpen: boolean;
@@ -98,7 +98,7 @@ export default function CedulaPreviewModal({
     const isDivorced = civStatus.includes("DIVORCE") || civStatus.includes("SEPARATE");
 
     const calcTax = additional.calculatedTax || {};
-    const fiscal = (transaction.fiscalSnapshot as any) || {};
+    const _fiscal = (transaction.fiscalSnapshot as any) || {};
 
     // Basic Tax
     const basicTaxNum = Number(calcTax.basicTax ?? cedulaRecord.basicTax ?? 5.0);
@@ -170,7 +170,7 @@ export default function CedulaPreviewModal({
         totalCommunityTax: totalCommunityTaxNum.toFixed(2),
         penalty: penaltyNum.toFixed(2),
         totalAmountPaid: totalAmountNum.toFixed(2),
-        totalAmountInWords: numberToWords(totalAmountNum),
+        totalAmountInWords: formatCedulaWordsTwoLines(numberToWords(totalAmountNum), 5),
         municipalTreasurer: "MUNICIPAL TREASURER"
     };
 
@@ -261,7 +261,7 @@ export default function CedulaPreviewModal({
                                             letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                                             fontFamily: "'Courier New', Courier, monospace, sans-serif",
                                             lineHeight: isWords ? 1.18 : 1.1,
-                                            whiteSpace: isWords ? "normal" : "nowrap",
+                                            whiteSpace: isWords ? "pre-line" : "nowrap",
                                             wordBreak: isWords ? "break-word" : "normal",
                                             color: "#0f172a"
                                         }}

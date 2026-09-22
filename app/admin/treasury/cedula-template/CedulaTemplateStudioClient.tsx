@@ -510,7 +510,7 @@ export default function CedulaTemplateStudioClient({
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                             textAlign: field.textAlign || "left",
                                             letterSpacing: field.letterSpacing ? `${field.letterSpacing * (zoomLevel / 100)}px` : undefined,
-                                            whiteSpace: isWords ? "normal" : "nowrap",
+                                            whiteSpace: isWords ? "pre-line" : "nowrap",
                                             lineHeight: isWords ? 1.15 : 1.1,
                                             wordBreak: isWords ? "break-word" : "normal",
                                             color: "#000000"

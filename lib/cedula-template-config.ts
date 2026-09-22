@@ -448,7 +448,7 @@ export const DEFAULT_CEDULA_FIELDS: Record<string, CedulaFieldConfig> = {
         fontWeight: "bold",
         textAlign: "left",
         visible: true,
-        sampleValue: "THREE HUNDRED FIFTY-FIVE PESOS ONLY"
+        sampleValue: "ONE THOUSAND ONE HUNDRED FORTY-FIVE\nPESOS AND 70/100 ONLY"
     },
     municipalTreasurer: {
         id: "municipalTreasurer",

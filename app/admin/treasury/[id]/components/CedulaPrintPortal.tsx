@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CedulaLayoutSettings, DEFAULT_CEDULA_LAYOUT } from "@/lib/cedula-template-config";
-import { numberToWords } from "@/lib/utils/number-to-words";
+import { numberToWords, formatCedulaWordsTwoLines } from "@/lib/utils/number-to-words";
 
 interface CedulaPrintPortalProps {
     transaction: any;
@@ -172,7 +172,7 @@ export default function CedulaPrintPortal({
         totalCommunityTax: totalCommunityTaxNum.toFixed(2),
         penalty: penaltyNum.toFixed(2),
         totalAmountPaid: totalAmountNum.toFixed(2),
-        totalAmountInWords: numberToWords(totalAmountNum),
+        totalAmountInWords: formatCedulaWordsTwoLines(numberToWords(totalAmountNum), 5),
         municipalTreasurer: "MUNICIPAL TREASURER"
     };
 
@@ -265,7 +265,7 @@ export default function CedulaPrintPortal({
                                     letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                                     fontFamily: "'Courier New', Courier, monospace, sans-serif",
                                     lineHeight: isWords ? 1.18 : 1.1,
-                                    whiteSpace: isWords ? "normal" : "nowrap",
+                                    whiteSpace: isWords ? "pre-line" : "nowrap",
                                     wordBreak: isWords ? "break-word" : "normal",
                                     overflow: "visible",
                                     color: "black"
