@@ -75,8 +75,9 @@ export default function CedulaPreviewModal({
     const rawTin = String(resident.tin || additional.tin || "").replace(/[^0-9]/g, "");
     let formattedTin = "";
     if (rawTin.length > 0) {
+        // Group into sets of 3 matching Template Studio sample format (e.g. "123 456 789")
         const chunks = rawTin.match(/.{1,3}/g) || [];
-        formattedTin = chunks.map(c => c.split("").join(" ")).join("  ");
+        formattedTin = chunks.join(" ");
     }
 
     const fullName = (
@@ -233,8 +234,8 @@ export default function CedulaPreviewModal({
                         {/* 1:1 Scaled Canvas Container matching Template Studio exact geometry */}
                         <div
                             style={{
-                                width: `${(layout.widthMm || 152) * 5.2}px`,
-                                height: `${(layout.heightMm || 101) * 5.2}px`,
+                                width: `${(layout.widthMm || 152) * 4.4}px`,
+                                height: `${(layout.heightMm || 101) * 4.4}px`,
                                 maxWidth: "100%",
                                 aspectRatio: `${layout.widthMm || 152} / ${layout.heightMm || 101}`,
                                 position: "relative",

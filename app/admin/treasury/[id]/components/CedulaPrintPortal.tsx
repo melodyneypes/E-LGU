@@ -72,13 +72,12 @@ export default function CedulaPrintPortal({
         resident.middleName || additional.middleName || (resident.fullName ? resident.fullName.split(",")[1]?.trim().split(" ").slice(1).join(" ") : "") || ""
     ).trim().toUpperCase();
 
-    // Format TIN digits for individual boxes (e.g. 1 2 3  4 5 6  7 8 9  0 0 0)
+    // Format TIN digits matching Template Studio (e.g. 123 456 789)
     const rawTin = String(resident.tin || additional.tin || "").replace(/[^0-9]/g, "");
     let formattedTin = "";
     if (rawTin.length > 0) {
-        // Group into sets of 3 with extra space between groups
         const chunks = rawTin.match(/.{1,3}/g) || [];
-        formattedTin = chunks.map(c => c.split("").join(" ")).join("  ");
+        formattedTin = chunks.join(" ");
     } else {
         formattedTin = "";
     }
