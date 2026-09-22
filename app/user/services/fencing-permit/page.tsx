@@ -7,12 +7,10 @@ import {
   Construction, 
   ArrowLeft,
   ClipboardList,
-  User,
   Upload,
   Building2,
   Landmark,
   CheckCircle2,
-  ShieldCheck,
   FileCheck2,
   LandPlot,
   FileSpreadsheet,
@@ -35,7 +33,6 @@ import { cn } from "@/lib/utils";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
-  { id: "PROFILE", label: "Profile", icon: User },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
   { id: "EVALUATION", label: "Evaluation", icon: Building2 },
   { id: "BFP", label: "Treasury", icon: Landmark },
@@ -87,7 +84,7 @@ export default function FencingPermitPage() {
         </div>
 
         {/* Stepper Progress Tabs */}
-        <div className="grid grid-cols-6 gap-1.5 sm:gap-4 relative px-1 sm:px-2">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative px-1 sm:px-2">
           {STEPS.map((step, idx) => {
             const isActive = currentStep === step.id;
             const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -132,34 +129,16 @@ export default function FencingPermitPage() {
         {/* Step 1: GUIDE TAB CONTENT */}
         {currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
-            {/* Citizen's Charter Key Notice Banner */}
+            {/* Professional Notice Banner without the 2 cards and badge */}
             <div className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8 backdrop-blur-md relative overflow-hidden">
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    P.D. 1096 National Building Code & Mapandan LGU Guidelines
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-black uppercase italic tracking-tight">
-                    Fencing Permit Application Guide
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-                    Ang Fencing Permit ay kailangan bago magtayo, mag-ayos, o magpalit ng perimeter fence o bakod sa loob ng Mapandan upang masigurado ang tamang boundary, kaligtasan, at pagsunod sa road right-of-way.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 shrink-0 w-full sm:w-auto">
-                  <div className="p-3.5 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center space-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Processing SLA</p>
-                    <p className="text-base sm:text-lg font-black text-primary">3 - 5 Days</p>
-                    <span className="text-[9px] text-slate-400 block font-medium">Upon Complete Uploads</span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center space-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Validity</p>
-                    <p className="text-base sm:text-lg font-black text-emerald-500">120 Days</p>
-                    <span className="text-[9px] text-slate-400 block font-medium">To Commence Work</span>
-                  </div>
-                </div>
+              <div className="space-y-2 relative z-10">
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                  Fencing Permit Application Guidelines
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                  A Fencing Permit is a statutory accessory permit required prior to constructing, altering, repairing, or relocating any perimeter fence or boundary wall within the territorial jurisdiction of the Municipality of Mapandan. This ensures strict adherence to property boundaries, public safety standards, and road right-of-way setbacks.
+                </p>
               </div>
             </div>
 
@@ -169,10 +148,10 @@ export default function FencingPermitPage() {
                 <div>
                   <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight flex items-center gap-2">
                     <FileCheck2 className="w-5 h-5 text-primary" />
-                    Dokumento at mga Kinakailangan (Documentary Requirements)
+                    Documentary Requirements
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Ihanda ang malinaw na kopya (PDF o JPEG) ng sumusunod na 6 na pangunahing dokumento bago magpatuloy sa application:
+                    Ensure clear, scanned digital copies (PDF or high-resolution JPEG) of the following mandatory documents are ready before initiating your application:
                   </p>
                 </div>
               </div>
@@ -191,10 +170,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <LandPlot className="w-4 h-4 text-primary" />
-                      Katibayan ng Pagmamay-ari (Proof of Ownership)
+                      Proof of Land Ownership
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      Certified True Copy ng Transfer Certificate of Title (TCT / OCT). Kung hindi nakapangalan sa nag-a-apply: Notarized Deed of Absolute Sale, Contract of Lease, o Authorization / Special Power of Attorney (SPA).
+                      Certified True Copy of the Transfer Certificate of Title (TCT / OCT). If the applicant is not the registered title owner: Notarized Deed of Absolute Sale, Contract of Lease, or an authenticated Special Power of Attorney (SPA) / Authorization Letter.
                     </p>
                   </div>
                 </div>
@@ -212,10 +191,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <FileSpreadsheet className="w-4 h-4 text-primary" />
-                      Tax Declaration & Latest Real Property Tax (Amilyar)
+                      Tax Declaration & Real Property Tax Receipt
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      Updated Tax Declaration para sa lupa at opisyal na resibo (Official Receipt) ng pinakahuling bayad sa Real Property Tax (RPT / Amilyar) para sa kasalukuyang taon, kasama ang Tax Clearance.
+                      Latest Certified True Copy of the Real Property Tax Declaration and the Official Receipt of updated Real Property Tax (RPT) payment for the current calendar year, accompanied by a valid Tax Clearance Certificate.
                     </p>
                   </div>
                 </div>
@@ -233,10 +212,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <Compass className="w-4 h-4 text-primary" />
-                      Lot Plan, Vicinity Map & Boundary Survey
+                      Certified Lot Plan & Boundary Survey
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      Certified Lot Plan na may Vicinity Map na nilagdaan at tinatakan (signed & sealed) ng isang Licensed Geodetic Engineer. Kasama ang certification na walang encroachment o overlaps sa katabing lote.
+                      Original or certified copy of the Lot Plan with Vicinity Map, signed and sealed by a duly licensed Geodetic Engineer, certifying boundary verifications, monuments, and confirming non-encroachment on adjacent parcels.
                     </p>
                   </div>
                 </div>
@@ -254,10 +233,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <Ruler className="w-4 h-4 text-primary" />
-                      Fencing Plans, Structural Details & Bill of Materials
+                      Engineering Plans & Bill of Materials
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      Kumpletong plano ng bakod (Site development, elevations, footing/foundation details, columns, lintel beams) at itemized Bill of Materials & Cost Estimates (BOM) na pirmado at may selyo ng lisensyadong Civil Engineer o Architect.
+                      Complete architectural and structural fencing plans (site development plan, elevations, footing and foundation sections, lintel beam details) alongside itemized Bill of Materials and Cost Estimates, signed and sealed by a registered Civil Engineer or Architect.
                     </p>
                   </div>
                 </div>
@@ -275,10 +254,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Barangay Fencing Clearance & Locational Clearance
+                      Barangay Clearance & Locational Clearance
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      Barangay Clearance para sa konstruksyon ng bakod na nagpapatunay na walang umiiral na boundary dispute sa mga kapitbahay. Locational/Zoning Clearance mula sa MPDO (at DPWH Clearance kung katabi ang national highway).
+                      Barangay Construction Clearance specifically certifying the absence of boundary or neighborhood disputes, and a Locational / Zoning Clearance issued by the Municipal Planning & Development Office (MPDO).
                     </p>
                   </div>
                 </div>
@@ -296,10 +275,10 @@ export default function FencingPermitPage() {
                   <div>
                     <h4 className="font-black text-sm sm:text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-primary" />
-                      DOLE CSHP, Cedula at Valid Government IDs
+                      DOLE CSHP, Cedula & Government Identification
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                      DOLE Construction Safety & Health Program (CSHP) summary, Community Tax Certificate (Cedula) ng aplikante para sa kasalukuyang taon, at Valid Government-Issued ID na may 3 specimen signatures.
+                      DOLE Construction Safety & Health Program (CSHP) compliance sheet, Community Tax Certificate (Cedula) for the current fiscal year, and valid government-issued photo ID of the applicant and authorized representatives.
                     </p>
                   </div>
                 </div>
@@ -314,10 +293,10 @@ export default function FencingPermitPage() {
                 </div>
                 <div>
                   <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-amber-700 dark:text-amber-400">
-                    Mahahalagang Alituntunin sa Pagpapatayo ng Bakod (Technical Building Standards)
+                    Mandatory Technical & Zoning Standards
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Ayon sa National Building Code (PD 1096) at Ordinansa ng Bayan ng Mapandan:
+                    All fence installations within Mapandan must comply with the following structural and spatial requirements:
                   </p>
                 </div>
               </div>
@@ -328,25 +307,25 @@ export default function FencingPermitPage() {
                     Height Limitations
                   </span>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Ang solid masonry / hollow-block wall na nakaharap sa kalsada ay karaniwang may maximum solid height na <strong>1.00m to 1.50m</strong>. Ang lampas dito ay dapat semi-open o wrought iron/grilles upang mapanatili ang visual safety.
+                    Solid masonry or concrete hollow block walls along road frontages must not exceed <strong>1.00m to 1.50m</strong> in solid height. Structures exceeding this threshold must feature semi-open grilles or wrought iron for clear street surveillance and ventilation.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
                   <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
-                    No RROW Encroachment
+                    Road Right-of-Way Protection
                   </span>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Mahigpit na ipinagbabawal ang pagtatayo ng bakod o poste lampas sa property line o papasok sa <strong>Road Right-of-Way (RROW)</strong>, bangketa (sidewalks), o public drainage canal easements.
+                    Under no circumstances may any fencing, post footing, or decorative canopy encroach upon the <strong>Road Right-of-Way (RROW)</strong>, municipal sidewalks, shoulders, or public waterway easements.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
                   <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
-                    Corner Lot Sight Triangle
+                    Corner Lot Sight Distance
                   </span>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Para sa mga lote sa kanto (corner lots), kailangan mag-iwan ng <strong>chaflan / corner cut-off</strong> upang hindi maharangan ang line-of-sight ng mga motorista at maiwasan ang aksidente.
+                    Fences situated on intersection or corner parcels must incorporate a standard <strong>chaflan / corner cutoff</strong> to maintain clear sight distance for vehicular traffic and pedestrians.
                   </p>
                 </div>
               </div>
@@ -357,14 +336,14 @@ export default function FencingPermitPage() {
               <Link href="/user/services">
                 <Button variant="ghost" className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2">
                   <ArrowLeft className="w-4 h-4" />
-                  Bumalik sa Lahat ng Serbisyo
+                  Return to All Services
                 </Button>
               </Link>
               <Button
-                onClick={() => setCurrentStep("PROFILE")}
+                onClick={() => setCurrentStep("DOCUMENTS")}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
-                Magpatuloy sa Profile ng Aplikante
+                Proceed to Document Upload
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
