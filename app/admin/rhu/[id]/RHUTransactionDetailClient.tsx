@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateRHUAppointmentStatus, getRHUHealthCenters, scheduleRHUFollowUp, getPatientConsultationHistory } from "../actions";
 import { getRHUInventoryItems, dispenseRHUMedicines } from "@/app/admin/rhu/inventory/actions";
 import PrintReferralSlip from "@/components/shared/PrintReferralSlip";
+import PatientVitalsHistoryGraphs from "./PatientVitalsHistoryGraphs";
 
 function formatDateTime(dateStr?: string | Date): string {
     if (!dateStr) return "N/A";
@@ -399,7 +400,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     }, [transaction.id, transaction.userId, patientName]);
 
     // Active console tab
-    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx" | "followup" | "history">("deos");
+    const [activeTab, setActiveTab] = useState<"deos" | "vaccine" | "rx" | "history">("deos");
 
     // Follow-up return visit state
     const [scheduleFollowUp, setScheduleFollowUp] = useState<boolean>(() => {
@@ -2979,7 +2980,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
 
                             {/* Tabs */}
                             <div className="flex border-b border-white/10 shrink-0">
-                                {(["deos", "vaccine", "rx", "followup", "history"] as const).map((tab) => (
+                                {(["deos", "vaccine", "rx", "history"] as const).map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
@@ -2989,8 +2990,8 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 : "text-slate-500 hover:text-slate-300"
                                         }`}
                                     >
-                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : tab === "rx" ? "RX / Referral" : tab === "followup" ? "Schedule Follow-up" : `History (${consultationHistory.length})`}
-                                        {tab === "followup" && scheduleFollowUp && (
+                                        {tab === "deos" ? "D·E·O·S" : tab === "vaccine" ? "Vaccine Batch" : tab === "rx" ? "RX / Referral" : `History (${consultationHistory.length})`}
+                                        {tab === "deos" && scheduleFollowUp && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
                                         )}
                                         {tab === "history" && consultationHistory.length > 0 && (
@@ -3212,6 +3213,130 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                                 className="rounded-xl bg-white/5 text-white placeholder:text-slate-600 font-medium text-xs resize-none border border-white/10"
                                             />
                                         </div>
+
+                                        {/* Schedule Follow-Up Return Visit Section */}
+                                        <div className="space-y-3 pt-3 border-t border-white/10">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Repeat className="w-4 h-4 text-teal-400" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Schedule Follow-Up Return Visit
+                                                    </span>
+                                                </div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                                    scheduleFollowUp 
+                                                        ? "bg-teal-500/15 text-teal-400 border-teal-500/30" 
+                                                        : "bg-white/5 text-slate-500 border-white/10"
+                                                }`}>
+                                                    {scheduleFollowUp ? "Return Visit Active" : "No Follow-Up"}
+                                                </span>
+                                            </div>
+
+                                            {/* Toggle Card */}
+                                            <div 
+                                                onClick={() => setScheduleFollowUp(!scheduleFollowUp)}
+                                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                                                    scheduleFollowUp 
+                                                        ? "bg-teal-500/10 border-teal-500/40 shadow-lg shadow-teal-500/5" 
+                                                        : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3.5">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                                                        scheduleFollowUp ? "bg-teal-500 text-slate-950 font-black" : "bg-white/10 text-slate-400"
+                                                    }`}>
+                                                        <Repeat className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black text-white uppercase tracking-wider">
+                                                            Schedule Follow-Up Return Visit
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                                            Automated midnight job will push this patient into the daily queue on the scheduled date.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
+                                                    scheduleFollowUp ? "bg-teal-500 border-teal-400 text-slate-950" : "border-slate-600 bg-transparent"
+                                                }`}>
+                                                    {scheduleFollowUp && <CheckCircle2 className="w-4 h-4 text-slate-950 stroke-[3]" />}
+                                                </div>
+                                            </div>
+
+                                            {scheduleFollowUp && (
+                                                <div className="space-y-4 pt-1 animate-in fade-in-50 duration-200">
+                                                    {/* Date Selection */}
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                                            <Calendar className="w-3.5 h-3.5 text-teal-400" />
+                                                            Return Consultation Date <span className="text-rose-500">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            type="date"
+                                                            value={followUpDate}
+                                                            min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                                                            onChange={(e) => setFollowUpDate(e.target.value)}
+                                                            className="h-11 rounded-xl bg-white/5 text-white font-mono text-xs border border-white/10 focus-visible:ring-teal-500"
+                                                        />
+
+                                                        {/* Quick Presets */}
+                                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">Quick Presets:</span>
+                                                            {[
+                                                                { label: "+3 Days", days: 3 },
+                                                                { label: "+1 Week", days: 7 },
+                                                                { label: "+2 Weeks", days: 14 },
+                                                                { label: "+1 Month", days: 30 },
+                                                            ].map((preset) => (
+                                                                <button
+                                                                    key={preset.label}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const d = new Date();
+                                                                        d.setDate(d.getDate() + preset.days);
+                                                                        setFollowUpDate(d.toISOString().split("T")[0]);
+                                                                    }}
+                                                                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-teal-500/20 text-[10px] font-black uppercase tracking-wider text-teal-300 border border-white/10 hover:border-teal-500/30 transition-colors cursor-pointer"
+                                                                >
+                                                                    {preset.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Clinical Instructions / Notes */}
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                            Clinical Follow-Up Notes &amp; Instructions
+                                                        </Label>
+                                                        <Textarea
+                                                            placeholder="e.g. Blood pressure monitoring, review repeat fasting blood sugar, evaluate post-antibiotic treatment, suture removal..."
+                                                            value={followUpNotes}
+                                                            onChange={(e) => setFollowUpNotes(e.target.value)}
+                                                            rows={3}
+                                                            className="rounded-xl bg-white/5 text-white placeholder:text-slate-600 font-medium text-xs resize-none border border-white/10 focus-visible:ring-teal-500"
+                                                        />
+                                                    </div>
+
+                                                    {/* Visual Badge Indicator Notice */}
+                                                    <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-start gap-3">
+                                                        <Activity className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                                                        <div className="space-y-0.5">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Live Queue Visual Flag Badge</p>
+                                                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                                When this patient is pushed into the active queue on <strong className="text-white">{followUpDate ? new Date(followUpDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "the scheduled date"}</strong>, the ticket will display the badge:
+                                                            </p>
+                                                            <div className="pt-1">
+                                                                <span className="text-[9px] font-black tracking-wider uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-full italic inline-flex items-center gap-1.5">
+                                                                    <Repeat className="w-3 h-3 text-indigo-400" />
+                                                                    Return Patient / Follow-up
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -3293,295 +3418,40 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                     </div>
                                 )}
 
-                                {activeTab === "followup" && (
-                                    <div className="space-y-5">
-                                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-teal-400">Return Visit & Queue Injection</p>
-                                                <p className="text-xs font-black text-white uppercase">Schedule Return Consultation</p>
-                                            </div>
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                                                scheduleFollowUp 
-                                                    ? "bg-teal-500/15 text-teal-400 border-teal-500/30" 
-                                                    : "bg-white/5 text-slate-400 border-white/10"
-                                            }`}>
-                                                {scheduleFollowUp ? "RETURN VISIT ACTIVE" : "NO FOLLOW-UP SCHEDULED"}
-                                            </span>
-                                        </div>
 
-                                        {/* Toggle Card */}
-                                        <div 
-                                            onClick={() => setScheduleFollowUp(!scheduleFollowUp)}
-                                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                                                scheduleFollowUp 
-                                                    ? "bg-teal-500/10 border-teal-500/40 shadow-lg shadow-teal-500/5" 
-                                                    : "bg-white/[0.02] border-white/10 hover:border-white/20"
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3.5">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                                                    scheduleFollowUp ? "bg-teal-500 text-slate-950 font-black" : "bg-white/10 text-slate-400"
-                                                }`}>
-                                                    <Repeat className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-black text-white uppercase tracking-wider">
-                                                        Schedule Follow-Up Return Visit
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 mt-0.5">
-                                                        Automated midnight job will push this patient into the daily queue on the scheduled date.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
-                                                scheduleFollowUp ? "bg-teal-500 border-teal-400 text-slate-950" : "border-slate-600 bg-transparent"
-                                            }`}>
-                                                {scheduleFollowUp && <CheckCircle2 className="w-4 h-4 text-slate-950 stroke-[3]" />}
-                                            </div>
-                                        </div>
-
-                                        {scheduleFollowUp && (
-                                            <div className="space-y-4 pt-1 animate-in fade-in-50 duration-200">
-                                                {/* Date Selection */}
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                                        <Calendar className="w-3.5 h-3.5 text-teal-400" />
-                                                        Return Consultation Date <span className="text-rose-500">*</span>
-                                                    </Label>
-                                                    <Input
-                                                        type="date"
-                                                        value={followUpDate}
-                                                        min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
-                                                        onChange={(e) => setFollowUpDate(e.target.value)}
-                                                        className="h-11 rounded-xl bg-white/5 text-white font-mono text-xs border border-white/10 focus-visible:ring-teal-500"
-                                                    />
-
-                                                    {/* Quick Presets */}
-                                                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">Quick Presets:</span>
-                                                        {[
-                                                            { label: "+3 Days", days: 3 },
-                                                            { label: "+1 Week", days: 7 },
-                                                            { label: "+2 Weeks", days: 14 },
-                                                            { label: "+1 Month", days: 30 },
-                                                        ].map((preset) => (
-                                                            <button
-                                                                key={preset.label}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const d = new Date();
-                                                                    d.setDate(d.getDate() + preset.days);
-                                                                    setFollowUpDate(d.toISOString().split("T")[0]);
-                                                                }}
-                                                                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-teal-500/20 text-[10px] font-black uppercase tracking-wider text-teal-300 border border-white/10 hover:border-teal-500/30 transition-colors"
-                                                            >
-                                                                {preset.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* Clinical Instructions / Notes */}
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        Clinical Follow-Up Notes & Instructions
-                                                    </Label>
-                                                    <Textarea
-                                                        placeholder="e.g. Blood pressure monitoring, review repeat fasting blood sugar, evaluate post-antibiotic treatment, suture removal..."
-                                                        value={followUpNotes}
-                                                        onChange={(e) => setFollowUpNotes(e.target.value)}
-                                                        rows={4}
-                                                        className="rounded-xl bg-white/5 text-white placeholder:text-slate-600 font-medium text-xs resize-none border border-white/10 focus-visible:ring-teal-500"
-                                                    />
-                                                </div>
-
-                                                {/* Visual Badge Indicator Notice */}
-                                                <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-start gap-3">
-                                                    <Activity className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                                                    <div className="space-y-0.5">
-                                                        <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Live Queue Visual Flag Badge</p>
-                                                        <p className="text-[11px] text-slate-300 leading-relaxed">
-                                                            When this patient is pushed into the active queue on <strong className="text-white">{followUpDate ? new Date(followUpDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "the scheduled date"}</strong>, the ticket will display the badge:
-                                                        </p>
-                                                        <div className="pt-1.5">
-                                                            <span className="text-[9px] font-black tracking-wider uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-full italic inline-flex items-center gap-1.5">
-                                                                <Repeat className="w-3 h-3 text-indigo-400" />
-                                                                Return Patient / Follow-up
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
 
                                 {activeTab === "history" && (
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-teal-400">PATIENT CHRONICLES & PREVIOUS CONSULTATIONS</p>
-                                                <p className="text-xs font-black text-white uppercase">Historical Medical Record (Read-Only Archive)</p>
-                                            </div>
-                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                                                {consultationHistory.length} Previous Visit{consultationHistory.length === 1 ? "" : "s"}
-                                            </span>
-                                        </div>
-
-                                        {loadingHistory ? (
-                                            <div className="p-8 text-center space-y-2">
-                                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-teal-400" />
-                                                <p className="text-xs text-slate-400">Loading patient consultation history...</p>
-                                            </div>
-                                        ) : consultationHistory.length === 0 ? (
-                                            <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02] text-center space-y-2">
-                                                <FileText className="w-8 h-8 mx-auto text-slate-600" />
-                                                <p className="text-xs font-bold text-slate-300">No Prior Consultation History Found</p>
-                                                <p className="text-[11px] text-slate-500">
-                                                    This patient has no previously completed consultations or prescriptions on record in the RHU database.
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <p className="text-[11px] text-slate-400">
-                                                    Review prior diagnoses and medications. You can copy past diagnosis or append past prescriptions directly into the current consultation.
-                                                </p>
-
-                                                <div className="space-y-3">
-                                                    {consultationHistory.map((item, idx) => (
-                                                        <div key={item.id || idx} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-teal-500/30 transition-all space-y-3">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                                                        {item.isFollowUp ? `Follow-Up Visit #${item.followUpSequence || idx + 1}` : "Initial Consultation"}
-                                                                    </span>
-                                                                    <span className="text-xs font-bold text-white">
-                                                                        {item.checkupType || "General Consultation"}
-                                                                    </span>
-                                                                </div>
-                                                                <span className="text-xs font-mono font-bold text-slate-400">
-                                                                    {new Date(item.date || item.completedAt || item.createdAt).toLocaleDateString("en-PH", {
-                                                                        month: "short",
-                                                                        day: "numeric",
-                                                                        year: "numeric"
-                                                                    })}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Doctor & Status */}
-                                                            <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/5 pb-2">
-                                                                <div>
-                                                                    Physician: <strong className="text-slate-200 font-bold">{item.doctor || "Attending Physician"}</strong>
-                                                                </div>
-                                                                {item.controlNumber && (
-                                                                    <div className="font-mono text-[10px] text-slate-500">
-                                                                        Ref: #{item.controlNumber}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Vitals Summary */}
-                                                            {item.vitals && (
-                                                                <div className="flex flex-wrap gap-2 text-[10px]">
-                                                                    {item.vitals.bloodPressure && (
-                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
-                                                                            BP: <strong className="text-white">{item.vitals.bloodPressure}</strong>
-                                                                        </span>
-                                                                    )}
-                                                                    {item.vitals.temperature && (
-                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
-                                                                            Temp: <strong className="text-white">{item.vitals.temperature}°C</strong>
-                                                                        </span>
-                                                                    )}
-                                                                    {item.vitals.pulseRate && (
-                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
-                                                                            HR: <strong className="text-white">{item.vitals.pulseRate} bpm</strong>
-                                                                        </span>
-                                                                    )}
-                                                                    {item.vitals.weight && (
-                                                                        <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
-                                                                            Wt: <strong className="text-white">{item.vitals.weight} kg</strong>
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            )}
-
-                                                            {/* Diagnosis */}
-                                                            {item.diagnosis && (
-                                                                <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 space-y-1">
-                                                                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Diagnosis</p>
-                                                                    <p className="text-xs text-slate-200 font-medium whitespace-pre-wrap">{item.diagnosis}</p>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Orders / Prescriptions */}
-                                                            {item.orders && (
-                                                                <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 space-y-1">
-                                                                    <p className="text-[9px] font-black uppercase tracking-wider text-teal-400">Prescription / Orders</p>
-                                                                    <p className="text-xs text-slate-200 font-medium whitespace-pre-wrap font-mono">{item.orders}</p>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Actions: Copy to current */}
-                                                            <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-white/5">
-                                                                {item.diagnosis && (
-                                                                    <Button
-                                                                        type="button"
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() => {
-                                                                            setDeos(prev => ({
-                                                                                ...prev,
-                                                                                diagnosis: prev.diagnosis
-                                                                                    ? `${prev.diagnosis}\n[Follow-up of previous: ${item.diagnosis}]`
-                                                                                    : item.diagnosis
-                                                                            }));
-                                                                            toast.success("Previous diagnosis copied to current consultation.");
-                                                                            setActiveTab("deos");
-                                                                        }}
-                                                                        className="h-8 px-3 rounded-lg border-white/10 text-slate-300 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-wider"
-                                                                    >
-                                                                        Copy Diagnosis
-                                                                    </Button>
-                                                                )}
-                                                                {item.orders && (
-                                                                    <Button
-                                                                        type="button"
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() => {
-                                                                            setDeos(prev => ({
-                                                                                ...prev,
-                                                                                orders: prev.orders
-                                                                                    ? `${prev.orders}\n\n[Previous Rx Ref (${new Date(item.completedAt || item.createdAt).toLocaleDateString("en-PH")})]:\n${item.orders}`
-                                                                                    : item.orders
-                                                                            }));
-                                                                            toast.success("Previous prescription orders appended.");
-                                                                            setActiveTab("deos");
-                                                                        }}
-                                                                        className="h-8 px-3 rounded-lg border-teal-500/30 text-teal-300 hover:bg-teal-500/10 text-[10px] font-black uppercase tracking-wider"
-                                                                    >
-                                                                        Append Rx Orders
-                                                                    </Button>
-                                                                )}
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    onClick={() => {
-                                                                        setSelectedHistoryItem(item);
-                                                                        setHistoryModalOpen(true);
-                                                                    }}
-                                                                    className="h-8 px-3 rounded-lg text-slate-400 hover:text-white text-[10px] font-black uppercase tracking-wider"
-                                                                >
-                                                                    View Details &rarr;
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                        <PatientVitalsHistoryGraphs
+                                            loading={loadingHistory}
+                                            history={consultationHistory}
+                                            currentVitals={addData.vitals}
+                                            patientName={patientName}
+                                            onCopyDiagnosis={(prevDx) => {
+                                                setDeos(prev => ({
+                                                    ...prev,
+                                                    diagnosis: prev.diagnosis
+                                                        ? `${prev.diagnosis}\n[Follow-up of previous: ${prevDx}]`
+                                                        : prevDx
+                                                }));
+                                                toast.success("Previous diagnosis copied to current consultation.");
+                                                setActiveTab("deos");
+                                            }}
+                                            onAppendOrders={(prevOrders) => {
+                                                setDeos(prev => ({
+                                                    ...prev,
+                                                    orders: prev.orders
+                                                        ? `${prev.orders}\n\n[Previous Rx Ref]:\n${prevOrders}`
+                                                        : prevOrders
+                                                }));
+                                                toast.success("Previous prescription orders appended.");
+                                                setActiveTab("deos");
+                                            }}
+                                            onViewDetails={(item) => {
+                                                setSelectedHistoryItem(item);
+                                                setHistoryModalOpen(true);
+                                            }}
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -4373,102 +4243,35 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                 )}
                             </div>
                         ) : (
-                            /* MASTER LIST of all past visits */
-                            <div className="space-y-3">
-                                <p className="text-[11px] text-slate-400">
-                                    Showing all chronological previous consultations on record for <strong className="text-white uppercase">{patientName}</strong>. Click any visit to view full details or click &quot;Open Record Tab&quot; to view its full transaction ledger.
-                                </p>
-                                {consultationHistory.map((item, idx) => (
-                                    <div
-                                        key={item.id || idx}
-                                        className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 hover:border-indigo-500/40 transition-all space-y-3"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                                    {item.isFollowUp ? `Follow-Up #${item.followUpSequence || idx + 1}` : "Initial Visit"}
-                                                </span>
-                                                <span className="text-xs font-bold text-white uppercase">
-                                                    {item.checkupType || "General Consultation"}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs font-mono font-bold text-slate-300 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                                                {new Date(item.date).toLocaleDateString("en-PH", {
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    year: "numeric"
-                                                })}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/5 pb-2">
-                                            <div>
-                                                Physician: <strong className="text-slate-200">{item.attendingPhysician || "Attending Physician"}</strong>
-                                            </div>
-                                            {item.queueNumber && (
-                                                <div className="font-mono text-[10px] text-slate-400">
-                                                    Queue #{item.queueNumber}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Vitals Summary Pill */}
-                                        {item.vitals && (
-                                            <div className="flex flex-wrap gap-1.5 text-[10px]">
-                                                {item.vitals.bloodPressure && (
-                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                                        BP: <strong className="text-white">{item.vitals.bloodPressure}</strong>
-                                                    </span>
-                                                )}
-                                                {item.vitals.temperature && (
-                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                                        Temp: <strong className="text-white">{item.vitals.temperature}°C</strong>
-                                                    </span>
-                                                )}
-                                                {item.vitals.pulseRate && (
-                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                                        HR: <strong className="text-white">{item.vitals.pulseRate} bpm</strong>
-                                                    </span>
-                                                )}
-                                                {item.vitals.weight && (
-                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                                        Wt: <strong className="text-white">{item.vitals.weight} kg</strong>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Diagnosis snippet */}
-                                        {item.diagnosis && (
-                                            <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 text-xs">
-                                                <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Clinical Diagnosis:</span>
-                                                <p className="text-slate-200 font-medium line-clamp-2">{item.diagnosis}</p>
-                                            </div>
-                                        )}
-
-                                        {/* Actions */}
-                                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => setSelectedHistoryItem(item)}
-                                                className="h-8 px-3 rounded-lg border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 text-[10px] font-black uppercase tracking-wider gap-1"
-                                            >
-                                                View Full Record &rarr;
-                                            </Button>
-                                            <Link
-                                                href={`/admin/rhu/${item.id}`}
-                                                target="_blank"
-                                                className="h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5"
-                                            >
-                                                <ExternalLink className="w-3 h-3" />
-                                                Open Tab
-                                            </Link>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <PatientVitalsHistoryGraphs
+                                loading={loadingHistory}
+                                history={consultationHistory}
+                                currentVitals={addData.vitals}
+                                patientName={patientName}
+                                onCopyDiagnosis={(prevDx) => {
+                                    setDeos(prev => ({
+                                        ...prev,
+                                        diagnosis: prev.diagnosis
+                                            ? `${prev.diagnosis}\n[Follow-up of previous: ${prevDx}]`
+                                            : prevDx
+                                    }));
+                                    toast.success("Previous diagnosis copied to current consultation.");
+                                    setHistoryModalOpen(false);
+                                    setActiveTab("deos");
+                                }}
+                                onAppendOrders={(prevOrders) => {
+                                    setDeos(prev => ({
+                                        ...prev,
+                                        orders: prev.orders
+                                            ? `${prev.orders}\n\n[Previous Rx Ref]:\n${prevOrders}`
+                                            : prevOrders
+                                    }));
+                                    toast.success("Previous prescription orders appended.");
+                                    setHistoryModalOpen(false);
+                                    setActiveTab("deos");
+                                }}
+                                onViewDetails={(item) => setSelectedHistoryItem(item)}
+                            />
                         )}
                     </div>
 

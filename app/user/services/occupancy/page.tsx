@@ -253,6 +253,31 @@ export default function OccupancyPermitPage() {
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, any>>({});
+  const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
+  const [clearedKeys, setClearedKeys] = useState<Set<string>>(new Set());
+
+  const handleClearUpload = (idx: number, isRequirement: boolean) => {
+    const key = isRequirement ? `req_${idx}` : `permit_${idx}`;
+    setClearedKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    if (isRequirement) {
+      setUploadedRequirements(prev => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+    } else {
+      setUploadedPermits(prev => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+    }
+  };
+
   const abandonedFilesRef = React.useRef<string[]>([]);
 
   useEffect(() => {
@@ -265,6 +290,11 @@ export default function OccupancyPermitPage() {
 
   const handleAsyncUpload = async (file: File, isRequirement: boolean, idx?: number, otherField?: string) => {
     const fieldName = otherField || (isRequirement ? `req_${idx}` : `permit_${idx}`);
+    setClearedKeys(prev => {
+      const next = new Set(prev);
+      next.delete(fieldName);
+      return next;
+    });
     const toastId = toast.loading("Uploading document...", { id: `upload-${fieldName}` });
     try {
       const extension = file.name.split(".").pop() || "bin";
@@ -310,7 +340,6 @@ export default function OccupancyPermitPage() {
     newIdFileBack: null as any | null,
   });
 
-  const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
   const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
   const [, setCustomPermits] = useState<{ label: string }[]>([]);
   const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
@@ -370,13 +399,13 @@ export default function OccupancyPermitPage() {
     }
   }, [currentStep, maxStepIdx]);
 
-  const isAffidavitOfConsentRequired = false;
-  const hasMultipleFloors = parseInt(formData.noOfStoreys || "0", 10) > 1;
+  const _isAffidavitOfConsentRequired = false;
+  const _hasMultipleFloors = parseInt(formData.noOfStoreys || "0", 10) > 1;
   const requiredRequirementIndexes = [0, 1, 2, 3, 4];
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
-    ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_")),
-    ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
+    ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_") && !clearedKeys.has(k)),
+    ...Object.keys(uploadedRequirements).map(k => `req_${k}`).filter(k => !clearedKeys.has(k))
   ]);
   const requirementsProgress = requiredRequirementIndexes
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
@@ -890,19 +919,23 @@ export default function OccupancyPermitPage() {
       let idFileUrl: string | null = null;
       let idBackFileUrl: string | null = null;
       if (idChoice === "UPLOAD") {
-        if (formData.newIdFile instanceof File) {
-          queueUpload(formData.newIdFile, "ids", "newIdFile", url => { if (url) idFileUrl = url; });
-        } else if (typeof formData.newIdFile === 'string') {
-          idFileUrl = formData.newIdFile;
-        } else if (effectiveDocuments?.newIdFile) {
-          idFileUrl = effectiveDocuments.newIdFile;
+        if (!clearedKeys.has("newIdFile")) {
+          if (formData.newIdFile instanceof File) {
+            queueUpload(formData.newIdFile, "ids", "newIdFile", url => { if (url) idFileUrl = url; });
+          } else if (typeof formData.newIdFile === 'string') {
+            idFileUrl = formData.newIdFile;
+          } else if (effectiveDocuments?.newIdFile) {
+            idFileUrl = effectiveDocuments.newIdFile;
+          }
         }
-        if (formData.newIdFileBack instanceof File) {
-          queueUpload(formData.newIdFileBack, "ids", "newIdFileBack", url => { if (url) idBackFileUrl = url; });
-        } else if (typeof formData.newIdFileBack === 'string') {
-          idBackFileUrl = formData.newIdFileBack;
-        } else if (effectiveDocuments?.newIdFileBack) {
-          idBackFileUrl = effectiveDocuments.newIdFileBack;
+        if (!clearedKeys.has("newIdFileBack")) {
+          if (formData.newIdFileBack instanceof File) {
+            queueUpload(formData.newIdFileBack, "ids", "newIdFileBack", url => { if (url) idBackFileUrl = url; });
+          } else if (typeof formData.newIdFileBack === 'string') {
+            idBackFileUrl = formData.newIdFileBack;
+          } else if (effectiveDocuments?.newIdFileBack) {
+            idBackFileUrl = effectiveDocuments.newIdFileBack;
+          }
         }
       } else if (idChoice === "PROFILE") {
         const profileIdUrl = displayResident?.idFrontUrl || displayResident?.idBackUrl;
@@ -931,40 +964,24 @@ export default function OccupancyPermitPage() {
 
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
-      for (let i = 0; i < 25; i++) {
-        if (i === 5) continue;
-        if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(i)) continue;
-        if (isAffidavitOfConsentRequired && [21, 22].includes(i)) continue;
-        if (!hasMultipleFloors && [23, 24].includes(i)) continue;
+      const totalReqsToProcess = documentRequirementsList.length + customRequirements.length;
+      for (let i = 0; i < totalReqsToProcess; i++) {
+        const key = `req_${i}`;
+        if (clearedKeys.has(key)) continue;
         
         const fileOrUrl = uploadedRequirements[i];
         if (fileOrUrl instanceof File) {
-          queueUpload(fileOrUrl, "requirements", `req_${i}`, url => { if (url) finalReqUrls[`req_${i}`] = url; });
+          queueUpload(fileOrUrl, "requirements", key, url => { if (url) finalReqUrls[key] = url; });
         } else if (typeof fileOrUrl === 'string') {
-          finalReqUrls[`req_${i}`] = fileOrUrl;
-        } else if (effectiveDocuments?.[`req_${i}`]) {
-          finalReqUrls[`req_${i}`] = effectiveDocuments[`req_${i}`];
-        }
-      }
-      // Process custom requirements (index >= 25)
-      for (const idxStr of Object.keys(uploadedRequirements)) {
-        const idx = parseInt(idxStr, 10);
-        if (idx >= 25) {
-          const fileOrUrl = uploadedRequirements[idx];
-          if (fileOrUrl instanceof File) {
-            queueUpload(fileOrUrl, "requirements", `req_${idx}`, url => { if (url) finalReqUrls[`req_${idx}`] = url; });
-          } else if (typeof fileOrUrl === 'string') {
-            finalReqUrls[`req_${idx}`] = fileOrUrl;
-          }
+          finalReqUrls[key] = fileOrUrl;
+        } else if (effectiveDocuments?.[key]) {
+          finalReqUrls[key] = effectiveDocuments[key];
         }
       }
       if (effectiveDocuments) {
         Object.entries(effectiveDocuments).forEach(([key, url]) => {
-          if (key.startsWith("req_")) {
-            const idx = parseInt(key.replace("req_", ""), 10);
-            if (idx >= 25 && !finalReqUrls[key] && url) {
-              finalReqUrls[key] = url as string;
-            }
+          if (key.startsWith("req_") && !clearedKeys.has(key) && !finalReqUrls[key] && url) {
+            finalReqUrls[key] = url as string;
           }
         });
       }
@@ -1017,6 +1034,7 @@ export default function OccupancyPermitPage() {
         data.append(key, url);
       });
       data.append("customLabels", JSON.stringify(customLabels));
+      data.append("clearedKeys", JSON.stringify(Array.from(clearedKeys)));
 
       let result;
       if (isRevision && selectedApplication) {
@@ -1246,6 +1264,7 @@ export default function OccupancyPermitPage() {
             });
             setUploadedRequirements({});
             setUploadedPermits({});
+            setClearedKeys(new Set());
             setCurrentStep("GUIDE");
           };
 
@@ -1857,22 +1876,26 @@ export default function OccupancyPermitPage() {
                               <PremiumDocumentUpload
                                 label="Front Side"
                                 required={true}
-                                file={typeof formData.newIdFile === 'string' ? null : formData.newIdFile}
-                                previewUrl={typeof formData.newIdFile === 'string' ? formData.newIdFile : undefined}
-                                existingUrl={effectiveDocuments?.newIdFile}
+                                file={clearedKeys.has("newIdFile") ? null : (typeof formData.newIdFile === 'string' ? null : formData.newIdFile)}
+                                previewUrl={clearedKeys.has("newIdFile") ? undefined : (typeof formData.newIdFile === 'string' ? formData.newIdFile : undefined)}
+                                existingUrl={clearedKeys.has("newIdFile") ? undefined : effectiveDocuments?.newIdFile}
                                 onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'newIdFile')}
+                                onClear={isEditable && (!!formData.newIdFile || (!clearedKeys.has("newIdFile") && !!effectiveDocuments?.newIdFile)) ? () => {
+                                  setFormData(prev => ({ ...prev, newIdFile: null }));
+                                  setClearedKeys(prev => new Set(prev).add("newIdFile"));
+                                } : undefined}
                                 onView={() => {
                                   if (formData.newIdFile) {
                                     setViewerFile(formData.newIdFile);
-                                  } else if (effectiveDocuments?.newIdFile) {
+                                  } else if (!clearedKeys.has("newIdFile") && effectiveDocuments?.newIdFile) {
                                     setViewerUrl(effectiveDocuments.newIdFile);
                                   }
                                   setViewerTitle("Government ID - Front");
                                   setViewerOpen(true);
                                 }}
-                                error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile}
+                                error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && (!effectiveDocuments?.newIdFile || clearedKeys.has("newIdFile"))}
                                 infoText="Upload Front Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile") && !!effectiveDocuments?.newIdFile)}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile") && !clearedKeys.has("newIdFile") && !!effectiveDocuments?.newIdFile)}
                               />
                             </div>
 
@@ -1881,22 +1904,25 @@ export default function OccupancyPermitPage() {
                               <PremiumDocumentUpload
                                 label="Back Side (Optional)"
                                 required={false}
-                                file={typeof formData.newIdFileBack === 'string' ? null : formData.newIdFileBack}
-                                previewUrl={typeof formData.newIdFileBack === 'string' ? formData.newIdFileBack : undefined}
-                                existingUrl={effectiveDocuments?.newIdFileBack}
+                                file={clearedKeys.has("newIdFileBack") ? null : (typeof formData.newIdFileBack === 'string' ? null : formData.newIdFileBack)}
+                                previewUrl={clearedKeys.has("newIdFileBack") ? undefined : (typeof formData.newIdFileBack === 'string' ? formData.newIdFileBack : undefined)}
+                                existingUrl={clearedKeys.has("newIdFileBack") ? undefined : effectiveDocuments?.newIdFileBack}
                                 onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'newIdFileBack')}
-                                onClear={() => setFormData(prev => ({ ...prev, newIdFileBack: null }))}
+                                onClear={isEditable && (!!formData.newIdFileBack || (!clearedKeys.has("newIdFileBack") && !!effectiveDocuments?.newIdFileBack)) ? () => {
+                                  setFormData(prev => ({ ...prev, newIdFileBack: null }));
+                                  setClearedKeys(prev => new Set(prev).add("newIdFileBack"));
+                                } : undefined}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
-                                  } else if (effectiveDocuments?.newIdFileBack) {
+                                  } else if (!clearedKeys.has("newIdFileBack") && effectiveDocuments?.newIdFileBack) {
                                     setViewerUrl(effectiveDocuments.newIdFileBack);
                                   }
                                   setViewerTitle("Government ID - Back");
                                   setViewerOpen(true);
                                 }}
                                 infoText="Upload Back Side (PDF/JPG/PNG)"
-                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack") && !!effectiveDocuments?.newIdFileBack)}
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack") && !clearedKeys.has("newIdFileBack") && !!effectiveDocuments?.newIdFileBack)}
                               />
                             </div>
                           </div>
@@ -2226,7 +2252,7 @@ export default function OccupancyPermitPage() {
 
                         const todayStr = new Date().toISOString().split("T")[0];
 
-                        if (idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile) {
+                        if (idChoice === "UPLOAD" && !formData.newIdFile && (!effectiveDocuments?.newIdFile || clearedKeys.has("newIdFile"))) {
                           scrollToFirstInvalidField("field-occ-valid-id", "Please upload your valid Government ID (Front side).");
                           return;
                         }
@@ -2308,7 +2334,7 @@ export default function OccupancyPermitPage() {
 
         {!loading && currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            {residentData?.user?.rejectionCount === 2 && (
+            {(residentData?.user?.rejectionCount === 2 || selectedApplication?.revisionCount === 2 || (residentData?.user as any)?.rejection_count === 2 || (selectedApplication as any)?.rejection_count === 2) && (
               <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 shadow-sm animate-pulse">
                 <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
@@ -2316,7 +2342,7 @@ export default function OccupancyPermitPage() {
                     FINAL ATTEMPT WARNING
                   </h3>
                   <p className="text-red-600 dark:text-red-300 font-medium text-sm">
-                    Warning: This is your final attempt to submit these documents. A further rejection will permanently lock this application. Please ensure all documents are correct before submitting.
+                    Warning: This is your final attempt to submit these documents. A further rejection will permanently lock this application.
                   </p>
                 </div>
               </div>
@@ -2390,9 +2416,9 @@ export default function OccupancyPermitPage() {
               })().map(({ docName, idx, kind, key }) => {
                 const isCustomItem = kind === "custom";
                 const isRevisionItem = kind === "revision";
-                const fileUrl = effectiveDocuments?.[key];
-                const newlyUploaded = !!uploadedRequirements[idx];
-                const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
+                const fileUrl = clearedKeys.has(key) ? undefined : effectiveDocuments?.[key];
+                const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
+                const isUploaded = !clearedKeys.has(key) && (!isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded));
                 const isRequestedInRevision = isFieldRequested(key) || isRevisionItem;
                 const isRequired = isRevision ? isRequestedInRevision : (isCustomItem ? false : requiredRequirementIndexes.includes(idx));
                 const hasError = showValidationErrors && isRequired && !isUploaded;
@@ -2451,31 +2477,22 @@ export default function OccupancyPermitPage() {
                         label="Document File"
                         required={isRequired}
                         file={(() => {
+                          if (clearedKeys.has(key)) return null;
                           const data = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
                           return typeof data === 'string' ? null : (data || null);
                         })()}
                         previewUrl={(() => {
+                          if (clearedKeys.has(key)) return undefined;
                           const data = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
                           return typeof data === 'string' ? data : undefined;
                         })()}
                         existingUrl={fileUrl}
                         onFileSelect={(file) => handleAsyncUpload(file, activeDocTab === "REQUIREMENTS", idx)}
-                        onClear={!isRequired ? () => {
-                          if (activeDocTab === "REQUIREMENTS") {
-                            setUploadedRequirements(prev => {
-                              const next = { ...prev };
-                              delete next[idx];
-                              return next;
-                            });
-                          } else {
-                            setUploadedPermits(prev => {
-                              const next = { ...prev };
-                              delete next[idx];
-                              return next;
-                            });
-                          }
+                        onClear={isEditable && isUploaded ? () => {
+                          handleClearUpload(idx, activeDocTab === "REQUIREMENTS");
                         } : undefined}
                         onView={() => {
+                          if (clearedKeys.has(key)) return;
                           const currentData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
                           if (currentData && typeof currentData !== 'string') {
                             setViewerFile(currentData);

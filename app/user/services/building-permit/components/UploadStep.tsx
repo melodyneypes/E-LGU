@@ -171,15 +171,15 @@ export function UploadStep({
         </p>
       </div>
 
-      {selectedApplication?.revisionCount === 2 && (
-        <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 mb-8 shadow-sm">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 animate-pulse" />
+      {(selectedApplication?.revisionCount === 2 || (selectedApplication?.user?.rejectionCount ?? 0) === 2 || (selectedApplication as any)?.rejection_count === 2) && (
+        <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 mb-8 shadow-sm animate-pulse">
+          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <h4 className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
-              Warning: Final Attempt
+            <h4 className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+              FINAL ATTEMPT WARNING
             </h4>
             <p className="text-xs md:text-sm font-medium text-red-600 dark:text-red-300">
-              This is your final attempt to submit these documents. A further rejection will permanently lock this application. Please ensure all documents are correct and complete before submitting.
+              Warning: This is your final attempt to submit these documents. A further rejection will permanently lock this application.
             </p>
           </div>
         </div>

@@ -326,6 +326,8 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     if (additionalData.signature) {
       sanitizedAdditionalData.signature = additionalData.signature;
     }
+    sanitizedAdditionalData.revisionRequests = [];
+    sanitizedAdditionalData.zoningRevisionRequests = [];
 
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 

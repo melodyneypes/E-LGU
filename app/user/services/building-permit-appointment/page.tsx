@@ -2121,6 +2121,7 @@ export default function BuildingPermitAppointmentPage() {
                                 file={formData.newIdFile}
                                 existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.newIdFile : undefined}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
+                                onClear={() => setFormData({ ...formData, newIdFile: null })}
                                 onView={() => {
                                   if (formData.newIdFile) {
                                     setViewerFile(formData.newIdFile);
@@ -2143,6 +2144,7 @@ export default function BuildingPermitAppointmentPage() {
                                 file={formData.newIdFileBack}
                                 existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.newIdFileBack : undefined}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
+                                onClear={() => setFormData({ ...formData, newIdFileBack: null })}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
@@ -2495,6 +2497,7 @@ export default function BuildingPermitAppointmentPage() {
                             file={formData.tctFile}
                             existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.tctFile : undefined}
                             onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
+                            onClear={() => setFormData({ ...formData, tctFile: null })}
                             onView={() => {
                               if (formData.tctFile) {
                                 setViewerFile(formData.tctFile);
@@ -3206,6 +3209,27 @@ export default function BuildingPermitAppointmentPage() {
                             setUploadedRequirements((previous) => ({ ...previous, [idx]: file }));
                           } else {
                             setUploadedPermits((previous) => ({ ...previous, [idx]: file }));
+                          }
+                        }}
+                        onClear={() => {
+                          if (isRevisionItem) {
+                            setUploadedRevisionDocs((previous) => {
+                              const next = { ...previous };
+                              delete next[idx];
+                              return next;
+                            });
+                          } else if (activeDocTab === "REQUIREMENTS") {
+                            setUploadedRequirements((previous) => {
+                              const next = { ...previous };
+                              delete next[idx];
+                              return next;
+                            });
+                          } else {
+                            setUploadedPermits((previous) => {
+                              const next = { ...previous };
+                              delete next[idx];
+                              return next;
+                            });
                           }
                         }}
                         onView={() => {
@@ -4299,6 +4323,10 @@ export default function BuildingPermitAppointmentPage() {
               onFileSelect={(file) => {
                 setPaymentFile(file);
                 setPaymentPreviewUrl(URL.createObjectURL(file));
+              }}
+              onClear={() => {
+                setPaymentFile(null);
+                setPaymentPreviewUrl(null);
               }}
               onView={() => {
                 if (paymentFile) {

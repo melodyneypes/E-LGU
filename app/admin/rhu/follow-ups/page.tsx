@@ -337,8 +337,8 @@ export default function RHUFollowUpsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-white pb-24">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 md:pt-10 space-y-6">
+        <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-white pb-24 w-full">
+            <div className="w-full px-4 md:px-8 pt-6 md:pt-10 space-y-6">
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-6">
@@ -516,7 +516,7 @@ export default function RHUFollowUpsPage() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="max-w-xs truncate text-slate-600 dark:text-slate-300 font-medium" title={a.notes || ""}>
+                                                <div className="max-w-md truncate text-slate-600 dark:text-slate-300 font-medium" title={a.notes || ""}>
                                                     {a.notes ? `"${a.notes}"` : <span className="text-slate-500 italic">No notes provided</span>}
                                                 </div>
                                             </TableCell>
