@@ -296,6 +296,31 @@ export async function ensureBuildingPermitTransactionTypes() {
                 },
                 requiresBusinessName: false,
                 supportsECopy: true
+            },
+            {
+                code: "FENCING_PERMIT",
+                name: "Fencing Permit",
+                description: "Apply for a fencing permit for perimeter walls, fences, and enclosures.",
+                level: 1,
+                category: "Fencing Permit",
+                baseFee: 500.00,
+                deliveryFee: 100.00,
+                isFixed: false,
+                requiredDocs: [
+                    "Fencing Plan & Elevation duly signed & sealed by licensed Civil Engineer / Architect",
+                    "Certified True Copy of Land Title (TCT/OCT) / Deed of Sale",
+                    "Tax Declaration & Latest Real Property Tax (RPT) Official Receipt",
+                    "Barangay Clearance for Fencing / Construction",
+                    "Community Tax Certificate (Cedula)",
+                    "Locational / Zoning Clearance",
+                    "Lot Plan with vicinity map prepared by Geodetic Engineer"
+                ],
+                formSchema: {
+                    type: "FENCING_PERMIT",
+                    fields: ["applicantName", "fenceType", "lengthInMeters", "heightInMeters", "estimatedCost", "location", "contractorOrEngineer"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true
             }
         ];
 
