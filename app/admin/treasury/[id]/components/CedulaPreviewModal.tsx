@@ -45,7 +45,10 @@ export default function CedulaPreviewModal({
         }
     };
 
-    const resident = parseSafe(transaction.residentSnapshot) || transaction.user?.residentProfile || {};
+    const snap = parseSafe(transaction.residentSnapshot);
+    const userProfile = transaction.user?.residentProfile || {};
+    // Merge live user profile as baseline so fields like tin, height, weight aren't lost if snapshot omitted them
+    const resident = { ...userProfile, ...snap };
     const additional = parseSafe(transaction.additionalData) || {};
     const cedulaRecord = transaction.cedula || {};
 
