@@ -226,6 +226,20 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
       }
     }
 
+    const clearedKeysStr = formData.get("clearedKeys") as string;
+    if (clearedKeysStr) {
+      try {
+        const clearedKeysList = JSON.parse(clearedKeysStr);
+        if (Array.isArray(clearedKeysList)) {
+          clearedKeysList.forEach((k: string) => {
+            delete additionalData.documents[k];
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing clearedKeys in resubmit", e);
+      }
+    }
+
     // Extract basic form data
     const occupancyApplicationType = formData.get("occupancyApplicationType") as string;
     const buildingPermitNo = formData.get("buildingPermitNo") as string;
@@ -317,6 +331,8 @@ export async function resubmitOccupancyPermit(transactionId: string, formData: F
     if (additionalData.signature) {
       sanitizedAdditionalData.signature = additionalData.signature;
     }
+    sanitizedAdditionalData.revisionRequests = [];
+    sanitizedAdditionalData.zoningRevisionRequests = [];
 
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 

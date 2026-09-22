@@ -15,6 +15,7 @@ import {
     RefreshCcw,
     Camera,
     AlertCircle,
+    AlertTriangle,
     BadgeCheck,
     FileText,
     Trash2,
@@ -574,6 +575,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     ];
 
     const isRejected = transaction?.status === "REJECTED" || transaction?.isCancelled === true;
+    const isFinalAttempt = (transaction?.revisionCount || 0) >= 2;
     
     const getStepIndex = () => {
         if (!transaction || isRejected) return -1;
@@ -627,11 +629,16 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.revisionCount || 0} / 3
+                            Revision Count: {transaction?.revisionCount || 0} / 2
                         </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
                             Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
                         </Badge>
+                        {isFinalAttempt && (
+                            <Badge className="bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[9px] px-3 py-1 rounded-xl animate-pulse shadow-md shadow-red-600/30">
+                                FINAL ATTEMPT
+                            </Badge>
+                        )}
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
                         Evaluation Portal Active
@@ -1085,103 +1092,90 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                 </Dialog>
 
                                 <div className="flex gap-2 w-full">
-                                    <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
-                                        <DialogTrigger asChild>
-                                            {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
+                                    {canRequestRevision && !isFinalAttempt && (transaction?.revisionCount || 0) < 2 && (
+                                        <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
+                                            <DialogTrigger asChild>
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
                                                     Request Revision
                                                 </Button>
-                                            )}
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                            <DialogHeader className="space-y-3">
-                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-6 py-6">
-                                                {transaction?.revisionCount === 2 && (
-                                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3">
-                                                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
-                                                                Final Confirmation
-                                                            </p>
-                                                            <p className="text-xs font-medium text-red-600 dark:text-red-300">
-                                                                You are about to reject this application for the 3rd time. This action will permanently lock the applicant&apos;s submission. Proceed?
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
-                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
-                                                <div className="space-y-3">
-                                                    <Label className="text-[10px] font-black uppercase text-slate-400">Uploaded Documents to Revise</Label>
-                                                    <p className="text-[10px] text-slate-400">Select the documents the Citizen needs to re-upload.</p>
-                                                    <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                                                        {vaultDocs.map((doc) => (
-                                                            <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setSelectedVaultDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
-                                                                <input type="checkbox" className="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer rounded-sm" checked={selectedVaultDocs.includes(doc.key)} onChange={(e) => { e.stopPropagation(); setSelectedVaultDocs(prev => e.target.checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                                                <DialogHeader className="space-y-3">
+                                                    <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-6 py-6">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
+                                                    <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
+                                                    <div className="space-y-3">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Uploaded Documents to Revise</Label>
+                                                        <p className="text-[10px] text-slate-400">Select the documents the Citizen needs to re-upload.</p>
+                                                        <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                                                            {vaultDocs.map((doc) => (
+                                                                <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setSelectedVaultDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
+                                                                    <input type="checkbox" className="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer rounded-sm" checked={selectedVaultDocs.includes(doc.key)} onChange={(e) => { e.stopPropagation(); setSelectedVaultDocs(prev => e.target.checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <div className="space-y-1">
-                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Additional Attachments</Label>
-                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload completely new files.</p>
+                                                            ))}
                                                         </div>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
-                                                            className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
-                                                        >
-                                                            Add Item
-                                                        </Button>
                                                     </div>
-                                                    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
-                                                        {revisionRequests.map((item, index) => (
-                                                            <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <select
-                                                                        value={item.type}
-                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
-                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
-                                                                    >
-                                                                        <option value="REQUIREMENTS">Requirements</option>
-                                                                        <option value="PERMITS">Permits</option>
-                                                                    </select>
-                                                                    <Input
-                                                                        value={item.name}
-                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
-                                                                        placeholder="e.g. Structural Plan"
-                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
-                                                                    />
-                                                                    {revisionRequests.length > 1 && (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
-                                                                            className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <div className="space-y-1">
+                                                                <Label className="text-[10px] font-black uppercase text-slate-400">Additional Attachments</Label>
+                                                                <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload completely new files.</p>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
+                                                                className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                            >
+                                                                Add Item
+                                                            </Button>
+                                                        </div>
+                                                        <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                                                            {revisionRequests.map((item, index) => (
+                                                                <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <select
+                                                                            value={item.type}
+                                                                            onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
+                                                                            className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
                                                                         >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </Button>
-                                                                    )}
+                                                                            <option value="REQUIREMENTS">Requirements</option>
+                                                                            <option value="PERMITS">Permits</option>
+                                                                        </select>
+                                                                        <Input
+                                                                            value={item.name}
+                                                                            onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
+                                                                            placeholder="e.g. Structural Plan"
+                                                                            className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
+                                                                        />
+                                                                        {revisionRequests.length > 1 && (
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
+                                                                                className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
-                                                Confirm Revision Request
-                                            </Button>
-                                        </DialogContent>
-                                    </Dialog>
+                                                <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
+                                                    Confirm Revision Request
+                                                </Button>
+                                            </DialogContent>
+                                        </Dialog>
+                                    )}
 
                                     <Dialog open={isRejecting} onOpenChange={(open) => { setIsRejecting(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
@@ -1191,27 +1185,33 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                         </DialogTrigger>
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
                                             <DialogHeader className="space-y-3">
-                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
+                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">
+                                                    {isFinalAttempt ? (
+                                                        <>Final <span className="text-red-600">Rejection</span></>
+                                                    ) : (
+                                                        <>Decline <span className="text-red-600">Request</span></>
+                                                    )}
+                                                </DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-6 py-6">
-                                                {transaction?.user?.rejectionCount === 2 && (
-                                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3">
-                                                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
-                                                                Final Confirmation
+                                                {isFinalAttempt && (
+                                                    <div className="bg-red-500/10 border-2 border-red-500/30 p-5 rounded-2xl flex items-start gap-3 shadow-inner animate-pulse">
+                                                        <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+                                                                Permanent Lock Warning
                                                             </p>
-                                                            <p className="text-xs font-medium text-red-600 dark:text-red-300">
+                                                            <p className="text-sm font-bold text-red-600 dark:text-red-300 leading-snug">
                                                                 You are about to reject this application for the 3rd time. This action will permanently lock the applicant&apos;s submission. Proceed?
                                                             </p>
                                                         </div>
                                                     </div>
                                                 )}
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Reason for Decline *</Label>
-                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
+                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Provide specific reason for decline..." className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
                                             </div>
-                                            <Button onClick={handleReject} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-red-600 text-white font-black italic uppercase text-[11px] rounded-2xl">
-                                                Confirm Decline
+                                            <Button onClick={handleReject} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase text-[11px] rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all">
+                                                {actionLoading ? "Processing..." : (isFinalAttempt ? "Proceed & Permanently Lock" : "Confirm Decline")}
                                             </Button>
                                         </DialogContent>
                                     </Dialog>

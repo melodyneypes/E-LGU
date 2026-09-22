@@ -33,7 +33,10 @@ import {
     Eye,
     ChevronDown,
     ChevronUp,
-    Banknote
+    Banknote,
+    X,
+    FileWarning,
+    UploadCloud
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -696,7 +699,11 @@ export default function RequestHubPage() {
             }
             setRevisionFiles(prev => ({ ...prev, [key]: fileToProcess }));
         } else {
-            setRevisionFiles(prev => ({ ...prev, [key]: null }));
+            setRevisionFiles(prev => {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            });
         }
     };
 
@@ -798,6 +805,7 @@ export default function RequestHubPage() {
     const isActionable = (request?.status === "EVALUATED" && (!isEngineeringPermit || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || isEngineeringPermit));
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
     const isBuildingPermit = isEngineeringPermit;
+    const isOccupancyPermit = typeCode.startsWith("OCCUPANCY_PERMIT");
     const isCedula = typeCode.startsWith("CEDULA");
     const estimatedCedulaAmount = useMemo(() => {
         if (!isCedula || !request) return 0;
@@ -840,6 +848,8 @@ export default function RequestHubPage() {
     const getRevisionUrl = () => {
         if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
         if (isCedula) return `/user/services/cedula?revisionId=${request.id}`;
+        const engRoute = getEngineeringPermitCitizenRoute(typeCode);
+        if (engRoute) return `${engRoute}?id=${request.id}`;
         if (isCivilRegistry) {
             const code = request?.type?.code || "";
             if (code === "LCR_BIRTH_REG") return `/user/services/civil-registry/birth-registration?revisionId=${request.id}`;
@@ -859,7 +869,7 @@ export default function RequestHubPage() {
         return `/user/services/requests/${request.id}`;
     };
     const isRenewal = request?.type?.code === "BUSINESS_PERMIT_RENEW" || additionalData.businessType === "RENEWAL" || additionalData.businessType === "RENEW" || additionalData.businessType?.toLowerCase()?.includes("renew");
-    const remainingRevisions = request ? Math.max(0, 3 - (request.revisionCount || 0)) : 3;
+    const remainingRevisions = request ? Math.max(0, 2 - (request.revisionCount || 0)) : 2;
     const isPermitNewReleasedOrDelivered = isBusinessPermit &&
         ["RELEASED", "DELIVERED"].includes(request?.status) &&
         !!request?.businessPermit?.permitNumber;
@@ -994,107 +1004,216 @@ export default function RequestHubPage() {
 
     // Flat list of docs that have a URL — drives both the grid and the lightbox
     const documentList = useMemo(() => {
-        if (!request) return [] as { label: string; url: string }[];
+        if (!request) return [] as { label: string; url: string; key?: string }[];
         const addData = request.additionalData || {};
 
         if (isBuildingPermit) {
-            const docs = [];
+            const docs: { label: string; url: string; key?: string }[] = [];
             const d = addData.documents || {};
 
-            // Requirements
-            const reqLabels = [
-                "Barangay Clearance/Certification", "Tax Declaration", "Land Title",
-                "Community Tax Certificate", "Latest Tax Receipts",
-                "Adjoining Owners Confirmation", "Zoning Clearance", "2 Affidavits",
-                "Affidavit of Consent", "Affidavit of Adjoining Owners", "Signed & Sealed Plans",
-                "Fire Safety Clearance"
-            ];
-            reqLabels.forEach((label, i) => {
-                if (d[`req_${i}`]) docs.push({ label, url: d[`req_${i}`] });
-            });
+            if (isOccupancyPermit) {
+                const occupancyReqLabels = [
+                    "Certificate of Completion",
+                    "Construction Logbook",
+                    "As-Built Plans & Specifications",
+                    "Valid Licenses of All Involved Professionals",
+                    "Captioned Photographs of Site & Structure",
+                    "Affidavit of Undertaking"
+                ];
+                occupancyReqLabels.forEach((defaultLabel, i) => {
+                    const key = `req_${i}`;
+                    if (d[key]) {
+                        const label = addData.customLabels?.[key] || defaultLabel;
+                        docs.push({ label, url: d[key], key });
+                    }
+                });
+                // Custom requirements
+                Object.keys(d).filter(k => k.startsWith("req_")).forEach(key => {
+                    const idx = parseInt(key.replace("req_", ""), 10);
+                    if (idx >= occupancyReqLabels.length && d[key]) {
+                        const label = addData.customLabels?.[key] || `Additional Requirement ${idx + 1}`;
+                        docs.push({ label, url: d[key], key });
+                    }
+                });
+            } else {
+                // Building Permit Requirements
+                const reqLabels = [
+                    "Barangay Clearance/Certification", "Tax Declaration", "Land Title",
+                    "Community Tax Certificate", "Latest Tax Receipts",
+                    "Adjoining Owners Confirmation", "Zoning Clearance", "2 Affidavits",
+                    "Affidavit of Consent", "Affidavit of Adjoining Owners", "Signed & Sealed Plans",
+                    "Fire Safety Clearance"
+                ];
+                reqLabels.forEach((defaultLabel, i) => {
+                    const key = `req_${i}`;
+                    if (d[key]) {
+                        const label = addData.customLabels?.[key] || defaultLabel;
+                        docs.push({ label, url: d[key], key });
+                    }
+                });
+                Object.keys(d).filter(k => k.startsWith("req_")).forEach(key => {
+                    const idx = parseInt(key.replace("req_", ""), 10);
+                    if (idx >= reqLabels.length && d[key]) {
+                        const label = addData.customLabels?.[key] || `Additional Document ${idx + 1}`;
+                        docs.push({ label, url: d[key], key });
+                    }
+                });
 
-            // Permits
-            const permitLabels = [
-                "1. Building Permit", "2. Electrical Permit", "3. Plumbing Permit",
-                "4. Sanitary Permit", "5. Excavation & Ground Preparation Permit",
-                "6. Fencing Permit", "7. Affidavit Form", "8. Scaffolding Permit",
-                "9. Mechanical Permit"
-            ];
-            permitLabels.forEach((label, i) => {
-                if (d[`permit_${i}`]) docs.push({ label, url: d[`permit_${i}`] });
-            });
+                // Permits
+                const permitLabels = [
+                    "1. Building Permit", "2. Electrical Permit", "3. Plumbing Permit",
+                    "4. Sanitary Permit", "5. Excavation & Ground Preparation Permit",
+                    "6. Fencing Permit", "7. Affidavit Form", "8. Scaffolding Permit",
+                    "9. Mechanical Permit"
+                ];
+                permitLabels.forEach((label, i) => {
+                    const key = `permit_${i}`;
+                    if (d[key]) docs.push({ label: addData.customLabels?.[key] || label, url: d[key], key });
+                });
+                Object.keys(d).filter(k => k.startsWith("permit_")).forEach(key => {
+                    const idx = parseInt(key.replace("permit_", ""), 10);
+                    if (idx >= permitLabels.length && d[key]) {
+                        docs.push({ label: addData.customLabels?.[key] || `Additional Permit ${idx + 1}`, url: d[key], key });
+                    }
+                });
+            }
 
-            if (d.newIdFile) docs.push({ label: "Applicant ID (Front)", url: d.newIdFile });
-            if (d.newIdFileBack) docs.push({ label: "Applicant ID (Back)", url: d.newIdFileBack });
-            if (d.tctFile) docs.push({ label: addData?.landDocumentType === "SURVEY_PLAN" ? "Survey Plan (Untitled Parcel)" : "TCT File", url: d.tctFile });
-            if (addData.signature) docs.push({ label: "Digital Signature", url: addData.signature });
+            if (d.newIdFile) docs.push({ label: "Applicant ID (Front)", url: d.newIdFile, key: "newIdFile" });
+            if (d.newIdFileBack) docs.push({ label: "Applicant ID (Back)", url: d.newIdFileBack, key: "newIdFileBack" });
+            if (d.tctFile) docs.push({ label: addData?.landDocumentType === "SURVEY_PLAN" ? "Survey Plan (Untitled Parcel)" : "TCT File", url: d.tctFile, key: "tctFile" });
+            if (addData.signature) docs.push({ label: "Digital Signature", url: addData.signature, key: "signature" });
 
-            return docs.filter(doc => !!doc.url) as { label: string; url: string }[];
+            return docs.filter(doc => !!doc.url);
         }
 
         if (isCivilRegistry) {
-            const lcrDocs = [];
+            const lcrDocs: { label: string; url: string; key?: string }[] = [];
             // Deceased / Registrations (Death)
-            if (addData.municipalForm103) lcrDocs.push({ label: "Municipal Form No. 103", url: addData.municipalForm103 });
-            if (addData.psaNegative) lcrDocs.push({ label: "PSA Negative Certification", url: addData.psaNegative });
-            if (addData.affidavitOfDelay) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitOfDelay });
+            if (addData.municipalForm103) lcrDocs.push({ label: "Municipal Form No. 103", url: addData.municipalForm103, key: "municipalForm103" });
+            if (addData.psaNegative) lcrDocs.push({ label: "PSA Negative Certification", url: addData.psaNegative, key: "psaNegative" });
+            if (addData.affidavitOfDelay) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitOfDelay, key: "affidavitOfDelay" });
 
             // Birth Registration
-            if (addData.municipalForm102) lcrDocs.push({ label: "Municipal Form 102", url: addData.municipalForm102 });
-            if (addData.marriageCertificate) lcrDocs.push({ label: "Marriage Certificate of Parents", url: addData.marriageCertificate });
-            if (addData.communityTaxCertificate) lcrDocs.push({ label: "Community Tax Certificate", url: addData.communityTaxCertificate });
-            if (addData.negativePSA) lcrDocs.push({ label: "Negative Certification from PSA", url: addData.negativePSA });
-            if (addData.colb) lcrDocs.push({ label: "Certificate of Live Birth (COLB)", url: addData.colb });
-            if (addData.affidavitDelayed) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitDelayed });
+            if (addData.municipalForm102) lcrDocs.push({ label: "Municipal Form 102", url: addData.municipalForm102, key: "municipalForm102" });
+            if (addData.marriageCertificate) lcrDocs.push({ label: "Marriage Certificate of Parents", url: addData.marriageCertificate, key: "marriageCertificate" });
+            if (addData.communityTaxCertificate) lcrDocs.push({ label: "Community Tax Certificate", url: addData.communityTaxCertificate, key: "communityTaxCertificate" });
+            if (addData.negativePSA) lcrDocs.push({ label: "Negative Certification from PSA", url: addData.negativePSA, key: "negativePSA" });
+            if (addData.colb) lcrDocs.push({ label: "Certificate of Live Birth (COLB)", url: addData.colb, key: "colb" });
+            if (addData.affidavitDelayed) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitDelayed, key: "affidavitDelayed" });
 
             // Marriage Registration
-            if (addData.marriageCert) lcrDocs.push({ label: "Accomplished Certificate of Marriage", url: addData.marriageCert });
-            if (addData.psaNeg) lcrDocs.push({ label: "Negative Certificate from PSA", url: addData.psaNeg });
-            if (addData.affidavitDelay) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitDelay });
-            if (addData.marriageLicense) lcrDocs.push({ label: "Certified Copy of Marriage License", url: addData.marriageLicense });
+            if (addData.marriageCert) lcrDocs.push({ label: "Accomplished Certificate of Marriage", url: addData.marriageCert, key: "marriageCert" });
+            if (addData.psaNeg) lcrDocs.push({ label: "Negative Certificate from PSA", url: addData.psaNeg, key: "psaNeg" });
+            if (addData.affidavitDelay) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitDelay, key: "affidavitDelay" });
+            if (addData.marriageLicense) lcrDocs.push({ label: "Certified Copy of Marriage License", url: addData.marriageLicense, key: "marriageLicense" });
 
             // PSA Endorsements (Birth, Death, Marriage)
-            if (addData.psaNegativeCert) lcrDocs.push({ label: "PSA Negative Certification (Endorsement)", url: addData.psaNegativeCert });
-            if (addData.form1a) lcrDocs.push({ label: "Form 1A (Birth PSA Endorsement)", url: addData.form1a });
-            if (addData.form2a) lcrDocs.push({ label: "Form 2A (Death PSA Endorsement)", url: addData.form2a });
-            if (addData.form3a) lcrDocs.push({ label: "Form 3A (Marriage PSA Endorsement)", url: addData.form3a });
+            if (addData.psaNegativeCert) lcrDocs.push({ label: "PSA Negative Certification (Endorsement)", url: addData.psaNegativeCert, key: "psaNegativeCert" });
+            if (addData.form1a) lcrDocs.push({ label: "Form 1A (Birth PSA Endorsement)", url: addData.form1a, key: "form1a" });
+            if (addData.form2a) lcrDocs.push({ label: "Form 2A (Death PSA Endorsement)", url: addData.form2a, key: "form2a" });
+            if (addData.form3a) lcrDocs.push({ label: "Form 3A (Marriage PSA Endorsement)", url: addData.form3a, key: "form3a" });
 
             // Shared LCR IDs
             const idFront = addData.validIdFront || addData.validIdFrontUrl || addData.idFrontUrl || residentIdFront || request?.user?.residentProfile?.idFrontUrl;
             const idBack = addData.validIdBack || addData.validIdBackUrl || addData.idBackUrl || residentIdBack || request?.user?.residentProfile?.idBackUrl;
             if (idFront) {
-                lcrDocs.push({ label: "Valid ID (Front)", url: idFront });
+                lcrDocs.push({ label: "Valid ID (Front)", url: idFront, key: "validIdFront" });
             }
             if (idBack) {
-                lcrDocs.push({ label: "Valid ID (Back)", url: idBack });
+                lcrDocs.push({ label: "Valid ID (Back)", url: idBack, key: "validIdBack" });
             }
             if (addData.validIdUrl) {
-                lcrDocs.push({ label: "Identity Matrix", url: addData.validIdUrl });
+                lcrDocs.push({ label: "Identity Matrix", url: addData.validIdUrl, key: "validIdUrl" });
             }
             if (addData.authorizationLetter) {
-                lcrDocs.push({ label: "Authorization Letter", url: addData.authorizationLetter });
+                lcrDocs.push({ label: "Authorization Letter", url: addData.authorizationLetter, key: "authorizationLetter" });
             }
-            return lcrDocs.filter(d => !!d.url) as { label: string; url: string }[];
+            return lcrDocs.filter(d => !!d.url);
         }
 
-        const docs = isBusinessPermit
+        const docs: { label: string; url: string; key?: string }[] = isBusinessPermit
             ? [
-                { label: "Owner's Valid ID", url: addData.ownerIdUrl },
-                { label: "Cedula (CTC) Copy", url: addData.ctcUrl },
-                { label: "DTI / SEC Registry", url: addData.dtiSecUrl },
-                { label: "Barangay Clearance", url: addData.brgyClearanceUrl },
-                { label: "Location Photo", url: addData.locationPhotoUrl },
-                { label: "Sanitary Permit", url: addData.sanitaryPermitUrl },
-                { label: "Fire Safety Certificate", url: addData.fireSafetyUrl },
-                { label: "BIR Certificate (COR)", url: addData.birCorUrl },
-                { label: "Previous Business Permit", url: addData.previousPermitUrl },
+                { label: "Owner's Valid ID", url: addData.ownerIdUrl, key: "ownerIdFile" },
+                { label: "Cedula (CTC) Copy", url: addData.ctcUrl, key: "ctcFile" },
+                { label: "DTI / SEC Registry", url: addData.dtiSecUrl, key: "dtiSecFile" },
+                { label: "Barangay Clearance", url: addData.brgyClearanceUrl, key: "brgyClearanceFile" },
+                { label: "Location Photo", url: addData.locationPhotoUrl, key: "locationPhotoFile" },
+                { label: "Sanitary Permit", url: addData.sanitaryPermitUrl, key: "sanitaryPermitFile" },
+                { label: "Fire Safety Certificate", url: addData.fireSafetyUrl, key: "fireSafetyFile" },
+                { label: "BIR Certificate (COR)", url: addData.birCorUrl, key: "birCorFile" },
+                { label: "Previous Business Permit", url: addData.previousPermitUrl, key: "previousPermitFile" },
             ]
             : [
-                { label: "Valid ID", url: addData.validIdUrl },
-                { label: request?.isStudent ? "Student Proof (Enrollment/COR)" : "Financial Evidence", url: addData.proofOfIncomeUrl },
+                { label: "Valid ID", url: addData.validIdUrl, key: "idFile" },
+                { label: request?.isStudent ? "Student Proof (Enrollment/COR)" : "Financial Evidence", url: addData.proofOfIncomeUrl, key: "proofFile" },
             ];
-        return docs.filter(d => !!d.url) as { label: string; url: string }[];
-    }, [request, isBusinessPermit, isBuildingPermit, isCivilRegistry, residentIdFront, residentIdBack]);
+        return docs.filter(d => !!d.url);
+    }, [request, isBusinessPermit, isBuildingPermit, isOccupancyPermit, isCivilRegistry, residentIdFront, residentIdBack]);
+
+    // Parse specific checklist items requested for revision by officer / admin
+    const rawRevisionRequests = useMemo(() => {
+        const list: { key?: string; name: string; type?: "REQUIREMENTS" | "PERMITS" }[] = [];
+        if (Array.isArray(additionalData?.revisionRequests)) {
+            list.push(...additionalData.revisionRequests);
+        }
+        if (Array.isArray(additionalData?.zoningRevisionRequests)) {
+            list.push(...additionalData.zoningRevisionRequests);
+        }
+        return list;
+    }, [additionalData?.revisionRequests, additionalData?.zoningRevisionRequests]);
+
+    const hasSpecificRevisionRequests = rawRevisionRequests.length > 0;
+
+    // Filter to strictly the requested revision items if specified; otherwise fallback to documentList
+    const revisionItems = useMemo(() => {
+        if (!request) return [];
+
+        if (hasSpecificRevisionRequests) {
+            return rawRevisionRequests.map((reqItem, idx) => {
+                let key = reqItem.key;
+                let currentDoc = key ? documentList.find(d => d.key === key) : undefined;
+
+                if (!currentDoc && reqItem.name) {
+                    currentDoc = documentList.find(d =>
+                        d.label.toLowerCase().trim() === reqItem.name.toLowerCase().trim() ||
+                        d.label.toLowerCase().includes(reqItem.name.toLowerCase().trim()) ||
+                        reqItem.name.toLowerCase().includes(d.label.toLowerCase().trim())
+                    );
+                    if (currentDoc && !key) {
+                        key = currentDoc.key;
+                    }
+                }
+
+                if (!key) {
+                    key = `revision_item_${idx}`;
+                }
+
+                const label = reqItem.name || currentDoc?.label || `Document ${idx + 1}`;
+                const currentUrl = currentDoc?.url || (additionalData.documents?.[key] || additionalData[key]);
+
+                return {
+                    key,
+                    label,
+                    type: reqItem.type || "REQUIREMENTS",
+                    currentUrl: currentUrl || null,
+                    isSpecific: true
+                };
+            });
+        }
+
+        // Fallback: If no checklist items were specifically flagged by admin, list all submitted documents
+        return documentList.map((doc, idx) => ({
+            key: doc.key || `doc_${idx}`,
+            label: doc.label,
+            type: "REQUIREMENTS" as const,
+            currentUrl: doc.url || null,
+            isSpecific: false
+        }));
+    }, [request, hasSpecificRevisionRequests, rawRevisionRequests, documentList, additionalData]);
+
+    const allRevisionFilesAttached = revisionItems.length > 0 && revisionItems.every(item => !!revisionFiles[item.key]);
+    const someRevisionFilesAttached = Object.values(revisionFiles).some(f => !!f);
+    const canResubmit = hasSpecificRevisionRequests ? allRevisionFilesAttached : someRevisionFilesAttached;
 
     // Keyboard navigation for lightbox
     useEffect(() => {
@@ -1723,116 +1842,258 @@ export default function RequestHubPage() {
 
                                     {/* Government Verification / Revision Card */}
                                     {request.status === "FOR_REVISION" ? (
-                                        <Card className="p-6 md:p-8 border-primary/20 bg-primary/[0.02] shadow-2xl rounded-2xl md:rounded-[2rem] relative overflow-hidden flex flex-col justify-between lg:col-span-1" style={{ borderColor: `${themeColor}20`, backgroundColor: `${themeColor}05` }}>
-                                            <div className="absolute top-0 right-0 p-4 opacity-5">
-                                                <AlertCircle className="w-20 h-20" />
+                                        <Card className="p-6 md:p-8 border border-amber-500/30 bg-slate-950/80 backdrop-blur-xl text-white shadow-2xl rounded-2xl md:rounded-[2.5rem] relative overflow-hidden flex flex-col justify-between group lg:col-span-1 border-t-4 border-t-amber-500">
+                                            <div className="absolute top-0 right-0 p-6 md:p-8 opacity-5 pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                                                <FileWarning className="w-32 h-32 text-amber-500" />
                                             </div>
-                                            <div className="relative z-10 space-y-6">
-                                                <div className="space-y-4">
-                                                    <div className="flex flex-col gap-2">
-                                                        <h3 className="text-sm md:text-base font-black uppercase tracking-widest italic flex items-center gap-2" style={{ color: themeColor }}>
-                                                            <AlertCircle className="w-5 h-5 animate-pulse" /> Admin Assessment
-                                                        </h3>
-                                                        <Badge variant="outline" className="w-fit border-primary/20 text-[9px] font-black uppercase tracking-widest italic py-1 px-3.5 rounded-full" style={{ borderColor: `${themeColor}20`, color: themeColor, backgroundColor: `${themeColor}10` }}>
-                                                            {remainingRevisions} {remainingRevisions === 1 ? "Revision Left" : "Revisions Left"}
-                                                        </Badge>
+
+                                            <div className="relative z-10 space-y-5">
+                                                {/* Header: Status, Badge, Remaining Revisions */}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                                                            <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-amber-400 italic">
+                                                                Action Required: Revision Needed
+                                                            </h3>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-400 font-medium">
+                                                            The evaluating officer requested adjustments before this application can proceed.
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-slate-500 leading-relaxed font-semibold italic">
-                                                        Remarks: <span className="font-bold" style={{ color: "#ef4444" }}>{request.rejectionRemarks}</span>
-                                                    </p>
-                                                    <p className="text-[8px] md:text-[9px] text-red-600 dark:text-red-400 font-black uppercase tracking-widest flex items-center gap-1 bg-red-500/10 dark:bg-red-500/5 border border-red-500/20 dark:border-red-500/10 rounded-lg px-2 py-1 w-fit">
-                                                        ⚠️ Declines in {remainingRevisions} attempts
-                                                    </p>
+                                                    <Badge variant="outline" className={cn(
+                                                        "text-[9px] font-black uppercase tracking-wider py-1 px-3 rounded-full shrink-0",
+                                                        remainingRevisions === 0
+                                                            ? "border-red-500/40 bg-red-500/10 text-red-300"
+                                                            : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                                                    )}>
+                                                        {remainingRevisions === 0 ? "Final Revision Attempt" : `${remainingRevisions} ${remainingRevisions === 1 ? "Revision Left" : "Revisions Left"}`}
+                                                    </Badge>
                                                 </div>
 
-                                                {isBusinessPermit || isCedula || isCivilRegistry ? (
-                                                    <div className="space-y-3 pt-4 border-t" style={{ borderTopColor: `${themeColor}15` }}>
-                                                        <div className="space-y-1">
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: `${themeColor}15`, color: themeColor }}>
-                                                                ✨Note:
-                                                            </span>
-                                                            <p className="text-[9px] md:text-[10px] text-slate-400 font-bold leading-normal uppercase">
-                                                                Touch only fields needing correction.
+                                                {/* Quoted Reviewer Remarks Banner (Civil Registry style) */}
+                                                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3.5 text-amber-200">
+                                                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 animate-pulse mt-0.5" />
+                                                    <div className="space-y-1 w-full overflow-hidden">
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">
+                                                             Officer Instructions & Remarks
+                                                        </p>
+                                                        <p className="text-xs font-bold text-white leading-relaxed italic break-words">
+                                                            &ldquo;{request.rejectionRemarks || "Please re-upload the indicated document(s) for correction."}&rdquo;
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Decline Warning Pill */}
+                                                <div className="flex items-center gap-2 text-[9px] text-red-400 font-black uppercase tracking-wider bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-1.5 w-fit">
+                                                    <span>⚠️</span>
+                                                    <span>
+                                                        {remainingRevisions === 0
+                                                            ? "Final Attempt: Application will be declined if corrections are insufficient"
+                                                            : `Declines after ${remainingRevisions} unsuccessful attempt${remainingRevisions === 1 ? "" : "s"}`}
+                                                    </span>
+                                                </div>
+
+                                                {/* If Business Permit, Cedula, or Civil Registry without specific document checklist */}
+                                                {(isBusinessPermit || isCedula || isCivilRegistry) && !hasSpecificRevisionRequests ? (
+                                                    <div className="space-y-4 pt-3 border-t border-white/10">
+                                                        <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">Interactive Revision Wizard</span>
+                                                            <p className="text-[10px] text-slate-300 leading-relaxed">
+                                                                Please open the dedicated form to update the flagged sections and resubmit your details.
                                                             </p>
                                                         </div>
                                                         <Button
                                                             asChild
-                                                            className="w-full h-11 rounded-xl hover:opacity-90 text-white font-black italic uppercase text-[9px] tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                                                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
+                                                            className="w-full h-12 rounded-xl text-white font-black italic uppercase text-[10px] tracking-widest shadow-lg shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                            style={{ backgroundColor: themeColor || "var(--primary-theme)" }}
                                                         >
                                                             <Link href={getRevisionUrl()}>
-                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                                <ExternalLink className="w-4 h-4" />
                                                                 Fix Application
                                                             </Link>
                                                         </Button>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-4 pt-4 border-t" style={{ borderTopColor: `${themeColor}15` }}>
-                                                        <div className="space-y-3">
-                                                            {documentList.map((doc, idx) => {
-                                                                const labelKeyMap: { [key: string]: string } = {
-                                                                    "Owner's Valid ID": "ownerId",
-                                                                    "Cedula (CTC) Copy": "ctc",
-                                                                    "DTI / SEC Registry": "dtiSec",
-                                                                    "Barangay Clearance": "brgyClearance",
-                                                                    "Location Photo": "locationPhoto",
-                                                                    "Sanitary Permit": "sanitary",
-                                                                    "Fire Safety Certificate": "fireSafety",
-                                                                    "BIR Certificate (COR)": "birCor",
-                                                                    "Previous Business Permit": "previousPermit",
-                                                                    "Identity Matrix": "validId",
-                                                                    "Financial Evidence": "proofOfIncome",
-                                                                    "Municipal Form No. 103": "municipalForm103",
-                                                                    "PSA Negative Certification": "psaNegative",
-                                                                    "Affidavit of Delayed Registration": "affidavitOfDelay",
-                                                                    "Municipal Form 102": "municipalForm102",
-                                                                    "Marriage Certificate of Parents": "marriageCertificate",
-                                                                    "Community Tax Certificate": "communityTaxCertificate",
-                                                                    "Negative Certification from PSA": "negativePSA",
-                                                                    "Certificate of Live Birth (COLB)": "colb",
-                                                                    "Accomplished Certificate of Marriage": "marriageCert",
-                                                                    "Negative Certificate from PSA (Marriage)": "psaNeg",
-                                                                    "Certified Copy of Marriage License": "marriageLicense",
-                                                                    "Valid ID (Front)": "validIdFront",
-                                                                    "Valid ID (Back)": "validIdBack",
-                                                                    "Form 1A (Birth PSA Endorsement)": "form1a",
-                                                                    "Form 2A (Death PSA Endorsement)": "form2a",
-                                                                    "Form 3A (Marriage PSA Endorsement)": "form3a",
-                                                                    "PSA Negative Certification (Endorsement)": "psaNegativeCert"
-                                                                };
-                                                                const fileKey = labelKeyMap[doc.label] || `doc_${idx}`;
+                                                    /* Document Re-upload Section */
+                                                    <div className="space-y-4 pt-2 border-t border-white/10">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="space-y-0.5">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                                                                    {hasSpecificRevisionRequests ? "Checklist Items to Re-upload" : "Uploaded Documents"}
+                                                                </span>
+                                                                <p className="text-[9px] text-slate-500">
+                                                                    {hasSpecificRevisionRequests
+                                                                        ? `Only the ${revisionItems.length} item${revisionItems.length === 1 ? "" : "s"} marked by the officer require re-submission.`
+                                                                        : "Select the updated document file to replace the existing submission."}
+                                                                </p>
+                                                            </div>
+                                                            <Badge className="bg-white/10 text-white border-white/10 text-[9px] font-mono font-bold shrink-0">
+                                                                {revisionItems.filter(item => !!revisionFiles[item.key]).length}/{revisionItems.length}
+                                                            </Badge>
+                                                        </div>
+
+                                                        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                                                            {revisionItems.map((item) => {
+                                                                const isAttached = !!revisionFiles[item.key];
+                                                                const selectedFile = revisionFiles[item.key];
+
                                                                 return (
-                                                                    <div key={idx} className="space-y-1.5">
-                                                                        <span className="text-[8px] font-black uppercase text-slate-500 block truncate">{doc.label}</span>
-                                                                        <Label htmlFor={`rev-${fileKey}`} className="flex items-center justify-center gap-2 h-9 border border-dashed border-slate-200 dark:border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest cursor-pointer hover:border-primary/50 transition-colors">
-                                                                            <Upload className="w-3 h-3" />
-                                                                            {revisionFiles[fileKey] ? "Change File" : "Choose File"}
-                                                                        </Label>
+                                                                    <div
+                                                                        key={item.key}
+                                                                        className={cn(
+                                                                            "p-3.5 rounded-2xl border transition-all space-y-3",
+                                                                            isAttached
+                                                                                ? "border-emerald-500/40 bg-emerald-950/20"
+                                                                                : "border-amber-500/30 bg-slate-900/60 hover:border-amber-500/50"
+                                                                        )}
+                                                                    >
+                                                                        {/* Item Header */}
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <div className="space-y-1">
+                                                                                <span className="text-xs font-black uppercase tracking-wide text-white block leading-snug">
+                                                                                    {item.label}
+                                                                                </span>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Badge className={cn(
+                                                                                        "text-[8px] font-black uppercase tracking-widest border-none py-0.5 px-2",
+                                                                                        isAttached
+                                                                                            ? "bg-emerald-500/20 text-emerald-300"
+                                                                                            : "bg-amber-500/20 text-amber-300"
+                                                                                    )}>
+                                                                                        {isAttached ? "✓ Ready to Submit" : "Needs Re-upload"}
+                                                                                    </Badge>
+                                                                                    {item.type && (
+                                                                                        <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500">
+                                                                                            {item.type}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* View Previous File Button */}
+                                                                            {item.currentUrl && (
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleViewFile(item.currentUrl, item.label)}
+                                                                                    className="h-7 px-2.5 rounded-lg border-white/10 bg-white/5 hover:bg-white/10 text-white text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0"
+                                                                                    title="View previously submitted document"
+                                                                                >
+                                                                                    <Eye className="w-3 h-3 text-sky-400" />
+                                                                                    <span>Previous</span>
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* File Picker / Selected State */}
+                                                                        {isAttached && selectedFile ? (
+                                                                            <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200">
+                                                                                <div className="flex items-center gap-2 overflow-hidden pr-2">
+                                                                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                                                                                    <div className="overflow-hidden">
+                                                                                        <p className="text-xs font-bold text-white truncate">
+                                                                                            {selectedFile.name}
+                                                                                        </p>
+                                                                                        <p className="text-[9px] text-emerald-400/80 font-mono">
+                                                                                            {(selectedFile.size / 1024).toFixed(0)} KB
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                                    <Label
+                                                                                        htmlFor={`rev-${item.key}`}
+                                                                                        className="h-7 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center transition-colors"
+                                                                                    >
+                                                                                        Change
+                                                                                    </Label>
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        onClick={() => handleRevisionFile(item.key, null)}
+                                                                                        className="h-7 w-7 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                                                                                    >
+                                                                                        <X className="w-3.5 h-3.5" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <Label
+                                                                                htmlFor={`rev-${item.key}`}
+                                                                                className="flex flex-col items-center justify-center gap-1 py-3 px-4 border-2 border-dashed border-slate-700 hover:border-amber-500/70 rounded-xl cursor-pointer bg-black/20 hover:bg-amber-500/5 transition-all text-center group/label"
+                                                                            >
+                                                                                <div className="flex items-center gap-2 text-slate-400 group-hover/label:text-amber-400 transition-colors">
+                                                                                    <UploadCloud className="w-4 h-4" />
+                                                                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                                                                        Choose Replacement File
+                                                                                    </span>
+                                                                                </div>
+                                                                                <span className="text-[8px] text-slate-500">
+                                                                                    PDF, PNG, JPG (up to 15MB)
+                                                                                </span>
+                                                                            </Label>
+                                                                        )}
+
                                                                         <input
-                                                                            id={`rev-${fileKey}`}
+                                                                            id={`rev-${item.key}`}
                                                                             type="file"
+                                                                            accept=".pdf,.png,.jpg,.jpeg"
                                                                             className="hidden"
                                                                             onChange={(e) => {
                                                                                 const file = e.target.files?.[0];
-                                                                                if (file) handleRevisionFile(fileKey, file);
+                                                                                if (file) handleRevisionFile(item.key, file);
                                                                             }}
                                                                         />
-                                                                        {revisionFiles[fileKey] && (
-                                                                            <span className="text-[8px] font-bold text-slate-400 block truncate">{revisionFiles[fileKey]?.name}</span>
-                                                                        )}
                                                                     </div>
                                                                 );
                                                             })}
                                                         </div>
-                                                        <Button
-                                                            onClick={handleResubmit}
-                                                            disabled={isResubmitting || Object.values(revisionFiles).every(f => f === null)}
-                                                            className="w-full h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all duration-200 active:scale-95"
-                                                            style={{ backgroundColor: themeColor }}
-                                                        >
-                                                            {isResubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-                                                            RESUBMIT TRANSACTION
-                                                        </Button>
+
+                                                        {/* Resubmit CTA Button */}
+                                                        <div className="space-y-2 pt-2">
+                                                            <Button
+                                                                onClick={handleResubmit}
+                                                                disabled={isResubmitting || !canResubmit}
+                                                                className={cn(
+                                                                    "w-full h-12 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 shadow-xl transition-all duration-200 active:scale-95",
+                                                                    canResubmit
+                                                                        ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/25"
+                                                                        : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                                                                )}
+                                                                style={canResubmit && themeColor ? { backgroundColor: themeColor } : undefined}
+                                                            >
+                                                                {isResubmitting ? (
+                                                                    <>
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                        <span>Resubmitting Application...</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Check className="w-4 h-4" />
+                                                                        <span>
+                                                                            {hasSpecificRevisionRequests
+                                                                                ? `Resubmit (${revisionItems.filter(i => !!revisionFiles[i.key]).length}/${revisionItems.length} Attached)`
+                                                                                : "Resubmit Transaction"}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </Button>
+
+                                                            {/* Optional link to open full wizard form */}
+                                                            {getRevisionUrl() !== `/user/services/requests/${request.id}` && (
+                                                                <div className="pt-2 text-center">
+                                                                    <Link
+                                                                        href={getRevisionUrl()}
+                                                                        className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
+                                                                    >
+                                                                        <span>Need to change other application details? Open Full Form</span>
+                                                                        <ExternalLink className="w-3 h-3" />
+                                                                    </Link>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

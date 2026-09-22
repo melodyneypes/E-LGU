@@ -974,6 +974,7 @@ export async function getTreasuryTransactions(params?: string | {
                     businessName: true,
                     isStudent: true,
                     residentSnapshot: true,
+                    revisionCount: true,
                     additionalData: true,
                     processedBy: true,
                     type: {
@@ -987,8 +988,10 @@ export async function getTreasuryTransactions(params?: string | {
                     },
                     user: {
                         select: {
+                            id: true,
                             name: true,
-                            email: true
+                            email: true,
+                            rejectionCount: true
                         }
                     },
                     cedula: {
@@ -1012,16 +1015,17 @@ export async function getTreasuryTransactions(params?: string | {
         ]);
 
         const normalized = (transactions as any[]).map(tx => {
+            const rejection_count = tx.user?.rejectionCount ?? tx.revisionCount ?? 0;
             try {
                 const additional = tx.additionalData || {};
                 const code = tx.type?.code || "";
                 if (code.startsWith("LCR_") && code.includes("MARRIAGE")) {
                     const eventDate = additional.dateOfMarriage || additional.eventDate || (additional.event && additional.event.date) || null;
-                    return { ...tx, eventDate };
+                    return { ...tx, eventDate, rejection_count };
                 }
-                return tx;
+                return { ...tx, rejection_count };
             } catch {
-                return tx;
+                return { ...tx, rejection_count };
             }
         });
 

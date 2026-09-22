@@ -648,6 +648,11 @@ export default function TreasuryDashboard() {
                                                                         ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
                                                                         : tx.userId ? "Registered Resident" : "Walk-in / Citation Record"}
                                                                 </span>
+                                                                {(tx.user?.rejectionCount === 2 || tx.revisionCount === 2 || (tx as any).rejection_count === 2) && (
+                                                                    <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
+                                                                        FINAL ATTEMPT
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
