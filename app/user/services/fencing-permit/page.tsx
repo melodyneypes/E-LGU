@@ -43,7 +43,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { HelpCircle, BookOpen } from "lucide-react";
 
@@ -166,9 +165,10 @@ export default function FencingPermitPage() {
 
   // Beacon Garbage Collector on page close / unload
   React.useEffect(() => {
+    const abandonedFiles = abandonedFilesRef.current;
     return () => {
-      if (abandonedFilesRef.current.length > 0) {
-        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      if (abandonedFiles.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFiles }));
       }
     };
   }, []);
@@ -213,20 +213,21 @@ export default function FencingPermitPage() {
     if (file || url) {
       setViewerFile(file);
       setViewerUrl(url);
+      setViewerTitle(label);
       setViewerOpen(true);
     }
   };
 
   const mandatoryUploadedCount = MANDATORY_DOCUMENT_SLOTS.filter(
-    (slot) => !!uploadedFiles[slot.key]
+    (s) => !!uploadedFiles[s.key]
   ).length;
   const isMandatoryComplete = mandatoryUploadedCount === MANDATORY_DOCUMENT_SLOTS.length;
 
   const scrollToFirstMissingSlot = () => {
     setShowValidationErrors(true);
-    const firstMissing = MANDATORY_DOCUMENT_SLOTS.find((slot) => !uploadedFiles[slot.key]);
+    const firstMissing = MANDATORY_DOCUMENT_SLOTS.find((s) => !uploadedFiles[s.key]);
     if (firstMissing) {
-      toast.error(`Missing Required Upload: Please attach your ${firstMissing.label} before proceeding.`);
+      toast.warning(`Please upload the required "${firstMissing.label}" first.`);
       // Allow DOM state update to apply red borders first, then smoothly scroll
       setTimeout(() => {
         const el = document.getElementById(`doc-slot-${firstMissing.key}`);
@@ -257,7 +258,6 @@ export default function FencingPermitPage() {
 
   const handleStepClick = (targetStepId: string) => {
     const targetIdx = STEPS.findIndex((s) => s.id === targetStepId);
-    const currentStepIdx = STEPS.findIndex((s) => s.id === currentStep);
 
     // If trying to move forward past the DOCUMENTS step without completing mandatory uploads
     if (targetIdx > 1 && !isMandatoryComplete) {
