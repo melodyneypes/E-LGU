@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, Eye, Sparkles } from "lucide-react";
 import { CedulaLayoutSettings, DEFAULT_CEDULA_LAYOUT } from "@/lib/cedula-template-config";
 import { numberToWords, formatCedulaWordsTwoLines } from "@/lib/utils/number-to-words";
+import { cn } from "@/lib/utils";
 
 interface CedulaPreviewModalProps {
     isOpen: boolean;
@@ -226,22 +227,28 @@ export default function CedulaPreviewModal({
                 {/* Main Preview Canvas Area */}
                 <div className="p-6">
                     <div className="w-full bg-slate-900/90 rounded-2xl p-4 overflow-x-auto flex justify-center items-center shadow-inner border border-slate-800">
-                        {/* 1:1 Scaled Canvas Container */}
+                        {/* 1:1 Scaled Canvas Container matching Template Studio exact geometry */}
                         <div
                             style={{
-                                width: "100%",
-                                maxWidth: "1050px",
+                                width: `${(layout.widthMm || 152) * 5.2}px`,
+                                height: `${(layout.heightMm || 101) * 5.2}px`,
+                                maxWidth: "100%",
                                 aspectRatio: `${layout.widthMm || 152} / ${layout.heightMm || 101}`,
                                 position: "relative",
-                                backgroundImage: `url('${layout.bgImageUrl || "/images/cedula-template.png"}')`,
-                                backgroundSize: "100% 100%",
-                                backgroundRepeat: "no-repeat",
                                 boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-                                borderRadius: "6px",
+                                borderRadius: "4px",
                                 overflow: "hidden",
                                 backgroundColor: "white"
                             }}
                         >
+                            {/* Background Cedula Guide Image - exactly identical to Template Studio */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={layout.bgImageUrl || "/images/cedula-template.png"}
+                                alt="Cedula Reference Form"
+                                className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0"
+                            />
+
                             {Object.values(layout.fields).map(field => {
                                 if (!field.visible) return null;
                                 const text = fieldValues[field.id] ?? field.sampleValue ?? "";
@@ -255,16 +262,19 @@ export default function CedulaPreviewModal({
                                             left: `${field.x}%`,
                                             top: `${field.y}%`,
                                             width: `${field.width}%`,
-                                            fontSize: `calc(${field.fontSize}pt * 1.25)`,
+                                            fontSize: `${field.fontSize}pt`,
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                             textAlign: field.textAlign || "left",
                                             letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
-                                            fontFamily: "'Courier New', Courier, monospace, sans-serif",
-                                            lineHeight: isWords ? 1.18 : 1.1,
+                                            lineHeight: isWords ? 1.15 : 1.1,
                                             whiteSpace: isWords ? "pre-line" : "nowrap",
                                             wordBreak: isWords ? "break-word" : "normal",
-                                            color: "#0f172a"
+                                            color: "#000000"
                                         }}
+                                        className={cn(
+                                            "px-1 py-0.5 rounded font-mono select-none pointer-events-none z-10",
+                                            !isWords && "truncate leading-tight"
+                                        )}
                                     >
                                         {text}
                                     </div>

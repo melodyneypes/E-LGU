@@ -2158,7 +2158,15 @@ export default function TreasuryDetailPage() {
         handleCollectPsaPayment,
         cedulaLayoutConfig: cedulaLayout,
         handlePrintCedula: () => window.print(),
-        openCedulaPreview: () => setCedulaPreviewOpen(true)
+        openCedulaPreview: () => {
+            getCedulaLayoutAction().then(res => {
+                if (res.success && res.data) {
+                    setCedulaLayout(res.data);
+                }
+            }).finally(() => {
+                setCedulaPreviewOpen(true);
+            });
+        }
     };
 
     let renderView = null;

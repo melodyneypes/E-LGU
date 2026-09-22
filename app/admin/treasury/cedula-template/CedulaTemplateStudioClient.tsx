@@ -70,19 +70,11 @@ export default function CedulaTemplateStudioClient({
         // Make sure sexMale and sexFemale exist
         if (!cleanedFields.sexMale) cleanedFields.sexMale = DEFAULT_CEDULA_FIELDS.sexMale;
         if (!cleanedFields.sexFemale) cleanedFields.sexFemale = DEFAULT_CEDULA_FIELDS.sexFemale;
-        // Make sure 4 civil status check fields exist and are positioned below FILIPINO
-        if (!cleanedFields.civilStatusSingle || cleanedFields.civilStatusSingle.x > 75) {
-            cleanedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
-        }
-        if (!cleanedFields.civilStatusMarried || cleanedFields.civilStatusMarried.x > 75) {
-            cleanedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
-        }
-        if (!cleanedFields.civilStatusWidowed || cleanedFields.civilStatusWidowed.x > 75) {
-            cleanedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
-        }
-        if (!cleanedFields.civilStatusDivorced || cleanedFields.civilStatusDivorced.x > 75) {
-            cleanedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
-        }
+        // Make sure 4 civil status check fields exist if not deleted
+        if (!cleanedFields.civilStatusSingle) cleanedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
+        if (!cleanedFields.civilStatusMarried) cleanedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
+        if (!cleanedFields.civilStatusWidowed) cleanedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
+        if (!cleanedFields.civilStatusDivorced) cleanedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
         return {
             ...initial,
             fields: cleanedFields
