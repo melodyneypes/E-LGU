@@ -31,7 +31,7 @@ export function Services({ services = [], themeColor, isMaintenanceActive = fals
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mt-6 md:mt-16";
+    const gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mt-6 md:mt-16";
 
     return (
         <section id="services" className="pt-8 md:pt-8 pb-6 md:pb-12 px-6 max-w-7xl mx-auto">
@@ -115,7 +115,11 @@ function ServiceCard({ service, themeColor, isMobile, isMaintenanceActive }: { s
                                 ? "/user/services/civil-registry"
                                 : service.code === "BUILDING_PERMIT"
                                     ? "/user/services/building-permit"
-                                    : `/user/services/${service.id}`
+                                    : service.code === "FENCING_PERMIT"
+                                        ? "/user/services/fencing-permit"
+                                        : service.code === "OCCUPANCY" || service.code === "OCCUPANCY_PERMIT"
+                                            ? "/user/services/occupancy"
+                                            : `/user/services/${service.id}`
             } 
             className="block p-5 md:p-8 h-full"
         >

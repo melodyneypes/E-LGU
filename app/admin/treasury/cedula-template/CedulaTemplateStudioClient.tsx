@@ -70,19 +70,11 @@ export default function CedulaTemplateStudioClient({
         // Make sure sexMale and sexFemale exist
         if (!cleanedFields.sexMale) cleanedFields.sexMale = DEFAULT_CEDULA_FIELDS.sexMale;
         if (!cleanedFields.sexFemale) cleanedFields.sexFemale = DEFAULT_CEDULA_FIELDS.sexFemale;
-        // Make sure 4 civil status check fields exist and are positioned below FILIPINO
-        if (!cleanedFields.civilStatusSingle || cleanedFields.civilStatusSingle.x > 75) {
-            cleanedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
-        }
-        if (!cleanedFields.civilStatusMarried || cleanedFields.civilStatusMarried.x > 75) {
-            cleanedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
-        }
-        if (!cleanedFields.civilStatusWidowed || cleanedFields.civilStatusWidowed.x > 75) {
-            cleanedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
-        }
-        if (!cleanedFields.civilStatusDivorced || cleanedFields.civilStatusDivorced.x > 75) {
-            cleanedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
-        }
+        // Make sure 4 civil status check fields exist if not deleted
+        if (!cleanedFields.civilStatusSingle) cleanedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
+        if (!cleanedFields.civilStatusMarried) cleanedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
+        if (!cleanedFields.civilStatusWidowed) cleanedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
+        if (!cleanedFields.civilStatusDivorced) cleanedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
         return {
             ...initial,
             fields: cleanedFields
@@ -496,6 +488,8 @@ export default function CedulaTemplateStudioClient({
                                 if (!field.visible) return null;
                                 const isSelected = field.id === selectedFieldId;
 
+                                const isWords = field.id === "totalAmountInWords";
+
                                 return (
                                     <div
                                         key={field.id}
@@ -508,10 +502,14 @@ export default function CedulaTemplateStudioClient({
                                             fontWeight: field.fontWeight === "bold" ? "700" : "400",
                                             textAlign: field.textAlign || "left",
                                             letterSpacing: field.letterSpacing ? `${field.letterSpacing * (zoomLevel / 100)}px` : undefined,
+                                            whiteSpace: isWords ? "pre-line" : "nowrap",
+                                            lineHeight: isWords ? 1.15 : 1.1,
+                                            wordBreak: isWords ? "break-word" : "normal",
                                             color: "#000000"
                                         }}
                                         className={cn(
-                                            "absolute cursor-move transition-colors duration-75 px-1 py-0.5 rounded leading-tight font-mono z-10 truncate",
+                                            "absolute cursor-move transition-colors duration-75 px-1 py-0.5 rounded font-mono z-10",
+                                            !isWords && "truncate leading-tight",
                                             isSelected
                                                 ? "ring-2 ring-blue-500 bg-blue-500/10 text-black dark:text-black shadow-md font-bold"
                                                 : "hover:ring-1 hover:ring-slate-400 bg-transparent text-black dark:text-black"
