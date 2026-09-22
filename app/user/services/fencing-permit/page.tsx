@@ -203,7 +203,6 @@ export default function FencingPermitPage() {
     if (file || url) {
       setViewerFile(file);
       setViewerUrl(url);
-      setViewerTitle(label);
       setViewerOpen(true);
     }
   };
@@ -213,10 +212,28 @@ export default function FencingPermitPage() {
   ).length;
   const isMandatoryComplete = mandatoryUploadedCount === MANDATORY_DOCUMENT_SLOTS.length;
 
+  const scrollToFirstMissingSlot = () => {
+    setShowValidationErrors(true);
+    const firstMissing = MANDATORY_DOCUMENT_SLOTS.find((slot) => !uploadedFiles[slot.key]);
+    if (firstMissing) {
+      toast.error(`Missing Required Upload: Please attach your ${firstMissing.label} before proceeding.`);
+      // Allow DOM state update to apply red borders first, then smoothly scroll
+      setTimeout(() => {
+        const el = document.getElementById(`doc-slot-${firstMissing.key}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("animate-pulse");
+          setTimeout(() => el.classList.remove("animate-pulse"), 2000);
+        }
+      }, 50);
+    } else {
+      toast.error("Please complete all 8 mandatory document uploads before proceeding.");
+    }
+  };
+
   const handleProceedToEvaluation = () => {
     if (!isMandatoryComplete) {
-      setShowValidationErrors(true);
-      toast.error(`Please complete all 8 mandatory document uploads before proceeding.`);
+      scrollToFirstMissingSlot();
       return;
     }
 
@@ -226,6 +243,24 @@ export default function FencingPermitPage() {
     }
 
     setCurrentStep("EVALUATION");
+  };
+
+  const handleStepClick = (targetStepId: string) => {
+    const targetIdx = STEPS.findIndex((s) => s.id === targetStepId);
+    const currentStepIdx = STEPS.findIndex((s) => s.id === currentStep);
+
+    // If trying to move forward past the DOCUMENTS step without completing mandatory uploads
+    if (targetIdx > 1 && !isMandatoryComplete) {
+      if (currentStep !== "DOCUMENTS") {
+        setCurrentStep("DOCUMENTS");
+        setTimeout(scrollToFirstMissingSlot, 200);
+      } else {
+        scrollToFirstMissingSlot();
+      }
+      return;
+    }
+
+    setCurrentStep(targetStepId);
   };
 
   const handlePrivacyAccept = () => {
@@ -315,7 +350,7 @@ export default function FencingPermitPage() {
             return (
               <div
                 key={step.id}
-                onClick={() => setCurrentStep(step.id)}
+                onClick={() => handleStepClick(step.id)}
                 className="flex flex-col items-center gap-2 relative z-10 font-black cursor-pointer group select-none"
               >
                 <div
@@ -597,31 +632,9 @@ export default function FencingPermitPage() {
                   return (
                     <div
                       key={slot.key}
-                      className={cn(
-                        "p-5 rounded-2xl border bg-white/40 dark:bg-white/[0.02] backdrop-blur-sm space-y-3 transition-all",
-                        isMissing
-                          ? "border-red-500 ring-2 ring-red-500/20 bg-red-500/[0.02]"
-                          : "border-slate-200 dark:border-white/10 hover:border-primary/40"
-                      )}
+                      id={`doc-slot-${slot.key}`}
+                      className="scroll-mt-28 transition-all"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
-                          {slot.agencyBadge}
-                        </span>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500">
-                          * Required
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                          {slot.label}
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          {slot.description}
-                        </p>
-                      </div>
-
                       <PremiumDocumentUpload
                         label={slot.label}
                         required={slot.required}
@@ -658,26 +671,9 @@ export default function FencingPermitPage() {
                   return (
                     <div
                       key={slot.key}
-                      className="p-5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] backdrop-blur-sm space-y-3 hover:border-primary/40 transition-all"
+                      id={`doc-slot-${slot.key}`}
+                      className="scroll-mt-28 transition-all"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
-                          {slot.agencyBadge}
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Optional
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">
-                          {slot.label}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed line-clamp-2">
-                          {slot.description}
-                        </p>
-                      </div>
-
                       <PremiumDocumentUpload
                         label={slot.label}
                         required={false}
