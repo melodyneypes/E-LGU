@@ -289,25 +289,6 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
         const updatedTotalAmount = params.totalDue !== undefined ? params.totalDue : transaction.totalAmount;
         const effectiveIncome = params.declaredGross !== undefined ? Number(params.declaredGross) : Number(currentAdditional.income || 0);
 
-        const updatedAdditionalData = {
-            ...currentAdditional,
-            income: effectiveIncome,
-            ...(remarks && { treasuryRemarks: remarks }),
-            ...(orSeriesNumber && { orSeriesNumber })
-        };
-
-        const paymentMethod = params.paymentMethod || "CASH";
-        let mappedPaymentType: any = transaction.paymentType || "CASH";
-        const methodUpper = paymentMethod.toUpperCase();
-        if (methodUpper === "CASH") mappedPaymentType = "CASH";
-        else if (methodUpper === "GCASH" || methodUpper === "QR" || methodUpper === "E_PAYMENT") mappedPaymentType = "E_PAYMENT";
-        else if (methodUpper === "LANDBANK" || methodUpper === "BANK_TRANSFER") mappedPaymentType = "BANK_TRANSFER";
-
-        const isCash = mappedPaymentType === "CASH";
-        const refNo = isCash
-            ? null
-            : (params.paymentReference ? sanitizeString(params.paymentReference) : (currentAdditional.referenceNo || transaction.paymentReference || `manual_${transactionId}`));
-
         // Fast cached system settings fetch (Zero full-table scans)
         const settings = await getMultipleSystemSettings([
             "cedula_basic_tax_individual",
@@ -332,6 +313,31 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
             baseFee: transaction.type.baseFee,
             settings: settingsMap
         });
+
+        const updatedAdditionalData = {
+            ...currentAdditional,
+            income: effectiveIncome,
+            calculatedTax: {
+                basicTax: calc.basicTax,
+                additionalTax: calc.additionalTax,
+                penalty: calc.penalty,
+                totalAmount: updatedTotalAmount
+            },
+            ...(remarks && { treasuryRemarks: remarks }),
+            ...(orSeriesNumber && { orSeriesNumber })
+        };
+
+        const paymentMethod = params.paymentMethod || "CASH";
+        let mappedPaymentType: any = transaction.paymentType || "CASH";
+        const methodUpper = paymentMethod.toUpperCase();
+        if (methodUpper === "CASH") mappedPaymentType = "CASH";
+        else if (methodUpper === "GCASH" || methodUpper === "QR" || methodUpper === "E_PAYMENT") mappedPaymentType = "E_PAYMENT";
+        else if (methodUpper === "LANDBANK" || methodUpper === "BANK_TRANSFER") mappedPaymentType = "BANK_TRANSFER";
+
+        const isCash = mappedPaymentType === "CASH";
+        const refNo = isCash
+            ? null
+            : (params.paymentReference ? sanitizeString(params.paymentReference) : (currentAdditional.referenceNo || transaction.paymentReference || `manual_${transactionId}`));
 
         const now = new Date();
 
@@ -408,10 +414,16 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
                         verificationId: `VER-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
                     }
                 });
-            } else if (ctcNumber) {
+            } else {
                 await tx.cedula.update({
                     where: { id: transaction.cedula.id },
-                    data: { ctcNumber }
+                    data: {
+                        ...(ctcNumber ? { ctcNumber } : {}),
+                        basicTax: calc.basicTax,
+                        additionalTax: calc.additionalTax,
+                        penalty: calc.penalty,
+                        totalPaid: updatedTotalAmount
+                    }
                 });
             }
         });
