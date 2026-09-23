@@ -44,11 +44,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, CheckCircle, PenTool, MapPin, ShieldCheck, Eye } from "lucide-react";
-import SignaturePad from "@/components/shared/SignaturePad";
+import { HelpCircle, BookOpen, CheckCircle, Eye } from "lucide-react";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
 import { submitFencingPermit } from "./actions";
 import { useRouter } from "next/navigation";
+import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+
+const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -155,11 +157,10 @@ export default function FencingPermitPage() {
   // Resident Profile & User Context State
   const [residentProfile, setResidentProfile] = React.useState<any>(null);
 
-  // Fencing Site Details State (Step 3 Minimal Fields)
+  // Fencing Site Details State (Inherited from resident record)
   const [siteBarangay, setSiteBarangay] = React.useState("");
   const [siteStreet, setSiteStreet] = React.useState("");
-  const [estimatedCost, setEstimatedCost] = React.useState("");
-  const [isSwornAgreed, setIsSwornAgreed] = React.useState(false);
+  const estimatedCost = "0";
 
   // Submission & Success Modal State
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -206,6 +207,7 @@ export default function FencingPermitPage() {
   const [uploadedFiles, setUploadedFiles] = React.useState<Record<string, File | null>>({});
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
+  const isDraftHydratedRef = React.useRef(false);
 
   // Document Viewer Modal State
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -213,11 +215,42 @@ export default function FencingPermitPage() {
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = React.useState("");
 
+  // Hydrate draft files from IndexedDB on initial mount
+  React.useEffect(() => {
+    async function restoreDrafts() {
+      try {
+        const draftFiles = await getDraftFiles(DRAFT_STORAGE_KEY);
+        if (draftFiles && Object.keys(draftFiles).length > 0 && !isDraftHydratedRef.current) {
+          isDraftHydratedRef.current = true;
+          setUploadedFiles(draftFiles);
+          
+          const restoredPreviews: Record<string, string> = {};
+          Object.entries(draftFiles).forEach(([key, file]) => {
+            if (file) {
+              restoredPreviews[key] = URL.createObjectURL(file);
+            }
+          });
+          setPreviewUrls(restoredPreviews);
+          toast.info("Progress restored. Previously uploaded document drafts recovered.", { duration: 5000 });
+        }
+      } catch (err) {
+        console.error("Failed to restore draft files from IndexedDB:", err);
+      }
+    }
+
+    restoreDrafts();
+  }, []);
+
   const handleFileSelect = (key: string, file: File) => {
     const objectUrl = URL.createObjectURL(file);
     setUploadedFiles((prev) => ({ ...prev, [key]: file }));
     setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
     toast.success("Document uploaded successfully.");
+
+    // Auto-save to IndexedDB asynchronously
+    saveDraftFile(DRAFT_STORAGE_KEY, key, file).catch((err) => {
+      console.error("Failed to auto-save draft file:", err);
+    });
   };
 
   const handleClearFile = (key: string) => {
@@ -233,6 +266,11 @@ export default function FencingPermitPage() {
       }
       delete copy[key];
       return copy;
+    });
+
+    // Remove from IndexedDB asynchronously
+    saveDraftFile(DRAFT_STORAGE_KEY, key, null).catch((err) => {
+      console.error("Failed to remove draft file from storage:", err);
     });
   };
 
@@ -296,23 +334,6 @@ export default function FencingPermitPage() {
     setCurrentStep(targetStepId);
   };
 
-  // Signature File State
-  const [signatureFile, setSignatureFile] = React.useState<File | null>(null);
-
-  const MAPANDAN_BARANGAYS = [
-    "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Lanas",
-    "Nilombot", "Patland", "Pias", "Poblacion", "Primicias", "Santa Maria", "Torres", "Valenzuela"
-  ];
-
-  const handleSignatureSave = (file: File | null) => {
-    setSignatureFile(file);
-    if (file) {
-      toast.success("Signature captured successfully!");
-    } else {
-      toast.info("Signature cleared.");
-    }
-  };
-
   const executeSubmission = async () => {
     setIsSubmitting(true);
     const toastId = toast.loading("Encrypting documents and submitting fencing permit application...");
@@ -322,7 +343,6 @@ export default function FencingPermitPage() {
       formData.append("barangay", siteBarangay);
       formData.append("street", siteStreet);
       formData.append("estimatedCost", estimatedCost);
-      formData.append("signature", signatureFile!);
 
       // Append all uploaded files
       Object.entries(uploadedFiles).forEach(([key, file]) => {
@@ -338,6 +358,11 @@ export default function FencingPermitPage() {
         toast.success("Application submitted successfully!");
         setSubmittedTxId(res.data.id);
         setIsSuccessModalOpen(true);
+
+        // Clear local draft files from IndexedDB
+        clearDraftFiles(DRAFT_STORAGE_KEY).catch((e) => {
+          console.error("Failed to clean up draft files:", e);
+        });
       } else {
         toast.dismiss(toastId);
         toast.error(res.error || "Failed to submit application. Please review and try again.");
@@ -352,26 +377,6 @@ export default function FencingPermitPage() {
   };
 
   const handleSubmitApplication = async () => {
-    if (!siteBarangay) {
-      toast.error("Please specify the Barangay where fencing will be constructed.");
-      return;
-    }
-
-    if (!estimatedCost || parseFloat(estimatedCost.replace(/,/g, "")) <= 0) {
-      toast.error("Please enter a valid Estimated Project Cost.");
-      return;
-    }
-
-    if (!isSwornAgreed) {
-      toast.error("Please check the Sworn Undertaking agreement before submitting.");
-      return;
-    }
-
-    if (!signatureFile) {
-      toast.error("Please provide and save your signature before submitting.");
-      return;
-    }
-
     if (!isMandatoryComplete) {
       toast.error("Mandatory documents are incomplete. Please complete all 8 required uploads.");
       setCurrentStep("DOCUMENTS");
@@ -898,158 +903,61 @@ export default function FencingPermitPage() {
         {/* Step 3: SUBMIT / REVIEW TAB */}
         {currentStep === "SUBMIT" && (
           <div className="space-y-8 animate-in fade-in-50 duration-500">
-            {/* Top Step Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full w-fit">
-                  <ShieldCheck className="w-4 h-4" />
-                  Final Review & Sworn Submission
+            {/* Card 1: Applicant Profile Snapshot */}
+            <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                  Review Your Fencing Permit Application
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-                  Please verify your applicant information, confirm the fencing location and estimated cost, review attached documents, and affix your digital signature below.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep("DOCUMENTS")}
-                  className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2 h-11"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Edit Documents
-                </Button>
-              </div>
-            </div>
-
-            {/* Grid: Applicant Profile & Proposed Fencing Site */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card 1: Applicant Profile Snapshot */}
-              <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
-                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                      Applicant Information
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Pre-filled verified resident record
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Full Name
-                    </span>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {residentProfile
-                        ? `${residentProfile.firstName || ""} ${residentProfile.middleName ? residentProfile.middleName + " " : ""}${residentProfile.lastName || ""}`
-                        : "Loading resident profile..."}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Contact Number
-                    </span>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {residentProfile?.contactNumber || residentProfile?.mobileNumber || "None on record"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Email Address
-                    </span>
-                    <p className="font-bold text-slate-900 dark:text-white truncate">
-                      {residentProfile?.email || residentProfile?.user?.email || "None on record"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Resident Address
-                    </span>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {residentProfile?.barangay
-                        ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
-                        : "Mapandan, Pangasinan"}
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    Applicant Information
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Pre-filled verified resident record
+                  </p>
                 </div>
               </div>
 
-              {/* Card 2: Proposed Fencing Site & Cost */}
-              <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
-                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                      Fencing Site & Estimate
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Where the fencing project will be constructed
-                    </p>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Full Name
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile
+                      ? `${residentProfile.firstName || ""} ${residentProfile.middleName ? residentProfile.middleName + " " : ""}${residentProfile.lastName || ""}`
+                      : "Loading resident profile..."}
+                  </p>
                 </div>
 
-                <div className="space-y-4 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Barangay of Fencing Site <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={siteBarangay}
-                      onChange={(e) => setSiteBarangay(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      <option value="">Select Mapandan Barangay</option>
-                      {MAPANDAN_BARANGAYS.map((brgy) => (
-                        <option key={brgy} value={brgy}>
-                          Brgy. {brgy}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Contact Number
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile?.contactNumber || residentProfile?.mobileNumber || "None on record"}
+                  </p>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                        Street / Sitio / Purok
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Purok 3 / Rizal St."
-                        value={siteStreet}
-                        onChange={(e) => setSiteStreet(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      />
-                    </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Email Address
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {residentProfile?.email || residentProfile?.user?.email || "None on record"}
+                  </p>
+                </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                        Estimated Cost (PHP) <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₱</span>
-                        <input
-                          type="number"
-                          placeholder="e.g. 85000"
-                          value={estimatedCost}
-                          onChange={(e) => setEstimatedCost(e.target.value)}
-                          className="w-full pl-7 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Resident Address
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile?.barangay
+                      ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
+                      : "Mapandan, Pangasinan"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1132,70 +1040,6 @@ export default function FencingPermitPage() {
               </div>
             </div>
 
-            {/* Card 4: Sworn Undertaking & Digital Signature */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
-              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-                  <PenTool className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                    Sworn Undertaking & Electronic Signature
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Republic Act 8792 (E-Commerce Act of 2000) & Presidential Decree 1096
-                  </p>
-                </div>
-              </div>
-
-              {/* Sworn Undertaking Checkbox Card */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={isSwornAgreed}
-                    onChange={(e) => setIsSwornAgreed(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded text-primary focus:ring-primary/40 border-slate-300 dark:border-white/20 cursor-pointer"
-                  />
-                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      I hereby certify under the penalties of perjury that:
-                    </p>
-                    <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      <li>All statements and attachments submitted herein are true, correct, and legally verified.</li>
-                      <li>The proposed fencing project will strictly comply with the National Building Code (PD 1096) and local zoning ordinances of Mapandan.</li>
-                      <li>No encroachment onto public roads, waterways, or adjoining private lots will occur during construction.</li>
-                    </ul>
-                  </div>
-                </label>
-              </div>
-
-              {/* Signature Pad */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <PenTool className="w-3.5 h-3.5 text-primary" />
-                    Applicant Digital Signature <span className="text-rose-500">*</span>
-                  </span>
-                  {signatureFile && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Signature Saved
-                    </span>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white dark:bg-black/40 shadow-inner">
-                  <SignaturePad
-                    onSave={handleSignatureSave}
-                    themeColor={themeColor}
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 italic">
-                  Draw your signature on the pad above and click &quot;Save Signature&quot; or upload an image file of your signature.
-                </p>
-              </div>
-            </div>
-
             {/* Bottom Actions Bar */}
             <div className="p-6 rounded-3xl bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <Button
@@ -1210,7 +1054,7 @@ export default function FencingPermitPage() {
 
               <Button
                 onClick={handleSubmitApplication}
-                disabled={isSubmitting || !isSwornAgreed || !signatureFile}
+                disabled={isSubmitting || !isMandatoryComplete}
                 className="w-full sm:w-auto px-10 h-12 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-primary/25 gap-2"
               >
                 {isSubmitting ? (

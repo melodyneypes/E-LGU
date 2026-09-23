@@ -35,9 +35,14 @@ export async function submitFencingPermit(formData: FormData) {
       return { success: false, error: "Fencing Permit transaction type not found in database." };
     }
 
-    // Extract basic form fields
-    const barangay = sanitizeString(formData.get("barangay") as string || "");
-    const street = sanitizeString(formData.get("street") as string || "");
+    // Fetch resident profile snapshot
+    const resident = await prisma.resident.findFirst({
+      where: { userId }
+    });
+
+    // Extract basic form fields with resident fallback
+    const barangay = sanitizeString(formData.get("barangay") as string || resident?.barangay || "Mapandan");
+    const street = sanitizeString(formData.get("street") as string || resident?.street || "");
     const estimatedCost = sanitizeString(formData.get("estimatedCost") as string || "0");
     
     // Process signature: Can be File or string
@@ -47,10 +52,6 @@ export async function submitFencingPermit(formData: FormData) {
       signatureUrl = await uploadFile(signatureEntry, "signatures");
     } else if (typeof signatureEntry === "string" && signatureEntry.trim().length > 0) {
       signatureUrl = signatureEntry;
-    }
-
-    if (!barangay) {
-      return { success: false, error: "Please select the barangay of the fencing site." };
     }
 
     // Process and upload attached document files
@@ -104,11 +105,6 @@ export async function submitFencingPermit(formData: FormData) {
     if (!fileCheck.success) {
       return { success: false, error: fileCheck.error || "File security verification failed." };
     }
-
-    // Fetch resident profile snapshot
-    const resident = await prisma.resident.findFirst({
-      where: { userId }
-    });
 
     const sanitizedAdditionalData = sanitizeObject(additionalData);
     if (signatureUrl) {
