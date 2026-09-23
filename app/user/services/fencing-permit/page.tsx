@@ -217,7 +217,7 @@ export default function FencingPermitPage() {
     const objectUrl = URL.createObjectURL(file);
     setUploadedFiles((prev) => ({ ...prev, [key]: file }));
     setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
-    toast.success("Document attached, verified, and compressed successfully!");
+    toast.success("Document uploaded successfully.");
   };
 
   const handleClearFile = (key: string) => {
@@ -276,11 +276,6 @@ export default function FencingPermitPage() {
       return;
     }
 
-    if (!privacyAccepted) {
-      setIsPrivacyModalOpen(true);
-      return;
-    }
-
     setCurrentStep("SUBMIT");
   };
 
@@ -318,33 +313,7 @@ export default function FencingPermitPage() {
     }
   };
 
-  const handleSubmitApplication = async () => {
-    if (!siteBarangay) {
-      toast.error("Please specify the Barangay where fencing will be constructed.");
-      return;
-    }
-
-    if (!estimatedCost || parseFloat(estimatedCost.replace(/,/g, "")) <= 0) {
-      toast.error("Please enter a valid Estimated Project Cost.");
-      return;
-    }
-
-    if (!isSwornAgreed) {
-      toast.error("Please check the Sworn Undertaking agreement before submitting.");
-      return;
-    }
-
-    if (!signatureFile) {
-      toast.error("Please provide and save your signature before submitting.");
-      return;
-    }
-
-    if (!isMandatoryComplete) {
-      toast.error("Mandatory documents are incomplete. Please complete all 8 required uploads.");
-      setCurrentStep("DOCUMENTS");
-      return;
-    }
-
+  const executeSubmission = async () => {
     setIsSubmitting(true);
     const toastId = toast.loading("Encrypting documents and submitting fencing permit application...");
 
@@ -353,7 +322,7 @@ export default function FencingPermitPage() {
       formData.append("barangay", siteBarangay);
       formData.append("street", siteStreet);
       formData.append("estimatedCost", estimatedCost);
-      formData.append("signature", signatureFile);
+      formData.append("signature", signatureFile!);
 
       // Append all uploaded files
       Object.entries(uploadedFiles).forEach(([key, file]) => {
@@ -382,11 +351,47 @@ export default function FencingPermitPage() {
     }
   };
 
+  const handleSubmitApplication = async () => {
+    if (!siteBarangay) {
+      toast.error("Please specify the Barangay where fencing will be constructed.");
+      return;
+    }
+
+    if (!estimatedCost || parseFloat(estimatedCost.replace(/,/g, "")) <= 0) {
+      toast.error("Please enter a valid Estimated Project Cost.");
+      return;
+    }
+
+    if (!isSwornAgreed) {
+      toast.error("Please check the Sworn Undertaking agreement before submitting.");
+      return;
+    }
+
+    if (!signatureFile) {
+      toast.error("Please provide and save your signature before submitting.");
+      return;
+    }
+
+    if (!isMandatoryComplete) {
+      toast.error("Mandatory documents are incomplete. Please complete all 8 required uploads.");
+      setCurrentStep("DOCUMENTS");
+      return;
+    }
+
+    // Require Data Protection & Privacy Agreement right at submission time
+    if (!privacyAccepted) {
+      setIsPrivacyModalOpen(true);
+      return;
+    }
+
+    await executeSubmission();
+  };
+
   const handlePrivacyAccept = () => {
     setPrivacyAccepted(true);
     setIsPrivacyModalOpen(false);
     toast.success("Data Privacy & Consent confirmed!");
-    setCurrentStep("SUBMIT");
+    executeSubmission();
   };
 
   return (
