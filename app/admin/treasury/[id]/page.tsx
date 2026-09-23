@@ -293,6 +293,7 @@ export default function TreasuryDetailPage() {
     const [birthRegDocFile, setBirthRegDocFile] = useState<File | null>(null);
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
+    const [editedIncome, setEditedIncome] = useState<number | null>(null);
     const [miscFee, setMiscFee] = useState<string>("0");
     const [cedulaLayout, setCedulaLayout] = useState<any>(null);
     const [cedulaPreviewOpen, setCedulaPreviewOpen] = useState(false);
@@ -994,8 +995,10 @@ export default function TreasuryDetailPage() {
         ? (typeof transaction.deliveryAddress === 'string' ? JSON.parse(transaction.deliveryAddress) : transaction.deliveryAddress)
         : null;
 
+    const activeIncome = editedIncome !== null ? editedIncome : income;
+
     const calcResult = (() => {
-        if (fiscal && !(isBusinessPermit && transaction.status === "FOR_REQUESTING") && !(isBuildingPermit && transaction.status === "EVALUATED") && !(isLCR && transaction.status === "FOR_REQUESTING")) {
+        if (fiscal && !(isBusinessPermit && transaction.status === "FOR_REQUESTING") && !(isBuildingPermit && transaction.status === "EVALUATED") && !(isLCR && transaction.status === "FOR_REQUESTING") && !(isCedula && editedIncome !== null)) {
             return {
                 basicTax: fiscal.basicTax,
                 additionalTax: fiscal.additionalTax,
@@ -1088,7 +1091,7 @@ export default function TreasuryDetailPage() {
         if (isCedula && transaction.status === "FOR_REQUESTING") {
             const baseCalc = calculateCedula({
                 type: additional.applicantType || "INDIVIDUAL",
-                income,
+                income: activeIncome,
                 propertyValue,
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee,
@@ -1105,7 +1108,7 @@ export default function TreasuryDetailPage() {
 
         return calculateCedula({
             type: additional.applicantType || "INDIVIDUAL",
-            income,
+            income: activeIncome,
             propertyValue,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee,
@@ -1115,8 +1118,8 @@ export default function TreasuryDetailPage() {
     })();
 
     // Prefer persisted `transaction.totalAmount` when available (greater than 0); otherwise use calculated result
-    // Also exclude CEDULA FOR_REQUESTING so additional fees reflect live in the total
-    const displayTotal = Number((transaction.totalAmount && transaction.totalAmount > 0 && !((isBusinessPermit || isLCR || isCedula) && transaction.status === "FOR_REQUESTING")) ? transaction.totalAmount : (calcResult.totalAmount ?? 0));
+    // Also exclude CEDULA FOR_REQUESTING or when editedIncome is set so edited Cedula recomputes live
+    const displayTotal = Number((transaction.totalAmount && transaction.totalAmount > 0 && !((isBusinessPermit || isLCR || isCedula) && transaction.status === "FOR_REQUESTING") && !(isCedula && editedIncome !== null)) ? transaction.totalAmount : (calcResult.totalAmount ?? 0));
 
     const rptInfo = (transaction as any).realPropertyTax || additional || {};
     const assessedVal = Number(rptInfo.assessedValue || additional.assessedValue || (calcResult.totalAmount > 0 ? calcResult.totalAmount / 0.02 : 0));
@@ -1125,7 +1128,7 @@ export default function TreasuryDetailPage() {
         ? assessedVal
         : isBusinessPermit
             ? (additional.businessType === "NEW" ? Number(additional.capitalInvestment || 0) : Number(additional.grossSales || 0))
-            : (transaction.isStudent ? "Student Request" : income);
+            : (transaction.isStudent ? "Student Request" : activeIncome);
 
     const declaredLabel = isRPT
         ? "Assessed Property Value"
@@ -1635,7 +1638,8 @@ export default function TreasuryDetailPage() {
                     amountTendered,
                     ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || "",
                     remarks,
-                    orSeriesNumber
+                    orSeriesNumber,
+                    declaredGross: activeIncome
                 })
                 : await processOnsitePaymentAndReleaseAction({
                     transactionId: transaction.id,
@@ -2166,8 +2170,34 @@ export default function TreasuryDetailPage() {
             }).finally(() => {
                 setCedulaPreviewOpen(true);
             });
-        }
+        },
+        editedIncome,
+        setEditedIncome
     };
+
+    const cedulaTransaction = (!transaction)
+        ? transaction
+        : {
+            ...transaction,
+            totalAmount: displayTotal,
+            additionalData: {
+                ...(transaction.additionalData || {}),
+                income: activeIncome,
+                calculatedTax: {
+                    basicTax: calcResult.basicTax,
+                    additionalTax: calcResult.additionalTax,
+                    penalty: calcResult.penalty,
+                    totalAmount: displayTotal
+                }
+            },
+            fiscalSnapshot: {
+                ...(transaction.fiscalSnapshot || {}),
+                basicTax: calcResult.basicTax,
+                additionalTax: calcResult.additionalTax,
+                penaltyCharge: calcResult.penalty,
+                totalAmount: displayTotal
+            }
+        };
 
     let renderView = null;
 
@@ -2216,7 +2246,7 @@ export default function TreasuryDetailPage() {
             {(typeCode.includes("CEDULA") || transaction?.type?.category?.toUpperCase() === "CEDULA") && transaction && (
                 <>
                     <CedulaPrintPortal
-                        transaction={transaction}
+                        transaction={cedulaTransaction}
                         layoutConfig={cedulaLayout}
                         includeBg={cedulaIncludeBg}
                     />
@@ -2224,7 +2254,7 @@ export default function TreasuryDetailPage() {
                     <CedulaPreviewModal
                         isOpen={cedulaPreviewOpen}
                         onClose={() => setCedulaPreviewOpen(false)}
-                        transaction={transaction}
+                        transaction={cedulaTransaction}
                         layoutConfig={cedulaLayout}
                         onPrint={(includeBg: boolean) => {
                             setCedulaIncludeBg(includeBg);
