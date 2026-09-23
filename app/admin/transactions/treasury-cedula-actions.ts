@@ -213,6 +213,7 @@ interface ProcessCedulaOnsiteParams {
     ctcNumber?: string;
     remarks?: string;
     orSeriesNumber?: string;
+    declaredGross?: number;
 }
 
 /**
@@ -286,9 +287,11 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
 
         const currentAdditional = (transaction.additionalData as any) || {};
         const updatedTotalAmount = params.totalDue !== undefined ? params.totalDue : transaction.totalAmount;
+        const effectiveIncome = params.declaredGross !== undefined ? Number(params.declaredGross) : Number(currentAdditional.income || 0);
 
         const updatedAdditionalData = {
             ...currentAdditional,
+            income: effectiveIncome,
             ...(remarks && { treasuryRemarks: remarks }),
             ...(orSeriesNumber && { orSeriesNumber })
         };
@@ -322,7 +325,7 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
 
         const calc = calculateCedula({
             type: currentAdditional.applicantType || "INDIVIDUAL",
-            income: currentAdditional.income || 0,
+            income: effectiveIncome,
             propertyValue: currentAdditional.propertyValue || 0,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee: transaction.type.deliveryFee,

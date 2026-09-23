@@ -101,4 +101,6 @@ export interface TreasuryViewProps {
     cedulaLayoutConfig?: any;
     handlePrintCedula?: () => void;
     openCedulaPreview?: () => void;
+    editedIncome?: number | null;
+    setEditedIncome?: (val: number | null) => void;
 }
