@@ -139,7 +139,14 @@ export default function CedulaPreviewModal({
 
     const ctcNumberDisplay = cedulaRecord.ctcNumber || transaction.ctcNumber || additional.ctcNumber || "NOT ASSIGNED";
 
-    const isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL");
+    const isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL") || transaction.type?.code === "CEDULA_JUR";
+
+    const formattedIncomeBasis = incomeBasis > 0 
+        ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) 
+        : "0.00";
+    const formattedAdditionalTax = additionalTaxNum > 0 
+        ? additionalTaxNum.toFixed(2) 
+        : "0.00";
 
     // Dynamic field values mapping
     const fieldValues: Record<string, string> = {
@@ -166,10 +173,11 @@ export default function CedulaPreviewModal({
         weight: resident.weight ? `${resident.weight} kg` : (additional.weight || "--"),
         profession: profession,
         basicTax: basicTaxNum.toFixed(2),
-        additionalTax1Basis: isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax1Amount: isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
-        additionalTax2Basis: !isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax2Amount: !isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
+        // Both Juridical and Individual share B2 (Salaries / Profession Basis) so template coordinates don't need changes
+        additionalTax1Basis: "0.00",
+        additionalTax1Amount: "0.00",
+        additionalTax2Basis: formattedIncomeBasis,
+        additionalTax2Amount: formattedAdditionalTax,
         additionalTax3Basis: "0.00",
         additionalTax3Amount: "0.00",
         totalCommunityTax: totalCommunityTaxNum.toFixed(2),
