@@ -20,6 +20,7 @@ import {
     ZoomOut,
     ExternalLink,
     AlertCircle,
+    AlertTriangle,
     Ban,
     Hash,
     Trash2,
@@ -485,6 +486,8 @@ export default function EngineerDetailPage({ params }: PageProps) {
         setOrPreview(url);
         return () => URL.revokeObjectURL(url);
     }, [orFile]);
+
+    const isFinalAttempt = (transaction.revisionCount || 0) >= 2;
 
     const handleReject = async () => {
         if (!remarks) { toast.error("Remarks required"); return; }
@@ -2462,13 +2465,13 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                         <div className="flex gap-2 w-full">
                                             <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                                 <DialogTrigger asChild>
-                                                    {(transaction.revisionCount || 0) < 3 && (
+                                                    {!isFinalAttempt && (transaction.revisionCount || 0) < 2 && (
                                                         <Button
-                                                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }}
-                                                                                                                className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-                                                                                                            >
-                                                                                                                Request Revision
-                                                                                                            </Button>
+                                                            onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }}
+                                                            className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                                                        >
+                                                            Request Revision
+                                                        </Button>
                                                     )}
                                                 </DialogTrigger>
                                                 <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
@@ -2554,11 +2557,30 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                 <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
                                                     <DialogHeader className="space-y-3">
                                                         <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                                                            Decline <span className="text-red-600">Request</span>
+                                                            {isFinalAttempt ? (
+                                                                <>Final <span className="text-red-600">Rejection</span></>
+                                                            ) : (
+                                                                <>Decline <span className="text-red-600">Request</span></>
+                                                            )}
                                                         </DialogTitle>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Official Rejection Protocol</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                                                            {isFinalAttempt ? "Permanent Lock Confirmation" : "Official Rejection Protocol"}
+                                                        </p>
                                                     </DialogHeader>
                                                     <div className="space-y-6 py-6">
+                                                        {isFinalAttempt && (
+                                                            <div className="bg-red-500/10 border-2 border-red-500/30 p-5 rounded-2xl flex items-start gap-3 shadow-inner animate-pulse">
+                                                                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                                                <div className="space-y-1.5">
+                                                                    <p className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest">
+                                                                        Permanent Lock Warning
+                                                                    </p>
+                                                                    <p className="text-sm font-bold text-red-600 dark:text-red-300 leading-snug">
+                                                                        You are about to reject this application for the 3rd time. This action will permanently lock the applicant&apos;s submission. Proceed?
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         <div className="space-y-3">
                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reason for Decline <span className="text-red-500">*</span></Label>
                                                             <Textarea
@@ -2572,7 +2594,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                         </div>
                                                     </div>
                                                     <Button onClick={() => { if (!remarks.trim()) { toast.error("Reason is required"); return; } handleReject(); }} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-red-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all hover:bg-red-700">
-                                                        {actionLoading ? "Processing..." : "Confirm Decline"}
+                                                        {actionLoading ? "Processing..." : (isFinalAttempt ? "Proceed & Permanently Lock" : "Confirm Decline")}
                                                     </Button>
                                                 </DialogContent>
                                             </Dialog>
