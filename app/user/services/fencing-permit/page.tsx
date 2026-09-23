@@ -44,7 +44,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, FileText, CheckCircle, PenTool, Sparkles, MapPin, DollarSign, ShieldCheck, Eye } from "lucide-react";
+import { HelpCircle, BookOpen, CheckCircle, PenTool, MapPin, ShieldCheck, Eye } from "lucide-react";
 import SignaturePad from "@/components/shared/SignaturePad";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
 import { submitFencingPermit } from "./actions";
@@ -159,7 +159,6 @@ export default function FencingPermitPage() {
   const [siteBarangay, setSiteBarangay] = React.useState("");
   const [siteStreet, setSiteStreet] = React.useState("");
   const [estimatedCost, setEstimatedCost] = React.useState("");
-  const [signatureUrl, setSignatureUrl] = React.useState<string | null>(null);
   const [isSwornAgreed, setIsSwornAgreed] = React.useState(false);
 
   // Submission & Success Modal State

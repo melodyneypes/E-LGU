@@ -138,7 +138,7 @@ export default function CedulaPrintPortal({
         "N/A"
     ).toUpperCase();
 
-    const isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL") || transaction.type?.code === "CEDULA_JUR";
+    const _isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL") || transaction.type?.code === "CEDULA_JUR";
 
     const formattedIncomeBasis = incomeBasis > 0 
         ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) 
