@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { 
   Home, 
-  Construction, 
   ArrowLeft,
   ClipboardList,
   Upload,
@@ -1057,17 +1056,7 @@ export default function FencingPermitPage() {
                 disabled={isSubmitting || !isMandatoryComplete}
                 className="w-full sm:w-auto px-10 h-12 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-primary/25 gap-2"
               >
-                {isSubmitting ? (
-                  <>
-                    <Construction className="w-4 h-4 animate-spin" />
-                    Submitting Application...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Confirm & Submit Application 🚀
-                  </>
-                )}
+                {isSubmitting ? "Submitting Application..." : "Confirm & Submit Application"}
               </Button>
             </div>
           </div>
@@ -1088,7 +1077,7 @@ export default function FencingPermitPage() {
                 Fencing Permit Submitted!
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Your application has been logged and queued for evaluation by the <strong>Municipal Engineering Office</strong> of Mapandan.
+                Your application has been logged and queued for site inspection and evaluation by the <strong>Municipal Engineering Office</strong> of Mapandan.
               </DialogDescription>
             </div>
 

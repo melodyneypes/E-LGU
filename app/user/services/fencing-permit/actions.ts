@@ -112,12 +112,12 @@ export async function submitFencingPermit(formData: FormData) {
     }
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 
-    // Create Transaction in FOR_REQUESTING state (queued for Municipal Engineer evaluation)
+    // Create Transaction in FOR_INSPECTION state (queued for Municipal Engineer site inspection)
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         typeId: type.id,
-        status: "FOR_REQUESTING",
+        status: "FOR_INSPECTION",
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
@@ -133,7 +133,7 @@ export async function submitFencingPermit(formData: FormData) {
       broadcastRealtimeUpdate({
         type: "NEW_TRANSACTION",
         transactionId: transaction.id,
-        status: "FOR_REQUESTING",
+        status: "FOR_INSPECTION",
         department: "ENGINEERING"
       });
     } catch (e) {
