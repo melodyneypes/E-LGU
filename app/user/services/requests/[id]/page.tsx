@@ -200,19 +200,15 @@ export default function RequestHubPage() {
         landmark: ""
     });
 
-    // Treasury / Payment Details (Dynamic from settings)
-    const [gcashDetails, setGcashDetails] = useState({
-        qr: "",
-        name: "OFFICIAL TREASURY ACCOUNT",
-        number: "SCAN TO VIEW"
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+    const [isTreasuryOpen, setIsTreasuryOpen] = useState(true);
+    const [printTriggered, setPrintTriggered] = useState(false);
+    const [ticketPreviewOpen, setTicketPreviewOpen] = useState(false);
+    const [branding] = useState({
+        logo: null as string | null,
+        word1: "MUNICIPALITY",
+        word2: "PORTAL"
     });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [bankDetails, setBankDetails] = useState({
-        bankName: "LANDBANK OF THE PHILIPPINES",
-        accountName: "MUNICIPALITY OF MAPANDAN",
-        accountNumber: "0541-2345-67"
-    });
-    const [themeColor, setThemeColor] = useState("");
     const [availableBarangays, setAvailableBarangays] = useState<any[]>([]);
     const [brgySearch, setBrgySearch] = useState("");
     const [isBrgyOpen, setIsBrgyOpen] = useState(false);
@@ -224,14 +220,6 @@ export default function RequestHubPage() {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
-    const [isTreasuryOpen, setIsTreasuryOpen] = useState(true);
-    const [printTriggered, setPrintTriggered] = useState(false);
-    const [ticketPreviewOpen, setTicketPreviewOpen] = useState(false);
-    const [branding, setBranding] = useState({
-        logo: null as string | null,
-        word1: "MUNICIPALITY",
-        word2: "PORTAL"
-    });
 
     const handleViewFile = (url: string | null, title: string) => {
         setViewerUrl(url);
@@ -324,49 +312,10 @@ export default function RequestHubPage() {
 
         async function fetchSettings() {
             try {
-                const [
-                    qrRes,
-                    nameRes,
-                    numRes,
-                    bNameRes,
-                    bAccNameRes,
-                    bAccNumRes,
-                    themeRes,
-                    logoRes,
-                    word1Res,
-                    word2Res
-                ] = await Promise.all([
-                    getSystemSettingAction("gcash_qr_url", ""),
-                    getSystemSettingAction("gcash_account_name", "ADMIN ACCOUNT"),
-                    getSystemSettingAction("gcash_account_number", "0000 000 0000"),
-                    getSystemSettingAction("bank_name", "LANDBANK OF THE PHILIPPINES"),
-                    getSystemSettingAction("bank_account_name", "MUNICIPALITY OF MAPANDAN"),
-                    getSystemSettingAction("bank_account_number", "0541-2345-67"),
-                    getSystemSettingAction("theme_color", "#2563eb"),
-                    getSystemSettingAction("logo", ""),
-                    getSystemSettingAction("brand_word_1", "MUNICIPALITY"),
-                    getSystemSettingAction("brand_word_2", "PORTAL")
-                ]);
-
-                setBranding({
-                    logo: logoRes.data || null,
-                    word1: word1Res.data || "MUNICIPALITY",
-                    word2: word2Res.data || "PORTAL"
-                });
-
-                setGcashDetails({
-                    qr: qrRes.data,
-                    name: nameRes.data,
-                    number: numRes.data
-                });
-                setBankDetails({
-                    bankName: bNameRes.data,
-                    accountName: bAccNameRes.data,
-                    accountNumber: bAccNumRes.data
-                });
-                setThemeColor(themeRes.data);
+                const res = await getSystemSettingAction("theme_color", "#2563eb");
+                if (res.data) setThemeColor(res.data);
             } catch (err) {
-                console.error("Fetch settings error:", err);
+                console.error("Fetch theme color error:", err);
             }
         }
 
@@ -381,12 +330,15 @@ export default function RequestHubPage() {
 
         async function initialize() {
             setLoading(true);
+            // Fetch request and bundled settings in parallel (2 total requests instead of 12)
             await Promise.all([
                 fetchRequest(),
-                fetchSettings(),
-                fetchLogistics()
+                fetchSettings()
             ]);
             setLoading(false);
+
+            // Lazy-load logistics in the background without blocking the UI
+            fetchLogistics();
         }
 
         initialize();
@@ -507,28 +459,6 @@ export default function RequestHubPage() {
     const handleClearPaymentProof = () => {
         setPaymentProofFile(null);
         setPaymentProofPreview(null);
-    };
-
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const handleDownloadQR = async () => {
-        if (!gcashDetails.qr) return;
-        try {
-            const response = await fetch(gcashDetails.qr);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `Mapandan_Treasury_QR_${id.slice(-6).toUpperCase()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            toast.success("QR Code downloaded.");
-        } catch (error) {
-            console.error("Download error:", error);
-            toast.error("Failed to download QR code.");
-        }
     };
 
     const handleECopyDownload = async () => {
@@ -1170,7 +1100,7 @@ export default function RequestHubPage() {
                 { label: request?.isStudent ? "Student Proof (Enrollment/COR)" : "Financial Evidence", url: addData.proofOfIncomeUrl, key: "proofFile" },
             ];
         return docs.filter(d => !!d.url);
-    }, [request, isBusinessPermit, isBuildingPermit, isOccupancyPermit, isCivilRegistry, residentIdFront, residentIdBack]);
+    }, [request, isBusinessPermit, isOccupancyPermit, isCivilRegistry, isEngineeringPermit, isFencingPermit, residentIdFront, residentIdBack]);
 
     // Parse specific checklist items requested for revision by officer / admin
     const rawRevisionRequests = useMemo(() => {
@@ -1306,8 +1236,36 @@ export default function RequestHubPage() {
         );
     };
 
-    if (!request) {
-        return null;
+    if (!request || loading) {
+        return (
+            <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-20">
+                <div className="max-w-7xl mx-auto px-4 md:px-0 pt-4 md:pt-10 space-y-8 animate-pulse">
+                    {/* Breadcrumb Skeleton */}
+                    <div className="h-9 w-48 rounded-xl bg-slate-100 dark:bg-white/5" />
+
+                    {/* Header Skeleton */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5" />
+                                <div className="space-y-2">
+                                    <div className="h-7 w-64 rounded-lg bg-slate-200 dark:bg-white/10" />
+                                    <div className="h-4 w-32 rounded-md bg-slate-100 dark:bg-white/5" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tab Navigation Skeleton */}
+                    <div className="h-12 w-80 rounded-2xl bg-slate-100 dark:bg-white/5" />
+
+                    {/* Matrix Grid Card Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-3 h-64 rounded-3xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5" />
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (

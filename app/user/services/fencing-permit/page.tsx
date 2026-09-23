@@ -53,7 +53,6 @@ import {
 import { HelpCircle, BookOpen, Eye } from "lucide-react";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
 import { submitFencingPermit } from "./actions";
-import { useRouter } from "next/navigation";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
@@ -208,7 +207,6 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
 ];
 
 export default function FencingPermitPage() {
-  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
   const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
 
@@ -377,8 +375,6 @@ export default function FencingPermitPage() {
   };
 
   const handleStepClick = (targetStepId: string) => {
-    const targetIdx = STEPS.findIndex((s) => s.id === targetStepId);
-
     // If trying to jump straight to SUBMIT without completing uploads
     if (targetStepId === "SUBMIT" && !isMandatoryComplete) {
       if (currentStep !== "DOCUMENTS") {
