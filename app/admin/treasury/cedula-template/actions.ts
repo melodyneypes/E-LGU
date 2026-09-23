@@ -53,19 +53,6 @@ export async function getCedulaLayoutAction(): Promise<{ success: boolean; data:
                     delete (mergedFields as any)[delId];
                 }
             }
-            // Ensure 4 civil status check fields exist and are positioned below FILIPINO
-            if (!mergedFields.civilStatusSingle || mergedFields.civilStatusSingle.x > 75) {
-                mergedFields.civilStatusSingle = DEFAULT_CEDULA_FIELDS.civilStatusSingle;
-            }
-            if (!mergedFields.civilStatusMarried || mergedFields.civilStatusMarried.x > 75) {
-                mergedFields.civilStatusMarried = DEFAULT_CEDULA_FIELDS.civilStatusMarried;
-            }
-            if (!mergedFields.civilStatusWidowed || mergedFields.civilStatusWidowed.x > 75) {
-                mergedFields.civilStatusWidowed = DEFAULT_CEDULA_FIELDS.civilStatusWidowed;
-            }
-            if (!mergedFields.civilStatusDivorced || mergedFields.civilStatusDivorced.x > 75) {
-                mergedFields.civilStatusDivorced = DEFAULT_CEDULA_FIELDS.civilStatusDivorced;
-            }
 
             return {
                 success: true,

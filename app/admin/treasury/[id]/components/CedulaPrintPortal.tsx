@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CedulaLayoutSettings, DEFAULT_CEDULA_LAYOUT } from "@/lib/cedula-template-config";
-import { numberToWords } from "@/lib/utils/number-to-words";
+import { numberToWords, formatCedulaWordsTwoLines } from "@/lib/utils/number-to-words";
 
 interface CedulaPrintPortalProps {
     transaction: any;
     layoutConfig?: CedulaLayoutSettings | null;
+    includeBg?: boolean;
     onClose?: () => void;
 }
 
@@ -19,6 +20,7 @@ interface CedulaPrintPortalProps {
 export default function CedulaPrintPortal({
     transaction,
     layoutConfig = DEFAULT_CEDULA_LAYOUT,
+    includeBg = false,
     onClose: _onClose
 }: CedulaPrintPortalProps) {
     const [mounted, setMounted] = useState(false);
@@ -28,10 +30,23 @@ export default function CedulaPrintPortal({
         setMounted(true);
     }, []);
 
+    const parseSafe = (val: any) => {
+        if (!val) return {};
+        if (typeof val === "object") return val;
+        try {
+            return JSON.parse(val);
+        } catch {
+            return {};
+        }
+    };
+
     if (!mounted || !transaction) return null;
 
-    const resident = transaction.residentSnapshot || {};
-    const additional = transaction.additionalData || {};
+    const snap = parseSafe(transaction.residentSnapshot);
+    const userProfile = transaction.user?.residentProfile || {};
+    // Merge live user profile as baseline so fields like tin, height, weight aren't lost if snapshot omitted them
+    const resident = { ...userProfile, ...snap };
+    const additional = parseSafe(transaction.additionalData) || {};
     const cedulaRecord = transaction.cedula || {};
 
     const now = new Date();
@@ -57,13 +72,12 @@ export default function CedulaPrintPortal({
         resident.middleName || additional.middleName || (resident.fullName ? resident.fullName.split(",")[1]?.trim().split(" ").slice(1).join(" ") : "") || ""
     ).trim().toUpperCase();
 
-    // Format TIN digits for individual boxes (e.g. 1 2 3  4 5 6  7 8 9  0 0 0)
+    // Format TIN digits matching Template Studio (e.g. 123 456 789)
     const rawTin = String(resident.tin || additional.tin || "").replace(/[^0-9]/g, "");
     let formattedTin = "";
     if (rawTin.length > 0) {
-        // Group into sets of 3 with extra space between groups
         const chunks = rawTin.match(/.{1,3}/g) || [];
-        formattedTin = chunks.map(c => c.split("").join(" ")).join("  ");
+        formattedTin = chunks.join(" ");
     } else {
         formattedTin = "";
     }
@@ -90,14 +104,41 @@ export default function CedulaPrintPortal({
     const isWidowed = civStatus.includes("WIDOW");
     const isDivorced = civStatus.includes("DIVORCE") || civStatus.includes("SEPARATE");
 
-    // Tax Calculations
-    const basicTaxNum = cedulaRecord.basicTax ?? (transaction.status === "PAID" ? 5.0 : 5.0);
-    const additionalTaxNum = cedulaRecord.additionalTax ?? (transaction.totalAmount > basicTaxNum ? transaction.totalAmount - basicTaxNum : 0);
-    const penaltyNum = cedulaRecord.penalty ?? 0;
-    const totalAmountNum = transaction.totalAmount || (basicTaxNum + additionalTaxNum + penaltyNum) || 0;
+    const calcTax = additional.calculatedTax || {};
 
-    const profession = (additional.profession || additional.occupation || additional.businessName || resident.occupation || "N/A").toUpperCase();
+    // Basic Tax
+    const basicTaxNum = Number(calcTax.basicTax ?? cedulaRecord.basicTax ?? 5.0);
+
+    // Additional Tax (Gross income / profession tax)
+    const additionalTaxNum = Number(calcTax.additionalTax ?? cedulaRecord.additionalTax ?? 0);
+
+    // Interest / Penalty
+    const penaltyNum = Number(calcTax.penalty ?? cedulaRecord.penalty ?? 0);
+
+    // Total Amount
+    const totalAmountNum = Number(calcTax.totalAmount ?? transaction.totalAmount ?? (basicTaxNum + additionalTaxNum + penaltyNum));
+
+    // Income basis
     const incomeBasis = Number(additional.income || additional.basicSalary || additional.annualIncome || 0);
+
+    // Total Community Tax (Principal = Basic + Additional)
+    const totalCommunityTaxNum = basicTaxNum + additionalTaxNum;
+
+    // Profession / Occupation / Business: Read from transaction column first, then additionalData, then resident table
+    const profession = (
+        transaction.businessName ||
+        transaction.profession ||
+        transaction.occupation ||
+        additional.profession ||
+        additional.occupation ||
+        additional.businessName ||
+        additional.incomeSource ||
+        resident.occupation ||
+        resident.profession ||
+        "N/A"
+    ).toUpperCase();
+
+    const isJuridical = additional.applicantType === "JURIDICAL" || transaction.type?.code?.includes("JURIDICAL");
 
     // Map dynamic field values
     const fieldValues: Record<string, string> = {
@@ -124,20 +165,21 @@ export default function CedulaPrintPortal({
         weight: resident.weight ? `${resident.weight} kg` : (additional.weight || "--"),
         profession: profession,
         basicTax: basicTaxNum.toFixed(2),
-        additionalTax1Basis: additional.applicantType === "JURIDICAL" ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax1Amount: additional.applicantType === "JURIDICAL" ? additionalTaxNum.toFixed(2) : "0.00",
-        additionalTax2Basis: additional.applicantType !== "JURIDICAL" ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
-        additionalTax2Amount: additional.applicantType !== "JURIDICAL" ? additionalTaxNum.toFixed(2) : "0.00",
+        additionalTax1Basis: isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
+        additionalTax1Amount: isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
+        additionalTax2Basis: !isJuridical && incomeBasis > 0 ? incomeBasis.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00",
+        additionalTax2Amount: !isJuridical && additionalTaxNum > 0 ? additionalTaxNum.toFixed(2) : "0.00",
         additionalTax3Basis: "0.00",
         additionalTax3Amount: "0.00",
-        totalCommunityTax: (basicTaxNum + additionalTaxNum).toFixed(2),
+        totalCommunityTax: totalCommunityTaxNum.toFixed(2),
         penalty: penaltyNum.toFixed(2),
         totalAmountPaid: totalAmountNum.toFixed(2),
-        totalAmountInWords: numberToWords(totalAmountNum),
+        totalAmountInWords: formatCedulaWordsTwoLines(numberToWords(totalAmountNum), 5),
         municipalTreasurer: "MUNICIPAL TREASURER"
     };
 
-    const bgImageStyle = layout.showBgInPrint
+    const shouldShowBg = includeBg ?? layout.showBgInPrint ?? false;
+    const bgImageStyle = shouldShowBg
         ? `background-image: url('${layout.bgImageUrl || "/images/cedula-template.png"}'); background-size: 100% 100%; background-repeat: no-repeat;`
         : "background: white;";
 
@@ -209,6 +251,7 @@ export default function CedulaPrintPortal({
                     {Object.values(layout.fields).map(field => {
                         if (!field.visible) return null;
                         const text = fieldValues[field.id] ?? field.sampleValue ?? "";
+                        const isWords = field.id === "totalAmountInWords";
 
                         return (
                             <div
@@ -223,8 +266,9 @@ export default function CedulaPrintPortal({
                                     textAlign: field.textAlign || "left",
                                     letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                                     fontFamily: "'Courier New', Courier, monospace, sans-serif",
-                                    lineHeight: 1.1,
-                                    whiteSpace: "nowrap",
+                                    lineHeight: isWords ? 1.18 : 1.1,
+                                    whiteSpace: isWords ? "pre-line" : "nowrap",
+                                    wordBreak: isWords ? "break-word" : "normal",
                                     overflow: "visible",
                                     color: "black"
                                 }}
