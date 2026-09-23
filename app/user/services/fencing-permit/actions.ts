@@ -44,6 +44,9 @@ export async function submitFencingPermit(formData: FormData) {
     const barangay = sanitizeString(formData.get("barangay") as string || resident?.barangay || "Mapandan");
     const street = sanitizeString(formData.get("street") as string || resident?.street || "");
     const estimatedCost = sanitizeString(formData.get("estimatedCost") as string || "0");
+    const fenceType = sanitizeString(formData.get("fenceType") as string || "Concrete Hollow Block (CHB) & Steel Grille");
+    const fenceLength = sanitizeString(formData.get("fenceLength") as string || "0");
+    const fenceHeight = sanitizeString(formData.get("fenceHeight") as string || "0");
     
     // Process signature: Can be File or string
     let signatureUrl: string | null = null;
@@ -94,6 +97,9 @@ export async function submitFencingPermit(formData: FormData) {
         barangay,
         street,
         estimatedCost: parseFloat(estimatedCost.replace(/,/g, "")) || 0,
+        fenceType,
+        fenceLength: parseFloat(fenceLength) || 0,
+        fenceHeight: parseFloat(fenceHeight) || 0,
       },
       documents,
       signature: signatureUrl || null,

@@ -29,6 +29,13 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
@@ -51,8 +58,60 @@ import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
 
+const MAPANDAN_BARANGAYS = [
+  "Amanoaoac",
+  "Apaya",
+  "Aserda",
+  "Baloling",
+  "Coral",
+  "Golden",
+  "Lanas",
+  "Nilombot",
+  "Patland",
+  "Pias",
+  "Poblacion",
+  "Primicias",
+  "Santa Maria",
+  "Torres",
+  "Valenzuela"
+];
+
+const FENCE_TYPE_OPTIONS = [
+  {
+    value: "Concrete Hollow Block (CHB) & Steel Grille",
+    label: "Concrete Hollow Block (CHB) & Steel Grille",
+    description: "Standard reinforced masonry base with decorative semi-open metal grills"
+  },
+  {
+    value: "Full Solid Reinforced Concrete / Masonry",
+    label: "Full Solid Reinforced Concrete / Masonry",
+    description: "Continuous reinforced perimeter masonry wall (max 1.50m along frontages)"
+  },
+  {
+    value: "Cyclone Wire Mesh & Galvanized Iron (GI) Post",
+    label: "Cyclone Wire Mesh & Galvanized Iron (GI) Post",
+    description: "High-tensile perimeter security mesh with tubular steel framing"
+  },
+  {
+    value: "Wrought Iron / Ornamental Architectural Metal",
+    label: "Wrought Iron / Ornamental Architectural Metal",
+    description: "Heavy-duty forged ironwork with concrete or stone footing"
+  },
+  {
+    value: "Pre-cast Concrete Panel & Column Fencing",
+    label: "Pre-cast Concrete Panel & Column Fencing",
+    description: "Modular pre-stressed interlocking boundary slabs"
+  },
+  {
+    value: "Perimeter Wooden / Composite Interlink Fencing",
+    label: "Perimeter Wooden / Composite Interlink Fencing",
+    description: "Treated structural lumber, PVC, or composite timber slats"
+  }
+];
+
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
+  { id: "DETAILS", label: "Details", icon: Ruler },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
@@ -159,7 +218,10 @@ export default function FencingPermitPage() {
   // Fencing Site Details State (Inherited from resident record)
   const [siteBarangay, setSiteBarangay] = React.useState("");
   const [siteStreet, setSiteStreet] = React.useState("");
-  const estimatedCost = "0";
+  const [estimatedCost, setEstimatedCost] = React.useState("");
+  const [fenceType, setFenceType] = React.useState(FENCE_TYPE_OPTIONS[0].value);
+  const [fenceLength, setFenceLength] = React.useState("");
+  const [fenceHeight, setFenceHeight] = React.useState("");
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -317,8 +379,8 @@ export default function FencingPermitPage() {
   const handleStepClick = (targetStepId: string) => {
     const targetIdx = STEPS.findIndex((s) => s.id === targetStepId);
 
-    // If trying to move forward past the DOCUMENTS step without completing mandatory uploads
-    if (targetIdx > 1 && !isMandatoryComplete) {
+    // If trying to jump straight to SUBMIT without completing uploads
+    if (targetStepId === "SUBMIT" && !isMandatoryComplete) {
       if (currentStep !== "DOCUMENTS") {
         setCurrentStep("DOCUMENTS");
         setTimeout(scrollToFirstMissingSlot, 200);
@@ -339,6 +401,9 @@ export default function FencingPermitPage() {
       formData.append("barangay", siteBarangay);
       formData.append("street", siteStreet);
       formData.append("estimatedCost", estimatedCost);
+      formData.append("fenceType", fenceType);
+      formData.append("fenceLength", fenceLength);
+      formData.append("fenceHeight", fenceHeight);
 
       // Append all uploaded files
       Object.entries(uploadedFiles).forEach(([key, file]) => {
@@ -504,7 +569,7 @@ export default function FencingPermitPage() {
         </div>
 
         {/* Stepper Progress Tabs */}
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-4 relative px-1 sm:px-2 max-w-xl mx-auto">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-4 relative px-1 sm:px-2 max-w-xl mx-auto">
           {STEPS.map((step, idx) => {
             const isActive = currentStep === step.id;
             const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -760,7 +825,236 @@ export default function FencingPermitPage() {
                 </Button>
               </Link>
               <Button
-                onClick={() => setCurrentStep("DOCUMENTS")}
+                onClick={() => setCurrentStep("DETAILS")}
+                className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
+              >
+                Proceed to Project Details
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: DETAILS TAB CONTENT */}
+        {currentStep === "DETAILS" && (
+          <div className="space-y-8 animate-in fade-in-50 duration-300">
+            {/* Fencing Site Location Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <LandPlot className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    Fencing Construction Site Address
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Specify the exact parcel where the perimeter fence or boundary wall will be constructed
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                {/* Barangay Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Barangay <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={siteBarangay}
+                    onChange={(e) => setSiteBarangay(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="" disabled>Select Barangay</option>
+                    {MAPANDAN_BARANGAYS.map((b) => (
+                      <option key={b} value={b} className="dark:bg-slate-900">
+                        Barangay {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Street / Sitio / Purok */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Street / Sitio / Purok <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={siteStreet}
+                    onChange={(e) => setSiteStreet(e.target.value)}
+                    placeholder="e.g. Rizal Street, Purok 3"
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                {/* Municipality (Fixed) */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Municipality
+                  </label>
+                  <input
+                    type="text"
+                    value="Mapandan"
+                    disabled
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.02] font-bold text-slate-500 dark:text-slate-400"
+                  />
+                </div>
+
+                {/* Province (Fixed) */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Province
+                  </label>
+                  <input
+                    type="text"
+                    value="Pangasinan"
+                    disabled
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.02] font-bold text-slate-500 dark:text-slate-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Project Economics & Specifications Card */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Ruler className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    Fencing Specifications & Cost Estimate
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Details required for structural safety review and regulatory assessment
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                {/* Estimated Cost */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Estimated Construction Cost (PHP) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-400 text-sm">
+                      ₱
+                    </span>
+                    <input
+                      type="text"
+                      value={estimatedCost}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, "");
+                        if (!raw) {
+                          setEstimatedCost("");
+                          return;
+                        }
+                        const formatted = Number(raw).toLocaleString("en-US");
+                        setEstimatedCost(formatted);
+                      }}
+                      placeholder="e.g. 50,000"
+                      className="w-full h-11 pl-8 pr-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Must match the Bill of Materials submitted by your licensed engineer.
+                  </p>
+                </div>
+
+                {/* Fence Type */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Primary Fence Material / Design Type
+                  </label>
+                  <Select
+                    value={fenceType}
+                    onValueChange={(val) => setFenceType(val)}
+                  >
+                    <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <SelectValue placeholder="Select primary fence design" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1017] shadow-2xl p-1.5">
+                      {FENCE_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          className="rounded-xl py-2 px-3 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10"
+                        >
+                          <div className="space-y-0.5 text-left">
+                            <p className="font-bold text-slate-900 dark:text-white">{opt.label}</p>
+                            <p className="text-[10px] font-normal text-slate-400 dark:text-slate-400 line-clamp-1">
+                              {opt.description}
+                            </p>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Total Length */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Total Fencing Length (Linear Meters)
+                  </label>
+                  <input
+                    type="number"
+                    value={fenceLength}
+                    onChange={(e) => setFenceLength(e.target.value)}
+                    placeholder="e.g. 20"
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                {/* Total Height */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Maximum Fence Height (Meters)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={fenceHeight}
+                    onChange={(e) => setFenceHeight(e.target.value)}
+                    placeholder="e.g. 1.8"
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p className="text-[10px] text-amber-500">
+                    Notice: Solid walls exceeding 1.50m along road frontages require semi-open grilles.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
+              <Button
+                variant="ghost"
+                onClick={() => setCurrentStep("GUIDE")}
+                className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Guidelines
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!siteBarangay) {
+                    toast.error("Please select a Barangay for your fencing site.");
+                    return;
+                  }
+                  if (!siteStreet.trim()) {
+                    toast.error("Please input the Street address for your fencing site.");
+                    return;
+                  }
+                  const costNum = parseFloat(estimatedCost.replace(/,/g, ""));
+                  if (!costNum || costNum <= 0) {
+                    toast.error("Please provide a valid Estimated Construction Cost.");
+                    return;
+                  }
+                  setCurrentStep("DOCUMENTS");
+                }}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
                 Proceed to Document Uploads
@@ -770,7 +1064,7 @@ export default function FencingPermitPage() {
           </div>
         )}
 
-        {/* Step 2: DOCUMENTS (UPLOAD) TAB CONTENT */}
+        {/* Step 3: DOCUMENTS (UPLOAD) TAB CONTENT */}
         {currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Section A: Mandatory Requirements */}
@@ -878,11 +1172,11 @@ export default function FencingPermitPage() {
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
               <Button
                 variant="ghost"
-                onClick={() => setCurrentStep("GUIDE")}
+                onClick={() => setCurrentStep("DETAILS")}
                 className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Guidelines
+                Back to Details
               </Button>
               <Button
                 onClick={handleProceedToSubmit}
@@ -952,6 +1246,72 @@ export default function FencingPermitPage() {
                     {residentProfile?.barangay
                       ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
                       : "Mapandan, Pangasinan"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Fencing Construction Site & Project Estimate Summary */}
+            <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Ruler className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                      Fencing Project Details & Estimate
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Declared fencing specifications and construction valuation
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentStep("DETAILS")}
+                  className="rounded-xl text-[11px] font-bold uppercase tracking-wider gap-1.5"
+                >
+                  Edit Details
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Fencing Site Address
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {siteStreet ? `${siteStreet}, ` : ""}Brgy. {siteBarangay || "Mapandan"}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Estimated Cost
+                  </span>
+                  <p className="font-mono font-black text-primary text-sm">
+                    ₱{Number(estimatedCost.replace(/,/g, "") || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Design / Material
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white line-clamp-1" title={fenceType}>
+                    {fenceType}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Dimensions (L × H)
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {fenceLength || "0"}m length × {fenceHeight || "0"}m height
                   </p>
                 </div>
               </div>
