@@ -357,8 +357,8 @@ export default function FencingPermitPage() {
           console.error("Failed to clean up draft files:", e);
         });
 
-        // Hard navigate directly to appointment page to prevent client-side routing delay / stuck button state
-        window.location.href = `/user/appointment/${res.data.id}`;
+        // Hard navigate directly to requests tracking page to prevent client-side routing delay / stuck button state
+        window.location.href = `/user/services/requests/${res.data.id}`;
         return;
       } else {
         setIsSubmitting(false);
