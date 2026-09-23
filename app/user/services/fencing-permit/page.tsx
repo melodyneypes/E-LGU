@@ -43,7 +43,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, CheckCircle, Eye } from "lucide-react";
+import { HelpCircle, BookOpen, Eye } from "lucide-react";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
 import { submitFencingPermit } from "./actions";
 import { useRouter } from "next/navigation";
@@ -161,10 +161,8 @@ export default function FencingPermitPage() {
   const [siteStreet, setSiteStreet] = React.useState("");
   const estimatedCost = "0";
 
-  // Submission & Success Modal State
+  // Submission State
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [submittedTxId, setSubmittedTxId] = React.useState<string | null>(null);
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = React.useState(false);
 
   // Data Privacy & Security State
   const [privacyAccepted, setPrivacyAccepted] = React.useState(false);
@@ -335,7 +333,6 @@ export default function FencingPermitPage() {
 
   const executeSubmission = async () => {
     setIsSubmitting(true);
-    const toastId = toast.loading("Encrypting documents and submitting fencing permit application...");
 
     try {
       const formData = new FormData();
@@ -353,25 +350,24 @@ export default function FencingPermitPage() {
       const res = await submitFencingPermit(formData);
 
       if (res.success && res.data) {
-        toast.dismiss(toastId);
-        toast.success("Application submitted successfully!");
-        setSubmittedTxId(res.data.id);
-        setIsSuccessModalOpen(true);
+        toast.success("Application submitted successfully! Redirecting...");
 
-        // Clear local draft files from IndexedDB
+        // Clear local draft files from IndexedDB asynchronously
         clearDraftFiles(DRAFT_STORAGE_KEY).catch((e) => {
           console.error("Failed to clean up draft files:", e);
         });
+
+        // Hard navigate directly to appointment page to prevent client-side routing delay / stuck button state
+        window.location.href = `/user/appointment/${res.data.id}`;
+        return;
       } else {
-        toast.dismiss(toastId);
+        setIsSubmitting(false);
         toast.error(res.error || "Failed to submit application. Please review and try again.");
       }
     } catch (err: any) {
-      toast.dismiss(toastId);
       console.error("Submit error:", err);
-      toast.error(err?.message || "An unexpected error occurred during submission.");
-    } finally {
       setIsSubmitting(false);
+      toast.error(err?.message || "An unexpected error occurred during submission.");
     }
   };
 
@@ -1056,60 +1052,11 @@ export default function FencingPermitPage() {
                 disabled={isSubmitting || !isMandatoryComplete}
                 className="w-full sm:w-auto px-10 h-12 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-primary/25 gap-2"
               >
-                {isSubmitting ? "Submitting Application..." : "Confirm & Submit Application"}
+                {isSubmitting ? "Processing & Redirecting..." : "Confirm & Submit Application"}
               </Button>
             </div>
           </div>
         )}
-
-        {/* Success Confirmation Modal */}
-        <Dialog open={isSuccessModalOpen} onOpenChange={() => {}}>
-          <DialogContent className="max-w-md p-6 sm:p-8 rounded-3xl border-slate-200 dark:border-white/10 text-center space-y-6">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
-              <CheckCircle className="w-9 h-9" />
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
-                Application Received
-              </span>
-              <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white pt-2">
-                Fencing Permit Submitted!
-              </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Your application has been logged and queued for site inspection and evaluation by the <strong>Municipal Engineering Office</strong> of Mapandan.
-              </DialogDescription>
-            </div>
-
-            {submittedTxId && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                  Reference Tracking Number
-                </span>
-                <p className="text-sm font-mono font-black text-primary select-all">
-                  {submittedTxId}
-                </p>
-              </div>
-            )}
-
-            <div className="pt-2 flex flex-col gap-2.5">
-              <Button
-                onClick={() => router.push("/user/transactions")}
-                className="w-full h-11 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2"
-              >
-                Track in My Transactions
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/user/services")}
-                className="w-full rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500"
-              >
-                Return to Services Portal
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
       </div>
   );
