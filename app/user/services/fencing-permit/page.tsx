@@ -44,10 +44,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen } from "lucide-react";
+import { HelpCircle, BookOpen, FileText } from "lucide-react";
+import ProjectDetailsStep, { 
+  type FencingProjectDetails 
+} from "./components/ProjectDetailsStep";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
+  { id: "DETAILS", label: "Details", icon: FileText },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
   { id: "EVALUATION", label: "Evaluation", icon: Building2 },
   { id: "BFP", label: "Treasury", icon: Landmark },
@@ -178,6 +182,44 @@ export default function FencingPermitPage() {
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
 
+  // Project Details State (PD 1096 - NBC Form No. B-03)
+  const [projectDetails, setProjectDetails] = React.useState<FencingProjectDetails>({
+    scopeOfWork: "NEW_CONSTRUCTION",
+    applicantCapacity: "REGISTERED_OWNER",
+    barangay: "",
+    streetSitio: "",
+    landmark: "",
+    tctNumber: "",
+    isUntitledDeedOfSale: false,
+    taxDeclarationNumber: "",
+    lotNumber: "",
+    blockNumber: "",
+    lotAreaSqM: "",
+    zoningClassification: "RESIDENTIAL",
+    frontageLinearMeters: "",
+    rearLinearMeters: "",
+    leftLinearMeters: "",
+    rightLinearMeters: "",
+    solidBaseHeightMeters: "",
+    grilleHeightMeters: "",
+    fencingMaterials: ["CHB"],
+    materialsCost: "",
+    laborCost: "",
+    adjoiningRoadType: "BARANGAY_ROAD",
+    isCornerLot: false,
+    isAdjacentWaterway: false,
+    hasObstructions: false,
+    obstructionRemarks: "",
+    professionalType: "CIVIL_ENGINEER",
+    professionalName: "",
+    prcLicenseNumber: "",
+    prcExpiryDate: "",
+    ptrNumber: "",
+    ptrIssueDatePlace: "",
+    tinNumber: "",
+  });
+  const [isDetailsCompleted, setIsDetailsCompleted] = React.useState(false);
+
   // Document Viewer Modal State
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerFile, setViewerFile] = React.useState<File | null>(null);
@@ -228,7 +270,6 @@ export default function FencingPermitPage() {
     const firstMissing = MANDATORY_DOCUMENT_SLOTS.find((s) => !uploadedFiles[s.key]);
     if (firstMissing) {
       toast.warning(`Please upload the required "${firstMissing.label}" first.`);
-      // Allow DOM state update to apply red borders first, then smoothly scroll
       setTimeout(() => {
         const el = document.getElementById(`doc-slot-${firstMissing.key}`);
         if (el) {
@@ -259,8 +300,15 @@ export default function FencingPermitPage() {
   const handleStepClick = (targetStepId: string) => {
     const targetIdx = STEPS.findIndex((s) => s.id === targetStepId);
 
+    // If trying to move forward past DETAILS without completing project details
+    if (targetIdx > 1 && !isDetailsCompleted) {
+      toast.warning("Please complete the Project Details step first.");
+      setCurrentStep("DETAILS");
+      return;
+    }
+
     // If trying to move forward past the DOCUMENTS step without completing mandatory uploads
-    if (targetIdx > 1 && !isMandatoryComplete) {
+    if (targetIdx > 2 && !isMandatoryComplete) {
       if (currentStep !== "DOCUMENTS") {
         setCurrentStep("DOCUMENTS");
         setTimeout(scrollToFirstMissingSlot, 200);
@@ -390,7 +438,7 @@ export default function FencingPermitPage() {
         </div>
 
         {/* Stepper Progress Tabs */}
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative px-1 sm:px-2">
+        <div className="grid grid-cols-6 gap-1.5 sm:gap-4 relative px-1 sm:px-2">
           {STEPS.map((step, idx) => {
             const isActive = currentStep === step.id;
             const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -646,17 +694,32 @@ export default function FencingPermitPage() {
                 </Button>
               </Link>
               <Button
-                onClick={() => setCurrentStep("DOCUMENTS")}
+                onClick={() => setCurrentStep("DETAILS")}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
-                Proceed to Document Upload
+                Proceed to Project Details
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 2: DOCUMENTS (UPLOAD) TAB CONTENT */}
+        {/* Step 2: DETAILS TAB CONTENT (NEW) */}
+        {currentStep === "DETAILS" && (
+          <ProjectDetailsStep
+            data={projectDetails}
+            onChange={(updated) => setProjectDetails(updated)}
+            onProceed={() => {
+              setIsDetailsCompleted(true);
+              setCurrentStep("DOCUMENTS");
+              toast.success("Project specifications saved! Proceed to document uploads.");
+            }}
+            onBack={() => setCurrentStep("GUIDE")}
+            themeColor={themeColor}
+          />
+        )}
+
+        {/* Step 3: DOCUMENTS (UPLOAD) TAB CONTENT */}
         {currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Section A: Mandatory Requirements */}
@@ -763,11 +826,11 @@ export default function FencingPermitPage() {
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
               <Button
                 variant="ghost"
-                onClick={() => setCurrentStep("GUIDE")}
+                onClick={() => setCurrentStep("DETAILS")}
                 className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Guidelines
+                Back to Project Details
               </Button>
               <Button
                 onClick={handleProceedToEvaluation}
@@ -780,8 +843,8 @@ export default function FencingPermitPage() {
           </div>
         )}
 
-        {/* Placeholder for Steps 3 to 5 (Under Development) */}
-        {currentStep !== "GUIDE" && currentStep !== "DOCUMENTS" && (
+        {/* Placeholder for Steps 4 to 6 (Under Development) */}
+        {currentStep !== "GUIDE" && currentStep !== "DETAILS" && currentStep !== "DOCUMENTS" && (
           <div className="p-8 sm:p-14 rounded-3xl bg-transparent border border-slate-200 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-5 min-h-[380px]">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
               <Construction className="w-8 h-8 animate-pulse" />
