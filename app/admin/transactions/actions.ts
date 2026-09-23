@@ -2681,7 +2681,7 @@ export async function rejectTransaction(id: string, remarks: string) {
                 ? tx.type?.code
                 : (tx.type?.category || "General");
 
-            const isFinalAttempt = (tx.revisionCount || 0) >= 2 || (tx.user?.rejectionCount ?? 0) >= 2;
+            const isFinalAttempt = (tx.revisionCount || 0) >= 3 || (tx.user?.rejectionCount ?? 0) >= 2;
 
             if (isFinalAttempt) {
                 // Permanently lock the applicant's submission / account
@@ -2767,10 +2767,10 @@ export async function sendForRevision(
             return { success: false, error: "Forbidden: BPLO Admins can only request revisions for Business Permits in active inspection, processing, or release phases." };
         }
 
-        if ((tx.revisionCount || 0) >= 2) {
+        if ((tx.revisionCount || 0) >= 3) {
             return {
                 success: false,
-                error: "Maximum revision limit reached (2 revisions). This application can no longer be sent for revision."
+                error: "Maximum revision limit reached (3 revisions). This application can no longer be sent for revision."
             };
         }
 

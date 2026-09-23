@@ -1,10 +1,16 @@
 "use client";
-"use client";
 
 import React, { useEffect, useState } from "react";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import LoadingClientBody from "@/app/LoadingClientBody";
 import { AnimatePresence } from "framer-motion";
+
+const DEFAULT_SETTINGS = {
+    logoUrl: "",
+    brand1: "MAPANDAN",
+    brand2: "PORTAL",
+    themeColor: "#2563eb"
+};
 
 export function GlobalLoading() {
     const { isLoading } = useBarangay();
@@ -12,26 +18,32 @@ export function GlobalLoading() {
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        // Fetch branding from API since we're in a client component
-        fetch("/api/settings")
-            .then(async (res) => {
-                if (!res.ok) throw new Error("Failed to fetch");
+        let isMounted = true;
+
+        async function loadSettings() {
+            try {
+                const res = await fetch("/api/settings");
+                if (!res.ok) {
+                    if (isMounted) setSettings(DEFAULT_SETTINGS);
+                    return;
+                }
                 const contentType = res.headers.get("content-type") || "";
                 if (!contentType.includes("application/json")) {
-                    throw new Error("Invalid content type");
+                    if (isMounted) setSettings(DEFAULT_SETTINGS);
+                    return;
                 }
-                return res.json();
-            })
-            .then(data => setSettings(data))
-            .catch(err => {
-                console.error("Failed to fetch settings for loader", err);
-                setSettings({
-                    logoUrl: "",
-                    brand1: "MAPANDAN",
-                    brand2: "PORTAL",
-                    themeColor: "#2563eb"
-                });
-            });
+                const data = await res.json();
+                if (isMounted) setSettings(data);
+            } catch {
+                if (isMounted) setSettings(DEFAULT_SETTINGS);
+            }
+        }
+
+        loadSettings();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // Manage visibility with a hard safety timeout (max 2 seconds)

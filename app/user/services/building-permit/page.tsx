@@ -1566,7 +1566,7 @@ export default function BuildingPermitPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32 font-sans">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32 font-sans">
       <SecureIdleTimer />
       <DocumentViewerModal
         isOpen={viewerOpen}

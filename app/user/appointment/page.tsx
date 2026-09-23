@@ -361,7 +361,7 @@ export default function UserAppointmentsPage() {
                                         router.push(`/user/appointment/${req.id}`);
                                     }
                                 }}
-                                className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-4 md:p-6 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6"
+                                className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-4 md:p-6 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 overflow-hidden w-full"
                             >
                                 <div className="flex items-center gap-4 md:gap-6 min-w-0 flex-1">
                                     <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-500 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white">
