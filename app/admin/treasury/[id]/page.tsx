@@ -2175,14 +2175,20 @@ export default function TreasuryDetailPage() {
         setEditedIncome
     };
 
-    const cedulaTransaction = (!transaction || editedIncome === null)
+    const cedulaTransaction = (!transaction)
         ? transaction
         : {
             ...transaction,
             totalAmount: displayTotal,
             additionalData: {
                 ...(transaction.additionalData || {}),
-                income: activeIncome
+                income: activeIncome,
+                calculatedTax: {
+                    basicTax: calcResult.basicTax,
+                    additionalTax: calcResult.additionalTax,
+                    penalty: calcResult.penalty,
+                    totalAmount: displayTotal
+                }
             },
             fiscalSnapshot: {
                 ...(transaction.fiscalSnapshot || {}),
