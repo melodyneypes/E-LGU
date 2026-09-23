@@ -35,8 +35,8 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
+import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, FileText } from "lucide-react";
+import { HelpCircle, BookOpen, FileText, CheckCircle, PenTool, Sparkles, MapPin, DollarSign, ShieldCheck, Eye } from "lucide-react";
+import SignaturePad from "@/components/shared/SignaturePad";
+import { getCurrentUserResident } from "@/app/admin/transactions/actions";
+import { submitFencingPermit } from "./actions";
+import { useRouter } from "next/navigation";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -144,8 +148,24 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
 ];
 
 export default function FencingPermitPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
   const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
+
+  // Resident Profile & User Context State
+  const [residentProfile, setResidentProfile] = React.useState<any>(null);
+
+  // Fencing Site Details State (Step 3 Minimal Fields)
+  const [siteBarangay, setSiteBarangay] = React.useState("");
+  const [siteStreet, setSiteStreet] = React.useState("");
+  const [estimatedCost, setEstimatedCost] = React.useState("");
+  const [signatureUrl, setSignatureUrl] = React.useState<string | null>(null);
+  const [isSwornAgreed, setIsSwornAgreed] = React.useState(false);
+
+  // Submission & Success Modal State
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submittedTxId, setSubmittedTxId] = React.useState<string | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = React.useState(false);
 
   // Data Privacy & Security State
   const [privacyAccepted, setPrivacyAccepted] = React.useState(false);
@@ -157,6 +177,18 @@ export default function FencingPermitPage() {
     getSystemSettingAction("theme_color").then((res) => {
       if (res.success && res.data) {
         setThemeColor(res.data);
+      }
+    });
+
+    getCurrentUserResident().then((res) => {
+      if (res.success && res.data) {
+        setResidentProfile(res.data);
+        if (res.data.barangay) {
+          setSiteBarangay(res.data.barangay);
+        }
+        if (res.data.street) {
+          setSiteStreet(res.data.street);
+        }
       }
     });
   }, []);
@@ -268,6 +300,87 @@ export default function FencingPermitPage() {
     }
 
     setCurrentStep(targetStepId);
+  };
+
+  // Signature File State
+  const [signatureFile, setSignatureFile] = React.useState<File | null>(null);
+
+  const MAPANDAN_BARANGAYS = [
+    "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Lanas",
+    "Nilombot", "Patland", "Pias", "Poblacion", "Primicias", "Santa Maria", "Torres", "Valenzuela"
+  ];
+
+  const handleSignatureSave = (file: File | null) => {
+    setSignatureFile(file);
+    if (file) {
+      toast.success("Signature captured successfully!");
+    } else {
+      toast.info("Signature cleared.");
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    if (!siteBarangay) {
+      toast.error("Please specify the Barangay where fencing will be constructed.");
+      return;
+    }
+
+    if (!estimatedCost || parseFloat(estimatedCost.replace(/,/g, "")) <= 0) {
+      toast.error("Please enter a valid Estimated Project Cost.");
+      return;
+    }
+
+    if (!isSwornAgreed) {
+      toast.error("Please check the Sworn Undertaking agreement before submitting.");
+      return;
+    }
+
+    if (!signatureFile) {
+      toast.error("Please provide and save your signature before submitting.");
+      return;
+    }
+
+    if (!isMandatoryComplete) {
+      toast.error("Mandatory documents are incomplete. Please complete all 8 required uploads.");
+      setCurrentStep("DOCUMENTS");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading("Encrypting documents and submitting fencing permit application...");
+
+    try {
+      const formData = new FormData();
+      formData.append("barangay", siteBarangay);
+      formData.append("street", siteStreet);
+      formData.append("estimatedCost", estimatedCost);
+      formData.append("signature", signatureFile);
+
+      // Append all uploaded files
+      Object.entries(uploadedFiles).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+
+      const res = await submitFencingPermit(formData);
+
+      if (res.success && res.data) {
+        toast.dismiss(toastId);
+        toast.success("Application submitted successfully!");
+        setSubmittedTxId(res.data.id);
+        setIsSuccessModalOpen(true);
+      } else {
+        toast.dismiss(toastId);
+        toast.error(res.error || "Failed to submit application. Please review and try again.");
+      }
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      console.error("Submit error:", err);
+      toast.error(err?.message || "An unexpected error occurred during submission.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrivacyAccept = () => {
@@ -778,32 +891,388 @@ export default function FencingPermitPage() {
           </div>
         )}
 
-        {/* Step 3: SUBMIT / REVIEW TAB (Under Development) */}
+        {/* Step 3: SUBMIT / REVIEW TAB */}
         {currentStep === "SUBMIT" && (
-          <div className="p-8 sm:p-14 rounded-3xl bg-transparent border border-slate-200 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-5 min-h-[380px]">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <Construction className="w-8 h-8 animate-pulse" />
+          <div className="space-y-8 animate-in fade-in-50 duration-500">
+            {/* Top Step Banner */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full w-fit">
+                  <ShieldCheck className="w-4 h-4" />
+                  Final Review & Sworn Submission
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                  Review Your Fencing Permit Application
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+                  Please verify your applicant information, confirm the fencing location and estimated cost, review attached documents, and affix your digital signature below.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep("DOCUMENTS")}
+                  className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2 h-11"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Edit Documents
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2 max-w-md">
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
-                {STEPS.find(s => s.id === currentStep)?.label} Step Under Assembly
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                The Documents Upload module is complete! Next, we will construct the <strong>{STEPS.find(s => s.id === currentStep)?.label}</strong> module to complete the citizen application flow.
-              </p>
+
+            {/* Grid: Applicant Profile & Proposed Fencing Site */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Card 1: Applicant Profile Snapshot */}
+              <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
+                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                      Applicant Information
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Pre-filled verified resident record
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Full Name
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {residentProfile
+                        ? `${residentProfile.firstName || ""} ${residentProfile.middleName ? residentProfile.middleName + " " : ""}${residentProfile.lastName || ""}`
+                        : "Loading resident profile..."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Contact Number
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {residentProfile?.contactNumber || residentProfile?.mobileNumber || "None on record"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Email Address
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white truncate">
+                      {residentProfile?.email || residentProfile?.user?.email || "None on record"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Resident Address
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {residentProfile?.barangay
+                        ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
+                        : "Mapandan, Pangasinan"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Proposed Fencing Site & Cost */}
+              <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
+                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                      Fencing Site & Estimate
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Where the fencing project will be constructed
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Barangay of Fencing Site <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={siteBarangay}
+                      onChange={(e) => setSiteBarangay(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      <option value="">Select Mapandan Barangay</option>
+                      {MAPANDAN_BARANGAYS.map((brgy) => (
+                        <option key={brgy} value={brgy}>
+                          Brgy. {brgy}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                        Street / Sitio / Purok
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Purok 3 / Rizal St."
+                        value={siteStreet}
+                        onChange={(e) => setSiteStreet(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                        Estimated Cost (PHP) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₱</span>
+                        <input
+                          type="number"
+                          placeholder="e.g. 85000"
+                          value={estimatedCost}
+                          onChange={(e) => setEstimatedCost(e.target.value)}
+                          className="w-full pl-7 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="pt-2 flex items-center gap-3">
+
+            {/* Card 3: Attached Mandatory Documents Review Gallery */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                    <FileCheck2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                      Attached Documents Verification
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      All {mandatoryUploadedCount} of {MANDATORY_DOCUMENT_SLOTS.length} mandatory documents attached
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentStep("DOCUMENTS")}
+                  className="rounded-xl text-[11px] font-bold uppercase tracking-wider gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Manage Documents
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {MANDATORY_DOCUMENT_SLOTS.map((slot) => {
+                  const file = uploadedFiles[slot.key];
+                  const hasFile = !!file;
+
+                  return (
+                    <div
+                      key={slot.key}
+                      className={cn(
+                        "p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 text-left relative overflow-hidden",
+                        hasFile
+                          ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40"
+                          : "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/40"
+                      )}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                            {slot.agencyBadge}
+                          </span>
+                          {hasFile ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                          )}
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                          {slot.label}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {hasFile ? file?.name : "Missing attachment"}
+                        </p>
+                      </div>
+
+                      {hasFile && (
+                        <button
+                          type="button"
+                          onClick={() => handleViewDocument(slot.key, slot.label)}
+                          className="w-full mt-1 py-1.5 px-2.5 rounded-xl bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 text-[10px] font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-primary" />
+                          Preview File
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Card 4: Sworn Undertaking & Digital Signature */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                  <PenTool className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    Sworn Undertaking & Electronic Signature
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Republic Act 8792 (E-Commerce Act of 2000) & Presidential Decree 1096
+                  </p>
+                </div>
+              </div>
+
+              {/* Sworn Undertaking Checkbox Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isSwornAgreed}
+                    onChange={(e) => setIsSwornAgreed(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded text-primary focus:ring-primary/40 border-slate-300 dark:border-white/20 cursor-pointer"
+                  />
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      I hereby certify under the penalties of perjury that:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      <li>All statements and attachments submitted herein are true, correct, and legally verified.</li>
+                      <li>The proposed fencing project will strictly comply with the National Building Code (PD 1096) and local zoning ordinances of Mapandan.</li>
+                      <li>No encroachment onto public roads, waterways, or adjoining private lots will occur during construction.</li>
+                    </ul>
+                  </div>
+                </label>
+              </div>
+
+              {/* Signature Pad */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <PenTool className="w-3.5 h-3.5 text-primary" />
+                    Applicant Digital Signature <span className="text-rose-500">*</span>
+                  </span>
+                  {signatureFile && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Signature Saved
+                    </span>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white dark:bg-black/40 shadow-inner">
+                  <SignaturePad
+                    onSave={handleSignatureSave}
+                    themeColor={themeColor}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 italic">
+                  Draw your signature on the pad above and click &quot;Save Signature&quot; or upload an image file of your signature.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Actions Bar */}
+            <div className="p-6 rounded-3xl bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setCurrentStep("DOCUMENTS")}
+                disabled={isSubmitting}
                 className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Document Upload
+                Back to Documents
+              </Button>
+
+              <Button
+                onClick={handleSubmitApplication}
+                disabled={isSubmitting || !isSwornAgreed || !signatureFile}
+                className="w-full sm:w-auto px-10 h-12 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-primary/25 gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Construction className="w-4 h-4 animate-spin" />
+                    Submitting Application...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Confirm & Submit Application 🚀
+                  </>
+                )}
               </Button>
             </div>
           </div>
         )}
+
+        {/* Success Confirmation Modal */}
+        <Dialog open={isSuccessModalOpen} onOpenChange={() => {}}>
+          <DialogContent className="max-w-md p-6 sm:p-8 rounded-3xl border-slate-200 dark:border-white/10 text-center space-y-6">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle className="w-9 h-9" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
+                Application Received
+              </span>
+              <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white pt-2">
+                Fencing Permit Submitted!
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Your application has been logged and queued for evaluation by the <strong>Municipal Engineering Office</strong> of Mapandan.
+              </DialogDescription>
+            </div>
+
+            {submittedTxId && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Reference Tracking Number
+                </span>
+                <p className="text-sm font-mono font-black text-primary select-all">
+                  {submittedTxId}
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col gap-2.5">
+              <Button
+                onClick={() => router.push("/user/transactions")}
+                className="w-full h-11 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2"
+              >
+                Track in My Transactions
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/user/services")}
+                className="w-full rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500"
+              >
+                Return to Services Portal
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
   );
