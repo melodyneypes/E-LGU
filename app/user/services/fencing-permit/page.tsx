@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { 
   Home, 
-  Construction, 
   ArrowLeft,
   ClipboardList,
   Upload,
@@ -35,8 +34,8 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
+import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import {
   Dialog,
   DialogContent,
@@ -44,13 +43,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen } from "lucide-react";
+import { HelpCircle, BookOpen, CheckCircle, Eye } from "lucide-react";
+import { getCurrentUserResident } from "@/app/admin/transactions/actions";
+import { submitFencingPermit } from "./actions";
+import { useRouter } from "next/navigation";
+import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+
+const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
-  { id: "EVALUATION", label: "Evaluation", icon: Building2 },
-  { id: "BFP", label: "Treasury", icon: Landmark },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
 
@@ -146,8 +149,22 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
 ];
 
 export default function FencingPermitPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
   const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
+
+  // Resident Profile & User Context State
+  const [residentProfile, setResidentProfile] = React.useState<any>(null);
+
+  // Fencing Site Details State (Inherited from resident record)
+  const [siteBarangay, setSiteBarangay] = React.useState("");
+  const [siteStreet, setSiteStreet] = React.useState("");
+  const estimatedCost = "0";
+
+  // Submission & Success Modal State
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submittedTxId, setSubmittedTxId] = React.useState<string | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = React.useState(false);
 
   // Data Privacy & Security State
   const [privacyAccepted, setPrivacyAccepted] = React.useState(false);
@@ -159,6 +176,18 @@ export default function FencingPermitPage() {
     getSystemSettingAction("theme_color").then((res) => {
       if (res.success && res.data) {
         setThemeColor(res.data);
+      }
+    });
+
+    getCurrentUserResident().then((res) => {
+      if (res.success && res.data) {
+        setResidentProfile(res.data);
+        if (res.data.barangay) {
+          setSiteBarangay(res.data.barangay);
+        }
+        if (res.data.street) {
+          setSiteStreet(res.data.street);
+        }
       }
     });
   }, []);
@@ -177,6 +206,7 @@ export default function FencingPermitPage() {
   const [uploadedFiles, setUploadedFiles] = React.useState<Record<string, File | null>>({});
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
+  const isDraftHydratedRef = React.useRef(false);
 
   // Document Viewer Modal State
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -184,11 +214,42 @@ export default function FencingPermitPage() {
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = React.useState("");
 
+  // Hydrate draft files from IndexedDB on initial mount
+  React.useEffect(() => {
+    async function restoreDrafts() {
+      try {
+        const draftFiles = await getDraftFiles(DRAFT_STORAGE_KEY);
+        if (draftFiles && Object.keys(draftFiles).length > 0 && !isDraftHydratedRef.current) {
+          isDraftHydratedRef.current = true;
+          setUploadedFiles(draftFiles);
+          
+          const restoredPreviews: Record<string, string> = {};
+          Object.entries(draftFiles).forEach(([key, file]) => {
+            if (file) {
+              restoredPreviews[key] = URL.createObjectURL(file);
+            }
+          });
+          setPreviewUrls(restoredPreviews);
+          toast.info("Progress restored. Previously uploaded document drafts recovered.", { duration: 5000 });
+        }
+      } catch (err) {
+        console.error("Failed to restore draft files from IndexedDB:", err);
+      }
+    }
+
+    restoreDrafts();
+  }, []);
+
   const handleFileSelect = (key: string, file: File) => {
     const objectUrl = URL.createObjectURL(file);
     setUploadedFiles((prev) => ({ ...prev, [key]: file }));
     setPreviewUrls((prev) => ({ ...prev, [key]: objectUrl }));
-    toast.success("Document attached, verified, and compressed successfully!");
+    toast.success("Document uploaded successfully.");
+
+    // Auto-save to IndexedDB asynchronously
+    saveDraftFile(DRAFT_STORAGE_KEY, key, file).catch((err) => {
+      console.error("Failed to auto-save draft file:", err);
+    });
   };
 
   const handleClearFile = (key: string) => {
@@ -204,6 +265,11 @@ export default function FencingPermitPage() {
       }
       delete copy[key];
       return copy;
+    });
+
+    // Remove from IndexedDB asynchronously
+    saveDraftFile(DRAFT_STORAGE_KEY, key, null).catch((err) => {
+      console.error("Failed to remove draft file from storage:", err);
     });
   };
 
@@ -228,7 +294,6 @@ export default function FencingPermitPage() {
     const firstMissing = MANDATORY_DOCUMENT_SLOTS.find((s) => !uploadedFiles[s.key]);
     if (firstMissing) {
       toast.warning(`Please upload the required "${firstMissing.label}" first.`);
-      // Allow DOM state update to apply red borders first, then smoothly scroll
       setTimeout(() => {
         const el = document.getElementById(`doc-slot-${firstMissing.key}`);
         if (el) {
@@ -242,18 +307,13 @@ export default function FencingPermitPage() {
     }
   };
 
-  const handleProceedToEvaluation = () => {
+  const handleProceedToSubmit = () => {
     if (!isMandatoryComplete) {
       scrollToFirstMissingSlot();
       return;
     }
 
-    if (!privacyAccepted) {
-      setIsPrivacyModalOpen(true);
-      return;
-    }
-
-    setCurrentStep("EVALUATION");
+    setCurrentStep("SUBMIT");
   };
 
   const handleStepClick = (targetStepId: string) => {
@@ -273,11 +333,69 @@ export default function FencingPermitPage() {
     setCurrentStep(targetStepId);
   };
 
+  const executeSubmission = async () => {
+    setIsSubmitting(true);
+    const toastId = toast.loading("Encrypting documents and submitting fencing permit application...");
+
+    try {
+      const formData = new FormData();
+      formData.append("barangay", siteBarangay);
+      formData.append("street", siteStreet);
+      formData.append("estimatedCost", estimatedCost);
+
+      // Append all uploaded files
+      Object.entries(uploadedFiles).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+
+      const res = await submitFencingPermit(formData);
+
+      if (res.success && res.data) {
+        toast.dismiss(toastId);
+        toast.success("Application submitted successfully!");
+        setSubmittedTxId(res.data.id);
+        setIsSuccessModalOpen(true);
+
+        // Clear local draft files from IndexedDB
+        clearDraftFiles(DRAFT_STORAGE_KEY).catch((e) => {
+          console.error("Failed to clean up draft files:", e);
+        });
+      } else {
+        toast.dismiss(toastId);
+        toast.error(res.error || "Failed to submit application. Please review and try again.");
+      }
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      console.error("Submit error:", err);
+      toast.error(err?.message || "An unexpected error occurred during submission.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    if (!isMandatoryComplete) {
+      toast.error("Mandatory documents are incomplete. Please complete all 8 required uploads.");
+      setCurrentStep("DOCUMENTS");
+      return;
+    }
+
+    // Require Data Protection & Privacy Agreement right at submission time
+    if (!privacyAccepted) {
+      setIsPrivacyModalOpen(true);
+      return;
+    }
+
+    await executeSubmission();
+  };
+
   const handlePrivacyAccept = () => {
     setPrivacyAccepted(true);
     setIsPrivacyModalOpen(false);
     toast.success("Data Privacy & Consent confirmed!");
-    setCurrentStep("EVALUATION");
+    executeSubmission();
   };
 
   return (
@@ -390,7 +508,7 @@ export default function FencingPermitPage() {
         </div>
 
         {/* Stepper Progress Tabs */}
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative px-1 sm:px-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-4 relative px-1 sm:px-2 max-w-xl mx-auto">
           {STEPS.map((step, idx) => {
             const isActive = currentStep === step.id;
             const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -649,7 +767,7 @@ export default function FencingPermitPage() {
                 onClick={() => setCurrentStep("DOCUMENTS")}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
-                Proceed to Document Upload
+                Proceed to Document Uploads
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -703,6 +821,7 @@ export default function FencingPermitPage() {
                         onClear={() => handleClearFile(slot.key)}
                         onView={() => handleViewDocument(slot.key, slot.label)}
                         error={isMissing ? "This document is required" : false}
+                        infoText={`${slot.agencyBadge} • PDF/IMAGE`}
                       />
                     </div>
                   );
@@ -770,42 +889,227 @@ export default function FencingPermitPage() {
                 Back to Guidelines
               </Button>
               <Button
-                onClick={handleProceedToEvaluation}
+                onClick={handleProceedToSubmit}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
-                Proceed to Evaluation Step
+                Proceed to Review & Submit
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* Placeholder for Steps 3 to 5 (Under Development) */}
-        {currentStep !== "GUIDE" && currentStep !== "DOCUMENTS" && (
-          <div className="p-8 sm:p-14 rounded-3xl bg-transparent border border-slate-200 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-5 min-h-[380px]">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <Construction className="w-8 h-8 animate-pulse" />
+        {/* Step 3: SUBMIT / REVIEW TAB */}
+        {currentStep === "SUBMIT" && (
+          <div className="space-y-8 animate-in fade-in-50 duration-500">
+            {/* Card 1: Applicant Profile Snapshot */}
+            <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    Applicant Information
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Pre-filled verified resident record
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Full Name
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile
+                      ? `${residentProfile.firstName || ""} ${residentProfile.middleName ? residentProfile.middleName + " " : ""}${residentProfile.lastName || ""}`
+                      : "Loading resident profile..."}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Contact Number
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile?.contactNumber || residentProfile?.mobileNumber || "None on record"}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Email Address
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {residentProfile?.email || residentProfile?.user?.email || "None on record"}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Resident Address
+                  </span>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {residentProfile?.barangay
+                      ? `${residentProfile?.street ? residentProfile.street + ", " : ""}Brgy. ${residentProfile.barangay}, Mapandan`
+                      : "Mapandan, Pangasinan"}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 max-w-md">
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
-                {STEPS.find(s => s.id === currentStep)?.label} Step Under Assembly
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                The Documents Upload module is complete! Next, we will construct the <strong>{STEPS.find(s => s.id === currentStep)?.label}</strong> module to complete the citizen application flow.
-              </p>
+
+            {/* Card 3: Attached Mandatory Documents Review Gallery */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                    <FileCheck2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                      Attached Documents Verification
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      All {mandatoryUploadedCount} of {MANDATORY_DOCUMENT_SLOTS.length} mandatory documents attached
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentStep("DOCUMENTS")}
+                  className="rounded-xl text-[11px] font-bold uppercase tracking-wider gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Manage Documents
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {MANDATORY_DOCUMENT_SLOTS.map((slot) => {
+                  const file = uploadedFiles[slot.key];
+                  const hasFile = !!file;
+
+                  return (
+                    <div
+                      key={slot.key}
+                      className={cn(
+                        "p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 text-left relative overflow-hidden",
+                        hasFile
+                          ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40"
+                          : "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/40"
+                      )}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                            {slot.agencyBadge}
+                          </span>
+                          {hasFile ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                          )}
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                          {slot.label}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {hasFile ? file?.name : "Missing attachment"}
+                        </p>
+                      </div>
+
+                      {hasFile && (
+                        <button
+                          type="button"
+                          onClick={() => handleViewDocument(slot.key, slot.label)}
+                          className="w-full mt-1 py-1.5 px-2.5 rounded-xl bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 text-[10px] font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-primary" />
+                          Preview File
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="pt-2 flex items-center gap-3">
+
+            {/* Bottom Actions Bar */}
+            <div className="p-6 rounded-3xl bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setCurrentStep("DOCUMENTS")}
+                disabled={isSubmitting}
                 className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Document Upload
+                Back to Documents
+              </Button>
+
+              <Button
+                onClick={handleSubmitApplication}
+                disabled={isSubmitting || !isMandatoryComplete}
+                className="w-full sm:w-auto px-10 h-12 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-primary/25 gap-2"
+              >
+                {isSubmitting ? "Submitting Application..." : "Confirm & Submit Application"}
               </Button>
             </div>
           </div>
         )}
+
+        {/* Success Confirmation Modal */}
+        <Dialog open={isSuccessModalOpen} onOpenChange={() => {}}>
+          <DialogContent className="max-w-md p-6 sm:p-8 rounded-3xl border-slate-200 dark:border-white/10 text-center space-y-6">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle className="w-9 h-9" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
+                Application Received
+              </span>
+              <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white pt-2">
+                Fencing Permit Submitted!
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Your application has been logged and queued for site inspection and evaluation by the <strong>Municipal Engineering Office</strong> of Mapandan.
+              </DialogDescription>
+            </div>
+
+            {submittedTxId && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Reference Tracking Number
+                </span>
+                <p className="text-sm font-mono font-black text-primary select-all">
+                  {submittedTxId}
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col gap-2.5">
+              <Button
+                onClick={() => router.push("/user/transactions")}
+                className="w-full h-11 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2"
+              >
+                Track in My Transactions
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/user/services")}
+                className="w-full rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500"
+              >
+                Return to Services Portal
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
   );

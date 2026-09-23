@@ -55,7 +55,7 @@ export function numberToWords(amount: number): string {
   result += " PESOS";
 
   if (decimalPart > 0) {
-    result += ` AND ${decimalPart}/100`;
+    result += ` AND ${decimalPart} CENT`;
   } else {
     result += " ONLY";
   }

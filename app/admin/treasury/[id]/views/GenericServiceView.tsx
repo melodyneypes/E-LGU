@@ -21,7 +21,8 @@ import {
     ExternalLink,
     Ban,
     AlertCircle,
-    Printer
+    Printer,
+    Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,9 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         handleResolveDispute,
         handleOnsitePayment,
         handlePrintCedula,
-        openCedulaPreview
+        openCedulaPreview,
+        editedIncome,
+        setEditedIncome
     } = props;
 
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
@@ -269,13 +272,45 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 {/* TOP METRICS GRID */}
                                 <div className="grid grid-cols-4 gap-4">
                                     <div
-                                        className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-2xl space-y-1 cursor-help"
+                                        className={`p-4 rounded-2xl space-y-1 transition-all ${
+                                            isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
+                                                ? "bg-primary/5 border border-primary/20 hover:border-primary/40"
+                                                : "bg-[#f8fafd] dark:bg-white/5"
+                                        }`}
                                         title={transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
                                     >
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{declaredLabel}</span>
-                                        <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
-                                            {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
-                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                                {declaredLabel}
+                                            </span>
+                                            {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && (
+                                                <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                                                    <Pencil className="w-2.5 h-2.5" />
+                                                    Editable
+                                                </span>
+                                            )}
+                                        </div>
+                                        {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
+                                            <div className="relative flex items-center mt-1">
+                                                <span className="absolute left-2.5 text-xs font-black text-slate-400 dark:text-slate-500 select-none">₱</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    value={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || 0)}
+                                                    onChange={(e) => {
+                                                        const val = parseFloat(e.target.value);
+                                                        setEditedIncome(isNaN(val) ? 0 : Math.max(0, val));
+                                                    }}
+                                                    className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-black italic tracking-tighter text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner"
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
+                                                {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
+                                            </p>
+                                        )}
                                     </div>
                                     <div
                                         className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-2xl space-y-1 cursor-help"
