@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
-import { getEngineeringPermitCitizenRoute } from "@/lib/transactions/engineering-permit";
+import { getEngineeringPermitCitizenRoute, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -197,7 +197,27 @@ export default function UserAppointmentsPage() {
     };
 
     const filteredRequests = requests.filter(r => {
-        const isRHU = ["RHU", "Rural Health Unit", "HEALTH", "RURAL_HEALTH_UNIT"].includes(r.type?.category) || r.type?.code?.startsWith("RHU_");
+        const typeCode = r.type?.code || "";
+        const category = (r.type?.category || "").toLowerCase();
+        const typeName = (r.type?.name || "").toLowerCase();
+
+        // Exclude Engineering Permits (Fencing Permit, Occupancy Permit, Building Permit)
+        // because they belong exclusively in /user/services/requests
+        const isEngineeringPermit = 
+            isEngineeringPermitCode(typeCode) ||
+            typeCode.startsWith("FENCING_PERMIT") ||
+            typeCode.startsWith("OCCUPANCY_PERMIT") ||
+            typeCode.startsWith("BUILDING_PERMIT") ||
+            category.includes("engineering") ||
+            typeName.includes("fencing permit") ||
+            typeName.includes("occupancy permit") ||
+            typeName.includes("building permit");
+
+        if (isEngineeringPermit) {
+            return false;
+        }
+
+        const isRHU = ["rhu", "rural health unit", "health", "rural_health_unit"].includes(category) || typeCode.startsWith("RHU_");
         const hasAppointment = r.appointmentDate || r.appointmentSlot || isRHU;
         if (!hasAppointment) return false;
 

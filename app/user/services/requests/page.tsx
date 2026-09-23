@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
-import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -193,21 +192,27 @@ export default function UserServiceRequestsPage() {
 
     const filteredRequests = requests.filter(r => {
         const typeCode = r.type?.code || "";
-        const category = r.type?.category || "";
-        const isRHU = ["RHU", "Rural Health Unit", "HEALTH", "RURAL_HEALTH_UNIT"].includes(category) || typeCode.startsWith("RHU_");
-        const isCivilRegistryAppointment = typeCode.includes("APPOINTMENT");
+        const category = (r.type?.category || "").toLowerCase();
+        const typeName = (r.type?.name || "").toLowerCase();
 
-        // Dedicated appointment bookings (RHU and Civil Registry appointments) belong in /user/appointment.
-        // Permit applications (e.g. Building Permit, Occupancy Permit, Business Permit, RPT, etc.)
-        // must always be visible here under My Applications, even if they have an appointment date or walk-in queue ticket.
-        if (!isEngineeringPermitCode(typeCode) && (isRHU || isCivilRegistryAppointment)) {
+        // Strictly include only Engineering Permits: Fencing Permit, Occupancy Permit, Building Permit
+        const isTargetPermit = 
+            typeCode.startsWith("FENCING_PERMIT") ||
+            typeCode.startsWith("OCCUPANCY_PERMIT") ||
+            typeCode.startsWith("BUILDING_PERMIT") ||
+            category.includes("engineering") ||
+            typeName.includes("fencing permit") ||
+            typeName.includes("occupancy permit") ||
+            typeName.includes("building permit");
+
+        if (!isTargetPermit) {
             return false;
         }
 
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
         return (
-            (r.type?.name || "").toLowerCase().includes(q) ||
+            typeName.includes(q) ||
             (r.id || "").toLowerCase().includes(q)
         );
     });
@@ -276,7 +281,7 @@ export default function UserServiceRequestsPage() {
                                 <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] md:ml-2 italic">Service Records Portfolio</p>
                             </div>
                             <p className="text-slate-500 font-medium italic text-sm md:text-xl leading-relaxed max-w-2xl">
-                                Real-time tracking of your official document applications and municipal service requests.
+                                Real-time tracking of your Fencing, Occupancy, and Building Permit applications with the Municipal Engineering Office.
                             </p>
                         </div>
                         
@@ -377,8 +382,8 @@ export default function UserServiceRequestsPage() {
                     }) : (
                         <div className="py-32 md:py-48 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2.5rem] md:rounded-[4rem] bg-slate-50/30 dark:bg-white/5">
                             <FileText className="w-16 h-16 md:w-24 md:h-24 text-slate-200 dark:text-slate-800 mx-auto mb-6 opacity-50" />
-                            <h3 className="text-lg md:text-2xl font-black uppercase tracking-widest text-slate-400 italic">No Records Found</h3>
-                            <p className="text-[10px] md:text-sm text-slate-400 mt-2 font-medium italic uppercase tracking-tighter opacity-70">Your active applications will appear here for tracking.</p>
+                            <h3 className="text-lg md:text-2xl font-black uppercase tracking-widest text-slate-400 italic">No Permit Applications Found</h3>
+                            <p className="text-[10px] md:text-sm text-slate-400 mt-2 font-medium italic uppercase tracking-tighter opacity-70">Your active Fencing, Occupancy, and Building permit applications will appear here for tracking.</p>
                         </div>
                     )}
                 </div>
