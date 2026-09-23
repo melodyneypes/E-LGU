@@ -52,7 +52,8 @@ export async function submitFencingPermit(formData: FormData) {
     let signatureUrl: string | null = null;
     const signatureEntry = formData.get("signature");
     if (signatureEntry instanceof File && signatureEntry.size > 0) {
-      signatureUrl = await uploadFile(signatureEntry, "signatures");
+      const sigPath = `fencing-permits/${userId}/signatures/${Date.now()}-signature.png`;
+      signatureUrl = await uploadFile(signatureEntry, sigPath);
     } else if (typeof signatureEntry === "string" && signatureEntry.trim().length > 0) {
       signatureUrl = signatureEntry;
     }
@@ -62,7 +63,10 @@ export async function submitFencingPermit(formData: FormData) {
 
     for (const [key, value] of Array.from(formData.entries())) {
       if (value instanceof File && value.size > 0 && !key.startsWith("signature")) {
-        const uploadedUrl = await uploadFile(value, "fencing_permits");
+        const timestamp = Date.now();
+        const safeFileName = value.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const storagePath = `fencing-permits/${userId}/${key}/${timestamp}-${safeFileName}`;
+        const uploadedUrl = await uploadFile(value, storagePath);
         if (uploadedUrl) {
           documents[key] = uploadedUrl;
         }
@@ -90,17 +94,48 @@ export async function submitFencingPermit(formData: FormData) {
     }
 
     // Build comprehensive additionalData for Engineering Office evaluation
+    const parsedCost = parseFloat(estimatedCost.replace(/,/g, "")) || 0;
+    const parsedLength = parseFloat(fenceLength) || 0;
+    const parsedHeight = parseFloat(fenceHeight) || 0;
+
+    const customLabels: Record<string, string> = {
+      proofOfOwnership: "Proof of Land Ownership",
+      taxDeclaration: "Tax Declaration of Real Property",
+      rptReceipt: "Current RPT Official Receipt & Tax Clearance",
+      lotPlan: "Certified Lot Plan & Boundary Survey",
+      fencingPlans: "Architectural & Structural Fencing Plans",
+      billOfMaterials: "Itemized Bill of Materials & Cost Estimate",
+      barangayClearance: "Barangay Construction Clearance (Fencing)",
+      governmentId: "Valid Government ID & Cedula",
+      zoningClearance: "Locational / Zoning Clearance",
+      dpwhClearance: "DPWH Clearance (National Highway)",
+      neighborConsent: "Notarized Neighbor Consent / Affidavit",
+    };
+
     const additionalData: Record<string, any> = {
       serviceCategory: "ENGINEERING_ACCESSORY",
       permitType: "FENCING_PERMIT",
+      barangay,
+      street,
+      projectAddress: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
+      estimatedCost: parsedCost,
+      fenceType,
+      fenceLength: parsedLength,
+      fenceHeight: parsedHeight,
+      // FormSchema and Admin compatibility mappings
+      applicantName: resident ? `${resident.firstName} ${resident.lastName}` : "Applicant",
+      lengthInMeters: parsedLength,
+      heightInMeters: parsedHeight,
+      location: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
       fencingLocation: {
         barangay,
         street,
-        estimatedCost: parseFloat(estimatedCost.replace(/,/g, "")) || 0,
+        estimatedCost: parsedCost,
         fenceType,
-        fenceLength: parseFloat(fenceLength) || 0,
-        fenceHeight: parseFloat(fenceHeight) || 0,
+        fenceLength: parsedLength,
+        fenceHeight: parsedHeight,
       },
+      customLabels,
       documents,
       signature: signatureUrl || null,
       submittedAt: new Date().toISOString(),

@@ -804,8 +804,9 @@ export default function RequestHubPage() {
     const engineeringPermitRoute = getEngineeringPermitCitizenRoute(typeCode);
     const isActionable = (request?.status === "EVALUATED" && (!isEngineeringPermit || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || isEngineeringPermit));
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
-    const isBuildingPermit = isEngineeringPermit;
+    const isFencingPermit = typeCode.startsWith("FENCING_PERMIT") || typeCode.includes("FENCING");
     const isOccupancyPermit = typeCode.startsWith("OCCUPANCY_PERMIT");
+    const isBuildingPermit = isEngineeringPermit && !isOccupancyPermit && !isFencingPermit;
     const isCedula = typeCode.startsWith("CEDULA");
     const estimatedCedulaAmount = useMemo(() => {
         if (!isCedula || !request) return 0;
@@ -1007,11 +1008,32 @@ export default function RequestHubPage() {
         if (!request) return [] as { label: string; url: string; key?: string }[];
         const addData = request.additionalData || {};
 
-        if (isBuildingPermit) {
+        if (isEngineeringPermit) {
             const docs: { label: string; url: string; key?: string }[] = [];
             const d = addData.documents || {};
 
-            if (isOccupancyPermit) {
+            if (isFencingPermit) {
+                const fencingSlotLabels: Record<string, string> = {
+                    proofOfOwnership: "Proof of Land Ownership",
+                    taxDeclaration: "Tax Declaration of Real Property",
+                    rptReceipt: "Current RPT Official Receipt & Tax Clearance",
+                    lotPlan: "Certified Lot Plan & Boundary Survey",
+                    fencingPlans: "Architectural & Structural Fencing Plans",
+                    billOfMaterials: "Itemized Bill of Materials & Cost Estimate",
+                    barangayClearance: "Barangay Construction Clearance (Fencing)",
+                    governmentId: "Valid Government ID & Cedula",
+                    zoningClearance: "Locational / Zoning Clearance",
+                    dpwhClearance: "DPWH Clearance (National Highway)",
+                    neighborConsent: "Notarized Neighbor Consent / Affidavit",
+                };
+
+                Object.keys(d).forEach(key => {
+                    if (d[key]) {
+                        const label = addData.customLabels?.[key] || fencingSlotLabels[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+                        docs.push({ label, url: d[key], key });
+                    }
+                });
+            } else if (isOccupancyPermit) {
                 const occupancyReqLabels = [
                     "Certificate of Completion",
                     "Construction Logbook",
@@ -1284,13 +1306,8 @@ export default function RequestHubPage() {
         );
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400 italic">Synchronizing Hub...</p>
-            </div>
-        );
+    if (!request) {
+        return null;
     }
 
     return (
@@ -1790,18 +1807,65 @@ export default function RequestHubPage() {
                                     )}
 
                                     {/* Application Matrix Card */}
-                                    <Card className="p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl lg:col-span-2 relative overflow-hidden h-fit">
+                                    <Card className={cn(
+                                        "p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl relative overflow-hidden h-fit",
+                                        isFencingPermit ? "lg:col-span-3" : "lg:col-span-2"
+                                    )}>
                                         <div className="absolute top-0 right-0 p-8 opacity-5"><FileText className="w-32 h-32" /></div>
                                         <div className="relative z-10 space-y-12">
                                             <div className="flex items-center justify-between">
                                                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3 italic leading-none"><FileText className="w-4 h-4 text-primary" /> Application Matrix</h3>
-                                                <div className="flex items-center gap-2 text-[8px] font-semibold uppercase tracking-widest text-primary italic bg-primary/5 px-3 py-1 rounded-lg border border-primary/10"><Clock className="w-3 h-3" /> Updated: {formatPHDateTime(request.updatedAt)}</div>
+                                                {!isFencingPermit && (
+                                                    <div className="flex items-center gap-2 text-[8px] font-semibold uppercase tracking-widest text-primary italic bg-primary/5 px-3 py-1 rounded-lg border border-primary/10"><Clock className="w-3 h-3" /> Updated: {formatPHDateTime(request.updatedAt)}</div>
+                                                )}
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-10 md:gap-y-12">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-8 md:gap-x-12 gap-y-8 md:gap-y-10">
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Service Requested</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.type?.name}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Date Submitted</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{formatPHDate(request.createdAt)}</p></div>
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}</p></div>
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}</p></div>
+                                                
+                                                {isFencingPermit ? (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Estimated Cost</p>
+                                                            <p className="text-base md:text-xl font-black text-primary italic leading-tight uppercase">
+                                                                ₱{Number(additionalData.fencingLocation?.estimatedCost ?? additionalData.estimatedCost ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1 sm:col-span-2 md:col-span-2">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Primary Material / Design Specification</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {additionalData.fencingLocation?.fenceType || additionalData.fenceType || "Standard Perimeter Fence"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Fence Length & Height</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {additionalData.fencingLocation?.fenceLength ?? additionalData.fenceLength ?? 0}m (L) × {additionalData.fencingLocation?.fenceHeight ?? additionalData.fenceHeight ?? 0}m (H)
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1 sm:col-span-2 md:col-span-3">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Fencing Site Location</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {additionalData.projectAddress || (additionalData.fencingLocation?.street ? `${additionalData.fencingLocation.street}, ` : "") + `Brgy. ${additionalData.fencingLocation?.barangay || additionalData.barangay || "Mapandan"}, Mapandan, Pangasinan`}
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p>
+                                                            <p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">
+                                                                {((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                )}
                                                 {request.appointmentDate && (
                                                     <div className="space-y-1">
                                                         <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Appointment Date</p>
@@ -2098,7 +2162,7 @@ export default function RequestHubPage() {
                                                 )}
                                             </div>
                                         </Card>
-                                    ) : (
+                                    ) : !isFencingPermit ? (
                                         <Card className="p-6 md:p-10 border-none bg-slate-950 text-white shadow-2xl rounded-2xl md:rounded-[3rem] relative overflow-hidden flex flex-col justify-between group lg:col-span-1">
                                             <div className="absolute top-0 right-0 p-6 md:p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700"><Info className="w-20 h-20 md:w-24 md:h-24" /></div>
                                             <div className="space-y-6 md:space-y-10 relative z-10">
@@ -2148,7 +2212,7 @@ export default function RequestHubPage() {
                                                 </div>
                                             </div>
                                         </Card>
-                                    )}
+                                    ) : null}
                                 </div>
                             </TabsContent>
 
@@ -2208,11 +2272,11 @@ export default function RequestHubPage() {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16">
+                                    <div className={cn("grid grid-cols-1 gap-10 md:gap-16", !isFencingPermit && "lg:grid-cols-2")}>
                                         <div className="space-y-10">
                                             <div className="space-y-6">
                                                 <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Personal Identity</h4>
-                                                <div className="grid grid-cols-2 gap-6 md:gap-8">
+                                                <div className={cn("grid grid-cols-2 gap-6 md:gap-8", isFencingPermit && "md:grid-cols-3")}>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Name</p><p className="text-xs md:text-lg font-bold italic truncate">{residentData.firstName} {residentData.lastName}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{residentData.dateOfBirth && !isNaN(new Date(residentData.dateOfBirth).getTime()) ? format(new Date(residentData.dateOfBirth), "MMM d, yyyy") : "N/A"}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Civil Status</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.civilStatus || "Single"}</p></div>
@@ -2221,7 +2285,7 @@ export default function RequestHubPage() {
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Email Address</p><p className="text-xs md:text-lg font-bold italic">{residentData.email || additionalData.email || "—"}</p></div>
                                                 </div>
                                             </div>
-                                            {!isCivilRegistry && (
+                                            {!isCivilRegistry && !isFencingPermit && (
                                                 <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
                                                     <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">
                                                         {request.isStudent ? "Student Status" : "Financial Declarations"}
@@ -2284,28 +2348,30 @@ export default function RequestHubPage() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="space-y-6">
-                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
-                                            <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
-                                                <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
-                                                <div className="relative z-10 space-y-6">
-                                                    {residentData.houseNumber || residentData.street || residentData.sitio || residentData.purok || residentData.barangay ? (
-                                                        <>
-                                                            <div className="grid grid-cols-2 gap-4">
-                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
-                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
+                                        {!isFencingPermit && (
+                                            <div className="space-y-6">
+                                                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
+                                                <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
+                                                    <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
+                                                    <div className="relative z-10 space-y-6">
+                                                        {residentData.houseNumber || residentData.street || residentData.sitio || residentData.purok || residentData.barangay ? (
+                                                            <>
+                                                                <div className="grid grid-cols-2 gap-4">
+                                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
+                                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
+                                                                </div>
+                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant Address</p>
+                                                                <p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{additionalData.informantAddress || "N/A"}</p>
                                                             </div>
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
-                                                        </>
-                                                    ) : (
-                                                        <div className="space-y-1">
-                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant Address</p>
-                                                            <p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{additionalData.informantAddress || "N/A"}</p>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </Card>
                             </TabsContent>

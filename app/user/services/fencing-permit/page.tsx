@@ -455,7 +455,6 @@ export default function FencingPermitPage() {
   const handlePrivacyAccept = () => {
     setPrivacyAccepted(true);
     setIsPrivacyModalOpen(false);
-    toast.success("Data Privacy & Consent confirmed!");
     executeSubmission();
   };
 
