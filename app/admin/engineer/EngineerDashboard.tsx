@@ -430,7 +430,7 @@ export default function EngineerDashboard() {
                                                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
                                                         Registered Resident
                                                     </span>
-                                                    {(tx.user?.rejectionCount === 2 || tx.revisionCount === 2 || (tx as any).rejection_count === 2) && (
+                                                    {(tx.user?.rejectionCount === 2 || tx.revisionCount === 3 || (tx as any).rejection_count === 3) && (
                                                         <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
                                                             FINAL ATTEMPT
                                                         </span>
@@ -469,7 +469,7 @@ export default function EngineerDashboard() {
                                                          return tx.status?.replace(/_/g, " ");
                                                      })()}
                                                  </span>
-                                                 {tx.revisionCount === 2 && !tx.isCancelled && tx.status !== "REJECTED" && (
+                                                 {tx.revisionCount === 3 && !tx.isCancelled && tx.status !== "REJECTED" && (
                                                      <div className="mt-1">
                                                          <span className="bg-red-500 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm animate-pulse">
                                                              FINAL ATTEMPT

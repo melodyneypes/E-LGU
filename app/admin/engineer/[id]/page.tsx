@@ -55,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger
@@ -257,6 +258,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
     const [ctcNumber, setCtcNumber] = useState("");
     const [isRejecting, setIsRejecting] = useState(false);
     const [isRequestingRevision, setIsRequestingRevision] = useState(false);
+    const [isConfirmingThirdRevision, setIsConfirmingThirdRevision] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState(0);
     const [eCopyFile, setECopyFile] = useState<File | null>(null);
     const [eCopyPreview, setECopyPreview] = useState<string | null>(null);
@@ -487,7 +489,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
         return () => URL.revokeObjectURL(url);
     }, [orFile]);
 
-    const isFinalAttempt = (transaction.revisionCount || 0) >= 2;
+    const isFinalAttempt = (transaction.revisionCount || 0) >= 3;
 
     const handleReject = async () => {
         if (!remarks) { toast.error("Remarks required"); return; }
@@ -502,16 +504,12 @@ export default function EngineerDetailPage({ params }: PageProps) {
         } finally { setActionLoading(false); }
     };
 
-    const handleRequestRevision = async () => {
+    const executeSendRevision = async () => {
         const cleanedRequests = revisionRequests
             .map((item) => ({ type: item.type, name: item.name.trim() }))
             .filter((item) => item.name.length > 0);
 
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
-        if (cleanedRequests.length === 0) {
-            toast.error("Please add at least one requested attachment.");
-            return;
-        }
         const finalRemarks = remarks.trim();
 
         setActionLoading(true);
@@ -528,6 +526,18 @@ export default function EngineerDetailPage({ params }: PageProps) {
             toast.error("An error occurred");
             setActionLoading(false);
         }
+    };
+
+    const handleRequestRevision = async () => {
+        if (!remarks.trim()) { toast.error("Remarks required"); return; }
+
+        // If current revisionCount === 2, this request will be the 3rd and final revision
+        if ((transaction.revisionCount || 0) === 2) {
+            setIsConfirmingThirdRevision(true);
+            return;
+        }
+
+        await executeSendRevision();
     };
 
     const handleReinspect = async () => {
@@ -1136,7 +1146,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                             </span>
                                             {transaction.revisionCount > 0 ? (
                                                 <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-0.5 rounded-full">
-                                                    Revision Count: {transaction.revisionCount}
+                                                    Revision Count: {transaction.revisionCount} / 3
                                                 </Badge>
                                             ) : (
                                                 <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-0.5 rounded-full">
@@ -2463,85 +2473,159 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                             </Button>
                                         )}
                                         <div className="flex gap-2 w-full">
-                                            <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
+                                            <Dialog open={isRequestingRevision} onOpenChange={(open) => { 
+                                                setIsRequestingRevision(open); 
+                                                if (!open) { 
+                                                    setRemarks(""); 
+                                                    setIsConfirmingThirdRevision(false); 
+                                                } 
+                                            }}>
                                                 <DialogTrigger asChild>
-                                                    {!isFinalAttempt && (transaction.revisionCount || 0) < 2 && (
+                                                    {!isFinalAttempt && (transaction.revisionCount || 0) < 3 && (
                                                         <Button
-                                                            onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }}
+                                                            onClick={() => { 
+                                                                setIsRequestingRevision(true); 
+                                                                setIsConfirmingThirdRevision(false);
+                                                                setRemarks(""); 
+                                                                setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); 
+                                                            }}
                                                             className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
                                                         >
                                                             Request Revision
                                                         </Button>
                                                     )}
                                                 </DialogTrigger>
-                                                <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                                    <DialogHeader className="space-y-3">
-                                                        <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                                                            Request <span className="text-amber-500">Revision</span>
+                                                <DialogContent className="max-w-2xl sm:max-w-2xl w-[92vw] max-h-[90vh] flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl p-6 sm:p-8 overflow-hidden">
+                                                    <DialogHeader className="shrink-0 space-y-2 pb-3 border-b border-slate-100 dark:border-white/5">
+                                                        <DialogTitle className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                                                            {isConfirmingThirdRevision ? (
+                                                                <>Confirm <span className="text-amber-500">3rd Revision</span></>
+                                                            ) : (
+                                                                <>Request <span className="text-amber-500">Revision</span></>
+                                                            )}
                                                         </DialogTitle>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Return to Citizen for Corrections</p>
+                                                        <DialogDescription className={isConfirmingThirdRevision ? "text-xs text-slate-500 dark:text-slate-400 font-medium" : "sr-only"}>
+                                                            {isConfirmingThirdRevision 
+                                                                ? "Final revision attempt confirmation warning." 
+                                                                : "Specify corrections and documents needed from citizen."}
+                                                        </DialogDescription>
                                                     </DialogHeader>
-                                                    <div className="space-y-6 py-6">
-                                                        <div className="space-y-3">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Missing Documents / Corrections Needed <span className="text-red-500">*</span></Label>
-                                                            <Textarea
-                                                                ref={remarksRef}
-                                                                placeholder="State missing documents or corrections needed..."
-                                                                value={remarks}
-                                                                onChange={(e) => setRemarks(e.target.value)}
-                                                                className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold italic p-6 text-sm"
-                                                                required
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-3">
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Requested Attachments <span className="text-red-500">*</span></Label>
+
+                                                    {isConfirmingThirdRevision ? (
+                                                        <div className="flex-1 overflow-y-auto space-y-6 py-6 animate-in fade-in zoom-in-95 duration-200 custom-scrollbar pr-1">
+                                                            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border-2 border-amber-500/20 flex items-center justify-center text-amber-500 mx-auto">
+                                                                <AlertTriangle className="w-8 h-8 animate-pulse" />
+                                                            </div>
+                                                            <div className="text-center space-y-2 max-w-md mx-auto">
+                                                                <p className="text-xs font-black uppercase tracking-widest text-amber-500">
+                                                                    Final Revision Request
+                                                                </p>
+                                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed">
+                                                                    You are about to send this application for revision for the 3rd time. This action will permanently lock the applicant&apos;s submission if still not correct. Proceed?
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 pt-4">
                                                                 <Button
                                                                     type="button"
                                                                     variant="outline"
-                                                                    onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
-                                                                    className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                                    onClick={() => setIsConfirmingThirdRevision(false)}
+                                                                    disabled={actionLoading}
+                                                                    className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs border-slate-200 dark:border-white/10"
                                                                 >
-                                                                    Add Item
+                                                                    Back
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    onClick={executeSendRevision}
+                                                                    disabled={actionLoading}
+                                                                    className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-wider text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                                                                >
+                                                                    {actionLoading ? "Processing..." : "Proceed"}
                                                                 </Button>
                                                             </div>
-                                                            <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
-                                                                {revisionRequests.map((item, index) => (
-                                                                    <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <select
-                                                                                value={item.type}
-                                                                                onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
-                                                                                className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
-                                                                            >
-                                                                                <option value="REQUIREMENTS">Requirements</option>
-                                                                                <option value="PERMITS">Permits</option>
-                                                                            </select>
-                                                                            <Input
-                                                                                value={item.name}
-                                                                                onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
-                                                                                placeholder="e.g. Structural Plan"
-                                                                                className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
-                                                                            />
-                                                                            {revisionRequests.length > 1 && (
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
-                                                                                    className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </Button>
-                                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex-1 overflow-y-auto space-y-6 py-4 px-2 custom-scrollbar min-h-0">
+                                                                {((transaction.revisionCount || 0) === 2) && (
+                                                                    <div className="bg-amber-500/10 border-2 border-amber-500/30 p-4 rounded-2xl flex items-start gap-3">
+                                                                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                                                        <div className="space-y-1">
+                                                                            <p className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                                                                                3rd & Final Revision Warning
+                                                                            </p>
+                                                                            <p className="text-xs font-bold text-amber-700 dark:text-amber-300 leading-snug">
+                                                                                You are about to send this application for revision for the 3rd time. This action will permanently lock the applicant&apos;s submission if still not correct. Proceed?
+                                                                            </p>
                                                                         </div>
                                                                     </div>
-                                                                ))}
+                                                                )}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Missing Documents / Corrections Needed <span className="text-red-500">*</span></Label>
+                                                                    <Textarea
+                                                                        ref={remarksRef}
+                                                                        placeholder="State missing documents or corrections needed..."
+                                                                        value={remarks}
+                                                                        onChange={(e) => setRemarks(e.target.value)}
+                                                                        className="min-h-[110px] rounded-2xl border-2 border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-medium p-5 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 resize-none transition-all"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-3">
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="space-y-0.5">
+                                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Requested Attachments</Label>
+                                                                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Optional. Add items citizen needs to upload.</p>
+                                                                        </div>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
+                                                                            className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest border-slate-200 dark:border-white/10 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400"
+                                                                        >
+                                                                            Add Item
+                                                                        </Button>
+                                                                    </div>
+                                                                    <div className="space-y-2.5">
+                                                                        {revisionRequests.map((item, index) => (
+                                                                            <div key={`${index}-${item.type}`} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-3.5">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <select
+                                                                                        value={item.type}
+                                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
+                                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200 shrink-0"
+                                                                                    >
+                                                                                        <option value="REQUIREMENTS">Requirements</option>
+                                                                                        <option value="PERMITS">Permits</option>
+                                                                                    </select>
+                                                                                    <Input
+                                                                                        value={item.name}
+                                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
+                                                                                        placeholder="e.g. Structural Plan"
+                                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium flex-1"
+                                                                                    />
+                                                                                    {revisionRequests.length > 1 && (
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="ghost"
+                                                                                            onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
+                                                                                            className="h-10 w-10 shrink-0 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-0"
+                                                                                        >
+                                                                                            <Trash2 className="w-4 h-4" />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                    <Button onClick={() => { if (!remarks.trim()) { toast.error("Reason is required"); return; } handleRequestRevision(); }} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-600">
-                                                        {actionLoading ? "Processing..." : "Confirm Revision Request"}
-                                                    </Button>
+                                                            <div className="pt-4 pb-1 shrink-0 border-t border-slate-200/60 dark:border-white/10 bg-white dark:bg-slate-950">
+                                                                <Button onClick={() => { if (!remarks.trim()) { toast.error("Reason is required"); return; } handleRequestRevision(); }} disabled={actionLoading || !remarks.trim()} className="w-full h-13 sm:h-14 bg-amber-500 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-600">
+                                                                    {actionLoading ? "Processing..." : "Confirm Revision Request"}
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </DialogContent>
                                             </Dialog>
 

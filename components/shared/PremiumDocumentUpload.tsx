@@ -140,7 +140,7 @@ export default function PremiumDocumentUpload({
 
     return (
         <div className={cn(
-            "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col gap-3 md:gap-4 transition-all duration-300 w-full hover:border-primary",
+            "p-3.5 sm:p-4 md:p-4.5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col gap-3 md:gap-4 transition-all duration-300 w-full hover:border-primary",
             error 
                 ? "!border-red-500 !border-solid !border-2 dark:!border-red-500/80 ring-2 ring-red-500/20 bg-red-50/10 animate-pulse" 
                 : "border-slate-200 dark:border-white/10"
@@ -202,15 +202,15 @@ export default function PremiumDocumentUpload({
             )}
 
             {/* Bottom Controls Row */}
-            <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+            <div className="flex items-center justify-between w-full gap-1.5 sm:gap-2 mt-1">
                 {hasFile ? (
                     <>
                         <button
                             type="button"
                             onClick={onView}
                             className={cn(
-                                "font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 transition-all duration-300 truncate",
-                                disabled ? "w-full flex-none" : "flex-1"
+                                "font-black italic uppercase tracking-wider text-[8.5px] sm:text-[9.5px] px-1.5 sm:px-2.5 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 transition-all duration-300 whitespace-nowrap flex items-center justify-center",
+                                disabled ? "w-full flex-none" : "flex-1 min-w-0"
                             )}
                         >
                             View
@@ -219,7 +219,7 @@ export default function PremiumDocumentUpload({
                             <button
                                 type="button"
                                 onClick={triggerUpload}
-                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300 truncate"
+                                className="font-black italic uppercase tracking-wider text-[8.5px] sm:text-[9.5px] px-1.5 sm:px-2.5 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 min-w-0 transition-all duration-300 whitespace-nowrap flex items-center justify-center"
                             >
                                 Change
                             </button>
@@ -231,7 +231,7 @@ export default function PremiumDocumentUpload({
                                     e.stopPropagation();
                                     onClear();
                                 }}
-                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-3 h-8 rounded-full border border-red-200 dark:border-red-500/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex-1 transition-all duration-300 truncate"
+                                className="font-black italic uppercase tracking-wider text-[8.5px] sm:text-[9.5px] px-1.5 sm:px-2.5 h-8 rounded-full border border-red-200 dark:border-red-500/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex-1 min-w-0 transition-all duration-300 whitespace-nowrap flex items-center justify-center"
                             >
                                 Remove
                             </button>
@@ -242,7 +242,7 @@ export default function PremiumDocumentUpload({
                         <button
                             type="button"
                             onClick={triggerUpload}
-                            className="w-full h-8 rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[8px] md:text-[9px] transition-all duration-300 flex items-center justify-center shadow-lg shadow-primary/10"
+                            className="w-full h-8 rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[8.5px] sm:text-[9.5px] transition-all duration-300 flex items-center justify-center shadow-lg shadow-primary/10 whitespace-nowrap"
                         >
                             UPLOAD
                         </button>
