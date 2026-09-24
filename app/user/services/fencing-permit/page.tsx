@@ -31,6 +31,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -53,9 +54,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, Eye } from "lucide-react";
+import { HelpCircle, BookOpen, Eye, Lock } from "lucide-react";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
-import { submitFencingPermit } from "./actions";
+import { submitFencingPermit, getActiveFencingPermit } from "./actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
@@ -266,7 +267,27 @@ export default function FencingPermitPage() {
   const [selectedGuideSlot, setSelectedGuideSlot] = React.useState<DocumentSlotConfig | null>(null);
   const abandonedFilesRef = React.useRef<string[]>([]);
 
+  // Active Ongoing Application Guard State
+  const [activePermit, setActivePermit] = React.useState<any>(null);
+  const [checkingActive, setCheckingActive] = React.useState(true);
+
+  // Hard Lock: Guarantee that if an active ongoing permit exists, user stays strictly on GUIDE
   React.useEffect(() => {
+    if (activePermit && currentStep !== "GUIDE") {
+      setCurrentStep("GUIDE");
+    }
+  }, [activePermit, currentStep]);
+
+  React.useEffect(() => {
+    // Check if user already has an ongoing fencing permit
+    getActiveFencingPermit().then((res) => {
+      if (res.success && res.data) {
+        setActivePermit(res.data);
+        setCurrentStep("GUIDE");
+      }
+      setCheckingActive(false);
+    });
+
     getSystemSettingAction("theme_color").then((res) => {
       if (res.success && res.data) {
         setThemeColor(res.data);
@@ -554,6 +575,17 @@ export default function FencingPermitPage() {
   };
 
   const handleStepClick = (targetStepId: string) => {
+    // If user has an active ongoing permit, strictly lock to GUIDE tab
+    if (activePermit && targetStepId !== "GUIDE") {
+      toast.error("You currently have an active ongoing Fencing Permit application. Access to the application form is locked until your current permit is Released, Rejected, or Cancelled.", {
+        action: {
+          label: "View Request",
+          onClick: () => router.push(`/user/services/requests/${activePermit.id}`)
+        }
+      });
+      return;
+    }
+
     // If on DETAILS step and trying to go to DOCUMENTS or SUBMIT, validate details first
     if (currentStep === "DETAILS" && (targetStepId === "DOCUMENTS" || targetStepId === "SUBMIT")) {
       const isValid = validateDetailsStep();
@@ -762,37 +794,50 @@ export default function FencingPermitPage() {
             const isActive = currentStep === step.id;
             const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
             const isCompleted = currentStepIdx > idx;
-            const Icon = step.icon;
+            const isLocked = Boolean(activePermit && step.id !== "GUIDE");
+            const Icon = isLocked ? Lock : step.icon;
 
             return (
               <div
                 key={step.id}
                 onClick={() => handleStepClick(step.id)}
-                className="flex flex-col items-center gap-2 relative z-10 font-black cursor-pointer group select-none"
+                className={cn(
+                  "flex flex-col items-center gap-2 relative z-10 font-black group select-none transition-all",
+                  isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                )}
               >
                 <div
                   className={cn(
-                    "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2",
-                    isActive
-                      ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
-                      : isCompleted
-                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                        : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
+                    "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 relative",
+                    isLocked
+                      ? "bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10"
+                      : isActive
+                        ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
+                        : isCompleted
+                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                          : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
                   )}
                 >
                   <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
+                  {isLocked && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white flex items-center justify-center text-[9px] shadow-sm">
+                      <Lock className="w-2.5 h-2.5" />
+                    </span>
+                  )}
                 </div>
                 <span
                   className={cn(
                     "text-[8px] sm:text-[10px] uppercase tracking-widest text-center italic transition-all",
-                    isActive
-                      ? "text-primary opacity-100 font-black"
-                      : isCompleted
-                        ? "text-emerald-500 font-bold opacity-80"
-                        : "opacity-40 group-hover:opacity-100"
+                    isLocked
+                      ? "text-slate-400 opacity-60"
+                      : isActive
+                        ? "text-primary opacity-100 font-black"
+                        : isCompleted
+                          ? "text-emerald-500 font-bold opacity-80"
+                          : "opacity-40 group-hover:opacity-100"
                   )}
                 >
-                  {step.label}
+                  {isLocked ? `${step.label} 🔒` : step.label}
                 </span>
               </div>
             );
@@ -802,6 +847,40 @@ export default function FencingPermitPage() {
         {/* Step 1: GUIDE TAB CONTENT */}
         {currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
+            {/* Active Ongoing Application Alert Banner */}
+            {activePermit && (
+              <div className="p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/30 bg-emerald-500/[0.06] backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                        Active Permit Under Review
+                      </Badge>
+                      <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                        ID: {activePermit.id}
+                      </span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white pt-0.5">
+                      You have an ongoing Fencing Permit application
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+                      Current Status: <strong className="text-emerald-700 dark:text-emerald-400 uppercase">{activePermit.status?.replace(/_/g, " ")}</strong>. You can freely review the documentary guidelines and zoning regulations below, but filing another application is locked until your current permit reaches a final status (Released, Rejected, or Cancelled).
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider shrink-0 h-10 px-5 gap-2 shadow-md shadow-emerald-600/20"
+                >
+                  <Eye className="w-4 h-4" />
+                  Track Request
+                </Button>
+              </div>
+            )}
+
             {/* Professional Notice Banner without the 2 cards and badge */}
             <div className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8 backdrop-blur-md relative overflow-hidden">
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
@@ -1012,19 +1091,29 @@ export default function FencingPermitPage() {
                   Return to All Services
                 </Button>
               </Link>
-              <Button
-                onClick={() => setCurrentStep("DETAILS")}
-                className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
-              >
-                Proceed to Project Details
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              {activePermit ? (
+                <Button
+                  onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
+                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Ongoing Request ({activePermit.id})
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setCurrentStep("DETAILS")}
+                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
+                >
+                  Proceed to Project Details
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         )}
 
         {/* Step 2: DETAILS TAB CONTENT */}
-        {currentStep === "DETAILS" && (
+        {currentStep === "DETAILS" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Fencing Site Location Card */}
             <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
@@ -1371,7 +1460,7 @@ export default function FencingPermitPage() {
         )}
 
         {/* Step 3: DOCUMENTS (UPLOAD) TAB CONTENT */}
-        {currentStep === "DOCUMENTS" && (
+        {currentStep === "DOCUMENTS" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Section A: Mandatory Requirements */}
             <div className="space-y-4">
@@ -1496,7 +1585,7 @@ export default function FencingPermitPage() {
         )}
 
         {/* Step 3: SUBMIT / REVIEW TAB */}
-        {currentStep === "SUBMIT" && (
+        {currentStep === "SUBMIT" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-500">
             {/* Card 1: Applicant Profile Snapshot */}
             <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">

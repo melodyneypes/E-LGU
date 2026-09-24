@@ -7,6 +7,37 @@ import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { sanitizeObject, sanitizeString } from "@/lib/validation";
 
+export async function getActiveFencingPermit() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, data: null };
+
+    const activeTx = await prisma.transaction.findFirst({
+      where: {
+        userId: session.user.id,
+        type: {
+          code: { startsWith: "FENCING" }
+        },
+        status: {
+          notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+        },
+        isCancelled: false
+      },
+      include: {
+        type: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    return { success: true, data: activeTx };
+  } catch (e: any) {
+    console.error("Get active fencing permit error:", e);
+    return { success: false, data: null };
+  }
+}
+
 export async function submitFencingPermit(formData: FormData) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,6 +45,27 @@ export async function submitFencingPermit(formData: FormData) {
       return { success: false, error: "Unauthorized. Please sign in to submit." };
     }
     const userId = session.user.id;
+
+    // Guard: Prevent duplicate submission if an active fencing permit is already ongoing
+    const activeTx = await prisma.transaction.findFirst({
+      where: {
+        userId,
+        type: {
+          code: { startsWith: "FENCING" }
+        },
+        status: {
+          notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+        },
+        isCancelled: false
+      }
+    });
+
+    if (activeTx) {
+      return {
+        success: false,
+        error: `You currently have an ongoing Fencing Permit application (${activeTx.id}). You cannot apply for a new permit until your current request is Released, Rejected, or Cancelled.`
+      };
+    }
 
     // Find Fencing Permit Transaction Type
     let type = await prisma.transactionType.findFirst({
