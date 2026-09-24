@@ -58,6 +58,7 @@ import { submitFencingPermit } from "./actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
+const DRAFT_DETAILS_STORAGE_KEY = "fencing_permit_details_draft";
 
 const MAPANDAN_BARANGAYS = [
   "Amanoaoac",
@@ -273,6 +274,28 @@ export default function FencingPermitPage() {
     getCurrentUserResident().then((res) => {
       if (res.success && res.data) {
         setResidentProfile(res.data);
+        // Fallback to resident address only if no draft is present
+        try {
+          const savedDraft = localStorage.getItem(DRAFT_DETAILS_STORAGE_KEY);
+          if (savedDraft) {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed.siteBarangay) setSiteBarangay(parsed.siteBarangay);
+            else if (res.data.barangay) setSiteBarangay(res.data.barangay);
+
+            if (parsed.siteStreet) setSiteStreet(parsed.siteStreet);
+            else if (res.data.street) setSiteStreet(res.data.street);
+
+            if (parsed.estimatedCost) setEstimatedCost(parsed.estimatedCost);
+            if (parsed.fenceType) setFenceType(parsed.fenceType);
+            if (parsed.fenceSecurityFeature) setFenceSecurityFeature(parsed.fenceSecurityFeature);
+            if (parsed.fenceLength) setFenceLength(parsed.fenceLength);
+            if (parsed.fenceHeight) setFenceHeight(parsed.fenceHeight);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to load details draft:", e);
+        }
+
         if (res.data.barangay) {
           setSiteBarangay(res.data.barangay);
         }
@@ -282,6 +305,56 @@ export default function FencingPermitPage() {
       }
     });
   }, []);
+
+  // Real-time debounced auto-save for Details tab form state
+  const isDetailsHydratedRef = React.useRef(false);
+  React.useEffect(() => {
+    // Skip saving on the very first mount cycle before hydration completes
+    if (!isDetailsHydratedRef.current) {
+      isDetailsHydratedRef.current = true;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          siteBarangay,
+          siteStreet,
+          estimatedCost,
+          fenceType,
+          fenceSecurityFeature,
+          fenceLength,
+          fenceHeight,
+          savedAt: Date.now()
+        };
+        localStorage.setItem(DRAFT_DETAILS_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.error("Auto-save details draft error:", err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [siteBarangay, siteStreet, estimatedCost, fenceType, fenceSecurityFeature, fenceLength, fenceHeight]);
+
+  const handleManualSaveDraft = () => {
+    try {
+      const payload = {
+        siteBarangay,
+        siteStreet,
+        estimatedCost,
+        fenceType,
+        fenceSecurityFeature,
+        fenceLength,
+        fenceHeight,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(DRAFT_DETAILS_STORAGE_KEY, JSON.stringify(payload));
+      toast.success("Fencing project details saved as draft.");
+    } catch (e) {
+      console.error("Failed to save draft:", e);
+      toast.error("Failed to save draft details.");
+    }
+  };
 
   // Beacon Garbage Collector on page close / unload
   React.useEffect(() => {
@@ -528,6 +601,13 @@ export default function FencingPermitPage() {
         clearDraftFiles(DRAFT_STORAGE_KEY).catch((e) => {
           console.error("Failed to clean up draft files:", e);
         });
+
+        // Clear details text draft from localStorage
+        try {
+          localStorage.removeItem(DRAFT_DETAILS_STORAGE_KEY);
+        } catch (e) {
+          console.error("Failed to clear details draft from localStorage:", e);
+        }
 
         // Hard navigate directly to requests tracking page to prevent client-side routing delay / stuck button state
         window.location.href = `/user/services/requests/${res.data.id}`;
@@ -1254,14 +1334,24 @@ export default function FencingPermitPage() {
 
             {/* Navigation Action Buttons */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentStep("GUIDE")}
-                className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Guidelines
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="ghost"
+                  onClick={() => setCurrentStep("GUIDE")}
+                  className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2 flex-1 sm:flex-none"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Guidelines
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleManualSaveDraft}
+                  className="rounded-xl text-xs font-bold uppercase tracking-wider border-slate-200 dark:border-white/10 hover:border-primary/40 hover:text-primary transition-colors flex-1 sm:flex-none"
+                >
+                  Save Draft
+                </Button>
+              </div>
               <Button
                 onClick={() => {
                   const isValid = validateDetailsStep();
