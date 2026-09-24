@@ -26,13 +26,13 @@ import {
     AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
+import { getTransactionById } from "@/app/admin/transactions/actions";
 import {
-    getTransactionById,
     endorseFencingPermitByEngineer,
-    scheduleBuildingInspection,
-    sendForRevision,
-    rejectTransaction
-} from "@/app/admin/transactions/actions";
+    scheduleEngineerFencingInspection,
+    sendEngineerFencingRevision,
+    rejectEngineerFencingPermit
+} from "./actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -200,8 +200,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
         }
         setActionLoading(true);
         try {
-            const res = await scheduleBuildingInspection(id, {
-                type: "Fencing Structural & Boundary Inspection",
+            const res = await scheduleEngineerFencingInspection(id, {
                 date: inspectionDate,
                 time: inspectionTime,
                 inspectorName: inspectorName.trim(),
@@ -241,7 +240,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
 
         setActionLoading(true);
         try {
-            const res = await sendForRevision(id, revisionRemarks, revisionRequests);
+            const res = await sendEngineerFencingRevision(id, revisionRemarks, revisionRequests);
             if (res.success) {
                 toast.success("Revision requested from applicant!");
                 setRevisionModalOpen(false);
@@ -279,7 +278,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
         }
         setActionLoading(true);
         try {
-            const res = await rejectTransaction(id, rejectRemarks);
+            const res = await rejectEngineerFencingPermit(id, rejectRemarks);
             if (res.success) {
                 toast.error("Application officially rejected by Municipal Engineer");
                 setRejectModalOpen(false);
@@ -381,7 +380,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                 {/* Left 2 Cols: Fencing Details Matrix + Document Evaluation Vault */}
                 <div className="xl:col-span-2 space-y-6">
                     {/* Fencing Site & Specification Card */}
-                    <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
+                    <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
                             <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                 <Ruler className="w-4 h-4 text-primary" />
@@ -390,29 +389,29 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">National Building Code Compliant</span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Perimeter Length</span>
                                 <span className="text-base font-black text-slate-800 dark:text-white">
                                     {additional.fenceLength || additional.lengthInMeters || "0"} <span className="text-xs font-bold text-slate-400">meters</span>
                                 </span>
                             </div>
 
-                            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Height from Ground</span>
                                 <span className="text-base font-black text-slate-800 dark:text-white">
                                     {additional.fenceHeight || additional.heightInMeters || "0"} <span className="text-xs font-bold text-slate-400">meters</span>
                                 </span>
                             </div>
 
-                            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Est. Construction Cost</span>
                                 <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
                                     ₱{Number(additional.estimatedCost || 0).toLocaleString()}
                                 </span>
                             </div>
 
-                            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Security Feature</span>
                                 <span className="text-xs font-black uppercase text-slate-800 dark:text-white">
                                     {additional.fenceSecurityFeature?.replace(/_/g, " ") || "NONE"}
@@ -420,17 +419,17 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Fence Structure & Material</span>
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                     {additional.fenceType || "Standard Reinforced Masonry"}
                                 </p>
                             </div>
 
-                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Project Site Location</span>
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                     <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                                     {additional.projectAddress || additional.location || `Brgy. ${additional.barangay}, Mapandan, Pangasinan`}
                                 </p>

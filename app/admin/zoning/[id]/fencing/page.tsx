@@ -24,13 +24,13 @@ import {
     Zap
 } from "lucide-react";
 import { toast } from "sonner";
+import { getTransactionById } from "@/app/admin/transactions/actions";
 import {
-    getTransactionById,
-    scheduleZoningInspection,
-    sendForZoningRevision,
-    rejectZoningTransaction,
+    scheduleZoningFencingInspection,
+    sendZoningFencingRevision,
+    rejectZoningFencingPermit,
     endorseFencingPermitByZoning
-} from "@/app/admin/transactions/actions";
+} from "./actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -197,8 +197,7 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
         }
         setActionLoading(true);
         try {
-            const res = await scheduleZoningInspection(id, {
-                type: "Zoning & Boundary Ocular Inspection",
+            const res = await scheduleZoningFencingInspection(id, {
                 date: inspectionDate,
                 time: inspectionTime,
                 inspectorName,
@@ -238,7 +237,7 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
 
         setActionLoading(true);
         try {
-            const res = await sendForZoningRevision(id, revisionRemarks, revisionRequests);
+            const res = await sendZoningFencingRevision(id, revisionRemarks, revisionRequests);
             if (res.success) {
                 toast.success("Revision requested from applicant!");
                 setRevisionModalOpen(false);
@@ -261,7 +260,7 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
         }
         setActionLoading(true);
         try {
-            const res = await rejectZoningTransaction(id, rejectRemarks);
+            const res = await rejectZoningFencingPermit(id, rejectRemarks);
             if (res.success) {
                 toast.error("Application officially rejected by Zoning Office");
                 setRejectModalOpen(false);
