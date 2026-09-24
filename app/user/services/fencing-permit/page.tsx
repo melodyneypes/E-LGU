@@ -790,78 +790,94 @@ export default function FencingPermitPage() {
 
         {/* Stepper Progress Tabs */}
         <div className="grid grid-cols-4 gap-1.5 sm:gap-4 relative px-1 sm:px-2 max-w-xl mx-auto">
-          {STEPS.map((step, idx) => {
-            const isActive = currentStep === step.id;
-            const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
-            const isCompleted = currentStepIdx > idx;
-            const isLocked = Boolean(activePermit && step.id !== "GUIDE");
-            const Icon = isLocked ? Lock : step.icon;
-
-            return (
-              <div
-                key={step.id}
-                onClick={() => handleStepClick(step.id)}
-                className={cn(
-                  "flex flex-col items-center gap-2 relative z-10 font-black group select-none transition-all",
-                  isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 relative",
-                    isLocked
-                      ? "bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10"
-                      : isActive
-                        ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
-                        : isCompleted
-                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                          : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
-                  )}
-                >
-                  <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
-                  {isLocked && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white flex items-center justify-center text-[9px] shadow-sm">
-                      <Lock className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-[8px] sm:text-[10px] uppercase tracking-widest text-center italic transition-all",
-                    isLocked
-                      ? "text-slate-400 opacity-60"
-                      : isActive
-                        ? "text-primary opacity-100 font-black"
-                        : isCompleted
-                          ? "text-emerald-500 font-bold opacity-80"
-                          : "opacity-40 group-hover:opacity-100"
-                  )}
-                >
-                  {isLocked ? `${step.label} 🔒` : step.label}
-                </span>
+          {checkingActive ? (
+            Array(4).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 select-none animate-pulse">
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-slate-200/70 dark:bg-white/5 border-2 border-transparent" />
+                <div className="w-12 sm:w-16 h-2 sm:h-2.5 rounded-full bg-slate-200/70 dark:bg-white/5" />
               </div>
-            );
-          })}
+            ))
+          ) : (
+            STEPS.map((step, idx) => {
+              const isActive = currentStep === step.id;
+              const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
+              const isCompleted = currentStepIdx > idx;
+              const isLocked = Boolean(activePermit && step.id !== "GUIDE");
+              const Icon = isLocked ? Lock : step.icon;
+
+              return (
+                <div
+                  key={step.id}
+                  onClick={() => handleStepClick(step.id)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 relative z-10 font-black group select-none transition-all",
+                    isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 relative",
+                      isLocked
+                        ? "bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10"
+                        : isActive
+                          ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
+                          : isCompleted
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                            : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
+                    {isLocked && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white flex items-center justify-center text-[9px] shadow-sm">
+                        <Lock className="w-2.5 h-2.5" />
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[8px] sm:text-[10px] uppercase tracking-widest text-center italic transition-all",
+                      isLocked
+                        ? "text-slate-400 opacity-60"
+                        : isActive
+                          ? "text-primary opacity-100 font-black"
+                          : isCompleted
+                            ? "text-emerald-500 font-bold opacity-80"
+                            : "opacity-40 group-hover:opacity-100"
+                    )}
+                  >
+                    {isLocked ? `${step.label} 🔒` : step.label}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Step 1: GUIDE TAB CONTENT */}
         {currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
-            {/* Active Ongoing Application Alert Banner */}
-            {activePermit && (
+            {/* Active Ongoing Application Alert Banner / Preload Skeleton */}
+            {checkingActive ? (
+              <div className="p-5 sm:p-6 rounded-3xl border border-slate-200/60 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] flex items-center justify-between gap-4 animate-pulse">
+                <div className="flex items-center gap-3.5 w-full">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-white/10 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="w-36 h-4 rounded-md bg-slate-200 dark:bg-white/10" />
+                    <div className="w-3/4 h-3 rounded-md bg-slate-200 dark:bg-white/5" />
+                  </div>
+                </div>
+              </div>
+            ) : activePermit ? (
               <div className="p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/30 bg-emerald-500/[0.06] backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-start gap-3.5">
                   <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
                     <Lock className="w-5 h-5" />
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
                       <Badge className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
                         Active Permit Under Review
                       </Badge>
-                      <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
-                        ID: {activePermit.id}
-                      </span>
                     </div>
                     <h3 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white pt-0.5">
                       You have an ongoing Fencing Permit application
@@ -873,13 +889,12 @@ export default function FencingPermitPage() {
                 </div>
                 <Button
                   onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider shrink-0 h-10 px-5 gap-2 shadow-md shadow-emerald-600/20"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider shrink-0 h-10 px-5 shadow-md shadow-emerald-600/20"
                 >
-                  <Eye className="w-4 h-4" />
                   Track Request
                 </Button>
               </div>
-            )}
+            ) : null}
 
             {/* Professional Notice Banner without the 2 cards and badge */}
             <div className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8 backdrop-blur-md relative overflow-hidden">
@@ -1091,13 +1106,14 @@ export default function FencingPermitPage() {
                   Return to All Services
                 </Button>
               </Link>
-              {activePermit ? (
+              {checkingActive ? (
+                <div className="w-full sm:w-60 h-11 rounded-xl bg-slate-200/80 dark:bg-white/10 animate-pulse" />
+              ) : activePermit ? (
                 <Button
                   onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
-                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11"
+                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white h-11"
                 >
-                  <Eye className="w-4 h-4" />
-                  View Ongoing Request ({activePermit.id})
+                  View Ongoing Request
                 </Button>
               ) : (
                 <Button
