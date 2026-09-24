@@ -81,12 +81,9 @@ export default function PremiumDocumentUpload({
             let fileToProcess = selectedFile;
             if (selectedFile.type.startsWith("image/")) {
                 try {
-                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
                     fileToProcess = await compressImage(selectedFile);
-                    toast.dismiss("image-compress-toast");
                 } catch (err) {
                     console.error("Compression error:", err);
-                    toast.dismiss("image-compress-toast");
                 }
             }
 

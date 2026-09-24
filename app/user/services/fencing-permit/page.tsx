@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Home, 
   ArrowLeft,
@@ -240,6 +241,7 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
 ];
 
 export default function FencingPermitPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
   const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
 
@@ -609,8 +611,8 @@ export default function FencingPermitPage() {
           console.error("Failed to clear details draft from localStorage:", e);
         }
 
-        // Hard navigate directly to requests tracking page to prevent client-side routing delay / stuck button state
-        window.location.href = `/user/services/requests/${res.data.id}`;
+        // Smooth client-side navigate directly to requests tracking page
+        router.push(`/user/services/requests/${res.data.id}`);
         return;
       } else {
         setIsSubmitting(false);
