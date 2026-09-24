@@ -30,8 +30,7 @@ import {
     rejectTransaction,
     sendForRevision,
     scheduleBuildingInspection,
-    getSystemSettingAction,
-    endorseFencingPermitByEngineer
+    getSystemSettingAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1052,16 +1051,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     <div className="space-y-4">
                         {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <div className="space-y-3">
-                                {transaction?.type?.code?.startsWith("FENCING_PERMIT") && (
-                                    <Button
-                                        onClick={handleEndorseFencingToZoning}
-                                        disabled={actionLoading || transaction?.status !== "FOR_REQUESTING"}
-                                        className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-900/20 active:scale-95"
-                                    >
-                                        <BadgeCheck className="w-5 h-5 mr-2" />
-                                        {actionLoading ? "Processing..." : "Approve & Endorse to MPDC Zoning"}
-                                    </Button>
-                                )}
                                 <Dialog open={isSchedulingInspection} onOpenChange={setIsSchedulingInspection}>
                                     <DialogTrigger asChild>
                                         <Button disabled={actionLoading || !canScheduleInspection} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">
