@@ -3513,11 +3513,12 @@ export async function getEngineerTransactions(params?: string | {
         };
 
         if (user.role === "MPDC_ZONING") {
-            // Initial Review Gate: Zoning only acts on applications that have been approved/dispatched by the Engineering Office
+            // Initial Review Gate: Zoning acts on applications approved/dispatched by Engineering Office OR directly on Fencing Permits
             where.AND = [
                 ...(where.AND || []),
                 {
                     OR: [
+                        { type: { code: { startsWith: "FENCING_PERMIT" } } },
                         { additionalData: { path: ['feeAssessment', 'engineerEndorsedToZoning'], equals: true } },
                         { additionalData: { path: ['feeAssessment', 'engineeringApproved'], equals: true } },
                         { status: { in: ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
@@ -3539,10 +3540,17 @@ export async function getEngineerTransactions(params?: string | {
                 if (user.role === "MPDC_ZONING") {
                     const zoningOnlyStatuses = ["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION", "ENDORSED"];
                     if (zoningOnlyStatuses.includes(status)) {
-                        where.additionalData = {
-                            path: ["zoningStatus"],
-                            equals: status
-                        };
+                        where.OR = [
+                            {
+                                additionalData: {
+                                    path: ["zoningStatus"],
+                                    equals: status
+                                }
+                            },
+                            {
+                                status: status as any
+                            }
+                        ];
                         where.isCancelled = false;
                     } else if (status === "RELEASED" || status === "DELIVERED") {
                         where.OR = [
@@ -3732,10 +3740,14 @@ export async function getEngineerStatusCounts() {
         };
 
         if (user.role === "MPDC_ZONING") {
-            const allTxs = await prisma.transaction.findMany({ where });
+            const allTxs = await prisma.transaction.findMany({ 
+                where,
+                include: { type: true }
+            });
             const counts: Record<string, number> = {};
             for (const tx of allTxs) {
-                const zStatus = (tx.additionalData as any)?.zoningStatus || "FOR_REQUESTING";
+                const isFencing = tx.type?.code?.startsWith("FENCING_PERMIT");
+                const zStatus = (tx.additionalData as any)?.zoningStatus || (isFencing ? (tx.status as string) : "FOR_REQUESTING");
                 const isPendingEngineering = !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status as string || "");
                 let effectiveStatus = zStatus;
 
@@ -3745,7 +3757,7 @@ export async function getEngineerStatusCounts() {
                     effectiveStatus = "REJECTED";
                 } else if (tx.status === "RELEASED") {
                     effectiveStatus = "RELEASED";
-                } else if (isPendingEngineering) {
+                } else if (isPendingEngineering && !isFencing) {
                     continue;
                 } else if (zStatus === "EVALUATED") {
                     effectiveStatus = (tx.status as string) || "EVALUATED";
@@ -6204,6 +6216,68 @@ export async function evaluateZoningApplication(id: string) {
     } catch (error) {
         console.error(error);
         return { success: false, error: "Failed to evaluate" };
+    }
+}
+
+export async function endorseFencingPermitByZoning(id: string, notes?: string) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") {
+            return { success: false, error: "Forbidden: Only MPDC Zoning officers can endorse fencing clearances." };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id },
+            include: { user: true, type: true }
+        });
+        if (!tx) return { success: false, error: "Transaction not found" };
+
+        const currentAdditionalData = (tx.additionalData as any) || {};
+        const feeAssessment = currentAdditionalData.feeAssessment || {};
+
+        const updatedAdditionalData = {
+            ...currentAdditionalData,
+            zoningStatus: "ENDORSED",
+            zoningEndorsementNotes: notes ? sanitizeString(notes) : null,
+            zoningEndorsedAt: new Date().toISOString(),
+            zoningEndorsedBy: user.name || user.id,
+            feeAssessment: {
+                ...feeAssessment,
+                zoningApproved: true,
+                zoningApprovedAt: new Date().toISOString(),
+                zoningApprovedBy: user.name || user.id
+            }
+        };
+
+        const updated = await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "FOR_INSPECTION",
+                additionalData: updatedAdditionalData as any,
+                updatedAt: new Date()
+            }
+        });
+
+        if (tx.user?.email) {
+            const resident = tx.residentSnapshot as any;
+            sendEmail({
+                type: "GENERAL" as any,
+                to: tx.user.email,
+                name: resident?.firstName || tx.user.name || "Resident",
+                remarks: `Your Fencing Permit application has been verified and cleared by the MPDC Zoning Department and forwarded to the Municipal Engineering Office.`,
+                transactionId: tx.id.slice(-8).toUpperCase(),
+                serviceName: tx.type?.name || "Fencing Permit"
+            }).catch(e => console.error("Fencing endorsement email error:", e));
+        }
+
+        revalidatePath("/admin/zoning");
+        revalidatePath("/admin/engineer");
+        revalidatePath("/user/services");
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Endorse fencing permit error:", error);
+        return { success: false, error: error?.message || "Failed to endorse fencing permit" };
     }
 }
 
