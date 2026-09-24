@@ -1801,6 +1801,18 @@ export default function RequestHubPage() {
                                                                 {additionalData.fencingLocation?.fenceLength ?? additionalData.fenceLength ?? 0}m (L) × {additionalData.fencingLocation?.fenceHeight ?? additionalData.fenceHeight ?? 0}m (H)
                                                             </p>
                                                         </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Security Feature</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {(() => {
+                                                                    const sec = additionalData.fencingLocation?.fenceSecurityFeature || additionalData.fenceSecurityFeature;
+                                                                    if (sec === "BARBED_WIRE") return "Barbed Wire";
+                                                                    if (sec === "ELECTRIFIED") return "Electrified ⚡";
+                                                                    if (sec === "BOTH") return "Barbed + Electrified ⚡";
+                                                                    return "Standard";
+                                                                })()}
+                                                            </p>
+                                                        </div>
                                                         <div className="space-y-1 sm:col-span-2 md:col-span-3">
                                                             <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Fencing Site Location</p>
                                                             <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">

@@ -45,6 +45,7 @@ export async function submitFencingPermit(formData: FormData) {
     const street = sanitizeString(formData.get("street") as string || resident?.street || "");
     const estimatedCost = sanitizeString(formData.get("estimatedCost") as string || "0");
     const fenceType = sanitizeString(formData.get("fenceType") as string || "Concrete Hollow Block (CHB) & Steel Grille");
+    const fenceSecurityFeature = sanitizeString(formData.get("fenceSecurityFeature") as string || "NONE");
     const fenceLength = sanitizeString(formData.get("fenceLength") as string || "0");
     const fenceHeight = sanitizeString(formData.get("fenceHeight") as string || "0");
     
@@ -110,6 +111,7 @@ export async function submitFencingPermit(formData: FormData) {
       zoningClearance: "Locational / Zoning Clearance",
       dpwhClearance: "DPWH Clearance (National Highway)",
       neighborConsent: "Notarized Neighbor Consent / Affidavit",
+      electricalPlan: "Electrical Layout & Energizer Specification",
     };
 
     const additionalData: Record<string, any> = {
@@ -120,6 +122,7 @@ export async function submitFencingPermit(formData: FormData) {
       projectAddress: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
       estimatedCost: parsedCost,
       fenceType,
+      fenceSecurityFeature,
       fenceLength: parsedLength,
       fenceHeight: parsedHeight,
       // FormSchema and Admin compatibility mappings
@@ -132,6 +135,7 @@ export async function submitFencingPermit(formData: FormData) {
         street,
         estimatedCost: parsedCost,
         fenceType,
+        fenceSecurityFeature,
         fenceLength: parsedLength,
         fenceHeight: parsedHeight,
       },

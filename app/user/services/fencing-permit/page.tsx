@@ -17,7 +17,9 @@ import {
   Ruler,
   AlertCircle,
   Info,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  ShieldAlert
 } from "lucide-react";
 import {
   Breadcrumb,
@@ -105,6 +107,29 @@ const FENCE_TYPE_OPTIONS = [
     value: "Perimeter Wooden / Composite Interlink Fencing",
     label: "Perimeter Wooden / Composite Interlink Fencing",
     description: "Treated structural lumber, PVC, or composite timber slats"
+  }
+];
+
+const FENCE_SECURITY_OPTIONS = [
+  {
+    value: "NONE",
+    label: "Standard Perimeter (None / Plain Top)",
+    description: "No electrified wiring or barbed/razor wire attachments."
+  },
+  {
+    value: "BARBED_WIRE",
+    label: "Barbed Wire / Concertina Razor Wire",
+    description: "Perimeter security wire; must be installed at least 2.00m above ground level."
+  },
+  {
+    value: "ELECTRIFIED",
+    label: "Electrified Security Fence (Energized)",
+    description: "Pulsed non-lethal DC energizer with required Electrical Clearance & Warning Signs."
+  },
+  {
+    value: "BOTH",
+    label: "Both Barbed Wire & Electrified Security Fence",
+    description: "Dual security setup requiring structural clearance and certified electrical layout."
   }
 ];
 
@@ -204,6 +229,13 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
     agencyBadge: "Notary Public",
     description: "Notarized authorization letter or SPA if the applicant is filing on behalf of the registered lot owner.",
   },
+  {
+    key: "electricalPlan",
+    label: "Electrical Layout & Energizer Specification",
+    required: false,
+    agencyBadge: "Electrical Engineer / PEE",
+    description: "Required for electrified fences: Wiring diagram, non-lethal pulsed energizer specs, grounding system, and warning sign layout.",
+  },
 ];
 
 export default function FencingPermitPage() {
@@ -218,6 +250,7 @@ export default function FencingPermitPage() {
   const [siteStreet, setSiteStreet] = React.useState("");
   const [estimatedCost, setEstimatedCost] = React.useState("");
   const [fenceType, setFenceType] = React.useState(FENCE_TYPE_OPTIONS[0].value);
+  const [fenceSecurityFeature, setFenceSecurityFeature] = React.useState("NONE");
   const [fenceLength, setFenceLength] = React.useState("");
   const [fenceHeight, setFenceHeight] = React.useState("");
 
@@ -398,6 +431,7 @@ export default function FencingPermitPage() {
       formData.append("street", siteStreet);
       formData.append("estimatedCost", estimatedCost);
       formData.append("fenceType", fenceType);
+      formData.append("fenceSecurityFeature", fenceSecurityFeature);
       formData.append("fenceLength", fenceLength);
       formData.append("fenceHeight", fenceHeight);
 
@@ -989,6 +1023,71 @@ export default function FencingPermitPage() {
                   </Select>
                 </div>
 
+                {/* Fence Security Feature / Add-on */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      Perimeter Security Add-on (Electrified / Barbed Wire)
+                    </label>
+                    <span className="text-[9px] font-bold text-slate-400 italic">Optional Safety Feature</span>
+                  </div>
+                  <Select
+                    value={fenceSecurityFeature}
+                    onValueChange={(val) => setFenceSecurityFeature(val)}
+                  >
+                    <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <SelectValue placeholder="Select perimeter security feature" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1017] shadow-2xl p-1.5">
+                      {FENCE_SECURITY_OPTIONS.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          className="rounded-xl py-2 px-3 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10"
+                        >
+                          <div className="space-y-0.5 text-left">
+                            <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              {opt.value === "ELECTRIFIED" && <Zap className="w-3 h-3 text-amber-500" />}
+                              {(opt.value === "BARBED_WIRE" || opt.value === "BOTH") && <ShieldAlert className="w-3 h-3 text-rose-500" />}
+                              {opt.label}
+                            </p>
+                            <p className="text-[10px] font-normal text-slate-400 dark:text-slate-400 line-clamp-1">
+                              {opt.description}
+                            </p>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Dynamic Safety Notice for Barbed Wire */}
+                  {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5 mt-2 animate-in fade-in duration-200">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-black text-[10px] uppercase tracking-wider">Barbed / Razor Wire Safety Standard</p>
+                        <p className="text-[11px] leading-relaxed opacity-90">
+                          Pursuant to public safety regulations, barbed or concertina wire must be installed at a minimum height of <strong>2.00 meters</strong> above finished street grade to safeguard pedestrians and neighbors.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dynamic Safety Notice for Electrified Fence */}
+                  {(fenceSecurityFeature === "ELECTRIFIED" || fenceSecurityFeature === "BOTH") && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 mt-2 animate-in fade-in duration-200">
+                      <Zap className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-black text-[10px] uppercase tracking-wider">Philippine Electrical Code Notice</p>
+                        <p className="text-[11px] leading-relaxed opacity-90">
+                          Electrified fences must strictly utilize regulated, pulsed non-lethal DC energizers. Continuous high-voltage direct AC wiring is strictly forbidden. <strong>Electrical Layout & Energizer Specification Plan</strong> signed by a Professional Electrical Engineer (PEE) will be required in the upload step.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Total Length */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1019,6 +1118,11 @@ export default function FencingPermitPage() {
                   <p className="text-[10px] text-amber-500">
                     Notice: Solid walls exceeding 1.50m along road frontages require semi-open grilles.
                   </p>
+                  {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && parseFloat(fenceHeight) > 0 && parseFloat(fenceHeight) < 2.0 && (
+                    <p className="text-[10px] font-bold text-rose-500 animate-in fade-in duration-200">
+                      ⚠️ Note: Fence height is below 2.0m. Make sure the barbed wire arm/extension reaches at least 2.00m clearance above ground level.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1308,6 +1412,24 @@ export default function FencingPermitPage() {
                   <p className="font-bold text-slate-900 dark:text-white">
                     {fenceLength || "0"}m length × {fenceHeight || "0"}m height
                   </p>
+                </div>
+
+                <div className="space-y-1 sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Security Feature / Add-on
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1",
+                    fenceSecurityFeature === "NONE" 
+                      ? "bg-slate-100 dark:bg-white/5 text-slate-500" 
+                      : fenceSecurityFeature === "ELECTRIFIED"
+                        ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                        : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  )}>
+                    {fenceSecurityFeature === "ELECTRIFIED" && <Zap className="w-3 h-3 text-rose-500" />}
+                    {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && <ShieldAlert className="w-3 h-3 text-amber-500" />}
+                    {FENCE_SECURITY_OPTIONS.find(o => o.value === fenceSecurityFeature)?.label || "Standard Perimeter"}
+                  </span>
                 </div>
               </div>
             </div>
