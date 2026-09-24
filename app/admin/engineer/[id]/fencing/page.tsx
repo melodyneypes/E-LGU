@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, use, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { isValidUrl } from "@/utils/image";
 import {
     ArrowLeft,
     ZoomIn,
@@ -162,15 +163,10 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
     const handleOpenDoc = (index: number) => {
         const doc = vaultDocs[index];
         if (!doc?.url) return;
-        if (checkIsPdf(doc.url)) {
-            setPdfViewerUrl(doc.url);
-            setPdfViewerTitle(doc.label);
-            setPdfViewerOpen(true);
-        } else {
-            setActiveDocIndex(index);
-            setLightboxScale(1);
-            setLightboxRotate(0);
-        }
+        setActiveDocIndex(index);
+        setPdfViewerUrl(doc.url);
+        setPdfViewerTitle(doc.label);
+        setPdfViewerOpen(true);
     };
 
     // Endorse Fencing Application to MPDC Zoning
@@ -377,8 +373,51 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
             )}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* Left 2 Cols: Fencing Details Matrix + Document Evaluation Vault */}
+                {/* Left 2 Cols: Applicant Information + Fencing Details Matrix + Document Evaluation Vault */}
                 <div className="xl:col-span-2 space-y-6">
+                    {/* Applicant Information Profile Card */}
+                    <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                <User className="w-4 h-4 text-primary" />
+                                Applicant Information
+                            </h3>
+                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                                Filed: {new Date(transaction.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Full Name</span>
+                                <p className="text-sm font-black text-slate-900 dark:text-white uppercase">
+                                    {resident.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user?.name || "Applicant"}
+                                </p>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Contact Number</span>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    {resident.contactNumber || transaction.user?.phone || "N/A"}
+                                </p>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Email Address</span>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                    {transaction.user?.email || "N/A"}
+                                </p>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Registered Barangay</span>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    {resident.barangay ? `Brgy. ${resident.barangay}` : "Mapandan Resident"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Fencing Site & Specification Card */}
                     <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
@@ -386,7 +425,6 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                                 <Ruler className="w-4 h-4 text-primary" />
                                 Project Specifications & Site Parameters
                             </h3>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">National Building Code Compliant</span>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -443,10 +481,10 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             <div>
                                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-primary" />
-                                    Fencing Permit Document Vault
+                                    Submitted Requirements & Plans
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Click any document card to inspect in full-resolution Lightbox or PDF viewer.
+                                    Click any document card to inspect in full-screen document viewer with zoom & pan tools.
                                 </p>
                             </div>
                             <span className="text-xs font-bold text-slate-500">
@@ -454,7 +492,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="grid grid-cols-2 gap-4">
                             {vaultDocs.map((doc, idx) => {
                                 const hasFile = !!doc.url;
                                 const isPdf = checkIsPdf(doc.url);
@@ -464,44 +502,46 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                                         key={doc.key}
                                         onClick={() => hasFile && handleOpenDoc(idx)}
                                         className={cn(
-                                            "p-4 rounded-xl border transition-all text-left group flex flex-col justify-between relative",
+                                            "group relative aspect-video rounded-2xl overflow-hidden border flex items-center justify-center transition-all",
                                             hasFile
-                                                ? "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60 hover:border-primary cursor-pointer hover:shadow-md"
-                                                : "bg-slate-50/30 dark:bg-slate-900/30 border-dashed border-slate-200 dark:border-slate-800 opacity-60"
+                                                ? "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 cursor-zoom-in hover:shadow-lg hover:border-primary/50"
+                                                : "bg-slate-50/40 dark:bg-slate-900/40 border-dashed border-slate-200 dark:border-slate-800 opacity-60"
                                         )}
                                     >
-                                        <div>
-                                            <div className="flex items-center justify-between gap-2 mb-2">
-                                                <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 rounded border-slate-200 dark:border-slate-700">
-                                                    {doc.agency}
-                                                </Badge>
-                                                {doc.isMandatory ? (
-                                                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-500">Required</span>
-                                                ) : (
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Conditional</span>
-                                                )}
-                                            </div>
-
-                                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-2">
-                                                {doc.label}
-                                            </h4>
-                                        </div>
-
-                                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-                                            {hasFile ? (
-                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                                    <CheckCircle2 className="w-3 h-3" />
-                                                    {isPdf ? "PDF Document" : "Image File"}
-                                                </span>
+                                        {hasFile ? (
+                                            isPdf ? (
+                                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
+                                                    <FileText className="w-8 h-8 mb-1" />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF Document</span>
+                                                </div>
                                             ) : (
-                                                <span className="text-[10px] font-medium text-slate-400 italic">Not Uploaded</span>
-                                            )}
+                                                <img
+                                                    src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"}
+                                                    alt={doc.label}
+                                                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300"
+                                                />
+                                            )
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-4 text-center">
+                                                <FileText className="w-6 h-6 text-slate-300 dark:text-slate-600 mb-1.5" />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Not Uploaded</span>
+                                            </div>
+                                        )}
 
-                                            {hasFile && (
-                                                <span className="text-[10px] font-black text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 uppercase">
-                                                    Inspect <Eye className="w-3 h-3 ml-0.5" />
-                                                </span>
-                                            )}
+                                        {/* Hover Overlay */}
+                                        {hasFile && (
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                    <ZoomIn className="w-5 h-5 text-white" />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Document Label Badge at Bottom */}
+                                        <div className="absolute bottom-2 left-2 right-2 z-10">
+                                            <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
+                                                {doc.label}
+                                            </span>
                                         </div>
                                     </div>
                                 );
@@ -510,106 +550,128 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                     </div>
                 </div>
 
-                {/* Right Col: Applicant Context + Engineer Actions Drawer */}
+                {/* Right Col: Filing Summary + Engineer Actions Drawer */}
                 <div className="space-y-6">
-                    {/* Applicant Profile Card */}
-                    <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-                            <User className="w-4 h-4 text-primary" />
-                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                Applicant Information
-                            </h3>
-                        </div>
+                    {/* Exact Workflow Tracking Card matching Design System */}
+                    <div className="bg-[#151b28] rounded-[2rem] p-8 border border-white/5 space-y-6 shadow-xl">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">
+                            WORKFLOW TRACKING
+                        </h3>
 
-                        <div className="space-y-3">
-                            <div>
-                                <span className="text-[10px] font-black uppercase text-slate-400">Full Name</span>
-                                <p className="text-sm font-black text-slate-900 dark:text-white uppercase">
-                                    {resident.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user?.name || "Applicant"}
-                                </p>
-                            </div>
+                        <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/10">
+                            {[
+                                {
+                                    id: "ENGINEERING",
+                                    label: "ENGINEERING EVALUATION",
+                                    isDone: ["EVALUATED", "FOR_INSPECTION", "UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(currentStatus) || isEndorsedToZoning,
+                                    isActive: ["FOR_REQUESTING", "FOR_REVISION"].includes(currentStatus) && !isEndorsedToZoning,
+                                    isRejected: currentStatus === "REJECTED"
+                                },
+                                {
+                                    id: "ZONING",
+                                    label: "ZONING & BFP REVIEWS",
+                                    isDone: (additional.zoningStatus === "ENDORSED" || additional.feeAssessment?.zoningApproved === true),
+                                    isActive: (currentStatus === "EVALUATED" || isEndorsedToZoning) && additional.zoningStatus !== "ENDORSED" && currentStatus !== "REJECTED",
+                                    isRejected: additional.zoningStatus === "REJECTED"
+                                },
+                                {
+                                    id: "PAYMENT",
+                                    label: "TREASURY PAYMENT",
+                                    isDone: ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(currentStatus),
+                                    isActive: ["UNPAID", "PAYMENT_SUBMITTED"].includes(currentStatus),
+                                    isRejected: false
+                                },
+                                {
+                                    id: "ISSUANCE",
+                                    label: "PERMIT ISSUANCE",
+                                    isDone: currentStatus === "RELEASED",
+                                    isActive: ["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(currentStatus),
+                                    isRejected: false
+                                }
+                            ].map((step, idx) => {
+                                return (
+                                    <div key={step.id} className="relative flex items-center gap-4">
+                                        <div
+                                            className={cn(
+                                                "absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                                                step.isRejected && "bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20 scale-110",
+                                                step.isDone && !step.isRejected && "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20",
+                                                step.isActive && !step.isRejected && "bg-[#f43f5e] border-[#f43f5e] text-white shadow-lg shadow-rose-500/30 scale-110",
+                                                !step.isDone && !step.isActive && !step.isRejected && "bg-slate-900 border-white/10 text-slate-500"
+                                            )}
+                                        >
+                                            {step.isRejected ? (
+                                                <XCircle className="w-3.5 h-3.5" />
+                                            ) : step.isDone ? (
+                                                <BadgeCheck className="w-3.5 h-3.5" />
+                                            ) : (
+                                                <span className="text-[10px] font-black">{idx + 1}</span>
+                                            )}
+                                        </div>
 
-                            <div>
-                                <span className="text-[10px] font-black uppercase text-slate-400">Contact Number</span>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    {resident.contactNumber || transaction.user?.phone || "N/A"}
-                                </p>
-                            </div>
-
-                            <div>
-                                <span className="text-[10px] font-black uppercase text-slate-400">Registered Residence</span>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    {resident.barangay ? `Brgy. ${resident.barangay}, Mapandan, Pangasinan` : "Mapandan Resident"}
-                                </p>
-                            </div>
-
-                            <div>
-                                <span className="text-[10px] font-black uppercase text-slate-400">Submission Date</span>
-                                <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                                    {new Date(transaction.createdAt).toLocaleDateString("en-PH", {
-                                        month: "long",
-                                        day: "numeric",
-                                        year: "numeric"
-                                    })}
-                                </p>
-                            </div>
+                                        <div>
+                                            <p
+                                                className={cn(
+                                                    "text-xs font-black uppercase tracking-widest italic transition-colors",
+                                                    step.isRejected && "text-red-400 font-bold",
+                                                    step.isDone && !step.isRejected && "text-[#006A2E] dark:text-emerald-400",
+                                                    step.isActive && !step.isRejected && "text-white font-bold",
+                                                    !step.isDone && !step.isActive && !step.isRejected && "text-slate-500"
+                                                )}
+                                            >
+                                                {step.label} {step.isRejected ? "(REJECTED)" : ""}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Engineer Action Matrix Card */}
-                    <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-                            <Building2 className="w-4 h-4 text-primary" />
-                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                Engineering Action Matrix
-                            </h3>
-                        </div>
+                    {/* Exact Executive Action Buttons */}
+                    <div className="space-y-3">
+                        {/* Endorse to MPDC Zoning Action */}
+                        <Button
+                            className={cn(
+                                "w-full h-14 rounded-2xl font-black italic uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-2 active:scale-95",
+                                isEndorsedToZoning
+                                    ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 cursor-not-allowed shadow-none"
+                                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
+                            )}
+                            onClick={() => setEndorseModalOpen(true)}
+                            disabled={actionLoading || isEndorsedToZoning || currentStatus === "REJECTED"}
+                        >
+                            {isEndorsedToZoning ? "ENDORSED TO ZONING" : "PROCEED TO ZONING"}
+                        </Button>
 
-                        <div className="space-y-2.5">
-                            {/* Primary Action: Approve & Endorse to MPDC Zoning */}
-                            <Button
-                                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm"
-                                onClick={() => setEndorseModalOpen(true)}
-                                disabled={actionLoading || isEndorsedToZoning}
-                            >
-                                <BadgeCheck className="w-4 h-4 mr-2" />
-                                {isEndorsedToZoning ? "Endorsed to MPDC Zoning" : "Approve & Endorse to Zoning"}
-                            </Button>
+                        {/* Primary Button: SCHEDULE INSPECTION */}
+                        <Button
+                            className="w-full h-16 rounded-2xl bg-[#006A2E] hover:bg-[#005224] text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
+                            onClick={() => setScheduleModalOpen(true)}
+                            disabled={actionLoading}
+                        >
+                            SCHEDULE INSPECTION
+                        </Button>
 
-                            {/* Secondary Action: Schedule Structural Site Inspection */}
+                        {/* Split Action Buttons: REQUEST REVISION & DECLINE */}
+                        <div className="flex gap-2.5 w-full">
                             <Button
-                                variant="outline"
-                                className="w-full h-11 border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 font-bold text-xs uppercase tracking-wider rounded-xl"
-                                onClick={() => setScheduleModalOpen(true)}
-                                disabled={actionLoading}
-                            >
-                                <Calendar className="w-4 h-4 mr-2" />
-                                Schedule Site Inspection
-                            </Button>
-
-                            {/* Action: Request Document Revision */}
-                            <Button
-                                variant="outline"
-                                className="w-full h-11 border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 font-bold text-xs uppercase tracking-wider rounded-xl"
+                                className="flex-1 h-14 rounded-2xl bg-[#ff9800] hover:bg-[#f57c00] text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
                                 onClick={() => {
                                     setRevisionModalOpen(true);
                                     setIsConfirmingThirdRevision(false);
                                 }}
                                 disabled={actionLoading || isFinalAttempt}
                             >
-                                <RotateCw className="w-4 h-4 mr-2" />
-                                Request Document Revision
+                                REQUEST REVISION
                             </Button>
 
-                            {/* Danger Action: Formal Rejection */}
                             <Button
-                                variant="ghost"
-                                className="w-full h-11 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold text-xs uppercase tracking-wider rounded-xl"
+                                className="flex-1 h-14 rounded-2xl bg-[#e50914] hover:bg-[#b20710] text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-red-600/20 transition-all active:scale-95"
                                 onClick={() => setRejectModalOpen(true)}
                                 disabled={actionLoading}
                             >
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Reject Application
+                                DECLINE
                             </Button>
                         </div>
                     </div>
@@ -864,100 +926,21 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                 </DialogContent>
             </Dialog>
 
-            {/* Lightbox Modal */}
-            {activeDoc && (
-                <Dialog open={activeDocIndex !== null} onOpenChange={(open) => !open && setActiveDocIndex(null)}>
-                    <DialogContent className="max-w-4xl bg-black/95 border-none p-4 rounded-3xl text-white">
-                        <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-white/10">
-                            <div>
-                                <DialogTitle className="text-sm font-black uppercase tracking-wider text-white">
-                                    {activeDoc.label}
-                                </DialogTitle>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Agency: {activeDoc.agency}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8 text-white hover:bg-white/10 rounded-lg"
-                                    onClick={() => setLightboxScale(s => Math.min(s + 0.25, 3))}
-                                >
-                                    <ZoomIn className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8 text-white hover:bg-white/10 rounded-lg"
-                                    onClick={() => setLightboxScale(s => Math.max(s - 0.25, 0.5))}
-                                >
-                                    <ZoomOut className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8 text-white hover:bg-white/10 rounded-lg"
-                                    onClick={() => setLightboxRotate(r => (r + 90) % 360)}
-                                >
-                                    <RotateCw className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8 text-white hover:bg-white/10 rounded-lg"
-                                    onClick={() => { setLightboxScale(1); setLightboxRotate(0); }}
-                                >
-                                    <RefreshCcw className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </DialogHeader>
-
-                        <div className="relative h-[65vh] w-full flex items-center justify-center overflow-hidden my-2">
-                            <img
-                                src={activeDoc.url || ""}
-                                alt={activeDoc.label}
-                                style={{
-                                    transform: `scale(${lightboxScale}) rotate(${lightboxRotate}deg)`,
-                                    transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-                                }}
-                                className="max-h-full max-w-full object-contain rounded-xl select-none"
-                            />
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={activeDocIndex === null || activeDocIndex === 0}
-                                onClick={() => setActiveDocIndex(prev => (prev !== null && prev > 0 ? prev - 1 : 0))}
-                                className="text-white hover:bg-white/10 gap-1 rounded-xl"
-                            >
-                                <ChevronLeft className="w-4 h-4" /> Previous
-                            </Button>
-                            <span className="text-slate-400 font-mono text-[11px]">
-                                {(activeDocIndex ?? 0) + 1} of {vaultDocs.length}
-                            </span>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={activeDocIndex === null || activeDocIndex === vaultDocs.length - 1}
-                                onClick={() => setActiveDocIndex(prev => (prev !== null && prev < vaultDocs.length - 1 ? prev + 1 : prev))}
-                                className="text-white hover:bg-white/10 gap-1 rounded-xl"
-                            >
-                                Next <ChevronRight className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            )}
-
-            {/* PDF Viewer Modal */}
+            {/* Dedicated Document Viewer Modal with Zoom, Pan, Rotation, & Navigation */}
             <DocumentViewerModal
                 isOpen={pdfViewerOpen}
-                onClose={() => setPdfViewerOpen(false)}
+                onClose={() => {
+                    setPdfViewerOpen(false);
+                    setActiveDocIndex(null);
+                }}
                 fileUrl={pdfViewerUrl}
                 title={pdfViewerTitle}
+                documents={vaultDocs.filter(d => !!d.url).map(d => ({ url: d.url, label: d.label }))}
+                initialIndex={
+                    activeDocIndex !== null
+                        ? vaultDocs.filter(d => !!d.url).findIndex(d => d.key === vaultDocs[activeDocIndex]?.key)
+                        : 0
+                }
             />
         </div>
     );

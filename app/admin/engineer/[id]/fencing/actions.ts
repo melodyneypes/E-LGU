@@ -37,7 +37,7 @@ export async function endorseFencingPermitByEngineer(id: string, notes?: string)
             engineerEndorsementNotes: notes ? sanitizeString(notes) : null,
             engineerEndorsedAt: new Date().toISOString(),
             engineerEndorsedBy: user.name || user.id,
-            zoningStatus: "EVALUATED",
+            zoningStatus: "FOR_INSPECTION",
             feeAssessment: {
                 ...feeAssessment,
                 engineerEndorsedToZoning: true,
@@ -49,7 +49,7 @@ export async function endorseFencingPermitByEngineer(id: string, notes?: string)
         const updated = await prisma.transaction.update({
             where: { id },
             data: {
-                status: "EVALUATED",
+                status: "FOR_INSPECTION",
                 additionalData: updatedAdditionalData as any,
                 updatedAt: new Date()
             }
@@ -61,7 +61,7 @@ export async function endorseFencingPermitByEngineer(id: string, notes?: string)
                 type: "GENERAL" as any,
                 to: tx.user.email,
                 name: resident?.firstName || tx.user.name || "Resident",
-                remarks: `Your Fencing Permit application has been evaluated and approved by the Municipal Engineering Office and forwarded to the MPDC Zoning Office for locational clearance.`,
+                remarks: `Your Fencing Permit application has been approved by the Municipal Engineering Office and forwarded to MPDC Zoning for site inspection and locational clearance verification.`,
                 transactionId: tx.id.slice(-8).toUpperCase(),
                 serviceName: tx.type?.name || "Fencing Permit"
             }).catch(e => console.error("Engineer fencing endorsement email error:", e));

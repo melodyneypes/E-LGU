@@ -1,7 +1,7 @@
 /**
  * Utility to validate if a string is a valid image source URL (absolute, relative, blob, or data URL).
  */
-export function isValidUrl(url: string | null | undefined): boolean {
+export function isValidUrl(url: string | null | undefined): url is string {
     if (!url) return false;
     try {
         const trimmed = url.trim();
