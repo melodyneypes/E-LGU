@@ -3,8 +3,6 @@
 
 import React, { useState, useEffect, use, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     ZoomIn,
@@ -18,19 +16,12 @@ import {
     ChevronRight,
     XCircle,
     Ruler,
-    ShieldAlert,
     Building2,
     MapPin,
     Calendar,
     User,
-    DollarSign,
-    Check,
     Eye,
-    ExternalLink,
-    Send,
-    Clock,
-    Zap,
-    Download
+    Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,8 +29,7 @@ import {
     scheduleZoningInspection,
     sendForZoningRevision,
     rejectZoningTransaction,
-    endorseFencingPermitByZoning,
-    getSystemSettingAction
+    endorseFencingPermitByZoning
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,13 +77,10 @@ function checkIsPdf(url: string | null) {
 export default function FencingZoningEvaluationPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
-    const { data: session } = useSession();
-    const userRole = (session?.user as any)?.role;
 
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     // Lightbox & PDF Viewer State
     const [activeDocIndex, setActiveDocIndex] = useState<number | null>(null);
@@ -139,9 +126,6 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
 
     useEffect(() => {
         fetchTransaction();
-        getSystemSettingAction("theme_color").then(res => {
-            if (res.data) setThemeColor(res.data);
-        });
     }, [fetchTransaction]);
 
     const additional = useMemo(() => (transaction?.additionalData as any) || {}, [transaction]);
@@ -316,7 +300,6 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
     const currentStatus = transaction.status;
     const zoningStatus = additional.zoningStatus || currentStatus;
     const isElectrified = additional.fenceSecurityFeature === "ELECTRIFIED" || additional.fenceSecurityFeature === "BOTH";
-    const hasBarbedWire = additional.fenceSecurityFeature === "BARBED_WIRE" || additional.fenceSecurityFeature === "BOTH";
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-500">

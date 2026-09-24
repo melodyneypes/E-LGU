@@ -28,7 +28,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   Breadcrumb,
   BreadcrumbItem,
