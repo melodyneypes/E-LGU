@@ -11,11 +11,16 @@ async function getSession() {
     return await getServerSession(authOptions);
 }
 
+export interface ZoningFeeItem {
+    name: string;
+    amount: number;
+}
+
 /**
- * Endorse Fencing Permit by MPDC Zoning
+ * Endorse Fencing Permit by MPDC Zoning with assessed fees
  * Approves Locational Clearance for Fencing and advances status
  */
-export async function endorseFencingPermitByZoning(id: string, notes?: string) {
+export async function endorseFencingPermitByZoning(id: string, notes?: string, fees?: ZoningFeeItem[]) {
     try {
         const session = await getSession();
         const user = session?.user as any;
@@ -32,6 +37,9 @@ export async function endorseFencingPermitByZoning(id: string, notes?: string) {
         const currentAdditionalData = (tx.additionalData as any) || {};
         const feeAssessment = currentAdditionalData.feeAssessment || {};
 
+        const validFees = (fees || []).filter(f => f.name.trim() !== "" && Number(f.amount) > 0);
+        const totalZoningFee = validFees.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+
         const updatedAdditionalData = {
             ...currentAdditionalData,
             zoningStatus: "ENDORSED",
@@ -40,6 +48,8 @@ export async function endorseFencingPermitByZoning(id: string, notes?: string) {
             zoningEndorsedBy: user.name || user.id,
             feeAssessment: {
                 ...feeAssessment,
+                zoningFees: validFees,
+                totalZoningFee,
                 zoningApproved: true,
                 zoningApprovedAt: new Date().toISOString(),
                 zoningApprovedBy: user.name || user.id
@@ -49,7 +59,8 @@ export async function endorseFencingPermitByZoning(id: string, notes?: string) {
         const updated = await prisma.transaction.update({
             where: { id },
             data: {
-                status: "FOR_INSPECTION",
+                status: totalZoningFee > 0 ? "UNPAID" : "FOR_INSPECTION",
+                totalAmount: totalZoningFee > 0 ? totalZoningFee : tx.totalAmount,
                 additionalData: updatedAdditionalData as any,
                 updatedAt: new Date()
             }
