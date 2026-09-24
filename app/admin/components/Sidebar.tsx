@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, Store, Scale,
-    FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate
+    FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate, Landmark
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -869,6 +869,7 @@ export function Sidebar({
         { href: "/admin/treasury/collections", label: "Daily Ticket Collections", icon: Store, category: "Treasury Department" },
         { href: "/admin/treasury/collectors", label: "Collector Registry", icon: Users, category: "Treasury Department" },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
+        { href: "/admin/treasury/rpt-collections", label: "RPT Reports & Collections", icon: Landmark, category: "Treasury Department" },
         { href: "/admin/treasury/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
         { href: "/admin/treasury/cedula-template", label: "Cedula Template Studio", icon: LayoutTemplate, category: "Treasury Department" },
@@ -1027,7 +1028,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "RPT Reports & Collections", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
@@ -1063,7 +1064,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "RPT Reports & Collections", "Treasury Queue"].includes(item.label) ||
                 (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );

@@ -71,6 +71,7 @@ const SEGMENT_LABELS: Record<string, string> = {
     services: "Barangay Services",
     content: "Content",
     payments: "Payments Ledger",
+    "rpt-collections": "RPT Reports & Collections",
     registrar: "Civil Registry",
     "purchase-orders": "Dispense",
 };

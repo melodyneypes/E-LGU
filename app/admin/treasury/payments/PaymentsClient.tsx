@@ -15,6 +15,7 @@ import { Search, Copy, Check, DollarSign, CalendarIcon, FileSpreadsheet, Chevron
 import { toast } from "sonner";
 import { exportForm10APdf, exportForm10AExcel } from "./rpt-form10a-export";
 import { exportForm129APdf, exportForm129AExcel } from "./general-form129a-export";
+import { copyToClipboard } from "@/lib/utils";
 
 interface PaymentRecord {
     id: string;
@@ -291,11 +292,15 @@ export default function PaymentsClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedId(id);
-        toast.success("Reference number copied!");
-        setTimeout(() => setCopiedId(null), 2000);
+    const handleCopy = async (text: string, id: string) => {
+        const success = await copyToClipboard(text);
+        if (success) {
+            setCopiedId(id);
+            toast.success("Reference number copied!");
+            setTimeout(() => setCopiedId(null), 2000);
+        } else {
+            toast.error("Failed to copy reference number.");
+        }
     };
 
     // Helper to identify Real Property Tax (RPT) transactions
@@ -322,8 +327,9 @@ export default function PaymentsClient({
         if (mode === "excel") setIsExportingExcel(true);
         else setIsExportingPdf(true);
 
+        const activeCatLabel = categoryFilter && categoryFilter !== "ALL" ? categoryFilter : "RPT";
         const toastId = `form10a-${mode}-export`;
-        toast.loading(`Generating official Prov. Form No. 10(A) ${mode.toUpperCase()} Abstract...`, { id: toastId });
+        toast.loading(`Generating official Prov. Form No. 10(A) ${activeCatLabel} ${mode.toUpperCase()} Abstract...`, { id: toastId });
 
         try {
             // Fetch records exclusively from THIS active ledger
@@ -335,11 +341,11 @@ export default function PaymentsClient({
             }
 
             if (mode === "excel") {
-                await exportForm10AExcel(exportPayments, { fromDate, toDate });
-                toast.success(`Form 10(A) Excel Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
+                await exportForm10AExcel(exportPayments, { fromDate, toDate, category: categoryFilter });
+                toast.success(`Form 10(A) ${activeCatLabel} Excel Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
             } else {
-                await exportForm10APdf(exportPayments, { fromDate, toDate });
-                toast.success(`Form 10(A) PDF Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
+                await exportForm10APdf(exportPayments, { fromDate, toDate, category: categoryFilter });
+                toast.success(`Form 10(A) ${activeCatLabel} PDF Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
             }
         } catch (err) {
             console.error(err);
@@ -416,7 +422,7 @@ export default function PaymentsClient({
 
                 {/* Official Abstracts Export Hub */}
                 <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 dark:bg-[#151a24]/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-[#283244] shadow-sm">
-                    {/* Form 10(A) - Real Property Tax */}
+                    {/* Form 10(A) - Real Property Tax or Selected Category */}
                     <div className="flex items-center gap-2.5 px-2.5 py-1">
                         <div className="flex flex-col text-left">
                             <div className="flex items-center gap-1.5">
@@ -425,8 +431,11 @@ export default function PaymentsClient({
                                     Form 10(A)
                                 </span>
                             </div>
-                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5">
-                                RPT
+                            <span 
+                                className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5 max-w-[120px] truncate"
+                                title={categoryFilter !== "ALL" ? categoryFilter : "RPT"}
+                            >
+                                {categoryFilter !== "ALL" ? categoryFilter : "RPT"}
                             </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -434,7 +443,7 @@ export default function PaymentsClient({
                                 onClick={() => handleExportForm10A("excel")}
                                 disabled={isExportingExcel || isPending}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title="Export official Prov. Form No. 10(A) Abstract in Excel (.xlsx)"
+                                title={`Export official Prov. Form No. 10(A) ${categoryFilter !== "ALL" ? categoryFilter : "RPT"} Abstract in Excel (.xlsx)`}
                             >
                                 {isExportingExcel ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -447,7 +456,7 @@ export default function PaymentsClient({
                                 onClick={() => handleExportForm10A("pdf")}
                                 disabled={isExportingPdf || isPending}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title="Export official Prov. Form No. 10(A) Abstract in PDF"
+                                title={`Export official Prov. Form No. 10(A) ${categoryFilter !== "ALL" ? categoryFilter : "RPT"} Abstract in PDF`}
                             >
                                 {isExportingPdf ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
