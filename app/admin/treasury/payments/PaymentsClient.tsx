@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import Link from "next/link";
 import {
     Table,
@@ -14,9 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Search, Copy, Check, DollarSign, CalendarIcon, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, RotateCcw, Folder } from "lucide-react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import ExcelJS from "exceljs";
+import { exportForm10APdf, exportForm10AExcel } from "./rpt-form10a-export";
+import { exportForm129APdf, exportForm129AExcel } from "./general-form129a-export";
 
 interface PaymentRecord {
     id: string;
@@ -33,9 +31,11 @@ interface PaymentRecord {
         businessName: string | null;
         residentSnapshot?: any;
         additionalData?: any;
+        fiscalSnapshot?: any;
         type: {
             name: string;
             category?: string;
+            code?: string;
         };
         user: {
             name: string | null;
@@ -75,14 +75,25 @@ function getRequesterName(payment: PaymentRecord) {
             snap = {};
         }
     }
-    const fullName = snap.fullName || snap.violatorName || snap.applicantName || snap.name || (tx.additionalData as any)?.violatorName;
-    if (fullName && fullName.trim()) {
-        return fullName.trim();
-    }
-    if (snap.firstName || snap.lastName) {
-        return `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
-    }
-    return tx.user?.name || "Registered Resident";
+    const additional = typeof tx.additionalData === "string"
+        ? (() => { try { return JSON.parse(tx.additionalData); } catch { return {}; } })()
+        : (tx.additionalData || {});
+
+    const fullName = (
+        snap.fullName ||
+        snap.violatorName ||
+        snap.applicantName ||
+        snap.name ||
+        additional.ownerName ||
+        additional.applicantName ||
+        additional.taxPayer ||
+        additional.violatorName ||
+        (snap.firstName || snap.lastName ? `${snap.firstName || ""} ${snap.lastName || ""}`.trim() : "") ||
+        tx.businessName ||
+        tx.user?.name ||
+        "Registered Resident"
+    );
+    return typeof fullName === "string" && fullName.trim() ? fullName.trim() : "Registered Resident";
 }
 
 export default function PaymentsClient({
@@ -106,6 +117,8 @@ export default function PaymentsClient({
     const [isPending, startTransition] = useTransition();
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [isExportingGenExcel, setIsExportingGenExcel] = useState(false);
+    const [isExportingGenPdf, setIsExportingGenPdf] = useState(false);
 
     const [searchVal, setSearchVal] = useState(initialSearch);
     const [search, setSearch] = useState(initialSearch);
@@ -205,11 +218,12 @@ export default function PaymentsClient({
         toast.success("Filters reset and data refreshed!");
     };
 
-    const fetchExportData = async (): Promise<PaymentRecord[]> => {
+    const fetchExportData = async (overrideCategory?: string): Promise<PaymentRecord[]> => {
+        const cat = overrideCategory !== undefined ? overrideCategory : categoryFilter;
         const queryParams = new URLSearchParams({
             search,
             method: methodFilter,
-            category: categoryFilter,
+            category: cat,
             from: fromDate,
             to: toDate,
             exportAll: "true"
@@ -284,454 +298,91 @@ export default function PaymentsClient({
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    // EXPORT PDF FUNCTION
-    const handleExport = async () => {
-        setIsExportingPdf(true);
+    // Helper to identify Real Property Tax (RPT) transactions
+    const isPaymentRpt = (p: PaymentRecord) => {
+        const cat = (p.transaction?.type?.category || "").toUpperCase();
+        const code = (p.transaction?.type?.code || "").toUpperCase();
+        const name = (p.transaction?.type?.name || "").toUpperCase();
+        const add = typeof p.transaction?.additionalData === "string"
+            ? (() => { try { return JSON.parse(p.transaction.additionalData); } catch { return {}; } })()
+            : (p.transaction?.additionalData || {});
+        return (
+            cat === "RPT" ||
+            cat === "REAL PROPERTY TAX" ||
+            cat === "REALPROPERTYTAX" ||
+            code.startsWith("RPT_") ||
+            name.includes("REAL PROPERTY TAX") ||
+            name.includes("AMILYAR") ||
+            Boolean(add?.tdn || add?.pin || add?.taxDeclarationNo || add?.propertyClassification)
+        );
+    };
+
+    // DIRECT EXPORT FOR OFFICIAL PROV. FORM NO. 10(A) ABSTRACT
+    const handleExportForm10A = async (mode: "excel" | "pdf") => {
+        if (mode === "excel") setIsExportingExcel(true);
+        else setIsExportingPdf(true);
+
+        const toastId = `form10a-${mode}-export`;
+        toast.loading(`Generating official Prov. Form No. 10(A) ${mode.toUpperCase()} Abstract...`, { id: toastId });
+
         try {
+            // Fetch records exclusively from THIS active ledger
             const exportPayments = await fetchExportData();
+
             if (exportPayments.length === 0) {
-                toast.error("Walang data para i-export.");
-                setIsExportingPdf(false);
+                toast.error("Walang data sa kasalukuyang ledger para i-export.", { id: toastId });
                 return;
             }
 
-            toast.loading("Generating PDF report...", { id: "pdf-export" });
-
-            // --- 1. Fetch branding ---
-            let logoUrl = "";
-            let brand1 = "MAPANDAN";
-            let brand2 = "PORTAL";
-            let activeThemeColor = themeColor;
-            try {
-                const res = await fetch("/api/settings");
-                if (res.ok) {
-                    const data = await res.json();
-                    logoUrl = data.logoUrl || "";
-                    brand1 = data.brand1 || "MAPANDAN";
-                    brand2 = data.brand2 || "PORTAL";
-                    activeThemeColor = data.themeColor || themeColor;
-                }
-            } catch { /* use defaults */ }
-
-            // --- 2. Parse hex → RGB ---
-            const hexToRgb = (hex: string) => {
-                const c = hex.replace("#", "");
-                return {
-                    r: parseInt(c.substring(0, 2), 16),
-                    g: parseInt(c.substring(2, 4), 16),
-                    b: parseInt(c.substring(4, 6), 16),
-                };
-            };
-            const { r, g, b } = hexToRgb(activeThemeColor);
-
-            // --- 3. Labels ---
-            const rangeLabel = fromDate && toDate
-                ? `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`
-                : `All Records as of ${format(new Date(), "MMMM d, yyyy")}`;
-            const fileRangeLabel = fromDate && toDate
-                ? `${format(new Date(fromDate), "MMM-dd-yyyy")}_to_${format(new Date(toDate), "MMM-dd-yyyy")}`
-                : `All_Records_${format(new Date(), "MMM-dd-yyyy")}`;
-
-            // --- 4. Landscape A4 ---
-            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-            const PAGE_W = doc.internal.pageSize.getWidth();   // 297mm
-            const PAGE_H = doc.internal.pageSize.getHeight();  // 210mm
-            const MARGIN = 14;
-
-            // ====================================================
-            // SECTION A: COMPACT CENTERED GOVERNMENT HEADER
-            // ====================================================
-
-            let currentY = 10;
-
-            // Logo centered
-            if (logoUrl) {
-                try {
-                    const imgRes = await fetch(logoUrl);
-                    const imgBlob = await imgRes.blob();
-                    const imgDataUrl = await new Promise<string>((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result as string);
-                        reader.readAsDataURL(imgBlob);
-                    });
-                    const ext = (logoUrl.split(".").pop()?.toUpperCase() || "PNG") as any;
-                    doc.addImage(imgDataUrl, ext, PAGE_W / 2 - 8, currentY, 16, 16);
-                    currentY += 19;
-                } catch { currentY += 2; }
+            if (mode === "excel") {
+                await exportForm10AExcel(exportPayments, { fromDate, toDate });
+                toast.success(`Form 10(A) Excel Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
+            } else {
+                await exportForm10APdf(exportPayments, { fromDate, toDate });
+                toast.success(`Form 10(A) PDF Abstract exported with ${exportPayments.length} record(s)!`, { id: toastId });
             }
-
-            // Republic label
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(90, 90, 90);
-            doc.text("Republic of the Philippines", PAGE_W / 2, currentY, { align: "center" });
-            currentY += 4;
-
-            // Brand name: brand2 only, theme color, centered
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(r, g, b);
-            doc.text(brand2, PAGE_W / 2, currentY, { align: "center" });
-            currentY += 4.5;
-
-            // Office label
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(50, 50, 50);
-            doc.text("Office of the Municipal Treasurer", PAGE_W / 2, currentY, { align: "center" });
-            currentY += 4;
-
-            // Document title
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(20, 20, 20);
-            doc.text("STATEMENT OF COLLECTIONS — PAYMENTS LEDGER", PAGE_W / 2, currentY, { align: "center" });
-            currentY += 3.5;
-
-            // Generated date right-aligned
-            doc.setFontSize(6);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(130, 130, 130);
-            doc.text(`Date Generated: ${format(new Date(), "MMMM d, yyyy hh:mm a")}`, PAGE_W - MARGIN, currentY, { align: "right" });
-
-            // Double rule under header
-            currentY += 1.5;
-            doc.setDrawColor(20, 20, 20);
-            doc.setLineWidth(0.8);
-            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
-            currentY += 1;
-            doc.setLineWidth(0.25);
-            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
-            currentY += 3;
-
-            // ====================================================
-            // SECTION B: TABLE (Excel-style grid with serial no.)
-            // ====================================================
-
-            const tableRows = exportPayments.map((p, idx) => {
-                const name = getRequesterName(p);
-                const business = p.transaction?.businessName ? ` / ${p.transaction.businessName}` : "";
-                const date = new Date(p.createdAt).toLocaleDateString("en-PH", {
-                    month: "short", day: "numeric", year: "numeric",
-                });
-                const time = new Date(p.createdAt).toLocaleTimeString("en-PH", {
-                    hour: "numeric", minute: "2-digit", hour12: true,
-                });
-                return [
-                    String(idx + 1),                        // # serial number
-                    p.reference || "N/A",
-                    p.orNumber || "—",
-                    `${name}${business}`,
-                    p.transaction?.type?.name || "Service Payment",
-                    (p.method || "").replace(/_/g, " "),
-                    `PHP ${p.amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
-                    p.status,
-                    `${date} ${time}`,
-                ];
-            });
-
-            autoTable(doc, {
-                startY: currentY,
-                head: [["#", "Reference No.", "OR Number", "Name of Payee", "Nature of Collection", "Payment Mode", "Amount Collected", "Status", "Date of Payment"]],
-                body: tableRows,
-                theme: "grid",
-                styles: { fontSize: 6.5, cellPadding: 1.5, font: "helvetica", lineColor: [180, 180, 180], lineWidth: 0.15 },
-                headStyles: { fillColor: [r, g, b], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
-                columnStyles: {
-                    0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
-                    1: { cellWidth: 26, halign: "left" },
-                    2: { cellWidth: 20, halign: "center" },
-                    3: { cellWidth: 46, halign: "left" },
-                    4: { cellWidth: 42, halign: "left" },
-                    5: { cellWidth: 24, halign: "center" },
-                    6: { cellWidth: 32, halign: "right", fontStyle: "bold" },
-                    7: { cellWidth: 20, halign: "center" },
-                    8: { cellWidth: "auto" as any, halign: "center" },
-                },
-                margin: { left: MARGIN, right: MARGIN, top: MARGIN },
-            });
-
-            let summaryY = (doc as any).lastAutoTable.finalY;
-            summaryY += 5;
-
-            // Left side: Date Range
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 100, 100);
-            doc.text("Date Range:", MARGIN, summaryY);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(20, 20, 20);
-            doc.text(rangeLabel, MARGIN + 20, summaryY);
-
-            // Right side: Total Records + Total Amount (stacked)
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 100, 100);
-            doc.text("Total Records:", PAGE_W - MARGIN - 100, summaryY);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(20, 20, 20);
-            doc.text(String(exportPayments.length), PAGE_W - MARGIN - 55, summaryY, { align: "right" });
-
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 100, 100);
-            doc.text("Total Collections (Paid):", PAGE_W - MARGIN - 100, summaryY + 5);
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(r, g, b);
-            doc.text(
-                `PHP ${stats.totalPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
-                PAGE_W - MARGIN,
-                summaryY + 5,
-                { align: "right" }
-            );
-
-            // Underline below Total Amount
-            doc.setDrawColor(r, g, b);
-            doc.setLineWidth(0.4);
-            doc.line(PAGE_W - MARGIN - 55, summaryY + 7, PAGE_W - MARGIN, summaryY + 7);
-
-            // --- Certification + Signatures ---
-            const certY = summaryY + 16;
-            doc.setFontSize(6.5);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(70, 70, 70);
-            doc.text(
-                "I hereby certify that the above collections and transactions are true and correct based on municipal system logs.",
-                MARGIN,
-                certY
-            );
-
-            const sigY = certY + 10;
-            doc.setDrawColor(60, 60, 60);
-            doc.setLineWidth(0.3);
-            doc.line(MARGIN, sigY, MARGIN + 55, sigY);
-            doc.setFontSize(6);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(90, 90, 90);
-            doc.text("Prepared by / Document Processor", MARGIN, sigY + 3.5);
-
-            doc.line(PAGE_W - MARGIN - 55, sigY, PAGE_W - MARGIN, sigY);
-            doc.text("Noted by / Municipal Administrator", PAGE_W - MARGIN - 55, sigY + 3.5);
-
-            // --- Header/Footer on every page ---
-            const pageCount = (doc.internal as any).getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setDrawColor(20, 20, 20);
-                doc.setLineWidth(0.5);
-                doc.line(MARGIN, PAGE_H - 10, PAGE_W - MARGIN, PAGE_H - 10);
-                doc.setLineWidth(0.15);
-                doc.line(MARGIN, PAGE_H - 9.3, PAGE_W - MARGIN, PAGE_H - 9.3);
-
-                doc.setFontSize(6);
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(80, 80, 80);
-                doc.text(`${brand1} ${brand2} — Treasury Payments Ledger`, MARGIN, PAGE_H - 6);
-
-                doc.setFont("helvetica", "italic");
-                doc.setTextColor(130, 130, 130);
-                doc.text("This document is for official audit use only.", PAGE_W / 2, PAGE_H - 6, { align: "center" });
-
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(80, 80, 80);
-                doc.text(`Page ${i} of ${pageCount}`, PAGE_W - MARGIN, PAGE_H - 6, { align: "right" });
-            }
-
-            doc.save(`Treasury_Payments_${fileRangeLabel}.pdf`);
-            toast.success(`PDF exported with ${exportPayments.length} record(s)!`, { id: "pdf-export" });
         } catch (err) {
             console.error(err);
-            toast.error("Failed to generate PDF. Please try again.", { id: "pdf-export" });
+            toast.error(`Failed to generate Form 10(A) ${mode.toUpperCase()}. Please try again.`, { id: toastId });
         } finally {
-            setIsExportingPdf(false);
+            if (mode === "excel") setIsExportingExcel(false);
+            else setIsExportingPdf(false);
         }
     };
 
-    // EXPORT EXCEL FUNCTION
-    const handleExportExcel = async () => {
-        setIsExportingExcel(true);
+    // DIRECT EXPORT FOR OFFICIAL PROV. FORM NO. 129(A) ABSTRACT (GENERAL COLLECTIONS)
+    const handleExportForm129A = async (mode: "excel" | "pdf") => {
+        if (mode === "excel") setIsExportingGenExcel(true);
+        else setIsExportingGenPdf(true);
+
+        const toastId = `form129a-${mode}-export`;
+        toast.loading(`Generating official Prov. Form No. 129(A) General Collections ${mode.toUpperCase()} Abstract...`, { id: toastId });
+
         try {
-            const exportPayments = await fetchExportData();
-            if (exportPayments.length === 0) {
-                toast.error("Walang data para i-export.");
-                setIsExportingExcel(false);
+            // Fetch records from active ledger
+            const allExportPayments = await fetchExportData();
+
+            // Filter for General Collections only (exclude Real Property Tax)
+            const genPayments = allExportPayments.filter(p => !isPaymentRpt(p));
+
+            if (genPayments.length === 0) {
+                toast.error("Walang general collection data sa kasalukuyang ledger para i-export.", { id: toastId });
                 return;
             }
 
-            toast.loading("Generating Excel report...", { id: "excel-export" });
-
-            // Fetch theme color for header styling
-            let activeThemeColor = "2563EB";
-            try {
-                const res = await fetch("/api/settings");
-                if (res.ok) {
-                    const data = await res.json();
-                    activeThemeColor = (data.themeColor || "#2563EB").replace("#", "");
-                }
-            } catch { /* use default */ }
-
-            const fileRangeLabel = fromDate && toDate
-                ? `${format(new Date(fromDate), "MMM-dd-yyyy")}_to_${format(new Date(toDate), "MMM-dd-yyyy")}`
-                : `All_Records_${format(new Date(), "MMM-dd-yyyy")}`;
-            const rangeLabel = fromDate && toDate
-                ? `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`
-                : `All Records as of ${format(new Date(), "MMMM d, yyyy")}`;
-
-            const workbook = new ExcelJS.Workbook();
-            workbook.creator = "Treasury Portal";
-            workbook.created = new Date();
-
-            const sheet = workbook.addWorksheet("Payments Ledger", {
-                pageSetup: { orientation: "landscape", fitToPage: true },
-            });
-
-            // ── Column definitions ──────────────────────────────
-            sheet.columns = [
-                { header: "#",                       key: "no",       width: 6  },
-                { header: "Reference No.",            key: "ref",      width: 24 },
-                { header: "OR Number",                key: "or",       width: 16 },
-                { header: "Name of Payee",            key: "payee",    width: 38 },
-                { header: "Nature of Collection",     key: "nature",   width: 32 },
-                { header: "Payment Mode",             key: "mode",     width: 18 },
-                { header: "Amount Collected (PHP)",   key: "amount",   width: 24 },
-                { header: "Status",                   key: "status",   width: 14 },
-                { header: "Date of Payment",          key: "date",     width: 24 },
-            ];
-
-            // ── Style the header row (row 1) ─────────────────────
-            const headerRow = sheet.getRow(1);
-            headerRow.height = 22;
-            headerRow.eachCell((cell) => {
-                cell.fill = {
-                    type: "pattern",
-                    pattern: "solid",
-                    fgColor: { argb: `FF${activeThemeColor.toUpperCase()}` },
-                };
-                cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10, name: "Calibri" };
-                cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-                cell.border = {
-                    top:    { style: "thin", color: { argb: "FFFFFFFF" } },
-                    left:   { style: "thin", color: { argb: "FFFFFFFF" } },
-                    bottom: { style: "thin", color: { argb: "FFFFFFFF" } },
-                    right:  { style: "thin", color: { argb: "FFFFFFFF" } },
-                };
-            });
-
-            // ── Data rows ────────────────────────────────────────
-            const PAID = exportPayments.filter(p => p.status === "PAID");
-            const totalPaid = PAID.reduce((a, p) => a + p.amount, 0);
-
-            const borderThin: Partial<ExcelJS.Border> = { style: "medium", color: { argb: "FFB0B0B0" } };
-            const fullBorder = { top: borderThin, left: borderThin, bottom: borderThin, right: borderThin };
-
-            exportPayments.forEach((p, idx) => {
-                const name = getRequesterName(p);
-                const business = p.transaction?.businessName ? ` / ${p.transaction.businessName}` : "";
-                const date = new Date(p.createdAt).toLocaleDateString("en-PH", {
-                    month: "short", day: "numeric", year: "numeric",
-                });
-                const time = new Date(p.createdAt).toLocaleTimeString("en-PH", {
-                    hour: "numeric", minute: "2-digit", hour12: true,
-                });
-
-                const row = sheet.addRow({
-                    no:     idx + 1,
-                    ref:    p.reference || "N/A",
-                    or:     p.orNumber || "—",
-                    payee:  `${name}${business}`,
-                    nature: p.transaction?.type?.name || "Service Payment",
-                    mode:   (p.method || "").replace(/_/g, " "),
-                    amount: p.amount,                // numeric for SUM formulas
-                    status: p.status,
-                    date:   `${date} ${time}`,
-                });
-
-                row.height = 16;
-
-                const isAlt = idx % 2 === 1;
-                row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-                    // Alternating row fill
-                    cell.fill = {
-                        type: "pattern",
-                        pattern: "solid",
-                        fgColor: { argb: isAlt ? "FFF5F7FA" : "FFFFFFFF" },
-                    };
-                    cell.border = fullBorder;
-                    cell.font = { name: "Calibri", size: 9 };
-                    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: false };
-
-                    // Column-specific overrides
-                    if (colNum === 1) { // #
-                        cell.alignment = { ...cell.alignment, horizontal: "center" };
-                        cell.font = { ...cell.font, color: { argb: "FF888888" } };
-                    }
-                    if (colNum === 2) { // Reference
-                        cell.font = { ...cell.font, bold: true };
-                    }
-                    if (colNum === 3) { // OR No.
-                        cell.alignment = { ...cell.alignment, horizontal: "center" };
-                    }
-                    if (colNum === 7) { // Amount
-                        cell.numFmt = '#,##0.00';
-                        cell.alignment = { ...cell.alignment, horizontal: "right" };
-                        cell.font = { ...cell.font, bold: true };
-                    }
-                    if (colNum === 8) { // Status
-                        cell.alignment = { ...cell.alignment, horizontal: "center" };
-                        const s = String(cell.value);
-                        if (s === "PAID")         cell.font = { ...cell.font, bold: true, color: { argb: "FF15803D" } };
-                        else if (s === "PENDING") cell.font = { ...cell.font, bold: true, color: { argb: "FFA16207" } };
-                        else                       cell.font = { ...cell.font, bold: true, color: { argb: "FFB91C1C" } };
-                    }
-                    if (colNum === 9) { // Date
-                        cell.alignment = { ...cell.alignment, horizontal: "center" };
-                    }
-                });
-            });
-
-            // ── Summary rows below table ──────────────────────────
-            sheet.addRow([]);  // spacer
-
-            const dateRangeRow = sheet.addRow(["", "Date Range:", rangeLabel]);
-            dateRangeRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
-            dateRangeRow.getCell(3).font = { size: 9, name: "Calibri" };
-
-            const totalRecordsRow = sheet.addRow(["", "Total Records:", exportPayments.length]);
-            totalRecordsRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
-            totalRecordsRow.getCell(3).font = { bold: true, size: 9, name: "Calibri" };
-
-            const totalAmountRow = sheet.addRow(["", "Total Amount Collected (PHP):", totalPaid]);
-            totalAmountRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
-            totalAmountRow.getCell(3).numFmt = '#,##0.00';
-            totalAmountRow.getCell(3).font = {
-                bold: true, size: 11, name: "Calibri",
-                color: { argb: `FF${activeThemeColor.toUpperCase()}` },
-            };
-            // Underline the total amount cell
-            totalAmountRow.getCell(3).border = {
-                bottom: { style: "double", color: { argb: `FF${activeThemeColor.toUpperCase()}` } },
-            };
-
-            // ── Write and download ────────────────────────────────
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], {
-                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `Treasury_Payments_${fileRangeLabel}.xlsx`;
-            link.click();
-            URL.revokeObjectURL(url);
-
-            toast.success(`Excel exported with ${exportPayments.length} record(s)!`, { id: "excel-export" });
-
+            if (mode === "excel") {
+                await exportForm129AExcel(genPayments, { fromDate, toDate });
+                toast.success(`Form 129(A) General Collections Excel exported with ${genPayments.length} record(s)!`, { id: toastId });
+            } else {
+                await exportForm129APdf(genPayments, { fromDate, toDate });
+                toast.success(`Form 129(A) General Collections PDF exported with ${genPayments.length} record(s)!`, { id: toastId });
+            }
         } catch (err) {
             console.error(err);
-            toast.error("Failed to generate Excel. Please try again.", { id: "excel-export" });
+            toast.error(`Failed to generate Form 129(A) ${mode.toUpperCase()}. Please try again.`, { id: toastId });
         } finally {
-            setIsExportingExcel(false);
+            if (mode === "excel") setIsExportingGenExcel(false);
+            else setIsExportingGenPdf(false);
         }
     };
 
@@ -763,33 +414,96 @@ export default function PaymentsClient({
                     </p>
                 </div>
 
-                {/* Export Buttons */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={handleExportExcel}
-                        disabled={isExportingExcel || isPending}
-                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                    >
-                        {isExportingExcel ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <FileSpreadsheet className="w-4 h-4" />
-                        )}
-                        <span>Excel Export</span>
-                    </button>
+                {/* Official Abstracts Export Hub */}
+                <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 dark:bg-[#151a24]/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-[#283244] shadow-sm">
+                    {/* Form 10(A) - Real Property Tax */}
+                    <div className="flex items-center gap-2.5 px-2.5 py-1">
+                        <div className="flex flex-col text-left">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                                    Form 10(A)
+                                </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5">
+                                RPT
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => handleExportForm10A("excel")}
+                                disabled={isExportingExcel || isPending}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                                title="Export official Prov. Form No. 10(A) Abstract in Excel (.xlsx)"
+                            >
+                                {isExportingExcel ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                                )}
+                                <span>Excel</span>
+                            </button>
+                            <button
+                                onClick={() => handleExportForm10A("pdf")}
+                                disabled={isExportingPdf || isPending}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                                title="Export official Prov. Form No. 10(A) Abstract in PDF"
+                            >
+                                {isExportingPdf ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileText className="w-3.5 h-3.5" />
+                                )}
+                                <span>PDF</span>
+                            </button>
+                        </div>
+                    </div>
 
-                    <button
-                        onClick={handleExport}
-                        disabled={isExportingPdf || isPending}
-                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                    >
-                        {isExportingPdf ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <FileText className="w-4 h-4" />
-                        )}
-                        <span>PDF Report</span>
-                    </button>
+                    {/* Subtle vertical divider */}
+                    <div className="h-6 w-px bg-slate-300 dark:bg-slate-700/80 my-auto" />
+
+                    {/* Form 129(A) - General Collections */}
+                    <div className="flex items-center gap-2.5 px-2.5 py-1">
+                        <div className="flex flex-col text-left">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
+                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                                    Form 129(A)
+                                </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5">
+                                General
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => handleExportForm129A("excel")}
+                                disabled={isExportingGenExcel || isPending}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                                title="Export official Prov. Form No. 129(A) General Collections Abstract in Excel (.xlsx)"
+                            >
+                                {isExportingGenExcel ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                                )}
+                                <span>Excel</span>
+                            </button>
+                            <button
+                                onClick={() => handleExportForm129A("pdf")}
+                                disabled={isExportingGenPdf || isPending}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                                title="Export official Prov. Form No. 129(A) General Collections Abstract in PDF"
+                            >
+                                {isExportingGenPdf ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileText className="w-3.5 h-3.5" />
+                                )}
+                                <span>PDF</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

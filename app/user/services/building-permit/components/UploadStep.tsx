@@ -171,7 +171,7 @@ export function UploadStep({
         </p>
       </div>
 
-      {(selectedApplication?.revisionCount === 2 || (selectedApplication?.user?.rejectionCount ?? 0) === 2 || (selectedApplication as any)?.rejection_count === 2) && (
+      {((selectedApplication?.revisionCount || 0) >= 3 || (selectedApplication?.user?.rejectionCount ?? 0) >= 2 || ((selectedApplication as any)?.rejection_count || 0) >= 3) && (
         <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 mb-8 shadow-sm animate-pulse">
           <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
           <div className="space-y-1">

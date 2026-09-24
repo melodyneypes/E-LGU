@@ -191,6 +191,9 @@ export async function getPaymentsLedger(params: {
                         paymentType: true,
                         paymentReference: true,
                         residentSnapshot: true,
+                        additionalData: true,
+                        fiscalSnapshot: true,
+                        businessName: true,
                         type: {
                             select: {
                                 id: true,
