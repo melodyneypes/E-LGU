@@ -142,6 +142,7 @@ export async function submitFencingPermit(formData: FormData) {
       customLabels,
       documents,
       signature: signatureUrl || null,
+      zoningStatus: "FOR_REQUESTING",
       submittedAt: new Date().toISOString(),
     };
 
@@ -157,12 +158,12 @@ export async function submitFencingPermit(formData: FormData) {
     }
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 
-    // Create Transaction in FOR_INSPECTION state (queued for Municipal Engineer site inspection)
+    // Create Transaction in FOR_REQUESTING state (queued for MPDC Zoning initial desk evaluation)
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         typeId: type.id,
-        status: "FOR_INSPECTION",
+        status: "FOR_REQUESTING",
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
@@ -171,6 +172,7 @@ export async function submitFencingPermit(formData: FormData) {
 
     revalidatePath("/user/transactions");
     revalidatePath("/user/services");
+    revalidatePath("/admin/zoning");
     revalidatePath("/admin/engineer");
 
     try {
@@ -178,8 +180,8 @@ export async function submitFencingPermit(formData: FormData) {
       broadcastRealtimeUpdate({
         type: "NEW_TRANSACTION",
         transactionId: transaction.id,
-        status: "FOR_INSPECTION",
-        department: "ENGINEERING"
+        status: "FOR_REQUESTING",
+        department: "ZONING"
       });
     } catch (e) {
       console.warn("Realtime broadcast skipped:", e);
