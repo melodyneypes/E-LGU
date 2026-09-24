@@ -30,7 +30,8 @@ import {
     rejectTransaction,
     sendForRevision,
     scheduleBuildingInspection,
-    getSystemSettingAction
+    getSystemSettingAction,
+    endorseFencingPermitByEngineer
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -301,6 +302,33 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
     const vaultDocs = useMemo(() => {
         if (!transaction) return [];
+
+        if (transaction?.type?.code?.startsWith("FENCING_PERMIT")) {
+            const FENCING_SLOTS: { [key: string]: string } = {
+                proofOfOwnership: "Proof of Land Ownership",
+                taxDeclaration: "Tax Declaration of Real Property",
+                rptReceipt: "Current RPT Official Receipt & Tax Clearance",
+                lotPlan: "Certified Lot Plan & Boundary Survey",
+                fencingPlans: "Architectural & Structural Fencing Plans",
+                billOfMaterials: "Itemized Bill of Materials & Cost Estimate",
+                barangayClearance: "Barangay Construction Clearance (Fencing)",
+                governmentId: "Valid Government ID & Cedula",
+                dpwhClearance: "DPWH Clearance (National Highway)",
+                electricalPlan: "Electrical Layout & Energizer Specification",
+                neighborConsent: "Notarized Neighbor Consent / Affidavit",
+                zoningClearance: "Locational / Zoning Clearance"
+            };
+
+            const docs: { key: string; url: string; label: string; type: string }[] = [];
+            const docMap = additional?.documents || {};
+            for (const [key, label] of Object.entries(FENCING_SLOTS)) {
+                if (docMap[key]) {
+                    docs.push({ key, url: docMap[key], label, type: "REQUIREMENTS" });
+                }
+            }
+            return docs;
+        }
+
         return [
             { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)", type: "REQUIREMENTS" },
             { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)", type: "REQUIREMENTS" },
@@ -522,6 +550,24 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             }
         } catch {
             toast.error("An error occurred");
+            setActionLoading(false);
+        }
+    };
+
+    const handleEndorseFencingToZoning = async () => {
+        if (!confirm("Are you sure you want to approve and endorse this Fencing Permit to the MPDC Zoning Department?")) return;
+        setActionLoading(true);
+        try {
+            const res = await endorseFencingPermitByEngineer(id);
+            if (res.success) {
+                toast.success("Fencing Permit approved and endorsed to MPDC Zoning!");
+                router.push("/admin/engineer");
+            } else {
+                toast.error(res.error || "Failed to endorse fencing permit");
+                setActionLoading(false);
+            }
+        } catch {
+            toast.error("An unexpected error occurred while endorsing");
             setActionLoading(false);
         }
     };
@@ -1011,6 +1057,16 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     <div className="space-y-4">
                         {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <div className="space-y-3">
+                                {transaction?.type?.code?.startsWith("FENCING_PERMIT") && (
+                                    <Button
+                                        onClick={handleEndorseFencingToZoning}
+                                        disabled={actionLoading || transaction?.status !== "FOR_REQUESTING"}
+                                        className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-900/20 active:scale-95"
+                                    >
+                                        <BadgeCheck className="w-5 h-5 mr-2" />
+                                        {actionLoading ? "Processing..." : "Approve & Endorse to MPDC Zoning"}
+                                    </Button>
+                                )}
                                 <Dialog open={isSchedulingInspection} onOpenChange={setIsSchedulingInspection}>
                                     <DialogTrigger asChild>
                                         <Button disabled={actionLoading || !canScheduleInspection} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">

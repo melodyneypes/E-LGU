@@ -69,6 +69,13 @@ function getResidentSnapshot(tx: any): any {
 }
 
 function isPendingEngineeringTransaction(tx: any): boolean {
+    if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
+        const isEndorsed = tx.additionalData?.feeAssessment?.engineerEndorsedToZoning === true;
+        // If it's still in FOR_REQUESTING and not endorsed by Engineer, it is still pending Engineering review
+        if (tx.status === "FOR_REQUESTING" && !isEndorsed) {
+            return true;
+        }
+    }
     return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 

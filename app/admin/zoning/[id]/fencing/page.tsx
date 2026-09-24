@@ -329,13 +329,14 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
                 <div className="flex items-center gap-2">
                     <Badge className={cn(
                         "px-3 py-1 text-xs font-black uppercase tracking-widest rounded-lg border",
+                        (zoningStatus === "EVALUATED" || currentStatus === "EVALUATED") && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
                         zoningStatus === "FOR_REQUESTING" && "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
                         zoningStatus === "ENDORSED" && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
                         zoningStatus === "FOR_INSPECTION" && "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400",
                         zoningStatus === "FOR_REVISION" && "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
                         zoningStatus === "REJECTED" && "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
                     )}>
-                        Zoning Status: {zoningStatus?.replace(/_/g, " ")}
+                        Status: {zoningStatus?.replace(/_/g, " ")}
                     </Badge>
                 </div>
             </div>
