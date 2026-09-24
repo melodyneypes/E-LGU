@@ -1099,7 +1099,7 @@ export default function FencingPermitPage() {
                     onValueChange={(val) => setFenceType(val)}
                   >
                     <SelectTrigger className={cn(
-                      "w-full h-11 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 transition-colors truncate text-left",
+                      "w-full h-11 min-h-[44px] max-h-[44px] py-0 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 transition-all flex items-center justify-between text-left",
                       showDetailsErrors && !fenceType
                         ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
                         : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
@@ -1110,16 +1110,16 @@ export default function FencingPermitPage() {
                         </span>
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="max-h-72 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1017] shadow-2xl p-1.5">
+                    <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] min-w-[320px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-xl shadow-2xl p-1.5 space-y-1">
                       {FENCE_TYPE_OPTIONS.map((opt) => (
                         <SelectItem
                           key={opt.value}
                           value={opt.value}
-                          className="rounded-xl py-2.5 px-3 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10"
+                          className="rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10 transition-colors"
                         >
-                          <div className="space-y-0.5 text-left">
-                            <p className="font-bold text-slate-900 dark:text-white">{opt.label}</p>
-                            <p className="text-[10px] font-normal text-slate-400 dark:text-slate-400 line-clamp-1">
+                          <div className="space-y-0.5 text-left pr-4">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs leading-snug">{opt.label}</p>
+                            <p className="text-[10px] font-normal text-slate-500 dark:text-slate-400 leading-relaxed">
                               {opt.description}
                             </p>
                           </div>
@@ -1127,8 +1127,12 @@ export default function FencingPermitPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {showDetailsErrors && !fenceType && (
+                  {showDetailsErrors && !fenceType ? (
                     <p className="text-[10px] font-bold text-rose-500 italic">Please select a primary fence design.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400">
+                      Standard structural material for perimeter footing and walls.
+                    </p>
                   )}
                 </div>
 
@@ -1144,25 +1148,25 @@ export default function FencingPermitPage() {
                     value={fenceSecurityFeature}
                     onValueChange={(val) => setFenceSecurityFeature(val)}
                   >
-                    <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-left">
+                    <SelectTrigger className="w-full h-11 min-h-[44px] max-h-[44px] py-0 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all flex items-center justify-between text-left">
                       <SelectValue placeholder="Select perimeter security feature">
                         <span className="truncate block font-bold text-xs">
                           {FENCE_SECURITY_OPTIONS.find((o) => o.value === fenceSecurityFeature)?.label || "Standard Perimeter (None / Plain Top)"}
                         </span>
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="max-h-72 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1017] shadow-2xl p-1.5">
+                    <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] min-w-[320px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-xl shadow-2xl p-1.5 space-y-1">
                       {FENCE_SECURITY_OPTIONS.map((opt) => (
                         <SelectItem
                           key={opt.value}
                           value={opt.value}
-                          className="rounded-xl py-2.5 px-3 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10"
+                          className="rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10 transition-colors"
                         >
-                          <div className="space-y-0.5 text-left">
-                            <p className="font-bold text-slate-900 dark:text-white">
+                          <div className="space-y-0.5 text-left pr-4">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs leading-snug">
                               {opt.label}
                             </p>
-                            <p className="text-[10px] font-normal text-slate-400 dark:text-slate-400 line-clamp-1">
+                            <p className="text-[10px] font-normal text-slate-500 dark:text-slate-400 leading-relaxed">
                               {opt.description}
                             </p>
                           </div>
