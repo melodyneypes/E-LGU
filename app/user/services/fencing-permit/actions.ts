@@ -7,6 +7,37 @@ import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { sanitizeObject, sanitizeString } from "@/lib/validation";
 
+export async function getActiveFencingPermit() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, data: null };
+
+    const activeTx = await prisma.transaction.findFirst({
+      where: {
+        userId: session.user.id,
+        type: {
+          code: { startsWith: "FENCING" }
+        },
+        status: {
+          notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+        },
+        isCancelled: false
+      },
+      include: {
+        type: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    return { success: true, data: activeTx };
+  } catch (e: any) {
+    console.error("Get active fencing permit error:", e);
+    return { success: false, data: null };
+  }
+}
+
 export async function submitFencingPermit(formData: FormData) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,6 +45,27 @@ export async function submitFencingPermit(formData: FormData) {
       return { success: false, error: "Unauthorized. Please sign in to submit." };
     }
     const userId = session.user.id;
+
+    // Guard: Prevent duplicate submission if an active fencing permit is already ongoing
+    const activeTx = await prisma.transaction.findFirst({
+      where: {
+        userId,
+        type: {
+          code: { startsWith: "FENCING" }
+        },
+        status: {
+          notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+        },
+        isCancelled: false
+      }
+    });
+
+    if (activeTx) {
+      return {
+        success: false,
+        error: `You currently have an ongoing Fencing Permit application (${activeTx.id}). You cannot apply for a new permit until your current request is Released, Rejected, or Cancelled.`
+      };
+    }
 
     // Find Fencing Permit Transaction Type
     let type = await prisma.transactionType.findFirst({
@@ -45,6 +97,7 @@ export async function submitFencingPermit(formData: FormData) {
     const street = sanitizeString(formData.get("street") as string || resident?.street || "");
     const estimatedCost = sanitizeString(formData.get("estimatedCost") as string || "0");
     const fenceType = sanitizeString(formData.get("fenceType") as string || "Concrete Hollow Block (CHB) & Steel Grille");
+    const fenceSecurityFeature = sanitizeString(formData.get("fenceSecurityFeature") as string || "NONE");
     const fenceLength = sanitizeString(formData.get("fenceLength") as string || "0");
     const fenceHeight = sanitizeString(formData.get("fenceHeight") as string || "0");
     
@@ -110,6 +163,7 @@ export async function submitFencingPermit(formData: FormData) {
       zoningClearance: "Locational / Zoning Clearance",
       dpwhClearance: "DPWH Clearance (National Highway)",
       neighborConsent: "Notarized Neighbor Consent / Affidavit",
+      electricalPlan: "Electrical Layout & Energizer Specification",
     };
 
     const additionalData: Record<string, any> = {
@@ -120,6 +174,7 @@ export async function submitFencingPermit(formData: FormData) {
       projectAddress: `${street ? street + ", " : ""}Brgy. ${barangay}, Mapandan, Pangasinan`,
       estimatedCost: parsedCost,
       fenceType,
+      fenceSecurityFeature,
       fenceLength: parsedLength,
       fenceHeight: parsedHeight,
       // FormSchema and Admin compatibility mappings
@@ -132,12 +187,14 @@ export async function submitFencingPermit(formData: FormData) {
         street,
         estimatedCost: parsedCost,
         fenceType,
+        fenceSecurityFeature,
         fenceLength: parsedLength,
         fenceHeight: parsedHeight,
       },
       customLabels,
       documents,
       signature: signatureUrl || null,
+      zoningStatus: "FOR_REQUESTING",
       submittedAt: new Date().toISOString(),
     };
 
@@ -153,12 +210,12 @@ export async function submitFencingPermit(formData: FormData) {
     }
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 
-    // Create Transaction in FOR_INSPECTION state (queued for Municipal Engineer site inspection)
+    // Create Transaction in FOR_REQUESTING state (queued for MPDC Zoning initial desk evaluation)
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         typeId: type.id,
-        status: "FOR_INSPECTION",
+        status: "FOR_REQUESTING",
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
@@ -167,6 +224,7 @@ export async function submitFencingPermit(formData: FormData) {
 
     revalidatePath("/user/transactions");
     revalidatePath("/user/services");
+    revalidatePath("/admin/zoning");
     revalidatePath("/admin/engineer");
 
     try {
@@ -174,8 +232,8 @@ export async function submitFencingPermit(formData: FormData) {
       broadcastRealtimeUpdate({
         type: "NEW_TRANSACTION",
         transactionId: transaction.id,
-        status: "FOR_INSPECTION",
-        department: "ENGINEERING"
+        status: "FOR_REQUESTING",
+        department: "ZONING"
       });
     } catch (e) {
       console.warn("Realtime broadcast skipped:", e);

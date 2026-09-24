@@ -23,6 +23,11 @@ export default function ZoningDetailPage({ params }: PageProps) {
                 const tx = res.data;
                 const isEngineeringPermit = isEngineeringPermitCode(tx.type?.code);
                 if (isEngineeringPermit) {
+                    if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
+                        router.replace(`/admin/zoning/${id}/fencing`);
+                        return;
+                    }
+
                     const addData = (tx.additionalData as any) || {};
                     const zoningStatus = addData.zoningStatus;
 
