@@ -15,6 +15,7 @@ interface FencingPermitRequestDetailsProps {
       street?: string;
       estimatedCost?: number;
       fenceType?: string;
+      fenceSecurityFeature?: string;
       fenceLength?: number;
       fenceHeight?: number;
     };
@@ -23,6 +24,7 @@ interface FencingPermitRequestDetailsProps {
     projectAddress?: string;
     estimatedCost?: number;
     fenceType?: string;
+    fenceSecurityFeature?: string;
     fenceLength?: number;
     fenceHeight?: number;
     documents?: Record<string, string>;
@@ -67,7 +69,7 @@ export function FencingPermitRequestDetails({ additionalData }: FencingPermitReq
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-white/5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-white/5">
               <div>
                 <p className="text-[8px] font-semibold uppercase text-slate-400">Barangay Jurisdiction</p>
                 <p className="text-xs md:text-sm font-bold uppercase text-slate-700 dark:text-slate-300">{barangay}</p>
@@ -75,6 +77,18 @@ export function FencingPermitRequestDetails({ additionalData }: FencingPermitReq
               <div>
                 <p className="text-[8px] font-semibold uppercase text-slate-400">Municipality / Province</p>
                 <p className="text-xs md:text-sm font-bold uppercase text-slate-700 dark:text-slate-300">Mapandan, Pangasinan</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-semibold uppercase text-slate-400">Security Add-on</p>
+                <p className="text-xs md:text-sm font-bold uppercase text-slate-700 dark:text-slate-300">
+                  {(() => {
+                    const sec = loc.fenceSecurityFeature || additionalData.fenceSecurityFeature;
+                    if (sec === "BARBED_WIRE") return "Barbed Wire";
+                    if (sec === "ELECTRIFIED") return "Electrified ⚡";
+                    if (sec === "BOTH") return "Barbed + Electrified ⚡";
+                    return "Standard (Plain)";
+                  })()}
+                </p>
               </div>
             </div>
           </div>

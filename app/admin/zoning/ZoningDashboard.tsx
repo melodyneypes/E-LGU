@@ -73,6 +73,10 @@ function isPendingEngineeringTransaction(tx: any): boolean {
 }
 
 function getZoningTransactionUrl(tx: any): string {
+    if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
+        return `/admin/zoning/${tx.id}/fencing`;
+    }
+
     if (tx.isCancelled || tx.status === "CANCELLED") {
         return `/admin/zoning/${tx.id}/evaluation?view=true`;
     }

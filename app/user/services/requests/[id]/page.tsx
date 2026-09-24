@@ -232,7 +232,7 @@ export default function RequestHubPage() {
     useEffect(() => {
         async function checkPaymentStatusBackground(reqId: string) {
             try {
-                const MAX_RETRIES = 3;
+                const MAX_RETRIES = 2;
                 const RETRY_DELAY_MS = 3000;
                 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                     const checkRes = await checkPaymongoPaymentStatus(reqId);
@@ -241,6 +241,10 @@ export default function RequestHubPage() {
                         if (refreshedRes.success && refreshedRes.data) {
                             setRequest(refreshedRes.data);
                         }
+                        break;
+                    }
+                    // If not in a pending / processing state, break immediately to avoid hammering the server
+                    if (!checkRes.success || (checkRes.status !== "PENDING" && checkRes.status !== "PROCESSING")) {
                         break;
                     }
                     if (attempt < MAX_RETRIES) {
@@ -259,8 +263,16 @@ export default function RequestHubPage() {
                     const req = res.data;
                     setRequest(req);
 
-                    // Trigger PayMongo check in the background so it doesn't block page load speed
-                    if (req.status === "UNPAID" || req.status === "EVALUATED") {
+                    // Trigger PayMongo check ONLY if an online checkout session was actually initiated
+                    const additional = (req.additionalData as any) || {};
+                    const hasPaymongoSession = Boolean(
+                        additional?.paymongo?.sourceId ||
+                        additional?.paymongo?.checkoutSessionId ||
+                        additional?.paymongoPaymentId ||
+                        (typeof req.paymentReference === 'string' && (req.paymentReference.startsWith('cs_') || req.paymentReference.startsWith('pay_')))
+                    );
+
+                    if (hasPaymongoSession && (req.status === "UNPAID" || req.status === "EVALUATED")) {
                         checkPaymentStatusBackground(id);
                     }
 
@@ -421,9 +433,13 @@ export default function RequestHubPage() {
 
     useEffect(() => {
         if (!id) return;
-        // Background polling fallback every 10 seconds to ensure updates are fetched
+        // Background polling fallback as a safeguard if realtime websocket drops
         const interval = setInterval(async () => {
-            console.log(`[Polling Request Detail] Fetching updates for ${id}...`);
+            // Skip polling if the browser tab is in background or transaction is already in terminal state
+            if (typeof document !== "undefined" && document.hidden) return;
+            const currentStatus = statusRef.current;
+            if (["COMPLETED", "REJECTED", "CANCELLED", "RELEASED"].includes(currentStatus)) return;
+
             try {
                 const res = await getTransactionById(id);
                 if (res.success && res.data) {
@@ -444,7 +460,7 @@ export default function RequestHubPage() {
             } catch (err) {
                 console.error("Polling fetch transaction failed:", err);
             }
-        }, 10000);
+        }, 25000);
 
         return () => clearInterval(interval);
     }, [id, router]);
@@ -1811,6 +1827,18 @@ export default function RequestHubPage() {
                                                             <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Fence Length & Height</p>
                                                             <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
                                                                 {additionalData.fencingLocation?.fenceLength ?? additionalData.fenceLength ?? 0}m (L) × {additionalData.fencingLocation?.fenceHeight ?? additionalData.fenceHeight ?? 0}m (H)
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Security Feature</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                                {(() => {
+                                                                    const sec = additionalData.fencingLocation?.fenceSecurityFeature || additionalData.fenceSecurityFeature;
+                                                                    if (sec === "BARBED_WIRE") return "Barbed Wire";
+                                                                    if (sec === "ELECTRIFIED") return "Electrified ⚡";
+                                                                    if (sec === "BOTH") return "Barbed + Electrified ⚡";
+                                                                    return "Standard";
+                                                                })()}
                                                             </p>
                                                         </div>
                                                         <div className="space-y-1 sm:col-span-2 md:col-span-3">

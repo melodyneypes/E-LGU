@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Home, 
   ArrowLeft,
@@ -17,7 +18,9 @@ import {
   Ruler,
   AlertCircle,
   Info,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  ShieldAlert
 } from "lucide-react";
 import {
   Breadcrumb,
@@ -28,6 +31,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -50,12 +54,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { HelpCircle, BookOpen, Eye } from "lucide-react";
+import { HelpCircle, BookOpen, Eye, Lock } from "lucide-react";
 import { getCurrentUserResident } from "@/app/admin/transactions/actions";
-import { submitFencingPermit } from "./actions";
+import { submitFencingPermit, getActiveFencingPermit } from "./actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 
 const DRAFT_STORAGE_KEY = "fencing_permit_upload_draft";
+const DRAFT_DETAILS_STORAGE_KEY = "fencing_permit_details_draft";
 
 const MAPANDAN_BARANGAYS = [
   "Amanoaoac",
@@ -105,6 +110,29 @@ const FENCE_TYPE_OPTIONS = [
     value: "Perimeter Wooden / Composite Interlink Fencing",
     label: "Perimeter Wooden / Composite Interlink Fencing",
     description: "Treated structural lumber, PVC, or composite timber slats"
+  }
+];
+
+const FENCE_SECURITY_OPTIONS = [
+  {
+    value: "NONE",
+    label: "Standard Perimeter (None / Plain Top)",
+    description: "No electrified wiring or barbed/razor wire attachments."
+  },
+  {
+    value: "BARBED_WIRE",
+    label: "Barbed Wire / Concertina Razor Wire",
+    description: "Perimeter security wire; must be installed at least 2.00m above ground level."
+  },
+  {
+    value: "ELECTRIFIED",
+    label: "Electrified Security Fence (Energized)",
+    description: "Pulsed non-lethal DC energizer with required Electrical Clearance & Warning Signs."
+  },
+  {
+    value: "BOTH",
+    label: "Both Barbed Wire & Electrified Security Fence",
+    description: "Dual security setup requiring structural clearance and certified electrical layout."
   }
 ];
 
@@ -204,9 +232,17 @@ const CONDITIONAL_DOCUMENT_SLOTS: DocumentSlotConfig[] = [
     agencyBadge: "Notary Public",
     description: "Notarized authorization letter or SPA if the applicant is filing on behalf of the registered lot owner.",
   },
+  {
+    key: "electricalPlan",
+    label: "Electrical Layout & Energizer Specification",
+    required: false,
+    agencyBadge: "Electrical Engineer / PEE",
+    description: "Required for electrified fences: Wiring diagram, non-lethal pulsed energizer specs, grounding system, and warning sign layout.",
+  },
 ];
 
 export default function FencingPermitPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState("GUIDE");
   const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
 
@@ -218,6 +254,7 @@ export default function FencingPermitPage() {
   const [siteStreet, setSiteStreet] = React.useState("");
   const [estimatedCost, setEstimatedCost] = React.useState("");
   const [fenceType, setFenceType] = React.useState(FENCE_TYPE_OPTIONS[0].value);
+  const [fenceSecurityFeature, setFenceSecurityFeature] = React.useState("NONE");
   const [fenceLength, setFenceLength] = React.useState("");
   const [fenceHeight, setFenceHeight] = React.useState("");
 
@@ -230,7 +267,27 @@ export default function FencingPermitPage() {
   const [selectedGuideSlot, setSelectedGuideSlot] = React.useState<DocumentSlotConfig | null>(null);
   const abandonedFilesRef = React.useRef<string[]>([]);
 
+  // Active Ongoing Application Guard State
+  const [activePermit, setActivePermit] = React.useState<any>(null);
+  const [checkingActive, setCheckingActive] = React.useState(true);
+
+  // Hard Lock: Guarantee that if an active ongoing permit exists, user stays strictly on GUIDE
   React.useEffect(() => {
+    if (activePermit && currentStep !== "GUIDE") {
+      setCurrentStep("GUIDE");
+    }
+  }, [activePermit, currentStep]);
+
+  React.useEffect(() => {
+    // Check if user already has an ongoing fencing permit
+    getActiveFencingPermit().then((res) => {
+      if (res.success && res.data) {
+        setActivePermit(res.data);
+        setCurrentStep("GUIDE");
+      }
+      setCheckingActive(false);
+    });
+
     getSystemSettingAction("theme_color").then((res) => {
       if (res.success && res.data) {
         setThemeColor(res.data);
@@ -240,6 +297,28 @@ export default function FencingPermitPage() {
     getCurrentUserResident().then((res) => {
       if (res.success && res.data) {
         setResidentProfile(res.data);
+        // Fallback to resident address only if no draft is present
+        try {
+          const savedDraft = localStorage.getItem(DRAFT_DETAILS_STORAGE_KEY);
+          if (savedDraft) {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed.siteBarangay) setSiteBarangay(parsed.siteBarangay);
+            else if (res.data.barangay) setSiteBarangay(res.data.barangay);
+
+            if (parsed.siteStreet) setSiteStreet(parsed.siteStreet);
+            else if (res.data.street) setSiteStreet(res.data.street);
+
+            if (parsed.estimatedCost) setEstimatedCost(parsed.estimatedCost);
+            if (parsed.fenceType) setFenceType(parsed.fenceType);
+            if (parsed.fenceSecurityFeature) setFenceSecurityFeature(parsed.fenceSecurityFeature);
+            if (parsed.fenceLength) setFenceLength(parsed.fenceLength);
+            if (parsed.fenceHeight) setFenceHeight(parsed.fenceHeight);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to load details draft:", e);
+        }
+
         if (res.data.barangay) {
           setSiteBarangay(res.data.barangay);
         }
@@ -249,6 +328,56 @@ export default function FencingPermitPage() {
       }
     });
   }, []);
+
+  // Real-time debounced auto-save for Details tab form state
+  const isDetailsHydratedRef = React.useRef(false);
+  React.useEffect(() => {
+    // Skip saving on the very first mount cycle before hydration completes
+    if (!isDetailsHydratedRef.current) {
+      isDetailsHydratedRef.current = true;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          siteBarangay,
+          siteStreet,
+          estimatedCost,
+          fenceType,
+          fenceSecurityFeature,
+          fenceLength,
+          fenceHeight,
+          savedAt: Date.now()
+        };
+        localStorage.setItem(DRAFT_DETAILS_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.error("Auto-save details draft error:", err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [siteBarangay, siteStreet, estimatedCost, fenceType, fenceSecurityFeature, fenceLength, fenceHeight]);
+
+  const handleManualSaveDraft = () => {
+    try {
+      const payload = {
+        siteBarangay,
+        siteStreet,
+        estimatedCost,
+        fenceType,
+        fenceSecurityFeature,
+        fenceLength,
+        fenceHeight,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(DRAFT_DETAILS_STORAGE_KEY, JSON.stringify(payload));
+      toast.success("Fencing project details saved as draft.");
+    } catch (e) {
+      console.error("Failed to save draft:", e);
+      toast.error("Failed to save draft details.");
+    }
+  };
 
   // Beacon Garbage Collector on page close / unload
   React.useEffect(() => {
@@ -264,7 +393,78 @@ export default function FencingPermitPage() {
   const [uploadedFiles, setUploadedFiles] = React.useState<Record<string, File | null>>({});
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
+  const [showDetailsErrors, setShowDetailsErrors] = React.useState(false);
   const isDraftHydratedRef = React.useRef(false);
+
+  // Validate Details Tab and Scroll to First Missing Field with Red Border
+  const validateDetailsStep = (): boolean => {
+    setShowDetailsErrors(true);
+
+    const costNum = parseFloat(estimatedCost.replace(/,/g, ""));
+    const lengthNum = parseFloat(fenceLength);
+    const heightNum = parseFloat(fenceHeight);
+
+    if (!siteBarangay) {
+      toast.error("Please select a Barangay for your fencing site.");
+      const el = document.getElementById("field-siteBarangay");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return false;
+    }
+
+    if (!siteStreet.trim()) {
+      toast.error("Please input the Street address for your fencing site.");
+      const el = document.getElementById("field-siteStreet");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return false;
+    }
+
+    if (!costNum || costNum <= 0) {
+      toast.error("Please provide a valid Estimated Construction Cost.");
+      const el = document.getElementById("field-estimatedCost");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return false;
+    }
+
+    if (!fenceType) {
+      toast.error("Please select a Primary Fence Material / Design Type.");
+      const el = document.getElementById("field-fenceType");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return false;
+    }
+
+    if (!lengthNum || lengthNum <= 0) {
+      toast.error("Please input the Total Fencing Length in meters.");
+      const el = document.getElementById("field-fenceLength");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return false;
+    }
+
+    if (!heightNum || heightNum <= 0) {
+      toast.error("Please input the Maximum Fence Height in meters.");
+      const el = document.getElementById("field-fenceHeight");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return false;
+    }
+
+    return true;
+  };
 
   // Document Viewer Modal State
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -375,6 +575,23 @@ export default function FencingPermitPage() {
   };
 
   const handleStepClick = (targetStepId: string) => {
+    // If user has an active ongoing permit, strictly lock to GUIDE tab
+    if (activePermit && targetStepId !== "GUIDE") {
+      toast.error("You currently have an active ongoing Fencing Permit application. Access to the application form is locked until your current permit is Released, Rejected, or Cancelled.", {
+        action: {
+          label: "View Request",
+          onClick: () => router.push(`/user/services/requests/${activePermit.id}`)
+        }
+      });
+      return;
+    }
+
+    // If on DETAILS step and trying to go to DOCUMENTS or SUBMIT, validate details first
+    if (currentStep === "DETAILS" && (targetStepId === "DOCUMENTS" || targetStepId === "SUBMIT")) {
+      const isValid = validateDetailsStep();
+      if (!isValid) return;
+    }
+
     // If trying to jump straight to SUBMIT without completing uploads
     if (targetStepId === "SUBMIT" && !isMandatoryComplete) {
       if (currentStep !== "DOCUMENTS") {
@@ -398,6 +615,7 @@ export default function FencingPermitPage() {
       formData.append("street", siteStreet);
       formData.append("estimatedCost", estimatedCost);
       formData.append("fenceType", fenceType);
+      formData.append("fenceSecurityFeature", fenceSecurityFeature);
       formData.append("fenceLength", fenceLength);
       formData.append("fenceHeight", fenceHeight);
 
@@ -418,8 +636,15 @@ export default function FencingPermitPage() {
           console.error("Failed to clean up draft files:", e);
         });
 
-        // Hard navigate directly to requests tracking page to prevent client-side routing delay / stuck button state
-        window.location.href = `/user/services/requests/${res.data.id}`;
+        // Clear details text draft from localStorage
+        try {
+          localStorage.removeItem(DRAFT_DETAILS_STORAGE_KEY);
+        } catch (e) {
+          console.error("Failed to clear details draft from localStorage:", e);
+        }
+
+        // Smooth client-side navigate directly to requests tracking page
+        router.push(`/user/services/requests/${res.data.id}`);
         return;
       } else {
         setIsSubmitting(false);
@@ -565,50 +790,112 @@ export default function FencingPermitPage() {
 
         {/* Stepper Progress Tabs */}
         <div className="grid grid-cols-4 gap-1.5 sm:gap-4 relative px-1 sm:px-2 max-w-xl mx-auto">
-          {STEPS.map((step, idx) => {
-            const isActive = currentStep === step.id;
-            const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
-            const isCompleted = currentStepIdx > idx;
-            const Icon = step.icon;
-
-            return (
-              <div
-                key={step.id}
-                onClick={() => handleStepClick(step.id)}
-                className="flex flex-col items-center gap-2 relative z-10 font-black cursor-pointer group select-none"
-              >
-                <div
-                  className={cn(
-                    "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2",
-                    isActive
-                      ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
-                      : isCompleted
-                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                        : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
-                  )}
-                >
-                  <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
-                </div>
-                <span
-                  className={cn(
-                    "text-[8px] sm:text-[10px] uppercase tracking-widest text-center italic transition-all",
-                    isActive
-                      ? "text-primary opacity-100 font-black"
-                      : isCompleted
-                        ? "text-emerald-500 font-bold opacity-80"
-                        : "opacity-40 group-hover:opacity-100"
-                  )}
-                >
-                  {step.label}
-                </span>
+          {checkingActive ? (
+            Array(4).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 select-none animate-pulse">
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-slate-200/70 dark:bg-white/5 border-2 border-transparent" />
+                <div className="w-12 sm:w-16 h-2 sm:h-2.5 rounded-full bg-slate-200/70 dark:bg-white/5" />
               </div>
-            );
-          })}
+            ))
+          ) : (
+            STEPS.map((step, idx) => {
+              const isActive = currentStep === step.id;
+              const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
+              const isCompleted = currentStepIdx > idx;
+              const isLocked = Boolean(activePermit && step.id !== "GUIDE");
+              const Icon = isLocked ? Lock : step.icon;
+
+              return (
+                <div
+                  key={step.id}
+                  onClick={() => handleStepClick(step.id)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 relative z-10 font-black group select-none transition-all",
+                    isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 border-2 relative",
+                      isLocked
+                        ? "bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10"
+                        : isActive
+                          ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 sm:scale-110"
+                          : isCompleted
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                            : "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent hover:border-primary/30"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
+                    {isLocked && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white flex items-center justify-center text-[9px] shadow-sm">
+                        <Lock className="w-2.5 h-2.5" />
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[8px] sm:text-[10px] uppercase tracking-widest text-center italic transition-all",
+                      isLocked
+                        ? "text-slate-400 opacity-60"
+                        : isActive
+                          ? "text-primary opacity-100 font-black"
+                          : isCompleted
+                            ? "text-emerald-500 font-bold opacity-80"
+                            : "opacity-40 group-hover:opacity-100"
+                    )}
+                  >
+                    {isLocked ? `${step.label} 🔒` : step.label}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Step 1: GUIDE TAB CONTENT */}
         {currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
+            {/* Active Ongoing Application Alert Banner / Preload Skeleton */}
+            {checkingActive ? (
+              <div className="p-5 sm:p-6 rounded-3xl border border-slate-200/60 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] flex items-center justify-between gap-4 animate-pulse">
+                <div className="flex items-center gap-3.5 w-full">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-white/10 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="w-36 h-4 rounded-md bg-slate-200 dark:bg-white/10" />
+                    <div className="w-3/4 h-3 rounded-md bg-slate-200 dark:bg-white/5" />
+                  </div>
+                </div>
+              </div>
+            ) : activePermit ? (
+              <div className="p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/30 bg-emerald-500/[0.06] backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                        Active Permit Under Review
+                      </Badge>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white pt-0.5">
+                      You have an ongoing Fencing Permit application
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+                      Current Status: <strong className="text-emerald-700 dark:text-emerald-400 uppercase">{activePermit.status?.replace(/_/g, " ")}</strong>. You can freely review the documentary guidelines and zoning regulations below, but filing another application is locked until your current permit reaches a final status (Released, Rejected, or Cancelled).
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider shrink-0 h-10 px-5 shadow-md shadow-emerald-600/20"
+                >
+                  Track Request
+                </Button>
+              </div>
+            ) : null}
+
             {/* Professional Notice Banner without the 2 cards and badge */}
             <div className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8 backdrop-blur-md relative overflow-hidden">
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
@@ -819,19 +1106,30 @@ export default function FencingPermitPage() {
                   Return to All Services
                 </Button>
               </Link>
-              <Button
-                onClick={() => setCurrentStep("DETAILS")}
-                className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
-              >
-                Proceed to Project Details
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              {checkingActive ? (
+                <div className="w-full sm:w-60 h-11 rounded-xl bg-slate-200/80 dark:bg-white/10 animate-pulse" />
+              ) : activePermit ? (
+                <Button
+                  onClick={() => router.push(`/user/services/requests/${activePermit.id}`)}
+                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white h-11"
+                >
+                  View Ongoing Request
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setCurrentStep("DETAILS")}
+                  className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
+                >
+                  Proceed to Project Details
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         )}
 
         {/* Step 2: DETAILS TAB CONTENT */}
-        {currentStep === "DETAILS" && (
+        {currentStep === "DETAILS" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Fencing Site Location Card */}
             <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
@@ -851,14 +1149,19 @@ export default function FencingPermitPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
                 {/* Barangay Selector */}
-                <div className="space-y-1.5">
+                <div id="field-siteBarangay" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Barangay <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={siteBarangay}
                     onChange={(e) => setSiteBarangay(e.target.value)}
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={cn(
+                      "w-full h-11 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 transition-colors",
+                      showDetailsErrors && !siteBarangay
+                        ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                        : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                    )}
                   >
                     <option value="" disabled>Select Barangay</option>
                     {MAPANDAN_BARANGAYS.map((b) => (
@@ -867,10 +1170,13 @@ export default function FencingPermitPage() {
                       </option>
                     ))}
                   </select>
+                  {showDetailsErrors && !siteBarangay && (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please select a barangay.</p>
+                  )}
                 </div>
 
                 {/* Street / Sitio / Purok */}
-                <div className="space-y-1.5">
+                <div id="field-siteStreet" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Street / Sitio / Purok <span className="text-rose-500">*</span>
                   </label>
@@ -879,8 +1185,16 @@ export default function FencingPermitPage() {
                     value={siteStreet}
                     onChange={(e) => setSiteStreet(e.target.value)}
                     placeholder="e.g. Rizal Street, Purok 3"
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={cn(
+                      "w-full h-11 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors",
+                      showDetailsErrors && !siteStreet.trim()
+                        ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                        : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                    )}
                   />
+                  {showDetailsErrors && !siteStreet.trim() && (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please provide the street/sitio address.</p>
+                  )}
                 </div>
 
                 {/* Municipality (Fixed) */}
@@ -913,23 +1227,18 @@ export default function FencingPermitPage() {
 
             {/* Project Economics & Specifications Card */}
             <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-6">
-              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <Ruler className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                    Fencing Specifications & Cost Estimate
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Details required for structural safety review and regulatory assessment
-                  </p>
-                </div>
+              <div className="border-b border-slate-200 dark:border-white/10 pb-4">
+                <h3 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                  Fencing Specifications & Cost Estimate
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Details required for structural safety review and regulatory assessment
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
                 {/* Estimated Cost */}
-                <div className="space-y-1.5">
+                <div id="field-estimatedCost" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Estimated Construction Cost (PHP) <span className="text-rose-500">*</span>
                   </label>
@@ -950,36 +1259,54 @@ export default function FencingPermitPage() {
                         setEstimatedCost(formatted);
                       }}
                       placeholder="e.g. 50,000"
-                      className="w-full h-11 pl-8 pr-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className={cn(
+                        "w-full h-11 pl-8 pr-3.5 rounded-xl border bg-white dark:bg-white/5 font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors",
+                        showDetailsErrors && (!parseFloat(estimatedCost.replace(/,/g, "")) || parseFloat(estimatedCost.replace(/,/g, "")) <= 0)
+                          ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                          : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                      )}
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Must match the Bill of Materials submitted by your licensed engineer.
-                  </p>
+                  {showDetailsErrors && (!parseFloat(estimatedCost.replace(/,/g, "")) || parseFloat(estimatedCost.replace(/,/g, "")) <= 0) ? (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please enter a valid estimated cost (greater than 0).</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400">
+                      Must match the Bill of Materials submitted by your licensed engineer.
+                    </p>
+                  )}
                 </div>
 
                 {/* Fence Type */}
-                <div className="space-y-1.5">
+                <div id="field-fenceType" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Primary Fence Material / Design Type
+                    Primary Fence Material / Design Type <span className="text-rose-500">*</span>
                   </label>
                   <Select
                     value={fenceType}
                     onValueChange={(val) => setFenceType(val)}
                   >
-                    <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <SelectValue placeholder="Select primary fence design" />
+                    <SelectTrigger className={cn(
+                      "w-full h-11 min-h-[44px] max-h-[44px] py-0 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 transition-all flex items-center justify-between text-left",
+                      showDetailsErrors && !fenceType
+                        ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                        : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                    )}>
+                      <SelectValue placeholder="Select primary fence design">
+                        <span className="truncate block font-bold text-xs">
+                          {FENCE_TYPE_OPTIONS.find((o) => o.value === fenceType)?.label || fenceType}
+                        </span>
+                      </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="max-h-72 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1017] shadow-2xl p-1.5">
+                    <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] min-w-[320px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-xl shadow-2xl p-1.5 space-y-1">
                       {FENCE_TYPE_OPTIONS.map((opt) => (
                         <SelectItem
                           key={opt.value}
                           value={opt.value}
-                          className="rounded-xl py-2 px-3 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10"
+                          className="rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10 transition-colors"
                         >
-                          <div className="space-y-0.5 text-left">
-                            <p className="font-bold text-slate-900 dark:text-white">{opt.label}</p>
-                            <p className="text-[10px] font-normal text-slate-400 dark:text-slate-400 line-clamp-1">
+                          <div className="space-y-0.5 text-left pr-4">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs leading-snug">{opt.label}</p>
+                            <p className="text-[10px] font-normal text-slate-500 dark:text-slate-400 leading-relaxed">
                               {opt.description}
                             </p>
                           </div>
@@ -987,26 +1314,101 @@ export default function FencingPermitPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {showDetailsErrors && !fenceType ? (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please select a primary fence design.</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400">
+                      Standard structural material for perimeter footing and walls.
+                    </p>
+                  )}
+                </div>
+
+                {/* Fence Security Feature / Add-on */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Perimeter Security Add-on (Electrified / Barbed Wire)
+                    </label>
+                    <span className="text-[9px] font-bold text-slate-400 italic">Optional Safety Feature</span>
+                  </div>
+                  <Select
+                    value={fenceSecurityFeature}
+                    onValueChange={(val) => setFenceSecurityFeature(val)}
+                  >
+                    <SelectTrigger className="w-full h-11 min-h-[44px] max-h-[44px] py-0 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all flex items-center justify-between text-left">
+                      <SelectValue placeholder="Select perimeter security feature">
+                        <span className="truncate block font-bold text-xs">
+                          {FENCE_SECURITY_OPTIONS.find((o) => o.value === fenceSecurityFeature)?.label || "Standard Perimeter (None / Plain Top)"}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] min-w-[320px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-xl shadow-2xl p-1.5 space-y-1">
+                      {FENCE_SECURITY_OPTIONS.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          className="rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10 transition-colors"
+                        >
+                          <div className="space-y-0.5 text-left pr-4">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs leading-snug">
+                              {opt.label}
+                            </p>
+                            <p className="text-[10px] font-normal text-slate-500 dark:text-slate-400 leading-relaxed">
+                              {opt.description}
+                            </p>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Clean Safety Notice for Barbed Wire */}
+                  {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs mt-2 space-y-0.5 animate-in fade-in duration-200">
+                      <p className="font-black text-[10px] uppercase tracking-wider">Barbed / Razor Wire Safety Standard</p>
+                      <p className="text-[11px] leading-relaxed opacity-90">
+                        Pursuant to municipal safety regulations, barbed or concertina wire must be installed at a minimum height of <strong>2.00 meters</strong> above finished street grade to safeguard pedestrians and neighbors.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Clean Safety Notice for Electrified Fence */}
+                  {(fenceSecurityFeature === "ELECTRIFIED" || fenceSecurityFeature === "BOTH") && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs mt-2 space-y-0.5 animate-in fade-in duration-200">
+                      <p className="font-black text-[10px] uppercase tracking-wider">Philippine Electrical Code Notice</p>
+                      <p className="text-[11px] leading-relaxed opacity-90">
+                        Electrified fences must strictly utilize regulated, pulsed non-lethal DC energizers. Continuous high-voltage direct AC wiring is strictly forbidden. <strong>Electrical Layout & Energizer Specification Plan</strong> signed by a Professional Electrical Engineer (PEE) will be required in the upload step.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Total Length */}
-                <div className="space-y-1.5">
+                <div id="field-fenceLength" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Total Fencing Length (Linear Meters)
+                    Total Fencing Length (Linear Meters) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
                     value={fenceLength}
                     onChange={(e) => setFenceLength(e.target.value)}
                     placeholder="e.g. 20"
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={cn(
+                      "w-full h-11 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors",
+                      showDetailsErrors && (!parseFloat(fenceLength) || parseFloat(fenceLength) <= 0)
+                        ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                        : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                    )}
                   />
+                  {showDetailsErrors && (!parseFloat(fenceLength) || parseFloat(fenceLength) <= 0) && (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please enter the total fence length in meters.</p>
+                  )}
                 </div>
 
                 {/* Total Height */}
-                <div className="space-y-1.5">
+                <div id="field-fenceHeight" className="space-y-1.5 scroll-mt-28">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Maximum Fence Height (Meters)
+                    Maximum Fence Height (Meters) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -1014,41 +1416,55 @@ export default function FencingPermitPage() {
                     value={fenceHeight}
                     onChange={(e) => setFenceHeight(e.target.value)}
                     placeholder="e.g. 1.8"
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={cn(
+                      "w-full h-11 px-3.5 rounded-xl border bg-white dark:bg-white/5 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors",
+                      showDetailsErrors && (!parseFloat(fenceHeight) || parseFloat(fenceHeight) <= 0)
+                        ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/10"
+                        : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                    )}
                   />
-                  <p className="text-[10px] text-amber-500">
-                    Notice: Solid walls exceeding 1.50m along road frontages require semi-open grilles.
-                  </p>
+                  {showDetailsErrors && (!parseFloat(fenceHeight) || parseFloat(fenceHeight) <= 0) ? (
+                    <p className="text-[10px] font-bold text-rose-500 italic">Please enter the fence height in meters.</p>
+                  ) : (
+                    <p className="text-[10px] text-amber-500">
+                      Notice: Solid walls exceeding 1.50m along road frontages require semi-open grilles.
+                    </p>
+                  )}
+                  {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && parseFloat(fenceHeight) > 0 && parseFloat(fenceHeight) < 2.0 && (
+                    <p className="text-[10px] font-bold text-rose-500 animate-in fade-in duration-200">
+                      Notice: Fence height is below 2.0m. Make sure the barbed wire extension reaches at least 2.00m clearance above ground level.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Navigation Action Buttons */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentStep("GUIDE")}
-                className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Guidelines
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="ghost"
+                  onClick={() => setCurrentStep("GUIDE")}
+                  className="rounded-xl text-xs font-bold uppercase tracking-wider gap-2 flex-1 sm:flex-none"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Guidelines
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleManualSaveDraft}
+                  className="rounded-xl text-xs font-bold uppercase tracking-wider border-slate-200 dark:border-white/10 hover:border-primary/40 hover:text-primary transition-colors flex-1 sm:flex-none"
+                >
+                  Save Draft
+                </Button>
+              </div>
               <Button
                 onClick={() => {
-                  if (!siteBarangay) {
-                    toast.error("Please select a Barangay for your fencing site.");
-                    return;
+                  const isValid = validateDetailsStep();
+                  if (isValid) {
+                    setCurrentStep("DOCUMENTS");
                   }
-                  if (!siteStreet.trim()) {
-                    toast.error("Please input the Street address for your fencing site.");
-                    return;
-                  }
-                  const costNum = parseFloat(estimatedCost.replace(/,/g, ""));
-                  if (!costNum || costNum <= 0) {
-                    toast.error("Please provide a valid Estimated Construction Cost.");
-                    return;
-                  }
-                  setCurrentStep("DOCUMENTS");
                 }}
                 className="w-full sm:w-auto px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 h-11"
               >
@@ -1060,7 +1476,7 @@ export default function FencingPermitPage() {
         )}
 
         {/* Step 3: DOCUMENTS (UPLOAD) TAB CONTENT */}
-        {currentStep === "DOCUMENTS" && (
+        {currentStep === "DOCUMENTS" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Section A: Mandatory Requirements */}
             <div className="space-y-4">
@@ -1126,7 +1542,7 @@ export default function FencingPermitPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {CONDITIONAL_DOCUMENT_SLOTS.map((slot) => {
                   const file = uploadedFiles[slot.key] || null;
                   const previewUrl = previewUrls[slot.key] || null;
@@ -1185,7 +1601,7 @@ export default function FencingPermitPage() {
         )}
 
         {/* Step 3: SUBMIT / REVIEW TAB */}
-        {currentStep === "SUBMIT" && (
+        {currentStep === "SUBMIT" && !activePermit && (
           <div className="space-y-8 animate-in fade-in-50 duration-500">
             {/* Card 1: Applicant Profile Snapshot */}
             <div className="p-6 rounded-3xl bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md shadow-sm space-y-5">
@@ -1308,6 +1724,24 @@ export default function FencingPermitPage() {
                   <p className="font-bold text-slate-900 dark:text-white">
                     {fenceLength || "0"}m length × {fenceHeight || "0"}m height
                   </p>
+                </div>
+
+                <div className="space-y-1 sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Security Feature / Add-on
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1",
+                    fenceSecurityFeature === "NONE" 
+                      ? "bg-slate-100 dark:bg-white/5 text-slate-500" 
+                      : fenceSecurityFeature === "ELECTRIFIED"
+                        ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                        : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  )}>
+                    {fenceSecurityFeature === "ELECTRIFIED" && <Zap className="w-3 h-3 text-rose-500" />}
+                    {(fenceSecurityFeature === "BARBED_WIRE" || fenceSecurityFeature === "BOTH") && <ShieldAlert className="w-3 h-3 text-amber-500" />}
+                    {FENCE_SECURITY_OPTIONS.find(o => o.value === fenceSecurityFeature)?.label || "Standard Perimeter"}
+                  </span>
                 </div>
               </div>
             </div>
