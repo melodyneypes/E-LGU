@@ -171,6 +171,7 @@ export default function OccupancyPermitPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRevision, setIsRevision] = useState(false);
   const [isZoningRevision, setIsZoningRevision] = useState(false);
+  const [showFinalAttemptModal, setShowFinalAttemptModal] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [printTriggered, setPrintTriggered] = useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
@@ -213,6 +214,17 @@ export default function OccupancyPermitPage() {
   const [viewerFile, setViewerFile] = useState<File | null>(null);
 
   const isEditable = !selectedApplication || isRevision || isZoningRevision;
+
+  // Final Revision Attempt Warning Modal (3/3)
+  useEffect(() => {
+    if (
+      selectedApplication &&
+      selectedApplication.status === "FOR_REVISION" &&
+      ((selectedApplication.revisionCount || 0) >= 3 || ((selectedApplication as any)?.rejection_count || 0) >= 3)
+    ) {
+      setShowFinalAttemptModal(true);
+    }
+  }, [selectedApplication]);
 
   const isFieldRequested = (key: string) => {
     if (!isRevision && !isZoningRevision) return true;
@@ -1070,7 +1082,7 @@ export default function OccupancyPermitPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32 font-sans">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32 font-sans">
       <SecureIdleTimer />
       <DocumentViewerModal
         isOpen={viewerOpen}
@@ -2334,7 +2346,7 @@ export default function OccupancyPermitPage() {
 
         {!loading && currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            {(residentData?.user?.rejectionCount === 2 || selectedApplication?.revisionCount === 2 || (residentData?.user as any)?.rejection_count === 2 || (selectedApplication as any)?.rejection_count === 2) && (
+            {((residentData?.user?.rejectionCount ?? 0) >= 2 || (selectedApplication?.revisionCount || 0) >= 3 || ((residentData?.user as any)?.rejection_count ?? 0) >= 2 || ((selectedApplication as any)?.rejection_count || 0) >= 3) && (
               <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 shadow-sm animate-pulse">
                 <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
@@ -2423,7 +2435,7 @@ export default function OccupancyPermitPage() {
                 const isRequired = isRevision ? isRequestedInRevision : (isCustomItem ? false : requiredRequirementIndexes.includes(idx));
                 const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
-                  <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
+                  <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-4 sm:p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
                     <div className="flex justify-between items-start gap-4 mb-4">
                       <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
                         <div className="min-h-[40px] leading-tight">
@@ -2794,6 +2806,16 @@ You cancelled this occupancy permit application. You can still view your details
                             ? getEngineeringStatusLabel(selectedApplication.status)
                             : "Pending Review"}
                       </span>
+                      {selectedApplication?.status === "FOR_REVISION" && (
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit",
+                          (selectedApplication.revisionCount || 0) >= 3
+                            ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 animate-pulse"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        )}>
+                          {(selectedApplication.revisionCount || 0) >= 3 ? "Final Revision Attempt (3/3)" : `Revision ${selectedApplication.revisionCount || 1} / 3`}
+                        </span>
+                      )}
                     </div>
 
                     {selectedApplication && (selectedApplication.status === "REJECTED" || selectedApplication.status === "FOR_REVISION") && selectedApplication.rejectionRemarks && (
@@ -3150,6 +3172,9 @@ You cancelled this occupancy permit application. You can still view your details
                   onClick={() => {
                     if (selectedApplication.status === "FOR_REVISION") {
                       setIsRevision(true);
+                      if ((selectedApplication.revisionCount || 0) >= 3 || ((selectedApplication as any)?.rejection_count || 0) >= 3) {
+                        setShowFinalAttemptModal(true);
+                      }
                     }
                     if (selectedApplication.additionalData?.zoningStatus === "FOR_REVISION") {
                       setIsZoningRevision(true);
@@ -3734,6 +3759,31 @@ You cancelled this occupancy permit application. You can still view your details
           onPrintCompleted={() => setPrintTriggered(false)}
         />
       )}
+
+      {/* 3/3 Final Revision Attempt Warning Modal for Resident */}
+      <AlertDialog open={showFinalAttemptModal} onOpenChange={setShowFinalAttemptModal}>
+        <AlertDialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-8 z-[100]">
+          <AlertDialogHeader className="space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-black italic uppercase text-slate-900 dark:text-white leading-tight">
+              Final Attempt <span className="text-red-500">Warning</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-semibold text-slate-600 dark:text-slate-300 leading-relaxed pt-2">
+              Warning: This is your final attempt to re-submit these documents. A further rejection will permanently lock this application.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4">
+            <AlertDialogAction
+              onClick={() => setShowFinalAttemptModal(false)}
+              className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-wider text-xs shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+            >
+              I Understand & Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Occupancy Walk-In Queue Ticket QR Modal */}
       {selectedApplication?.queueNumber && (

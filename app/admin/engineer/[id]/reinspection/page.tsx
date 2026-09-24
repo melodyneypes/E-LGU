@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger
@@ -949,11 +950,12 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                                             For Re-Inspection
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                                    <DialogContent className="max-w-lg w-[92vw] max-h-[90vh] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-6 sm:p-8">
                                         <DialogHeader className="space-y-3">
                                             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
                                                 Mark for <span className="text-blue-600">Re-Inspection</span>
                                             </DialogTitle>
+                                            <DialogDescription className="sr-only">Schedule a re-inspection date, time, and inspector</DialogDescription>
                                         </DialogHeader>
                                         <div className="space-y-6 py-6">
                                             <div className="space-y-3">
@@ -1037,6 +1039,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
                                             <DialogHeader className="space-y-3">
                                                 <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
+                                                <DialogDescription className="sr-only">Provide reason for declining the application</DialogDescription>
                                             </DialogHeader>
                                             <div className="space-y-6 py-6">
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Reason for Decline *</Label>

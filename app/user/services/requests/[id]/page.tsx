@@ -25,6 +25,7 @@ import {
     Download,
     ExternalLink,
     AlertCircle,
+    AlertTriangle,
     QrCode,
     Search,
     Package,
@@ -166,6 +167,7 @@ export default function RequestHubPage() {
     const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
     const [isDisputing, setIsDisputing] = useState(false);
     const [isResubmitting, setIsResubmitting] = useState(false);
+    const [showFinalAttemptModal, setShowFinalAttemptModal] = useState(false);
     const [revisionFiles, setRevisionFiles] = useState<{ [key: string]: File | null }>({});
 
 
@@ -653,7 +655,8 @@ export default function RequestHubPage() {
         }
     };
 
-    const handleResubmit = async () => {
+    const executeResubmit = async () => {
+        setShowFinalAttemptModal(false);
         setIsResubmitting(true);
         try {
             const formData = new FormData();
@@ -670,6 +673,14 @@ export default function RequestHubPage() {
         } finally {
             setIsResubmitting(false);
         }
+    };
+
+    const handleResubmit = () => {
+        if (remainingRevisions === 0 || (request?.revisionCount || 0) >= 3) {
+            setShowFinalAttemptModal(true);
+            return;
+        }
+        executeResubmit();
     };
 
 
@@ -816,7 +827,8 @@ export default function RequestHubPage() {
         return `/user/services/requests/${request.id}`;
     };
     const isRenewal = request?.type?.code === "BUSINESS_PERMIT_RENEW" || additionalData.businessType === "RENEWAL" || additionalData.businessType === "RENEW" || additionalData.businessType?.toLowerCase()?.includes("renew");
-    const remainingRevisions = request ? Math.max(0, 2 - (request.revisionCount || 0)) : 2;
+    const remainingRevisions = request ? Math.max(0, 3 - (request.revisionCount || 0)) : 3;
+
     const isPermitNewReleasedOrDelivered = isBusinessPermit &&
         ["RELEASED", "DELIVERED"].includes(request?.status) &&
         !!request?.businessPermit?.permitNumber;
@@ -2143,6 +2155,56 @@ export default function RequestHubPage() {
                                                                     </Link>
                                                                 </div>
                                                             )}
+
+                                                            {/* Final Revision Attempt Warning Modal */}
+                                                            <Dialog open={showFinalAttemptModal} onOpenChange={setShowFinalAttemptModal}>
+                                                                <DialogContent className="max-w-md bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl p-8 z-[200]">
+                                                                    <DialogHeader className="space-y-3 text-center">
+                                                                        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border-2 border-amber-500/20 flex items-center justify-center text-amber-500 mx-auto">
+                                                                            <AlertTriangle className="w-8 h-8 animate-pulse text-amber-500" />
+                                                                        </div>
+                                                                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
+                                                                            Final Attempt Warning
+                                                                        </DialogTitle>
+                                                                        <DialogDescription className="sr-only">
+                                                                            Warning: This is your final attempt to re-submit these documents.
+                                                                        </DialogDescription>
+                                                                    </DialogHeader>
+
+                                                                    <div className="py-4 text-center space-y-2">
+                                                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">
+                                                                            Warning: This is your final attempt to re-submit these documents. A further rejection will permanently lock this application.
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div className="flex items-center gap-3 pt-4">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            onClick={() => setShowFinalAttemptModal(false)}
+                                                                            disabled={isResubmitting}
+                                                                            className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs border-slate-200 dark:border-white/10"
+                                                                        >
+                                                                            Review First
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            onClick={executeResubmit}
+                                                                            disabled={isResubmitting}
+                                                                            className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-wider text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                                                                        >
+                                                                            {isResubmitting ? (
+                                                                                <span className="flex items-center gap-1.5 justify-center">
+                                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                                    Submitting...
+                                                                                </span>
+                                                                            ) : (
+                                                                                "Proceed & Resubmit"
+                                                                            )}
+                                                                        </Button>
+                                                                    </div>
+                                                                </DialogContent>
+                                                            </Dialog>
                                                         </div>
                                                     </div>
                                                 )}
