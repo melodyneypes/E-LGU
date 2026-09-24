@@ -23,8 +23,7 @@ import {
     Truck,
     X,
     AlertCircle,
-    ArrowUpDown,
-    Copy
+    ArrowUpDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -254,43 +253,43 @@ export default function UserServiceRequestsPage() {
                 </div>
 
                 {/* Editorial Header */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                     <Breadcrumb className="hidden md:block">
-                        <BreadcrumbList className="bg-slate-50 dark:bg-white/5 px-6 py-2 rounded-xl border border-slate-100 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="bg-slate-50 dark:bg-white/5 px-4 py-1.5 rounded-lg border border-slate-100 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
-                                    <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
-                                        <Home className="w-3.5 h-3.5 mb-0.5" />
+                                    <Link href="/" className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
+                                        <Home className="w-3 h-3 mb-0.5" />
                                         Home
                                     </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest text-primary italic">My Requests</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[9px] font-black uppercase tracking-widest text-primary italic">My Requests</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
 
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 md:gap-8">
-                        <div className="space-y-3 md:space-y-4">
-                            <div className="space-y-1">
-                                <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none select-none">
-                                    Track <span className="text-primary italic underline decoration-primary/20 underline-offset-8 decoration-4">Status</span>
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
+                        <div className="space-y-1.5 md:space-y-2">
+                            <div className="space-y-0.5">
+                                <h1 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none select-none">
+                                    Track <span className="text-primary italic underline decoration-primary/20 underline-offset-4 decoration-3">Status</span>
                                 </h1>
-                                <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] md:ml-2 italic">Service Records Portfolio</p>
+                                <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] md:ml-1 italic">Service Records Portfolio</p>
                             </div>
-                            <p className="text-slate-500 font-medium italic text-sm md:text-xl leading-relaxed max-w-2xl">
+                            <p className="text-slate-500 font-medium italic text-xs md:text-sm leading-relaxed max-w-xl">
                                 Real-time tracking of your Fencing, Occupancy, and Building Permit applications with the Municipal Engineering Office.
                             </p>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                            <div className="relative w-full md:w-80 group">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+                            <div className="relative w-full md:w-72 group">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <Input 
                                     placeholder="Search records..." 
-                                    className="h-12 md:h-14 pl-12 rounded-xl md:rounded-2xl border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-black italic transition-all focus:ring-4 focus:ring-primary/10 text-xs md:text-sm w-full"
+                                    className="h-10 md:h-11 pl-10 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-black italic transition-all focus:ring-4 focus:ring-primary/10 text-xs w-full"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
@@ -299,7 +298,7 @@ export default function UserServiceRequestsPage() {
                             <button
                                 type="button"
                                 onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-                                className="h-12 md:h-14 px-5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-primary/40 hover:text-primary font-black uppercase tracking-widest text-[9px] md:text-[10px] italic flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 shadow-sm w-full sm:w-auto select-none"
+                                className="h-10 md:h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-primary/40 hover:text-primary font-black uppercase tracking-widest text-[9px] italic flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0 shadow-sm w-full sm:w-auto select-none"
                             >
                                 <ArrowUpDown className="w-3.5 h-3.5" />
                                 <span>Date: {sortDirection === "desc" ? "Newest" : "Oldest"}</span>
@@ -309,9 +308,10 @@ export default function UserServiceRequestsPage() {
                 </div>
 
                 {/* Wide Request List */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {sortedRequests.length > 0 ? sortedRequests.map((req) => {
                         const style = getStatusStyle(req);
+                        const hasFee = req.totalAmount && Number(req.totalAmount) > 0;
                         
                         return (
                             <div 
@@ -319,60 +319,38 @@ export default function UserServiceRequestsPage() {
                                 onClick={() => {
                                     router.push(`/user/services/requests/${req.id}`);
                                 }}
-                                className="group bg-white dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 p-3 md:p-5 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row items-center gap-4 md:gap-8"
+                                className="group bg-white dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 p-3 md:p-4 transition-all cursor-pointer select-none active:scale-[0.99] flex flex-col md:flex-row items-center gap-3 md:gap-6"
                             >
-                                <div className="flex items-center gap-4 md:gap-6 flex-1 w-full">
-                                    <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-500 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white">
-                                        <FileText className="w-5 h-5 md:w-7 md:h-7 transition-colors" />
+                                <div className="flex items-center gap-3 md:gap-4 flex-1 w-full min-w-0">
+                                    <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white">
+                                        <FileText className="w-4 h-4 md:w-5 md:h-5 transition-colors" />
                                     </div>
-                                    <div className="space-y-0.5 md:space-y-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1 opacity-70">
-                                            <span className="text-[8px] md:text-[10px] font-black tracking-widest uppercase text-slate-500">
-                                                Application {req.id.substring(req.id.length - 8).toUpperCase()}
-                                            </span>
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigator.clipboard.writeText(req.id.substring(req.id.length - 8).toUpperCase());
-                                                    toast.success("Tracking code copied to clipboard");
-                                                }}
-                                                className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md transition-colors"
-                                                title="Copy tracking code"
-                                            >
-                                                <Copy className="w-3 h-3 text-slate-400 hover:text-slate-700 dark:hover:text-white" />
-                                            </button>
-                                        </div>
-                                        <h3 className="text-lg md:text-2xl font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary py-1 pr-4 leading-normal">
+                                    <div className="space-y-0.5 min-w-0 flex-1">
+                                        <h3 className="text-base md:text-lg font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary leading-tight">
                                             {req.type?.name || "Service Request"}
                                         </h3>
-                                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-slate-400">
-                                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest italic">{req.createdAt ? formatPHDate(req.createdAt) : "N/A"}</span>
+                                        <div className="flex items-center gap-2 text-slate-400">
+                                            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest italic">{req.createdAt ? formatPHDate(req.createdAt) : "N/A"}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5">
-                                    <div className="text-left md:text-right">
-                                        {req.isCancelled ? (
-                                            <div className="py-0.5">
-                                                <p className="text-[7px] md:text-[8px] font-black text-red-500/40 uppercase tracking-widest italic leading-none">Status</p>
-                                                <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic tracking-tighter">Cancelled</p>
-                                            </div>
-                                        ) : req.status !== "FOR_REQUESTING" ? (
-                                            <>
-                                                <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Assessment</p>
-                                                <p className="text-base md:text-2xl font-black text-slate-900 dark:text-white italic">₱{(req.totalAmount || 0).toLocaleString()}</p>
-                                            </>
-                                        ) : (
-                                            <div className="py-0.5">
-                                                <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none opacity-50">Evaluation</p>
-                                                <p className="text-[9px] md:text-[10px] font-black text-primary uppercase italic tracking-tighter">Pending Review</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col items-center gap-1.5 min-w-[100px] md:min-w-[140px] shrink-0">
-                                        <Badge className={cn("inline-flex items-center gap-1.5 font-black uppercase tracking-widest text-[7px] md:text-[9px] italic px-3 md:px-5 py-1.5 md:py-2.5 rounded-full border border-opacity-20 w-full justify-center shadow-sm", style.color, style.bg, style.border)}>
-                                            <style.icon className="w-3 h-3 hidden md:block" />
+                                <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2.5 md:pt-0 border-slate-100 dark:border-white/5 shrink-0">
+                                    {req.isCancelled ? (
+                                        <div className="text-left md:text-right py-0.5">
+                                            <p className="text-[7px] md:text-[8px] font-black text-red-500/50 uppercase tracking-widest italic leading-none">Status</p>
+                                            <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic tracking-tighter">Cancelled</p>
+                                        </div>
+                                    ) : hasFee ? (
+                                        <div className="text-left md:text-right">
+                                            <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Assessment</p>
+                                            <p className="text-sm md:text-lg font-black text-slate-900 dark:text-white italic">₱{Number(req.totalAmount).toLocaleString()}</p>
+                                        </div>
+                                    ) : null}
+                                    
+                                    <div className="flex flex-col items-center gap-1 min-w-[90px] md:min-w-[130px] shrink-0">
+                                        <Badge className={cn("inline-flex items-center gap-1 font-black uppercase tracking-widest text-[7px] md:text-[8px] italic px-2.5 md:px-3.5 py-1 md:py-1.5 rounded-full border border-opacity-20 w-full justify-center shadow-sm", style.color, style.bg, style.border)}>
+                                            <style.icon className="w-2.5 h-2.5 hidden md:block" />
                                             {style.label}
                                         </Badge>
                                     </div>
