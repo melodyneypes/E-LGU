@@ -142,6 +142,14 @@ export default function ResidentIdentityProfile({
                         </div>
                     </div>
 
+                    {/* Gender / Sex */}
+                    <div className="col-span-12 sm:col-span-3 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Gender</span>
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                            {resident.gender || resident.sex || "—"}
+                        </div>
+                    </div>
+
                     {/* Civil Status */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
@@ -150,8 +158,43 @@ export default function ResidentIdentityProfile({
                         </div>
                     </div>
 
+                    {/* Place of Birth */}
+                    <div className="col-span-12 sm:col-span-6 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
+                        <div 
+                            className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none truncate cursor-help"
+                            title={resident.placeOfBirth || "—"}
+                        >
+                            {resident.placeOfBirth || "—"}
+                        </div>
+                    </div>
+
+                    {/* Citizenship */}
+                    <div className="col-span-12 sm:col-span-2 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                            {resident.citizenship || "Filipino"}
+                        </div>
+                    </div>
+
+                    {/* Height */}
+                    <div className="col-span-12 sm:col-span-2 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Height</span>
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                            {resident.height || "—"}
+                        </div>
+                    </div>
+
+                    {/* Weight */}
+                    <div className="col-span-12 sm:col-span-2 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Weight</span>
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                            {resident.weight || "—"}
+                        </div>
+                    </div>
+
                     {/* Contact Number */}
-                    <div className="col-span-12 sm:col-span-3 space-y-1.5">
+                    <div className="col-span-12 sm:col-span-4 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
                         <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.contactNumber || resident.phoneNumber || "—"}
@@ -159,8 +202,8 @@ export default function ResidentIdentityProfile({
                     </div>
 
                     {/* Occupation */}
-                    <div className="col-span-12 sm:col-span-12 space-y-1.5">
-                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Occupation</span>
+                    <div className="col-span-12 sm:col-span-8 space-y-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Occupation / Profession</span>
                         <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.occupation || "—"}
                         </div>

@@ -205,9 +205,20 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         : (rawSnapshot || {});
 
     // For Relative applications, resident represents the relative (the actual Cedula Holder)
-    const resident = isRelative
+    const baseResident = isRelative
         ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
         : (transaction.user?.residentProfile || parsedSnapshot);
+
+    const resident = {
+        ...baseResident,
+        gender: baseResident?.gender || parsedSnapshot?.gender || additional?.gender || "—",
+        placeOfBirth: baseResident?.placeOfBirth || parsedSnapshot?.placeOfBirth || additional?.placeOfBirth || "—",
+        citizenship: baseResident?.citizenship || parsedSnapshot?.citizenship || additional?.citizenship || "Filipino",
+        height: baseResident?.height || parsedSnapshot?.height || additional?.height || "—",
+        weight: baseResident?.weight || parsedSnapshot?.weight || additional?.weight || "—",
+        civilStatus: baseResident?.civilStatus || parsedSnapshot?.civilStatus || additional?.civilStatus || "Single",
+        occupation: baseResident?.occupation || parsedSnapshot?.occupation || additional?.incomeSource || additional?.occupation || "—",
+    };
 
     const requesterProfile = transaction.user?.residentProfile || transaction.user || {};
     const requesterFullName = requesterProfile?.firstName || requesterProfile?.lastName
