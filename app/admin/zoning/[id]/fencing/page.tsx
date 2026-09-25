@@ -28,10 +28,14 @@ import {
     AlertTriangle,
     Coins,
     Trash2,
-    Plus
+    Plus,
+    Upload,
+    Check,
+    FileCheck,
+    Loader2
 } from "lucide-react";
 import { toast } from "sonner";
-import { getTransactionById } from "@/app/admin/transactions/actions";
+import { getTransactionById, uploadECopyAction } from "@/app/admin/transactions/actions";
 import {
     scheduleZoningFencingInspection,
     sendZoningFencingRevision,
@@ -118,6 +122,11 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
         { name: "", amount: "" }
     ]);
 
+    // Zoning Clearance Certificate File Upload State
+    const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
+    const [isUploadingClearance, setIsUploadingClearance] = useState<boolean>(false);
+    const clearanceInputRef = React.useRef<HTMLInputElement | null>(null);
+
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
         try {
@@ -127,6 +136,9 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
                 const feeData = res.data.additionalData?.feeAssessment?.zoningFees;
                 if (Array.isArray(feeData) && feeData.length > 0) {
                     setZoningFeeItems(feeData.map((f: any) => ({ name: f.name, amount: String(f.amount) })));
+                }
+                if (res.data.additionalData?.zoningClearanceUrl) {
+                    setZoningClearanceUrl(res.data.additionalData.zoningClearanceUrl);
                 }
             } else {
                 toast.error(res.error || "Failed to load transaction details");
@@ -182,15 +194,54 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
         setPdfViewerOpen(true);
     };
 
+    // Handle Zoning Clearance Certificate Upload
+    const handleClearanceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error("File size exceeds 10MB limit.");
+            return;
+        }
+
+        setIsUploadingClearance(true);
+        const toastId = toast.loading("Uploading Zoning Clearance Certificate...");
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await uploadECopyAction(formData);
+            if (res.success && res.data) {
+                setZoningClearanceUrl(res.data);
+                toast.success("Zoning Clearance Certificate uploaded successfully!", { id: toastId });
+            } else {
+                toast.error(res.error || "Failed to upload certificate", { id: toastId });
+            }
+        } catch (err: any) {
+            console.error("Certificate upload error:", err);
+            toast.error("Failed to upload file. Please try again.", { id: toastId });
+        } finally {
+            setIsUploadingClearance(false);
+            if (clearanceInputRef.current) {
+                clearanceInputRef.current.value = "";
+            }
+        }
+    };
+
     // Endorse Fencing Application by MPDC Zoning
     const handleEndorse = async () => {
+        if (!zoningClearanceUrl) {
+            toast.error("Zoning Clearance Certificate document is required before endorsing.");
+            return;
+        }
+
         setActionLoading(true);
         try {
             const formattedFees = zoningFeeItems
                 .filter(f => f.name.trim() !== "" && Number(f.amount) > 0)
                 .map(f => ({ name: f.name.trim(), amount: Number(f.amount) }));
 
-            const res = await endorseFencingPermitByZoning(id, endorseNotes, formattedFees);
+            const res = await endorseFencingPermitByZoning(id, endorseNotes, formattedFees, zoningClearanceUrl);
             if (res.success) {
                 toast.success("Locational Clearance approved and endorsed by MPDC Zoning!");
                 setEndorseModalOpen(false);
@@ -764,17 +815,152 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
                     </div>
 
                     {/* Exact Executive Action Buttons */}
-                    <div className="space-y-3">
+                    <div className="space-y-4">
+                        {/* Zoning Clearance Certificate Document Upload Section */}
+                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                        <FileCheck className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                            Zoning Clearance Certificate
+                                        </p>
+                                        <p className="text-[10px] text-slate-400">
+                                            {isZoningEndorsed ? "Official copy on record" : "Required document before endorsement"}
+                                        </p>
+                                    </div>
+                                </div>
+                                {zoningClearanceUrl ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                                        <Check className="w-3 h-3" /> Attached
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide uppercase bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
+                                        Required
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Hidden File Input */}
+                            <input
+                                ref={clearanceInputRef}
+                                type="file"
+                                accept=".pdf,.png,.jpg,.jpeg"
+                                className="hidden"
+                                disabled={isZoningEndorsed || isUploadingClearance}
+                                onChange={handleClearanceFileUpload}
+                            />
+
+                            {/* Upload Area / Current Attached File */}
+                            {zoningClearanceUrl ? (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-emerald-500/30">
+                                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                                            <FileText className="w-4 h-4" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                Zoning_Clearance_Certificate.{checkIsPdf(zoningClearanceUrl) ? "pdf" : "jpg"}
+                                            </p>
+                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                Ready for endorsement
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setPdfViewerUrl(zoningClearanceUrl);
+                                                setPdfViewerTitle("Zoning Clearance Certificate");
+                                                setPdfViewerOpen(true);
+                                            }}
+                                            className="h-8 px-2.5 text-xs font-bold rounded-lg text-primary hover:bg-primary/10"
+                                        >
+                                            <Eye className="w-3.5 h-3.5 mr-1" />
+                                            View
+                                        </Button>
+                                        {!isZoningEndorsed && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={isUploadingClearance}
+                                                onClick={() => clearanceInputRef.current?.click()}
+                                                className="h-8 px-2.5 text-xs font-bold rounded-lg border-slate-200 dark:border-slate-700"
+                                            >
+                                                Replace
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    disabled={isZoningEndorsed || isUploadingClearance}
+                                    onClick={() => clearanceInputRef.current?.click()}
+                                    className={cn(
+                                        "w-full p-4 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center group",
+                                        isUploadingClearance
+                                            ? "border-slate-300 bg-slate-50 dark:bg-slate-800/40 cursor-wait"
+                                            : "border-slate-300 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/10 cursor-pointer"
+                                    )}
+                                >
+                                    {isUploadingClearance ? (
+                                        <div className="flex flex-col items-center gap-1.5 py-1">
+                                            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+                                            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                Uploading certificate to cloud storage...
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-1.5 py-1">
+                                            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:text-emerald-600 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 flex items-center justify-center transition-colors">
+                                                <Upload className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                                    Upload Zoning Clearance Certificate
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                                    Click to browse (PDF, PNG, JPG up to 10MB)
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </button>
+                            )}
+
+                            {!zoningClearanceUrl && !isZoningEndorsed && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold px-1">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>Please upload the signed clearance certificate before clicking endorse.</span>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Primary Button: ENDORSE FENCING CLEARANCE */}
                         <Button
                             className={cn(
                                 "w-full h-14 rounded-2xl font-black italic uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center active:scale-95",
                                 isZoningEndorsed
                                     ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 cursor-not-allowed shadow-none"
-                                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
+                                    : !zoningClearanceUrl
+                                        ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700 shadow-none"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
                             )}
-                            onClick={() => setEndorseModalOpen(true)}
-                            disabled={actionLoading || isZoningEndorsed || zoningStatus === "REJECTED"}
+                            onClick={() => {
+                                if (!zoningClearanceUrl) {
+                                    toast.error("Please upload the Zoning Clearance Certificate first.");
+                                    return;
+                                }
+                                setEndorseModalOpen(true);
+                            }}
+                            disabled={actionLoading || isZoningEndorsed || zoningStatus === "REJECTED" || !zoningClearanceUrl}
                         >
                             {isZoningEndorsed ? "CLEARANCE ENDORSED" : "ENDORSE FENCING CLEARANCE"}
                         </Button>

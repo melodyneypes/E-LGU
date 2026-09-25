@@ -20,7 +20,7 @@ export interface ZoningFeeItem {
  * Endorse Fencing Permit by MPDC Zoning with assessed fees
  * Approves Locational Clearance for Fencing and advances status
  */
-export async function endorseFencingPermitByZoning(id: string, notes?: string, fees?: ZoningFeeItem[]) {
+export async function endorseFencingPermitByZoning(id: string, notes?: string, fees?: ZoningFeeItem[], clearanceUrl?: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
@@ -43,6 +43,7 @@ export async function endorseFencingPermitByZoning(id: string, notes?: string, f
         const updatedAdditionalData = {
             ...currentAdditionalData,
             zoningStatus: "ENDORSED",
+            zoningClearanceUrl: clearanceUrl || currentAdditionalData.zoningClearanceUrl || null,
             zoningEndorsementNotes: notes ? sanitizeString(notes) : null,
             zoningEndorsedAt: new Date().toISOString(),
             zoningEndorsedBy: user.name || user.id,
