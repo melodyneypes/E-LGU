@@ -24,7 +24,8 @@ import {
     ShieldCheck,
     Phone,
     Mail,
-    Users
+    Users,
+    Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -321,13 +322,20 @@ export function CedulaAppointmentClient({
         if (title) {
             setViewerTitle(title);
         } else {
-            const isProof = file === proofFile || (existingUrl === existingProofUrl && existingUrl !== null);
-            setViewerTitle(isProof ? "Proof of Income Document" : "Valid ID Document");
+            if (file === proofFile || (existingUrl === existingProofUrl && existingUrl !== null)) {
+                setViewerTitle("Proof of Income Document");
+            } else if (file === authorizationLetterFile) {
+                setViewerTitle("Authorization Letter Document");
+            } else if (file === secRegistrationFile) {
+                setViewerTitle("SEC Registration / Certificate of Incorporation");
+            } else {
+                setViewerTitle("Valid Government ID");
+            }
         }
         setViewerOpen(true);
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile") => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile" | "authorizationLetterFile" | "secRegistrationFile") => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
@@ -400,6 +408,13 @@ export function CedulaAppointmentClient({
 
             if (field === "idFile") {
                 setIdFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, id: false }));
+            } else if (field === "authorizationLetterFile") {
+                setAuthorizationLetterFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, authorizationLetter: false }));
+            } else if (field === "secRegistrationFile") {
+                setSecRegistrationFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, secRegistration: false }));
             } else {
                 setProofFile(fileToProcess);
             }
@@ -499,8 +514,23 @@ export function CedulaAppointmentClient({
                     );
                 }
                 return true;
-            case "UPLOAD":
+            case "UPLOAD": {
+                // 1. Valid ID is mandatory for everyone (either newly uploaded or existing from resident profile)
+                const hasValidId = !!(idFile || existingIdUrl);
+                if (!hasValidId) return false;
+
+                // 2. Relative applicants must provide an Authorization Letter
+                if (applicantTarget === "RELATIVE" && !authorizationLetterFile) {
+                    return false;
+                }
+
+                // 3. Juridical applicants must provide SEC Registration / Certificate of Incorporation
+                if (applicantType === "JURIDICAL" && !secRegistrationFile) {
+                    return false;
+                }
+
                 return true;
+            }
             case "TAX_DECLARATION":
                 if (formState.incomeSource === "UNEMPLOYED") return true;
                 const isIncomeValid = !!formState.income.trim();
@@ -624,6 +654,26 @@ export function CedulaAppointmentClient({
                         return;
                     }
                 }
+            } else if (currentStep === "UPLOAD") {
+                const hasValidId = !!(idFile || existingIdUrl);
+                if (!hasValidId) {
+                    setUploadErrors(prev => ({ ...prev, id: true }));
+                    idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload a Valid Government ID.");
+                    return;
+                }
+                if (applicantTarget === "RELATIVE" && !authorizationLetterFile) {
+                    setUploadErrors(prev => ({ ...prev, authorizationLetter: true }));
+                    authorizationSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload the signed Authorization Letter from the applicant.");
+                    return;
+                }
+                if (applicantType === "JURIDICAL" && !secRegistrationFile) {
+                    setUploadErrors(prev => ({ ...prev, secRegistration: true }));
+                    secRegistrationSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload the SEC Registration / Certificate of Incorporation.");
+                    return;
+                }
             } else if (currentStep === "TAX_DECLARATION") {
                 if (applicantType === "JURIDICAL" && !formState.businessName.trim()) {
                     toast.error("Please declare your Business Name.");
@@ -697,6 +747,8 @@ export function CedulaAppointmentClient({
             }));
             if (idFile) submitData.append("idFile", idFile);
             if (proofFile) submitData.append("proofFile", proofFile);
+            if (authorizationLetterFile) submitData.append("authorizationLetterFile", authorizationLetterFile);
+            if (secRegistrationFile) submitData.append("secRegistrationFile", secRegistrationFile);
             if (existingIdUrl) submitData.append("existingIdUrl", existingIdUrl);
             if (existingProofUrl) submitData.append("existingProofUrl", existingProofUrl);
 
@@ -1655,172 +1707,321 @@ export function CedulaAppointmentClient({
                                             Document <span className="text-primary italic">Upload</span>
                                         </h2>
                                         <p className="text-slate-500 font-medium italic text-xs md:text-sm">
-                                            Upload your valid government ID and supporting income documents (optional, you can also present physical copies on-site).
+                                            Upload your required government credentials and supporting documents to proceed with your appointment.
                                         </p>
                                     </div>
 
                                     {/* Upload cards */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                                        <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Valid ID <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">PDF / Image (Max 5MB)</p>
-                                                    </div>
-                                                </div>
+                                         {/* 1. Valid ID Card (Mandatory for everyone) */}
+                                         <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
+                                             <div className={cn(
+                                                 "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                 uploadErrors.id ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                             )}>
+                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                     </div>
+                                                     <div className="space-y-0.5">
+                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                             Valid Government ID <span className="text-destructive font-bold text-[9px]">*</span>
+                                                         </h4>
+                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                             {existingIdUrl && !idFile ? "Using verified ID from profile" : "PDF / Image (Max 5MB)"}
+                                                         </p>
+                                                     </div>
+                                                 </div>
 
-                                                {idFile ? (
-                                                    idFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
+                                                 {idFile ? (
+                                                     idFile.type.startsWith("image/") ? (
+                                                         <div
+                                                             onClick={() => handleViewFile(idFile, null)}
+                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                         >
+                                                             <Image
                                                                 src={URL.createObjectURL(idFile)}
                                                                 alt="ID Preview"
                                                                 fill
                                                                 unoptimized
                                                                 className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                             />
+                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingIdUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingIdUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingIdUrl}
-                                                            alt="Existing ID Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
+                                                             </div>
+                                                         </div>
+                                                     ) : (
+                                                         <div
+                                                             onClick={() => handleViewFile(idFile, null)}
+                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                         >
+                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
+                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                         </div>
+                                                     )
+                                                 ) : existingIdUrl ? (
+                                                     <div
+                                                         onClick={() => handleViewFile(null, existingIdUrl)}
+                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                     >
+                                                         <Image
+                                                             src={existingIdUrl}
+                                                             alt="Existing ID Preview"
+                                                             fill
+                                                             unoptimized
+                                                             className="object-cover opacity-75 group-hover/preview:scale-105 transition-transform duration-500"
+                                                         />
+                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Verified ID on File (Click to View)</span>
+                                                         </div>
+                                                     </div>
+                                                 ) : null}
 
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
-                                                    {(idFile || existingIdUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(idFile, existingIdUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="id-upload" className="cursor-pointer">
-                                                            {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                     <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
+                                                     {(idFile || existingIdUrl) && (
+                                                         <Button
+                                                             type="button"
+                                                             variant="outline"
+                                                             onClick={() => handleViewFile(idFile, existingIdUrl)}
+                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                         >
+                                                             View Document
+                                                         </Button>
+                                                     )}
+                                                     <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                         <label htmlFor="id-upload" className="cursor-pointer">
+                                                             {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload ID"}
+                                                         </label>
+                                                     </Button>
+                                                 </div>
+                                             </div>
+                                         </div>
 
-                                        <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
-                                                            Payslip / BIR (Max 5MB)
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                         {/* 2. Relative Authorization Letter (Mandatory when applicantTarget === "RELATIVE") */}
+                                         {applicantTarget === "RELATIVE" && (
+                                             <div className="space-y-4 md:space-y-6" ref={authorizationSectionRef}>
+                                                 <div className={cn(
+                                                     "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                     uploadErrors.authorizationLetter ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                                 )}>
+                                                     <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                         <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                             <FileText className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                         </div>
+                                                         <div className="space-y-0.5">
+                                                             <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                 Authorization Letter <span className="text-destructive font-bold text-[9px]">*</span>
+                                                             </h4>
+                                                             <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                 Signed authorization from applicant (PDF / Image)
+                                                             </p>
+                                                         </div>
+                                                     </div>
 
-                                                {proofFile ? (
-                                                    proofFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
-                                                                src={URL.createObjectURL(proofFile)}
-                                                                alt="Proof Preview"
-                                                                fill
-                                                                unoptimized
-                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingProofUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingProofUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingProofUrl}
-                                                            alt="Existing Proof Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
+                                                     {authorizationLetterFile ? (
+                                                         authorizationLetterFile.type.startsWith("image/") ? (
+                                                             <div
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                             >
+                                                                 <Image
+                                                                     src={URL.createObjectURL(authorizationLetterFile)}
+                                                                     alt="Authorization Letter Preview"
+                                                                     fill
+                                                                     unoptimized
+                                                                     className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                 />
+                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                 </div>
+                                                             </div>
+                                                         ) : (
+                                                             <div
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                             >
+                                                                 <span className="text-xs font-bold text-primary truncate max-w-[200px]">{authorizationLetterFile.name}</span>
+                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                             </div>
+                                                         )
+                                                     ) : null}
 
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
-                                                    {(proofFile || existingProofUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(proofFile, existingProofUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="proof-upload" className="cursor-pointer">
-                                                            {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                                     <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                         <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "authorizationLetterFile")} className="hidden" id="authorization-upload" />
+                                                         {authorizationLetterFile && (
+                                                             <Button
+                                                                 type="button"
+                                                                 variant="outline"
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                             >
+                                                                 View Document
+                                                             </Button>
+                                                         )}
+                                                         <Button asChild variant={authorizationLetterFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                             <label htmlFor="authorization-upload" className="cursor-pointer">
+                                                                 {authorizationLetterFile ? "Change" : "Upload Authorization Letter"}
+                                                             </label>
+                                                         </Button>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )}
+
+                                         {/* 3. Juridical SEC Registration / Certificate of Incorporation (Mandatory when applicantType === "JURIDICAL") */}
+                                         {applicantType === "JURIDICAL" && (
+                                             <div className="space-y-4 md:space-y-6" ref={secRegistrationSectionRef}>
+                                                 <div className={cn(
+                                                     "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                     uploadErrors.secRegistration ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                                 )}>
+                                                     <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                         <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                             <Building2 className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                         </div>
+                                                         <div className="space-y-0.5">
+                                                             <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                 SEC Registration <span className="text-destructive font-bold text-[9px]">*</span>
+                                                             </h4>
+                                                             <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                 Certificate of Incorporation / DTI / Articles (Max 5MB)
+                                                             </p>
+                                                         </div>
+                                                     </div>
+
+                                                     {secRegistrationFile ? (
+                                                         secRegistrationFile.type.startsWith("image/") ? (
+                                                             <div
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                             >
+                                                                 <Image
+                                                                     src={URL.createObjectURL(secRegistrationFile)}
+                                                                     alt="SEC Registration Preview"
+                                                                     fill
+                                                                     unoptimized
+                                                                     className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                 />
+                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                 </div>
+                                                             </div>
+                                                         ) : (
+                                                             <div
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                             >
+                                                                 <span className="text-xs font-bold text-primary truncate max-w-[200px]">{secRegistrationFile.name}</span>
+                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                             </div>
+                                                         )
+                                                     ) : null}
+
+                                                     <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                         <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "secRegistrationFile")} className="hidden" id="sec-upload" />
+                                                         {secRegistrationFile && (
+                                                             <Button
+                                                                 type="button"
+                                                                 variant="outline"
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                             >
+                                                                 View Document
+                                                             </Button>
+                                                         )}
+                                                         <Button asChild variant={secRegistrationFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                             <label htmlFor="sec-upload" className="cursor-pointer">
+                                                                 {secRegistrationFile ? "Change" : "Upload SEC Registration"}
+                                                             </label>
+                                                         </Button>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )}
+
+                                         {/* 4. Proof of Income Card (Optional) */}
+                                         <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
+                                             <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
+                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                     </div>
+                                                     <div className="space-y-0.5">
+                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
+                                                             Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
+                                                         </h4>
+                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                             Payslip / BIR / ITR (Max 5MB)
+                                                         </p>
+                                                     </div>
+                                                 </div>
+
+                                                 {proofFile ? (
+                                                     proofFile.type.startsWith("image/") ? (
+                                                         <div
+                                                             onClick={() => handleViewFile(proofFile, null)}
+                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                         >
+                                                             <Image
+                                                                 src={URL.createObjectURL(proofFile)}
+                                                                 alt="Proof Preview"
+                                                                 fill
+                                                                 unoptimized
+                                                                 className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                             />
+                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                             </div>
+                                                         </div>
+                                                     ) : (
+                                                         <div
+                                                             onClick={() => handleViewFile(proofFile, null)}
+                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                         >
+                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
+                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                         </div>
+                                                     )
+                                                 ) : existingProofUrl ? (
+                                                     <div
+                                                         onClick={() => handleViewFile(null, existingProofUrl)}
+                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                     >
+                                                         <Image
+                                                             src={existingProofUrl}
+                                                             alt="Existing Proof Preview"
+                                                             fill
+                                                             unoptimized
+                                                             className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                         />
+                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                         </div>
+                                                     </div>
+                                                 ) : null}
+
+                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                     <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
+                                                     {(proofFile || existingProofUrl) && (
+                                                         <Button
+                                                             type="button"
+                                                             variant="outline"
+                                                             onClick={() => handleViewFile(proofFile, existingProofUrl)}
+                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                         >
+                                                             View Document
+                                                         </Button>
+                                                     )}
+                                                     <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                         <label htmlFor="proof-upload" className="cursor-pointer">
+                                                             {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload Proof"}
+                                                         </label>
+                                                     </Button>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </div>
                                 </div>
                             )}
 
@@ -2125,6 +2326,30 @@ export function CedulaAppointmentClient({
                                                 <span className="text-xs font-black text-primary block">
                                                     ₱{(calcResult?.totalAmount ?? 0).toFixed(2)}
                                                 </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Uploaded Credentials</span>
+                                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                        <Check className="w-2.5 h-2.5" /> Valid ID
+                                                    </span>
+                                                    {applicantTarget === "RELATIVE" && authorizationLetterFile && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                            <Check className="w-2.5 h-2.5" /> Auth Letter
+                                                        </span>
+                                                    )}
+                                                    {applicantType === "JURIDICAL" && secRegistrationFile && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                            <Check className="w-2.5 h-2.5" /> SEC Reg
+                                                        </span>
+                                                    )}
+                                                    {(proofFile || existingProofUrl) && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full">
+                                                            <Check className="w-2.5 h-2.5" /> Proof
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
