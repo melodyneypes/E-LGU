@@ -11,10 +11,16 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Search, Copy, Check, DollarSign, CalendarIcon, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, RotateCcw, Folder } from "lucide-react";
+import {
+    Search, Copy, Check, DollarSign, CalendarIcon, FileSpreadsheet,
+    ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, RotateCcw,
+    Folder, Download, ChevronDown
+} from "lucide-react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 import { exportForm10APdf, exportForm10AExcel } from "./rpt-form10a-export";
 import { exportForm129APdf, exportForm129AExcel } from "./general-form129a-export";
+import { exportMonthlySummaryPdf, exportMonthlySummaryExcel } from "./monthly-summary-export";
 import { copyToClipboard } from "@/lib/utils";
 
 interface PaymentRecord {
@@ -58,6 +64,7 @@ interface PaymentsClientProps {
     };
     categories?: string[];
     themeColor?: string;
+    currentUserName?: string;
     initialFrom?: string;
     initialTo?: string;
     initialCategory?: string;
@@ -101,12 +108,16 @@ export default function PaymentsClient({
     initialData,
     categories = [],
     themeColor = "#2563eb",
+    currentUserName,
     initialFrom,
     initialTo,
     initialCategory = "ALL",
     initialMethod = "ALL",
     initialSearch = ""
 }: PaymentsClientProps) {
+    const { data: session } = useSession();
+    const activeUserName = currentUserName || session?.user?.name || "Treasury Staff";
+
     const [payments, setPayments] = useState<PaymentRecord[]>(initialData.payments);
     const [totalCount, setTotalCount] = useState(initialData.totalCount);
     const [totalPages, setTotalPages] = useState(initialData.totalPages);
@@ -120,6 +131,39 @@ export default function PaymentsClient({
     const [isExportingPdf, setIsExportingPdf] = useState(false);
     const [isExportingGenExcel, setIsExportingGenExcel] = useState(false);
     const [isExportingGenPdf, setIsExportingGenPdf] = useState(false);
+    const [isExportingSummaryExcel, setIsExportingSummaryExcel] = useState(false);
+    const [isExportingSummaryPdf, setIsExportingSummaryPdf] = useState(false);
+
+    // Export Dropdown & Signatory states
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const exportDropdownRef = useRef<HTMLDivElement>(null);
+    const [treasurerName, setTreasurerName] = useState(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("emapandan_treasurer_name") || activeUserName;
+        }
+        return activeUserName;
+    });
+    const [treasurerTitle, setTreasurerTitle] = useState(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("emapandan_treasurer_title") || "Acting Municipal Treasurer";
+        }
+        return "Acting Municipal Treasurer";
+    });
+
+    // Close export dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+                setIsExportOpen(false);
+            }
+        }
+        if (isExportOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isExportOpen]);
 
     const [searchVal, setSearchVal] = useState(initialSearch);
     const [search, setSearch] = useState(initialSearch);
@@ -377,10 +421,20 @@ export default function PaymentsClient({
             }
 
             if (mode === "excel") {
-                await exportForm129AExcel(genPayments, { fromDate, toDate });
+                await exportForm129AExcel(genPayments, {
+                    fromDate,
+                    toDate,
+                    treasurerName,
+                    treasurerTitle
+                });
                 toast.success(`Form 129(A) General Collections Excel exported with ${genPayments.length} record(s)!`, { id: toastId });
             } else {
-                await exportForm129APdf(genPayments, { fromDate, toDate });
+                await exportForm129APdf(genPayments, {
+                    fromDate,
+                    toDate,
+                    treasurerName,
+                    treasurerTitle
+                });
                 toast.success(`Form 129(A) General Collections PDF exported with ${genPayments.length} record(s)!`, { id: toastId });
             }
         } catch (err) {
@@ -389,6 +443,48 @@ export default function PaymentsClient({
         } finally {
             if (mode === "excel") setIsExportingGenExcel(false);
             else setIsExportingGenPdf(false);
+        }
+    };
+
+    // EXPORT FOR OFFICIAL MONTHLY SUMMARY OF COLLECTIONS (BY ACCOUNT CODE / PARTICULARS - IMAGE 1)
+    const handleExportMonthlySummary = async (mode: "excel" | "pdf") => {
+        if (mode === "excel") setIsExportingSummaryExcel(true);
+        else setIsExportingSummaryPdf(true);
+
+        const toastId = `summary-${mode}-export`;
+        toast.loading(`Generating Monthly Summary of Collections ${mode.toUpperCase()} Report...`, { id: toastId });
+
+        try {
+            const allExportPayments = await fetchExportData();
+
+            if (allExportPayments.length === 0) {
+                toast.error("Walang collection data sa kasalukuyang ledger para i-export.", { id: toastId });
+                return;
+            }
+
+            if (mode === "excel") {
+                await exportMonthlySummaryExcel(allExportPayments, {
+                    fromDate,
+                    toDate,
+                    treasurerName,
+                    treasurerTitle
+                });
+                toast.success(`Monthly Summary of Collections Excel exported with ${allExportPayments.length} record(s)!`, { id: toastId });
+            } else {
+                await exportMonthlySummaryPdf(allExportPayments, {
+                    fromDate,
+                    toDate,
+                    treasurerName,
+                    treasurerTitle
+                });
+                toast.success(`Monthly Summary of Collections PDF exported with ${allExportPayments.length} record(s)!`, { id: toastId });
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || `Failed to generate Monthly Summary ${mode.toUpperCase()}. Please try again.`, { id: toastId });
+        } finally {
+            if (mode === "excel") setIsExportingSummaryExcel(false);
+            else setIsExportingSummaryPdf(false);
         }
     };
 
@@ -420,99 +516,227 @@ export default function PaymentsClient({
                     </p>
                 </div>
 
-                {/* Official Abstracts Export Hub */}
-                <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 dark:bg-[#151a24]/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-[#283244] shadow-sm">
-                    {/* Form 10(A) - Real Property Tax or Selected Category */}
-                    <div className="flex items-center gap-2.5 px-2.5 py-1">
-                        <div className="flex flex-col text-left">
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
-                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                    Form 10(A)
+                {/* Official Abstracts & Reports Export Hub (Matching Image 3 Dropdown) */}
+                <div className="relative" ref={exportDropdownRef}>
+                    <button
+                        onClick={() => setIsExportOpen((prev) => !prev)}
+                        disabled={isPending}
+                        className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer border border-blue-400/30"
+                        title="Download official Treasury collection reports"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span>Export Reports</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExportOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {/* Dropdown Popover */}
+                    {isExportOpen && (
+                        <div className="absolute right-0 mt-2.5 w-[360px] sm:w-[440px] bg-white dark:bg-[#151a24] border border-slate-200 dark:border-[#283244] rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                            {/* Header */}
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#242b3a]">
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Export Official Reports
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 font-medium">
+                                        Download formatted official government documents
+                                    </p>
+                                </div>
+                                <span className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                                    LGU MAPANDAN
                                 </span>
                             </div>
-                            <span 
-                                className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5 max-w-[120px] truncate"
-                                title={categoryFilter !== "ALL" ? categoryFilter : "RPT"}
-                            >
-                                {categoryFilter !== "ALL" ? categoryFilter : "RPT"}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => handleExportForm10A("excel")}
-                                disabled={isExportingExcel || isPending}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title={`Export official Prov. Form No. 10(A) ${categoryFilter !== "ALL" ? categoryFilter : "RPT"} Abstract in Excel (.xlsx)`}
-                            >
-                                {isExportingExcel ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                                )}
-                                <span>Excel</span>
-                            </button>
-                            <button
-                                onClick={() => handleExportForm10A("pdf")}
-                                disabled={isExportingPdf || isPending}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title={`Export official Prov. Form No. 10(A) ${categoryFilter !== "ALL" ? categoryFilter : "RPT"} Abstract in PDF`}
-                            >
-                                {isExportingPdf ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <FileText className="w-3.5 h-3.5" />
-                                )}
-                                <span>PDF</span>
-                            </button>
-                        </div>
-                    </div>
 
-                    {/* Subtle vertical divider */}
-                    <div className="h-6 w-px bg-slate-300 dark:bg-slate-700/80 my-auto" />
-
-                    {/* Form 129(A) - General Collections */}
-                    <div className="flex items-center gap-2.5 px-2.5 py-1">
-                        <div className="flex flex-col text-left">
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
-                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                    Form 129(A)
-                                </span>
+                            {/* Option 1: Form 10(A) Real Property Tax Abstract */}
+                            <div className="p-3 bg-slate-50 dark:bg-[#1a202c]/60 rounded-xl border border-slate-200/80 dark:border-[#283244] hover:border-amber-500/40 transition-colors">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]"></span>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                            Form 10(A)
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                        Provincial Abstract
+                                    </span>
+                                </div>
+                                <h5 className="text-xs font-black text-slate-900 dark:text-slate-100 mb-0.5">
+                                    Abstract of Real Property Tax
+                                </h5>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mb-3">
+                                    Individual receipt items, taxpayer names, TDN/PIN numbers, and basic tax collection breakdown.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleExportForm10A("pdf")}
+                                        disabled={isExportingPdf || isExportingExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
+                                    >
+                                        {isExportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                        <span>PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportForm10A("excel")}
+                                        disabled={isExportingPdf || isExportingExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                                    >
+                                        {isExportingExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                        <span>Excel</span>
+                                    </button>
+                                </div>
                             </div>
-                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest pl-3.5">
-                                General
-                            </span>
+
+                            {/* Option 2: Form 129(A) General Collections Abstract */}
+                            <div className="p-3 bg-slate-50 dark:bg-[#1a202c]/60 rounded-xl border border-slate-200/80 dark:border-[#283244] hover:border-blue-500/40 transition-colors">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)]"></span>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                            Form 129(A)
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                        General Collections
+                                    </span>
+                                </div>
+                                <h5 className="text-xs font-black text-slate-900 dark:text-slate-100 mb-0.5">
+                                    Abstract of General Collections
+                                </h5>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mb-3">
+                                    28-column classification matrix for Business Permits, Civil Registry, MTOP, and other municipal revenues.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleExportForm129A("pdf")}
+                                        disabled={isExportingGenPdf || isExportingGenExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
+                                    >
+                                        {isExportingGenPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                        <span>PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportForm129A("excel")}
+                                        disabled={isExportingGenPdf || isExportingGenExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                                    >
+                                        {isExportingGenExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                        <span>Excel</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Option 3: Monthly Summary of Collections (Image 1) */}
+                            <div className="p-3 bg-slate-50 dark:bg-[#1a202c]/60 rounded-xl border border-slate-200/80 dark:border-[#283244] hover:border-emerald-500/40 transition-colors">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"></span>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                            Monthly Summary
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                        Account Code Summary
+                                    </span>
+                                </div>
+                                <h5 className="text-xs font-black text-slate-900 dark:text-slate-100 mb-0.5">
+                                    Monthly Summary of Collections
+                                </h5>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mb-3">
+                                    Itemized statement of collections categorized by official Account Codes (582, 583, 588, 601, 604, 605, 606, etc.) and particulars.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleExportMonthlySummary("pdf")}
+                                        disabled={isExportingSummaryPdf || isExportingSummaryExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
+                                    >
+                                        {isExportingSummaryPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                        <span>PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportMonthlySummary("excel")}
+                                        disabled={isExportingSummaryPdf || isExportingSummaryExcel}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                                    >
+                                        {isExportingSummaryExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                        <span>Excel</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Signatory Configuration */}
+                            <div className="pt-2.5 pb-1 border-t border-slate-100 dark:border-[#242b3a] space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                                        Certified Correct Signatory
+                                    </span>
+                                    <span className="text-[9px] text-blue-500 font-bold truncate max-w-[200px]">
+                                        {activeUserName ? `User: ${activeUserName}` : "Default: Blank Line"}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                Signatory Name
+                                            </label>
+                                            {activeUserName && treasurerName !== activeUserName && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTreasurerName(activeUserName);
+                                                        if (typeof window !== "undefined") {
+                                                            localStorage.setItem("emapandan_treasurer_name", activeUserName);
+                                                        }
+                                                    }}
+                                                    className="text-[9px] text-blue-500 hover:underline cursor-pointer"
+                                                    title="Reset to current user"
+                                                >
+                                                    Reset
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder={activeUserName || "Current user name..."}
+                                            value={treasurerName}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setTreasurerName(val);
+                                                if (typeof window !== "undefined") {
+                                                    localStorage.setItem("emapandan_treasurer_name", val);
+                                                }
+                                            }}
+                                            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                            Official Designation
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="Acting Municipal Treasurer"
+                                            value={treasurerTitle}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setTreasurerTitle(val);
+                                                if (typeof window !== "undefined") {
+                                                    localStorage.setItem("emapandan_treasurer_title", val);
+                                                }
+                                            }}
+                                            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Active Filter Hint */}
+                            <div className="text-center pt-1 text-[9px] text-slate-400 dark:text-slate-500 italic">
+                                Exports apply active date filters: {fromDate} to {toDate}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => handleExportForm129A("excel")}
-                                disabled={isExportingGenExcel || isPending}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title="Export official Prov. Form No. 129(A) General Collections Abstract in Excel (.xlsx)"
-                            >
-                                {isExportingGenExcel ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                                )}
-                                <span>Excel</span>
-                            </button>
-                            <button
-                                onClick={() => handleExportForm129A("pdf")}
-                                disabled={isExportingGenPdf || isPending}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                                title="Export official Prov. Form No. 129(A) General Collections Abstract in PDF"
-                            >
-                                {isExportingGenPdf ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <FileText className="w-3.5 h-3.5" />
-                                )}
-                                <span>PDF</span>
-                            </button>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 

@@ -716,8 +716,8 @@ export default function BusinessPermitView({
                                     <div className="space-y-4 animate-in slide-in-from-bottom-4">
 
 
-                                        {/* Upload Official Receipt (OR) */}
-                                        {transaction.status === "PAID" && (
+                                        {/* Treasury Payment Collection Panel */}
+                                        {["PAID", "FOR_PROCESSING", "UNPAID", "EVALUATED"].includes(transaction.status) && (
                                             <TreasuryPaymentCollectionPanel
                                                 transaction={transaction}
                                                 additional={additional}
@@ -732,58 +732,6 @@ export default function BusinessPermitView({
                                                 handleConfirmPayment={handleConfirmPayment}
                                                 handleViewFile={handleViewFile}
                                             />
-                                        )}
-
-                                        {transaction.status === "FOR_PROCESSING" && (
-                                            <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
-                                                            <button
-                                                                key={method}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setPaymentMethod(method);
-                                                                }}
-                                                                className={cn(
-                                                                    "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
-                                                                    paymentMethod === method
-                                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                                                                        : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
-                                                                )}
-                                                            >
-                                                                {method}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* OR Number Input */}
-                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Enter OR Series Number..."
-                                                        value={orSeriesNumber || ""}
-                                                        onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
-                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
-                                                    />
-                                                </div>
-
-                                                {paymentMethod !== "CASH" && (
-                                                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
-                                                        <Input
-                                                            type="text"
-                                                            placeholder={`Enter ${paymentMethod} Transaction Reference...`}
-                                                            value={paymentReference}
-                                                            onChange={(e) => setPaymentReference(e.target.value)}
-                                                            className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
                                         )}
 
                                         {/* Prepared Serial Badge */}

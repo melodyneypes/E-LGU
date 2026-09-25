@@ -82,6 +82,7 @@ export default async function PaymentsPage(props: {
                 initialData={safeInitialData} 
                 categories={categories}
                 themeColor={themeColor}
+                currentUserName={session?.user?.name || "Treasury Staff"}
                 initialFrom={fromStr}
                 initialTo={toStr}
                 initialCategory={category}

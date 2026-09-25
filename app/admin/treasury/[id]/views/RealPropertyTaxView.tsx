@@ -16,12 +16,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { TreasuryViewProps } from "./types";
 import { releaseRptTransaction } from "@/app/admin/transactions/rpt-actions";
+import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 
 export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const {
@@ -34,8 +33,6 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         setOrSeriesNumber
     } = props;
 
-    const [paymentMethod, setPaymentMethod] = useState<"CASH" | "GCASH" | "LANDBANK">("CASH");
-    const [paymentReference, setPaymentReference] = useState("");
     const [isProfileOpen, setIsProfileOpen] = useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = useState(true);
 
@@ -352,61 +349,21 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                     </p>
                                 </div>
                             ) : (
-                                <>
-                                    {/* Payment Method Selector */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                                            Payment Method
-                                        </Label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
-                                                <button
-                                                    key={method}
-                                                    onClick={() => setPaymentMethod(method)}
-                                                    className={`h-11 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${paymentMethod === method ? "bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-600/30" : "bg-white/[0.02] border-white/5 text-slate-400 hover:text-white hover:bg-white/5"}`}
-                                                >
-                                                    {method}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Reference Number input for online methods */}
-                                    {paymentMethod !== "CASH" && (
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                                                {paymentMethod} Reference Number
-                                            </Label>
-                                            <Input
-                                                placeholder={`Enter ${paymentMethod} reference...`}
-                                                value={paymentReference}
-                                                onChange={(e) => setPaymentReference(e.target.value)}
-                                                className="h-11 rounded-xl bg-white/[0.02] border-white/10 text-white font-mono text-xs"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Official Receipt Series Number */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                                            OR Number (Official Receipt)
-                                        </Label>
-                                        <Input
-                                            placeholder="Enter OR Series Number..."
-                                            value={orSeriesNumber || ""}
-                                            onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                            className="h-12 rounded-xl bg-white/[0.03] border-white/10 text-white font-mono text-sm font-bold"
-                                        />
-                                    </div>
-
-                                    {/* Mark as Paid & Released */}
-                                    <Button
-                                        onClick={handleReleasePayment}
-                                        disabled={actionLoading}
-                                        className="w-full h-13 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-rose-600/20 italic"
-                                    >
-                                        <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Paid & Released
-                                    </Button>
+                                <div className="space-y-4">
+                                    <TreasuryPaymentCollectionPanel
+                                        transaction={transaction}
+                                        additional={additional}
+                                        actionLoading={actionLoading}
+                                        orSeriesNumber={orSeriesNumber}
+                                        setOrSeriesNumber={setOrSeriesNumber}
+                                        orFile={props.orFile || null}
+                                        setOrFile={props.setOrFile}
+                                        orPreview={props.orPreview || null}
+                                        setOrPreview={props.setOrPreview}
+                                        themeColor="#e11d48"
+                                        handleConfirmPayment={handleReleasePayment}
+                                        handleViewFile={handleViewFile}
+                                    />
 
                                     <Button
                                         variant="outline"
@@ -416,7 +373,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                     >
                                         Reject Application
                                     </Button>
-                                </>
+                                </div>
                             )}
                         </CardContent>
                     </Card>

@@ -32,6 +32,7 @@ import TransactionInfoCard from "@/app/admin/treasury/[id]/components/Transactio
 import RejectionRevisionControls from "@/app/admin/treasury/[id]/components/RejectionRevisionControls";
 import PrintWaybill from "@/app/admin/treasury/[id]/components/PrintWaybill";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 import { cn } from "@/lib/utils";
 
 export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
@@ -517,118 +518,21 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {(!isRegistrarReleasing && (isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN")) && (
-                            <div className="space-y-4">
-                                {transaction.paymentReference && additional?.gcashReferenceNo && (
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Payment Proof Reference</label>
-                                        <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl space-y-3">
-                                            <div className="flex items-center gap-2 justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Coins className="text-primary w-4 h-4" />
-                                                    <span className="text-xs font-black text-slate-600 dark:text-slate-300">
-                                                        Reference No: {additional?.gcashReferenceNo || "N/A"}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div
-                                                onClick={() => handleViewFile?.(transaction.paymentReference, "GCash Receipt Evidence")}
-                                                className="relative group rounded-xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
-                                            >
-                                                <img
-                                                    src={transaction.paymentReference}
-                                                    alt="GCash Receipt Evidence"
-                                                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                                />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
-                                                    <div
-                                                        style={{ backgroundColor: themeColor }}
-                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
-                                                    >
-                                                        <span>VIEW RECEIPT</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Official Receipt Number</span>
-                                    <input
-                                        type="text"
-                                        placeholder={
-                                            transaction.status === "UNPAID"
-                                                ? "CALL RESIDENT TO COUNTER FIRST..."
-                                                : isPaymentInputDisabled
-                                                    ? "AWAITING REGISTRAR CHECK-IN..."
-                                                    : "ENTER O.R. NUMBER..."
-                                        }
-                                        value={orSeriesNumber}
-                                        disabled={isPaymentInputDisabled}
-                                        onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold focus:outline-none uppercase tracking-wider disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-                                    />
-                                </div>
-
-                                {!isAppointmentPsa && (
-                                     <div className="space-y-2">
-                                          <PremiumDocumentUpload
-                                              label="Official Receipt Image"
-                                              file={orFile}
-                                              previewUrl={orPreview}
-                                              existingUrl={transaction.orUrl}
-                                              onFileSelect={(file) => {
-                                                  setOrFile(file);
-                                                  setOrPreview?.(URL.createObjectURL(file));
-                                              }}
-                                              onView={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
-                                              infoText="PDF / IMAGE (MAX 5MB)"
-                                          />
-                                     </div>
-                                 )}
-
-                                 {isAppointmentPsa ? (
-                                      transaction.status === "UNPAID" ? (
-                                          <Button
-                                            onClick={handleCallInQueue}
-                                            className="w-full h-14 whitespace-normal px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10 text-center leading-tight"
-                                        >
-                                            Call Resident in Queue
-                                        </Button>
-                                      ) : (
-                                          <Button
-                                              onClick={handleCollectPsaPayment}
-                                              disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === "" || isPaymentInputDisabled}
-                                              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                          >
-                                              {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                              Collect Payment & Issue O.R.
-                                          </Button>
-                                      )
-                                  ) : (
-                                      <Button
-                                          onClick={() => handleConfirmPayment()}
-                                          disabled={actionLoading || !orSeriesNumber || isPaymentInputDisabled}
-                                          className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                      >
-                                          {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                          Confirm Receipt & Send to Registrar
-                                      </Button>
-                                  )}
-
-                                 {!isAppointmentPsa && (
-                                     <div className="flex gap-2">
-                                         <Button
-                                             onClick={handleDeclinePaymentProof}
-                                             disabled={actionLoading}
-                                             className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                         >
-                                             Decline Proof
-                                         </Button>
-                                     </div>
-                                 )}
-                            </div>
+                        {isTreasuryContext && !isRegistrarReleasing && ["PAID", "PENDING_PAYMENT_VERIFICATION", "EVALUATED", "UNPAID"].includes(transaction.status) && (
+                            <TreasuryPaymentCollectionPanel
+                                transaction={transaction}
+                                additional={additional}
+                                actionLoading={actionLoading}
+                                orSeriesNumber={orSeriesNumber}
+                                setOrSeriesNumber={setOrSeriesNumber}
+                                orFile={orFile}
+                                setOrFile={setOrFile}
+                                orPreview={orPreview}
+                                setOrPreview={setOrPreview}
+                                themeColor={themeColor}
+                                handleConfirmPayment={handleConfirmPayment}
+                                handleViewFile={handleViewFile}
+                            />
                         )}
 
                         {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING / FOR_PROCESSING at Registrar) */}

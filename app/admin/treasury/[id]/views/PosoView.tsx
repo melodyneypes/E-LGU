@@ -15,13 +15,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { TreasuryViewProps } from "./types";
 import { confirmPosoTrafficFinePayment } from "@/app/admin/transactions/poso-treasury-actions";
+import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 
 export default function PosoView({
     transaction,
@@ -52,8 +50,6 @@ export default function PosoView({
         additional?.checkInTime
     );
 
-    const [paymentMethod, setPaymentMethod] = useState<"CASH" | "GCASH" | "LANDBANK">("CASH");
-    const [paymentReference, setPaymentReference] = useState("");
     const [orNumberInput, setOrNumberInput] = useState(additional?.orNumber || transaction?.paymentReference || "");
 
     const rawTotal = transaction?.totalAmount || 0;
@@ -73,14 +69,17 @@ export default function PosoView({
 
     const isPaid = transaction?.isPaid || transaction?.status === "PAID" || transaction?.status === "SETTLED" || transaction?.status === "RELEASED";
 
-    const handleConfirmPayment = async () => {
+    const handleConfirmPayment = async (methodArg?: string, refArg?: string) => {
+        const effectiveMethod = (methodArg || "CASH") as "CASH" | "GCASH" | "LANDBANK";
+        const effectiveRef = refArg !== undefined ? refArg : "";
+
         if (!orNumberInput.trim()) {
             toast.error("Official Receipt (OR) Number is required.");
             return;
         }
 
-        if (paymentMethod !== "CASH" && !paymentReference.trim()) {
-            toast.error(`${paymentMethod} reference number is required.`);
+        if (effectiveMethod !== "CASH" && !effectiveRef.trim()) {
+            toast.error(`${effectiveMethod} reference number is required.`);
             return;
         }
 
@@ -89,8 +88,8 @@ export default function PosoView({
             const res = await confirmPosoTrafficFinePayment({
                 transactionId: transaction.id,
                 orNumber: orNumberInput.trim(),
-                paymentMethod,
-                paymentReference: paymentMethod !== "CASH" ? paymentReference.trim() : undefined,
+                paymentMethod: effectiveMethod,
+                paymentReference: effectiveMethod !== "CASH" ? effectiveRef.trim() : undefined,
             });
 
             if (res.success) {
@@ -485,70 +484,17 @@ export default function PosoView({
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {/* Inline Payment Selector matching GenericServiceView lines 733-794 */}
-                                <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                            Payment Method
-                                        </Label>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
-                                                <button
-                                                    key={method}
-                                                    type="button"
-                                                    onClick={() => setPaymentMethod(method)}
-                                                    className={cn(
-                                                        "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
-                                                        paymentMethod === method
-                                                            ? "bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/20"
-                                                            : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
-                                                    )}
-                                                >
-                                                    {method}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* OR Number Input matching GenericServiceView lines 757-767 */}
-                                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                            OR Number (Official Receipt)
-                                        </Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Enter OR Series Number..."
-                                            value={orNumberInput}
-                                            onChange={(e) => setOrNumberInput(e.target.value)}
-                                            className="h-12 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm font-bold dark:bg-slate-950 dark:text-white"
-                                        />
-                                    </div>
-
-                                    {/* Reference Number Input matching GenericServiceView lines 782-793 */}
-                                    {paymentMethod !== "CASH" && (
-                                        <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                                {paymentMethod} Reference Number
-                                            </Label>
-                                            <Input
-                                                type="text"
-                                                placeholder={`Enter ${paymentMethod} Transaction Reference...`}
-                                                value={paymentReference}
-                                                onChange={(e) => setPaymentReference(e.target.value)}
-                                                className="h-12 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm font-bold dark:bg-slate-950 dark:text-white"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Submit Button matching GenericServiceView lines 796-807 */}
-                                <Button
-                                    onClick={handleConfirmPayment}
-                                    disabled={actionLoading || !orNumberInput.trim() || (paymentMethod !== "CASH" && !paymentReference.trim())}
-                                    className="w-full h-14 bg-rose-500 hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-rose-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                                >
-                                    {actionLoading ? "Processing..." : "Mark as Paid"}
-                                </Button>
+                                <TreasuryPaymentCollectionPanel
+                                    transaction={transaction}
+                                    additional={additional}
+                                    actionLoading={actionLoading}
+                                    orSeriesNumber={orNumberInput}
+                                    setOrSeriesNumber={setOrNumberInput}
+                                    orFile={null}
+                                    orPreview={null}
+                                    themeColor={themeColor}
+                                    handleConfirmPayment={handleConfirmPayment}
+                                />
                             </div>
                         )
                     ) : (

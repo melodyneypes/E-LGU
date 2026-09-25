@@ -578,15 +578,15 @@ export async function updateRHUAppointmentStatus(
             try {
                 if (additionalData.followUpAppointmentId) {
                     await prisma.$executeRaw`
-                        UPDATE follow_up_appointments
-                        SET status = 'Completed', updated_at = NOW()
+                        UPDATE "FollowUpAppointment"
+                        SET status = 'Completed', "updatedAt" = NOW()
                         WHERE id = ${additionalData.followUpAppointmentId}
                     `;
                 }
                 await prisma.$executeRaw`
-                    UPDATE follow_up_appointments
-                    SET status = 'Completed', updated_at = NOW()
-                    WHERE injected_transaction_id = ${transactionId}
+                    UPDATE "FollowUpAppointment"
+                    SET status = 'Completed', "updatedAt" = NOW()
+                    WHERE "injectedTransactionId" = ${transactionId}
                 `;
             } catch (fuErr) {
                 console.warn("Could not mark follow-up appointment as completed:", fuErr);
@@ -904,7 +904,7 @@ export async function registerRHUWalkInConsultation(payload: {
         // If linking to a scheduled follow-up appointment, ensure its scheduled date has arrived
         if (payload.followUpAppointmentId) {
             const fuCheck: any[] = await prisma.$queryRaw`
-                SELECT id, scheduled_date FROM follow_up_appointments WHERE id = ${payload.followUpAppointmentId} LIMIT 1
+                SELECT id, "scheduledDate" FROM "FollowUpAppointment" WHERE id = ${payload.followUpAppointmentId} LIMIT 1
             `;
             if (fuCheck && fuCheck[0]) {
                 const manilaDateString = new Intl.DateTimeFormat("en-US", {
@@ -915,8 +915,8 @@ export async function registerRHUWalkInConsultation(payload: {
                 }).format(new Date());
                 const [mMonth, mDay, mYear] = manilaDateString.split("/");
                 const endOfToday = new Date(`${mYear}-${mMonth}-${mDay}T23:59:59.999+08:00`);
-                if (new Date(fuCheck[0].scheduled_date) > endOfToday) {
-                    const formattedDate = new Date(fuCheck[0].scheduled_date).toLocaleDateString("en-PH", {
+                if (new Date(fuCheck[0].scheduledDate) > endOfToday) {
+                    const formattedDate = new Date(fuCheck[0].scheduledDate).toLocaleDateString("en-PH", {
                         month: "short",
                         day: "numeric",
                         year: "numeric"
@@ -1123,8 +1123,8 @@ export async function registerRHUWalkInConsultation(payload: {
         if (payload.followUpAppointmentId) {
             try {
                 await prisma.$executeRaw`
-                    UPDATE follow_up_appointments
-                    SET injected_transaction_id = ${newTransaction.id}, updated_at = NOW()
+                    UPDATE "FollowUpAppointment"
+                    SET "injectedTransactionId" = ${newTransaction.id}, "updatedAt" = NOW()
                     WHERE id = ${payload.followUpAppointmentId}
                 `;
             } catch (fuErr) {
@@ -1276,10 +1276,10 @@ export async function scheduleRHUFollowUp(payload: {
         const sourceTxId = payload.sourceTransactionId || null;
 
         await prisma.$executeRaw`
-            INSERT INTO follow_up_appointments (
-                id, patient_id, patient_name, doctor_id, doctor_name, 
-                health_center_id, health_center_name, scheduled_date, 
-                status, notes, source_transaction_id, created_at, updated_at
+            INSERT INTO "FollowUpAppointment" (
+                id, "patientId", "patientName", "doctorId", "doctorName", 
+                "healthCenterId", "healthCenterName", "scheduledDate", 
+                status, notes, "sourceTransactionId", "createdAt", "updatedAt"
             ) VALUES (
                 ${id}, ${patientId}, ${patientName}, ${doctorId}, ${doctorName},
                 ${healthCenterId}, ${healthCenterName}, ${scheduledDateObj},
@@ -1364,40 +1364,40 @@ export async function getRHUFollowUpAppointments(filters?: {
             const [month, day, year] = manilaDateString.split("/");
             const startOfToday = new Date(`${year}-${month}-${day}T00:00:00.000+08:00`);
             const endOfToday = new Date(`${year}-${month}-${day}T23:59:59.999+08:00`);
-            conditions.push(Prisma.sql`fa.scheduled_date >= ${startOfToday} AND fa.scheduled_date <= ${endOfToday}`);
+            conditions.push(Prisma.sql`fa."scheduledDate" >= ${startOfToday} AND fa."scheduledDate" <= ${endOfToday}`);
         } else if (filters?.dateFilter === "upcoming") {
             const now = new Date();
-            conditions.push(Prisma.sql`fa.scheduled_date >= ${now}`);
+            conditions.push(Prisma.sql`fa."scheduledDate" >= ${now}`);
         } else if (filters?.dateFilter === "past") {
             const now = new Date();
-            conditions.push(Prisma.sql`fa.scheduled_date < ${now}`);
+            conditions.push(Prisma.sql`fa."scheduledDate" < ${now}`);
         }
 
         const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
         const appointments: any[] = await prisma.$queryRaw`
             SELECT 
                 fa.id,
-                fa.patient_id as "patientId",
-                fa.patient_name as "patientName",
-                fa.doctor_id as "doctorId",
-                fa.doctor_name as "doctorName",
-                fa.health_center_id as "healthCenterId",
-                fa.health_center_name as "healthCenterName",
-                fa.scheduled_date as "scheduledDate",
+                fa."patientId",
+                fa."patientName",
+                fa."doctorId",
+                fa."doctorName",
+                fa."healthCenterId",
+                fa."healthCenterName",
+                fa."scheduledDate",
                 fa.status,
                 fa.notes,
-                fa.source_transaction_id as "sourceTransactionId",
-                fa.injected_transaction_id as "injectedTransactionId",
-                fa.created_at as "createdAt",
-                fa.updated_at as "updatedAt",
+                fa."sourceTransactionId",
+                fa."injectedTransactionId",
+                fa."createdAt",
+                fa."updatedAt",
                 t.status as "injectedStatus",
                 t."additionalData"->>'rhuStatus' as "injectedRhuStatus",
                 t."additionalData"->>'dispensedAt' as "injectedDispensedAt",
                 t."queueNumber" as "injectedQueueNumber"
-            FROM follow_up_appointments fa
-            LEFT JOIN "Transaction" t ON fa.injected_transaction_id = t.id
+            FROM "FollowUpAppointment" fa
+            LEFT JOIN "Transaction" t ON fa."injectedTransactionId" = t.id
             ${whereClause}
-            ORDER BY fa.scheduled_date ASC
+            ORDER BY fa."scheduledDate" ASC
         `;
 
         return { success: true, data: appointments };
@@ -1421,31 +1421,31 @@ export async function injectDailyFollowUpQueue() {
 
         // 1. Automatically mark past unfulfilled pending appointments as "Missed"
         await prisma.$executeRaw`
-            UPDATE follow_up_appointments
-            SET status = 'Missed', updated_at = NOW()
-            WHERE status = 'Pending' AND scheduled_date < ${startOfToday}
+            UPDATE "FollowUpAppointment"
+            SET status = 'Missed', "updatedAt" = NOW()
+            WHERE status = 'Pending' AND "scheduledDate" < ${startOfToday}
         `;
 
         // 2. Fetch all pending follow-ups for CURRENT_DATE
         const todaysFollowUps: any[] = await prisma.$queryRaw`
             SELECT 
                 id,
-                patient_id,
-                patient_name,
-                doctor_id,
-                doctor_name,
-                health_center_id,
-                health_center_name,
-                scheduled_date,
+                "patientId",
+                "patientName",
+                "doctorId",
+                "doctorName",
+                "healthCenterId",
+                "healthCenterName",
+                "scheduledDate",
                 status,
                 notes,
-                source_transaction_id,
-                injected_transaction_id
-            FROM follow_up_appointments
+                "sourceTransactionId",
+                "injectedTransactionId"
+            FROM "FollowUpAppointment"
             WHERE status = 'Pending'
-              AND scheduled_date >= ${startOfToday}
-              AND scheduled_date <= ${endOfToday}
-            ORDER BY scheduled_date ASC
+              AND "scheduledDate" >= ${startOfToday}
+              AND "scheduledDate" <= ${endOfToday}
+            ORDER BY "scheduledDate" ASC
         `;
 
         if (todaysFollowUps.length === 0) {
@@ -1590,10 +1590,10 @@ export async function injectDailyFollowUpQueue() {
                 }
             });
 
-            // Update follow_up_appointments with the injected transaction ID
+            // Update FollowUpAppointment with the injected transaction ID
             await prisma.$executeRaw`
-                UPDATE follow_up_appointments
-                SET injected_transaction_id = ${newTx.id}, updated_at = NOW()
+                UPDATE "FollowUpAppointment"
+                SET "injectedTransactionId" = ${newTx.id}, "updatedAt" = NOW()
                 WHERE id = ${fu.id}
             `;
 
@@ -1626,10 +1626,10 @@ export async function cancelRHUFollowUp(appointmentId: string, reason?: string) 
         }
 
         await prisma.$executeRaw`
-            UPDATE follow_up_appointments
+            UPDATE "FollowUpAppointment"
             SET status = 'Cancelled', 
                 notes = CONCAT(COALESCE(notes, ''), ' [Cancelled: ', ${reason || 'By Staff'}, ']'), 
-                updated_at = NOW()
+                "updatedAt" = NOW()
             WHERE id = ${appointmentId}
         `;
 
@@ -1650,8 +1650,8 @@ export async function completeRHUFollowUp(appointmentId: string) {
         }
 
         await prisma.$executeRaw`
-            UPDATE follow_up_appointments
-            SET status = 'Completed', updated_at = NOW()
+            UPDATE "FollowUpAppointment"
+            SET status = 'Completed', "updatedAt" = NOW()
             WHERE id = ${appointmentId}
         `;
 
@@ -1679,7 +1679,7 @@ export async function checkInRHUFollowUpPatient(followUpId: string) {
         }
 
         const fuRows: any[] = await prisma.$queryRaw`
-            SELECT * FROM follow_up_appointments WHERE id = ${followUpId} LIMIT 1
+            SELECT * FROM "FollowUpAppointment" WHERE id = ${followUpId} LIMIT 1
         `;
         const fu = fuRows[0];
         if (!fu) {
@@ -1696,8 +1696,8 @@ export async function checkInRHUFollowUpPatient(followUpId: string) {
         const [mMonth, mDay, mYear] = manilaDateString.split("/");
         const endOfToday = new Date(`${mYear}-${mMonth}-${mDay}T23:59:59.999+08:00`);
 
-        if (new Date(fu.scheduled_date) > endOfToday) {
-            const formattedDate = new Date(fu.scheduled_date).toLocaleDateString("en-PH", {
+        if (new Date(fu.scheduledDate) > endOfToday) {
+            const formattedDate = new Date(fu.scheduledDate).toLocaleDateString("en-PH", {
                 month: "short",
                 day: "numeric",
                 year: "numeric"
@@ -1823,8 +1823,8 @@ export async function checkInRHUFollowUpPatient(followUpId: string) {
         });
 
         await prisma.$executeRaw`
-            UPDATE follow_up_appointments
-            SET injected_transaction_id = ${newTx.id}, updated_at = NOW()
+            UPDATE "FollowUpAppointment"
+            SET "injectedTransactionId" = ${newTx.id}, "updatedAt" = NOW()
             WHERE id = ${fu.id}
         `;
 
