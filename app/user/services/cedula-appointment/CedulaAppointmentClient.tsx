@@ -20,12 +20,24 @@ import {
     ArrowLeft,
     Upload,
     MapPin,
-    Info
+    Info,
+    ShieldCheck,
+    Phone,
+    Mail,
+    Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -52,6 +64,7 @@ type Step = "STATUS" | "RESIDENT" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
+    { id: "RESIDENT", label: "Profile", icon: User },
     { id: "TAX_DECLARATION", label: "Tax Declaration", icon: Calculator },
     { id: "DECLARATION", label: "Schedule", icon: Calendar },
     { id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
@@ -131,6 +144,15 @@ export function CedulaAppointmentClient({
     const [isPriorityLane, setIsPriorityLane] = useState(false);
     const [printTriggered, setPrintTriggered] = useState(false);
 
+    // Applicant Target Selection ("SELF" vs "RELATIVE")
+    const [applicantTarget, setApplicantTarget] = useState<"SELF" | "RELATIVE">("SELF");
+    const [relationshipToApplicant, setRelationshipToApplicant] = useState<string>("");
+
+    const MAPANDAN_BARANGAYS = [
+        "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez",
+        "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"
+    ];
+
     // Form inputs state
     const [formState, setFormState] = useState({
         firstName: resident?.firstName || "",
@@ -155,6 +177,55 @@ export function CedulaAppointmentClient({
         incomeSource: "PROFESSION",
         purpose: ""
     });
+
+    const handleSelectApplicantTarget = (target: "SELF" | "RELATIVE") => {
+        if (target === applicantTarget) return;
+        setApplicantTarget(target);
+
+        if (target === "SELF") {
+            // Restore verified resident profile
+            setFormState(prev => ({
+                ...prev,
+                firstName: resident?.firstName || "",
+                lastName: resident?.lastName || "",
+                middleName: resident?.middleName || "",
+                suffix: resident?.suffix || "",
+                gender: resident?.gender || "Male",
+                dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+                civilStatus: resident?.civilStatus || "Single",
+                citizenship: resident?.citizenship || "Filipino",
+                houseNumber: resident?.houseNumber || "",
+                street: resident?.street || "",
+                barangay: resident?.barangay || "",
+                municipality: resident?.municipality || "Mapandan",
+                province: resident?.province || "Pangasinan",
+                contactNumber: resident?.contactNumber || "",
+                email: resident?.email || "",
+            }));
+            setRelationshipToApplicant("");
+        } else {
+            // Clear inputs for relative credentials entry
+            setFormState(prev => ({
+                ...prev,
+                firstName: "",
+                lastName: "",
+                middleName: "",
+                suffix: "",
+                gender: "Male",
+                dateOfBirth: "",
+                civilStatus: "Single",
+                citizenship: "Filipino",
+                houseNumber: "",
+                street: "",
+                barangay: resident?.barangay || "Poblacion",
+                municipality: "Mapandan",
+                province: "Pangasinan",
+                contactNumber: "",
+                email: "",
+            }));
+            setRelationshipToApplicant("");
+        }
+    };
 
     useEffect(() => {
         if (applicantType === "JURIDICAL" && (formState.incomeSource === "PROFESSION" || formState.incomeSource === "UNEMPLOYED")) {
@@ -345,6 +416,17 @@ export function CedulaAppointmentClient({
                 if (hasActiveIndividual && applicantType === "INDIVIDUAL") return false;
                 if (hasActiveJuridical && applicantType === "JURIDICAL") return false;
                 return !!activeType?.id;
+            case "RESIDENT":
+                if (applicantTarget === "RELATIVE") {
+                    return (
+                        !!formState.firstName.trim() &&
+                        !!formState.lastName.trim() &&
+                        !!formState.dateOfBirth.trim() &&
+                        !!formState.barangay.trim() &&
+                        !!relationshipToApplicant.trim()
+                    );
+                }
+                return true;
             case "TAX_DECLARATION":
                 if (formState.incomeSource === "UNEMPLOYED") return true;
                 const isIncomeValid = !!formState.income.trim();
@@ -381,6 +463,20 @@ export function CedulaAppointmentClient({
                     toast.error("You already have an active Juridical Cedula request currently in progress.");
                 } else {
                     toast.error("Please select your application status.");
+                }
+            } else if (currentStep === "RESIDENT") {
+                if (applicantTarget === "RELATIVE") {
+                    if (!relationshipToApplicant.trim()) {
+                        toast.error("Please select your relationship to the applicant.");
+                    } else if (!formState.firstName.trim() || !formState.lastName.trim()) {
+                        toast.error("Please provide the full name (First & Last Name) of the relative.");
+                    } else if (!formState.dateOfBirth.trim()) {
+                        toast.error("Please enter the birth date of the relative.");
+                    } else if (!formState.barangay.trim()) {
+                        toast.error("Please select the barangay of residence.");
+                    } else {
+                        toast.error("Please fill in all required credentials for the relative.");
+                    }
                 }
             } else if (currentStep === "TAX_DECLARATION") {
                 if (applicantType === "JURIDICAL" && !formState.businessName.trim()) {
@@ -437,6 +533,8 @@ export function CedulaAppointmentClient({
             }));
             submitData.append("additionalData", JSON.stringify({
                 applicantType: applicantType,
+                applicantTarget: applicantTarget,
+                relationshipToApplicant: applicantTarget === "RELATIVE" ? relationshipToApplicant : "SELF",
                 income: parseFloat(formState.income.replace(/,/g, "")) || 0,
                 propertyValue: parseFloat(formState.propertyValue.replace(/,/g, "")) || 0,
                 businessName: formState.businessName,
@@ -574,7 +672,7 @@ export function CedulaAppointmentClient({
                 <>
                     {/* Progress Stepper */}
                     {currentStep !== "SUCCESS" && (
-                        <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
+                        <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
                             {STEPS.map((step, idx) => {
                                 const isActive = currentStep === step.id;
                                 const isCompleted = STEPS.findIndex(s => s.id === currentStep) > idx;
@@ -716,7 +814,491 @@ export function CedulaAppointmentClient({
                                 </div>
                             )}
 
+                            {currentStep === "RESIDENT" && (
+                                <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+                                        <div className="space-y-1 text-center sm:text-left">
+                                            <h2 className="text-xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
+                                                Resident <span className="text-primary italic">Profile & Identity</span>
+                                            </h2>
+                                            <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium italic">
+                                                Specify if you are applying for yourself or requesting on behalf of a relative or family member.
+                                            </p>
+                                        </div>
 
+                                        <div className="flex items-center justify-center sm:justify-end gap-2">
+                                            {applicantTarget === "SELF" ? (
+                                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider py-1 px-3 flex items-center gap-1.5 shadow-sm">
+                                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                                    Verified Citizen Record
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider py-1 px-3 flex items-center gap-1.5 shadow-sm">
+                                                    <Users className="w-3.5 h-3.5" />
+                                                    Representative Application
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Pathway Selector: For Myself vs For a Relative */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            Who is this Cedula for? <span className="text-destructive">*</span>
+                                        </Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSelectApplicantTarget("SELF")}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl border text-left transition-all relative flex items-start gap-3.5 group",
+                                                    applicantTarget === "SELF"
+                                                        ? "bg-primary/[0.04] border-primary shadow-sm ring-1 ring-primary/20"
+                                                        : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    applicantTarget === "SELF" ? "bg-primary text-white shadow-md shadow-primary/25" : "bg-slate-200/70 dark:bg-white/10 text-slate-500"
+                                                )}>
+                                                    <User className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                                                            For Myself
+                                                        </span>
+                                                        {applicantTarget === "SELF" && (
+                                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white">
+                                                                <Check className="w-3 h-3 stroke-[3]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                                                        Use your own verified municipal account records and personal data.
+                                                    </p>
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSelectApplicantTarget("RELATIVE")}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl border text-left transition-all relative flex items-start gap-3.5 group",
+                                                    applicantTarget === "RELATIVE"
+                                                        ? "bg-primary/[0.04] border-primary shadow-sm ring-1 ring-primary/20"
+                                                        : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    applicantTarget === "RELATIVE" ? "bg-primary text-white shadow-md shadow-primary/25" : "bg-slate-200/70 dark:bg-white/10 text-slate-500"
+                                                )}>
+                                                    <Users className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                                                            For a Relative / Someone Else
+                                                        </span>
+                                                        {applicantTarget === "RELATIVE" && (
+                                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white">
+                                                                <Check className="w-3 h-3 stroke-[3]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                                                        Input credentials for your parent, spouse, child, sibling, or representative.
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* SELF MODE: Verified Read-Only Profile View */}
+                                    {applicantTarget === "SELF" && (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            {/* Personal Identity Grid */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal Identity</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">First Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.firstName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.middleName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.lastName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.suffix || "None"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Birth Date</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gender</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.gender || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Civil Status</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.civilStatus || "Single"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.citizenship || "Filipino"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Residence Address & Contact Info Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pt-2">
+                                                {/* Address Card */}
+                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Residential Address</span>
+                                                    </div>
+
+                                                    <div className="space-y-1.5 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                        <p>
+                                                            {[formState.houseNumber, formState.street].filter(Boolean).join(" ") || "No street specified"}
+                                                        </p>
+                                                        <p className="text-slate-600 dark:text-slate-400 font-semibold">
+                                                            Barangay {formState.barangay || "Mapandan"}
+                                                        </p>
+                                                        <p className="text-[11px] text-slate-400 font-medium">
+                                                            {formState.municipality || "Mapandan"}, {formState.province || "Pangasinan"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Contact Card */}
+                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="w-3.5 h-3.5 text-primary" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact Channels</span>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                            <span>{formState.contactNumber || "No mobile number provided"}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                            <span className="truncate">{formState.email || "No email on record"}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Valid ID Document Status */}
+                                            <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                                        <FileText className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Registered Government Identification</p>
+                                                        <p className="text-[10px] text-slate-400 font-medium">
+                                                            {existingIdUrl ? "Government ID on file & verified." : "Optional valid ID can be uploaded in final confirmation phase."}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {existingIdUrl && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => handleViewFile(null, existingIdUrl, "Registered Resident ID")}
+                                                        className="text-[10px] font-black uppercase tracking-wider h-8 rounded-xl border-primary/20 text-primary hover:bg-primary/5 shrink-0"
+                                                    >
+                                                        Preview ID
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* RELATIVE MODE: Interactive Editable Credentials Form */}
+                                    {applicantTarget === "RELATIVE" && (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            {/* Relationship to Applicant Section */}
+                                            <div className="p-4 md:p-5 rounded-2xl bg-primary/[0.03] border border-primary/20 space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="w-4 h-4 text-primary" />
+                                                    <span className="text-xs font-black uppercase tracking-wider text-primary">
+                                                        Relationship with Relative
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-1.5 max-w-md">
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                                                        Relationship to Applicant <span className="text-destructive">*</span>
+                                                    </Label>
+                                                    <Select
+                                                        value={relationshipToApplicant}
+                                                        onValueChange={(val) => setRelationshipToApplicant(val)}
+                                                    >
+                                                        <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                            <SelectValue placeholder="Select Relationship..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                            <SelectItem value="Parent">Parent (Mother / Father)</SelectItem>
+                                                            <SelectItem value="Spouse">Spouse (Husband / Wife)</SelectItem>
+                                                            <SelectItem value="Child">Child (Son / Daughter)</SelectItem>
+                                                            <SelectItem value="Sibling">Sibling (Brother / Sister)</SelectItem>
+                                                            <SelectItem value="Grandparent">Grandparent</SelectItem>
+                                                            <SelectItem value="Authorized Representative">Authorized Representative</SelectItem>
+                                                            <SelectItem value="Other Relative">Other Relative</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Personal Identity */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative's Personal Information
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                            First Name <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            name="firstName"
+                                                            value={formState.firstName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="First name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
+                                                        <Input
+                                                            name="middleName"
+                                                            value={formState.middleName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Middle name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                            Last Name <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            name="lastName"
+                                                            value={formState.lastName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Last name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
+                                                        <Input
+                                                            name="suffix"
+                                                            value={formState.suffix}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Jr., Sr., III (optional)"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                            Birth Date <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            type="date"
+                                                            name="dateOfBirth"
+                                                            value={formState.dateOfBirth}
+                                                            onChange={handleInputChange}
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gender</Label>
+                                                        <Select
+                                                            value={formState.gender || "Male"}
+                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, gender: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                                <SelectValue placeholder="Gender" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                                <SelectItem value="Male">Male</SelectItem>
+                                                                <SelectItem value="Female">Female</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Civil Status</Label>
+                                                        <Select
+                                                            value={formState.civilStatus || "Single"}
+                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, civilStatus: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                                <SelectValue placeholder="Civil Status" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                                <SelectItem value="Single">Single</SelectItem>
+                                                                <SelectItem value="Married">Married</SelectItem>
+                                                                <SelectItem value="Widowed">Widowed</SelectItem>
+                                                                <SelectItem value="Separated">Separated</SelectItem>
+                                                                <SelectItem value="Divorced">Divorced</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+                                                        <Input
+                                                            name="citizenship"
+                                                            value={formState.citizenship}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Citizenship"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Address & Contact Info */}
+                                            <div className="space-y-3 pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative's Residential Address & Contact
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">House / Bldg No.</Label>
+                                                        <Input
+                                                            name="houseNumber"
+                                                            value={formState.houseNumber}
+                                                            onChange={handleInputChange}
+                                                            placeholder="House / Lot No."
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Street Name</Label>
+                                                        <Input
+                                                            name="street"
+                                                            value={formState.street}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Street name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                            Barangay <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formState.barangay}
+                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, barangay: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                                <SelectValue placeholder="Select Barangay..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 max-h-56 z-[200]">
+                                                                {MAPANDAN_BARANGAYS.map((brgy) => (
+                                                                    <SelectItem key={brgy} value={brgy}>
+                                                                        {brgy}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Municipality</Label>
+                                                        <Input
+                                                            name="municipality"
+                                                            value={formState.municipality}
+                                                            disabled
+                                                            className="h-10 text-xs font-medium rounded-xl bg-slate-100 dark:bg-white/5 opacity-80"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Province</Label>
+                                                        <Input
+                                                            name="province"
+                                                            value={formState.province}
+                                                            disabled
+                                                            className="h-10 text-xs font-medium rounded-xl bg-slate-100 dark:bg-white/5 opacity-80"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Contact Number</Label>
+                                                        <Input
+                                                            name="contactNumber"
+                                                            value={formState.contactNumber}
+                                                            onChange={handleInputChange}
+                                                            placeholder="09XX XXX XXXX"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Email Address</Label>
+                                                        <Input
+                                                            name="email"
+                                                            type="email"
+                                                            value={formState.email}
+                                                            onChange={handleInputChange}
+                                                            placeholder="email@example.com"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {currentStep === "TAX_DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
@@ -941,6 +1523,58 @@ export function CedulaAppointmentClient({
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">
                                         <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">Review <span className="text-primary italic">& Finalize</span></h2>
                                         <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">Review your declaration before submitting for evaluation.</p>
+                                    </div>
+
+                                    {/* Application & Beneficiary Summary Card */}
+                                    <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-white/5 pb-3">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-4 h-4 text-primary" />
+                                                <h4 className="text-xs md:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                    Applicant Summary
+                                                </h4>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 px-2">
+                                                    {applicantTarget === "SELF" ? "Personal Application" : `Representative: ${relationshipToApplicant || "Relative"}`}
+                                                </Badge>
+                                                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-wider py-0.5 px-2">
+                                                    {applicantType}
+                                                </Badge>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-left">
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
+                                                    {applicantTarget === "SELF" ? "Applicant Name" : "Relative's Name"}
+                                                </span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
+                                                    {[formState.firstName, formState.middleName, formState.lastName, formState.suffix].filter(Boolean).join(" ") || "—"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Birth Date</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                                    {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Address</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
+                                                    Brgy. {formState.barangay || "Mapandan"}, Mapandan
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Estimated Cedula Tax</span>
+                                                <span className="text-xs font-black text-primary block">
+                                                    ₱{(calcResult?.totalAmount ?? 0).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Upload cards */}
