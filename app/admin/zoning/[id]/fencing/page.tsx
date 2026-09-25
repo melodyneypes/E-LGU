@@ -7,17 +7,11 @@ import { isValidUrl } from "@/utils/image";
 import {
     ArrowLeft,
     ZoomIn,
-    ZoomOut,
     RotateCw,
-    RefreshCcw,
     AlertCircle,
-    CheckCircle2,
     FileText,
-    ChevronLeft,
-    ChevronRight,
     XCircle,
     Ruler,
-    Building2,
     MapPin,
     Calendar,
     User,
@@ -382,7 +376,7 @@ export default function FencingZoningEvaluationPage({ params }: PageProps) {
     const zoningStatus = additional.zoningStatus || currentStatus;
     const isElectrified = additional.fenceSecurityFeature === "ELECTRIFIED" || additional.fenceSecurityFeature === "BOTH";
     const isZoningEndorsed = zoningStatus === "ENDORSED" || additional.feeAssessment?.zoningApproved === true;
-    const isFinalAttempt = (transaction?.revisionCount || 0) >= 3;
+    const _isFinalAttempt = (transaction?.revisionCount || 0) >= 3;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-500">

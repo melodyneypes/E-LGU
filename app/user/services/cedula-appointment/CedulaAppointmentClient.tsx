@@ -22,8 +22,6 @@ import {
     MapPin,
     Info,
     ShieldCheck,
-    Phone,
-    Mail,
     Users,
     Building2
 } from "lucide-react";
@@ -142,7 +140,7 @@ export function CedulaAppointmentClient({
     const [calcResult, setCalcResult] = useState<CedulaResult | null>(null);
     const [newTransactionId] = useState<string | null>(null);
     const [queueNumber] = useState<string | null>(null);
-    const [isPriorityLane, setIsPriorityLane] = useState(false);
+    const [isPriorityLane, _setIsPriorityLane] = useState(false);
     const [printTriggered, setPrintTriggered] = useState(false);
 
     // Applicant Target Selection ("SELF" vs "RELATIVE")
@@ -1405,7 +1403,7 @@ export function CedulaAppointmentClient({
                                                 <div className="flex items-center gap-2">
                                                     <User className="w-3.5 h-3.5 text-primary" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        Relative's Personal Information
+                                                        Relative&apos;s Personal Information
                                                     </span>
                                                 </div>
 
@@ -1582,7 +1580,7 @@ export function CedulaAppointmentClient({
                                                 <div className="flex items-center gap-2">
                                                     <MapPin className="w-3.5 h-3.5 text-primary" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        Relative's Residential Address
+                                                        Relative&apos;s Residential Address
                                                     </span>
                                                 </div>
 
@@ -1666,7 +1664,7 @@ export function CedulaAppointmentClient({
                                                 <div className="flex items-center gap-2">
                                                     <MapPin className="w-3.5 h-3.5 text-primary" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        Relative's Place of Birth
+                                                        Relative&apos;s Place of Birth
                                                     </span>
                                                 </div>
 

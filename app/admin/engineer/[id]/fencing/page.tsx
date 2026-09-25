@@ -7,21 +7,14 @@ import { isValidUrl } from "@/utils/image";
 import {
     ArrowLeft,
     ZoomIn,
-    ZoomOut,
     RotateCw,
-    RefreshCcw,
     AlertCircle,
-    CheckCircle2,
     FileText,
-    ChevronLeft,
-    ChevronRight,
     XCircle,
     Ruler,
-    Building2,
     MapPin,
     Calendar,
     User,
-    Eye,
     Zap,
     BadgeCheck,
     AlertTriangle
@@ -87,8 +80,8 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
 
     // Lightbox & PDF Viewer State
     const [activeDocIndex, setActiveDocIndex] = useState<number | null>(null);
-    const [lightboxScale, setLightboxScale] = useState(1);
-    const [lightboxRotate, setLightboxRotate] = useState(0);
+    const [_lightboxScale, _setLightboxScale] = useState(1);
+    const [_lightboxRotate, _setLightboxRotate] = useState(0);
     const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
     const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
     const [pdfViewerTitle, setPdfViewerTitle] = useState("");
@@ -158,7 +151,7 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
         return list;
     }, [documents, additional]);
 
-    const activeDoc = activeDocIndex !== null ? vaultDocs[activeDocIndex] : null;
+    const _activeDoc = activeDocIndex !== null ? vaultDocs[activeDocIndex] : null;
 
     const handleOpenDoc = (index: number) => {
         const doc = vaultDocs[index];
