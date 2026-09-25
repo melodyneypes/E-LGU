@@ -322,6 +322,9 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                             resident={resident}
                             safeFormatDate={props.safeFormatDate}
                             themeColor={themeColor}
+                            transactionId={transaction.id}
+                            canEdit={!props.isReadOnlyAide}
+                            onProfileUpdated={props.fetchTransaction}
                         />
 
 

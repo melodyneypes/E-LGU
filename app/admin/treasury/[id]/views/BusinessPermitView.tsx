@@ -361,6 +361,9 @@ export default function BusinessPermitView({
                             resident={resident}
                             safeFormatDate={safeFormatDate}
                             themeColor={themeColor}
+                            transactionId={transaction.id}
+                            canEdit={!isReadOnlyAide}
+                            onProfileUpdated={fetchTransaction}
                         />
                     )}
 

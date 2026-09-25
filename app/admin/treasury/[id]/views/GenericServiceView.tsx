@@ -142,13 +142,15 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const [isConfirmPaidModalOpen, setIsConfirmPaidModalOpen] = React.useState(false);
 
     // Declared Gross Security Authorization States
-    const [isGrossLocked, setIsGrossLocked] = React.useState(true);
+    const [isAuthorized, setIsAuthorized] = React.useState(false);
     const [unlockModalOpen, setUnlockModalOpen] = React.useState(false);
     const [unlockPassword, setUnlockPassword] = React.useState('');
     const [showUnlockPassword, setShowUnlockPassword] = React.useState(false);
     const [unlockReason, setUnlockReason] = React.useState('');
     const [unlockLoading, setUnlockLoading] = React.useState(false);
     const [authorizedStaffName, setAuthorizedStaffName] = React.useState<string | null>(null);
+
+    const isGrossLocked = !isAuthorized;
 
     const handleVerifyAndUnlockGross = async () => {
         if (!unlockPassword.trim()) {
@@ -158,23 +160,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
         setUnlockLoading(true);
         try {
-            const previousGrossVal = Number(declaredValue) || 0;
-            const newGrossVal = editedIncome !== null && editedIncome !== undefined ? editedIncome : previousGrossVal;
-
-            const res = await verifyTreasuryPasswordAndLogGrossAdjustmentAction({
-                password: unlockPassword,
+            const { verifyStaffPasswordToUnlockAction } = await import("../profile-actions");
+            const res = await verifyStaffPasswordToUnlockAction({
                 transactionId: transaction.id,
-                previousGross: previousGrossVal,
-                newGross: newGrossVal,
-                reason: unlockReason
+                password: unlockPassword.trim(),
+                reason: unlockReason.trim() || undefined
             });
 
             if (res.success && res.data) {
-                setIsGrossLocked(false);
+                setIsAuthorized(true);
                 setAuthorizedStaffName(res.data.authorizedBy);
                 setUnlockModalOpen(false);
                 setUnlockPassword('');
-                toast.success(`Access granted. Authorized by ${res.data.authorizedBy}`);
+                toast.success(`Access granted. Authorized by ${res.data.authorizedBy}. Profile and declared gross unlocked for editing.`);
             } else {
                 toast.error(res.error || "Authorization failed. Incorrect password.");
             }
@@ -643,6 +641,14 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         subtitleText={isRelative ? "Relative / Cedula Holder Dossier" : "Verified Citizen Data Dossier"}
                         relationship={isRelative ? (additional?.relationshipToApplicant || "Relative") : undefined}
                         relationshipLabel="Relationship to Representative / Applicant"
+                        transactionId={transaction.id}
+                        canEdit={!isReadOnlyAide}
+                        onProfileUpdated={props.fetchTransaction}
+                        isAuthorized={isAuthorized}
+                        setIsAuthorized={setIsAuthorized}
+                        authorizedStaffName={authorizedStaffName}
+                        setAuthorizedStaffName={setAuthorizedStaffName}
+                        declaredGross={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || undefined)}
                     />
 
                     {/* EVIDENCE VAULT */}
