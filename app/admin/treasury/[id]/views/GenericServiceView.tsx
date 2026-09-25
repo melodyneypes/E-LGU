@@ -952,6 +952,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
                                                 <Input
                                                     type="text"
+                                                    name="official_receipt_series_number"
+                                                    autoComplete="off"
+                                                    data-lpignore="true"
+                                                    data-1p-ignore="true"
+                                                    data-form-type="other"
                                                     placeholder="Enter OR Series Number..."
                                                     value={orSeriesNumber || ""}
                                                     onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
@@ -964,6 +969,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
                                                     <Input
                                                         type="text"
+                                                        name="online_payment_reference_code"
+                                                        autoComplete="off"
+                                                        data-lpignore="true"
+                                                        data-1p-ignore="true"
+                                                        data-form-type="other"
                                                         placeholder={`Enter ${paymentMethod} Transaction Reference...`}
                                                         value={paymentReference}
                                                         onChange={(e) => setPaymentReference(e.target.value)}
@@ -1457,7 +1467,18 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 my-2">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleVerifyAndUnlockGross();
+                        }}
+                        autoComplete="off"
+                        className="space-y-4 my-2"
+                    >
+                        {/* Hidden fake inputs to absorb any stubborn browser autofill */}
+                        <input type="text" name="fake_user_name_absorber" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+                        <input type="password" name="fake_password_absorber" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                                 Treasury Staff Password
@@ -1465,15 +1486,13 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <div className="relative">
                                 <input
                                     type={showUnlockPassword ? "text" : "password"}
+                                    name="staff_security_passphrase"
+                                    autoComplete="new-password"
+                                    data-lpignore="true"
+                                    data-1p-ignore="true"
                                     value={unlockPassword}
                                     onChange={(e) => setUnlockPassword(e.target.value)}
                                     placeholder="Enter your current password"
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            handleVerifyAndUnlockGross();
-                                        }
-                                    }}
                                     className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
                                 />
                                 <button
@@ -1492,13 +1511,17 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             </label>
                             <input
                                 type="text"
+                                name="staff_adjustment_rationale"
+                                autoComplete="off"
+                                data-lpignore="true"
+                                data-1p-ignore="true"
                                 value={unlockReason}
                                 onChange={(e) => setUnlockReason(e.target.value)}
                                 placeholder="e.g. Verified with BIR Form 2316 or payslip"
                                 className="w-full px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
                             />
                         </div>
-                    </div>
+                    </form>
 
                     <DialogFooter className="flex items-center gap-2 pt-2">
                         <Button
