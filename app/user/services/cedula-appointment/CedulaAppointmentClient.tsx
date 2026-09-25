@@ -60,11 +60,12 @@ import { submitCedulaAppointment } from "./actions";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaReviewsTab from "./components/CedulaReviewsTab";
 
-type Step = "STATUS" | "RESIDENT" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM" | "SUCCESS";
+type Step = "STATUS" | "RESIDENT" | "UPLOAD" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "RESIDENT", label: "Profile", icon: User },
+    { id: "UPLOAD", label: "Upload", icon: Upload },
     { id: "TAX_DECLARATION", label: "Tax Declaration", icon: Calculator },
     { id: "DECLARATION", label: "Schedule", icon: Calendar },
     { id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
@@ -273,17 +274,39 @@ export function CedulaAppointmentClient({
         barangay?: boolean;
     }>({});
 
+    // Self missing fields refs & error state (fallback inputs if null in database)
+    const selfPlaceOfBirthRef = useRef<HTMLInputElement>(null);
+    const selfCitizenshipRef = useRef<HTMLInputElement>(null);
+    const selfHeightRef = useRef<HTMLInputElement>(null);
+    const selfWeightRef = useRef<HTMLInputElement>(null);
+
+    const [selfFieldErrors, setSelfFieldErrors] = useState<{
+        placeOfBirth?: boolean;
+        citizenship?: boolean;
+        height?: boolean;
+        weight?: boolean;
+    }>({});
+
     const [idFile, setIdFile] = useState<File | null>(null);
     const [proofFile, setProofFile] = useState<File | null>(null);
+    const [authorizationLetterFile, setAuthorizationLetterFile] = useState<File | null>(null);
+    const [secRegistrationFile, setSecRegistrationFile] = useState<File | null>(null);
     const [existingIdUrl] = useState<string | null>(resident?.idFrontUrl || null);
     const [existingProofUrl] = useState<string | null>(null);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
+    const [uploadErrors, setUploadErrors] = useState<{
+        id?: boolean;
+        authorizationLetter?: boolean;
+        secRegistration?: boolean;
+    }>({});
     const [incomeError, setIncomeError] = useState(false);
     const [businessNameError, setBusinessNameError] = useState(false);
 
     // Refs for sections (smooth scrolling)
     const idSectionRef = useRef<HTMLDivElement>(null);
     const proofSectionRef = useRef<HTMLDivElement>(null);
+    const authorizationSectionRef = useRef<HTMLDivElement>(null);
+    const secRegistrationSectionRef = useRef<HTMLDivElement>(null);
     const privacySectionRef = useRef<HTMLDivElement>(null);
 
     // Document Viewer state
@@ -443,6 +466,9 @@ export function CedulaAppointmentClient({
         if (relativeErrors[name as keyof typeof relativeErrors]) {
             setRelativeErrors(prev => ({ ...prev, [name]: false }));
         }
+        if (selfFieldErrors[name as keyof typeof selfFieldErrors]) {
+            setSelfFieldErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
     const isStepValid = (stepId: Step) => {
@@ -463,7 +489,17 @@ export function CedulaAppointmentClient({
                         !!formState.weight.trim() &&
                         !!formState.barangay.trim()
                     );
+                } else if (applicantTarget === "SELF") {
+                    // Check required physical cedula details (must not be empty)
+                    return (
+                        !!formState.placeOfBirth.trim() &&
+                        !!formState.citizenship.trim() &&
+                        !!formState.height.trim() &&
+                        !!formState.weight.trim()
+                    );
                 }
+                return true;
+            case "UPLOAD":
                 return true;
             case "TAX_DECLARATION":
                 if (formState.incomeSource === "UNEMPLOYED") return true;
@@ -556,6 +592,35 @@ export function CedulaAppointmentClient({
                         setRelativeErrors(prev => ({ ...prev, barangay: true }));
                         barangayRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         toast.error("Please select the barangay of residence.");
+                        return;
+                    }
+                } else if (applicantTarget === "SELF") {
+                    if (!formState.citizenship.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, citizenship: true }));
+                        selfCitizenshipRef.current?.focus();
+                        selfCitizenshipRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Citizenship.");
+                        return;
+                    }
+                    if (!formState.height.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, height: true }));
+                        selfHeightRef.current?.focus();
+                        selfHeightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Height (e.g. 165 cm).");
+                        return;
+                    }
+                    if (!formState.weight.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, weight: true }));
+                        selfWeightRef.current?.focus();
+                        selfWeightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Weight (e.g. 60 kg).");
+                        return;
+                    }
+                    if (!formState.placeOfBirth.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, placeOfBirth: true }));
+                        selfPlaceOfBirthRef.current?.focus();
+                        selfPlaceOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Place of Birth to complete your Cedula details.");
                         return;
                     }
                 }
@@ -1058,27 +1123,114 @@ export function CedulaAppointmentClient({
                                                             {formState.civilStatus || "Single"}
                                                         </p>
                                                     </div>
-                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
-                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                            {formState.citizenship || "Filipino"}
-                                                        </p>
-                                                    </div>
+                                                    {!resident?.citizenship ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.citizenship
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.citizenship ? "text-destructive" : "text-slate-400")}>
+                                                                    Citizenship <span className="text-destructive">*</span>
+                                                                </Label>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfCitizenshipRef}
+                                                                name="citizenship"
+                                                                value={formState.citizenship}
+                                                                onChange={handleInputChange}
+                                                                placeholder="Citizenship"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.citizenship && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.citizenship || "Filipino"}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-4 pt-1">
-                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Height</Label>
-                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                            {formState.height || "—"}
-                                                        </p>
-                                                    </div>
-                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Weight</Label>
-                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                            {formState.weight || "—"}
-                                                        </p>
-                                                    </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    {!resident?.height ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.height
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.height ? "text-destructive" : "text-slate-400")}>
+                                                                    Height <span className="text-destructive">*</span>
+                                                                </Label>
+                                                                <span className="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Required</span>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfHeightRef}
+                                                                name="height"
+                                                                value={formState.height}
+                                                                onChange={handleInputChange}
+                                                                placeholder="e.g. 165 cm / 5'5&quot;"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.height && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Height</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.height || "—"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {!resident?.weight ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.weight
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.weight ? "text-destructive" : "text-slate-400")}>
+                                                                    Weight <span className="text-destructive">*</span>
+                                                                </Label>
+                                                                <span className="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Required</span>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfWeightRef}
+                                                                name="weight"
+                                                                value={formState.weight}
+                                                                onChange={handleInputChange}
+                                                                placeholder="e.g. 60 kg / 132 lbs"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.weight && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Weight</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.weight || "—"}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -1099,15 +1251,49 @@ export function CedulaAppointmentClient({
                                             </div>
 
                                             {/* Place of Birth Card (Single Line, Below Residential Address) */}
-                                            <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
-                                                <div className="flex items-center gap-2">
-                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</span>
+                                            {!resident?.placeOfBirth ? (
+                                                <div
+                                                    className={cn(
+                                                        "p-4 md:p-5 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-2",
+                                                        selfFieldErrors.placeOfBirth
+                                                            ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                            : "border-slate-200/80 dark:border-white/10"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <MapPin className={cn("w-3.5 h-3.5 shrink-0", selfFieldErrors.placeOfBirth ? "text-destructive" : "text-primary")} />
+                                                            <span className={cn("text-[10px] font-black uppercase tracking-widest", selfFieldErrors.placeOfBirth ? "text-destructive" : "text-slate-400")}>
+                                                                Place of Birth <span className="text-destructive">*</span>
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">Required for Cedula</span>
+                                                    </div>
+                                                    <Input
+                                                        ref={selfPlaceOfBirthRef}
+                                                        name="placeOfBirth"
+                                                        value={formState.placeOfBirth}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Enter your City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        className={cn(
+                                                            "h-10 text-xs font-medium rounded-xl transition-all",
+                                                            selfFieldErrors.placeOfBirth
+                                                                ? "border-destructive ring-2 ring-destructive/30"
+                                                                : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                        )}
+                                                    />
                                                 </div>
-                                                <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
-                                                    {formState.placeOfBirth || "—"}
-                                                </p>
-                                            </div>
+                                            ) : (
+                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</span>
+                                                    </div>
+                                                    <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                        {formState.placeOfBirth || "—"}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -1462,6 +1648,182 @@ export function CedulaAppointmentClient({
                                 </div>
                             )}
 
+                            {currentStep === "UPLOAD" && (
+                                <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
+                                    <div className="space-y-2 md:space-y-4 text-center md:text-left">
+                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
+                                            Document <span className="text-primary italic">Upload</span>
+                                        </h2>
+                                        <p className="text-slate-500 font-medium italic text-xs md:text-sm">
+                                            Upload your valid government ID and supporting income documents (optional, you can also present physical copies on-site).
+                                        </p>
+                                    </div>
+
+                                    {/* Upload cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                        <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
+                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                    </div>
+                                                    <div className="space-y-0.5">
+                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
+                                                            Valid ID <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
+                                                        </h4>
+                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">PDF / Image (Max 5MB)</p>
+                                                    </div>
+                                                </div>
+
+                                                {idFile ? (
+                                                    idFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(idFile, null)}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(idFile)}
+                                                                alt="ID Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(idFile, null)}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
+                                                ) : existingIdUrl ? (
+                                                    <div
+                                                        onClick={() => handleViewFile(null, existingIdUrl)}
+                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                    >
+                                                        <Image
+                                                            src={existingIdUrl}
+                                                            alt="Existing ID Preview"
+                                                            fill
+                                                            unoptimized
+                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
+                                                    {(idFile || existingIdUrl) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(idFile, existingIdUrl)}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="id-upload" className="cursor-pointer">
+                                                            {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
+                                                        </label>
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
+                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                    </div>
+                                                    <div className="space-y-0.5">
+                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
+                                                            Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
+                                                        </h4>
+                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                            Payslip / BIR (Max 5MB)
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {proofFile ? (
+                                                    proofFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(proofFile, null)}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(proofFile)}
+                                                                alt="Proof Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(proofFile, null)}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
+                                                ) : existingProofUrl ? (
+                                                    <div
+                                                        onClick={() => handleViewFile(null, existingProofUrl)}
+                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                    >
+                                                        <Image
+                                                            src={existingProofUrl}
+                                                            alt="Existing Proof Preview"
+                                                            fill
+                                                            unoptimized
+                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
+                                                    {(proofFile || existingProofUrl) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(proofFile, existingProofUrl)}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="proof-upload" className="cursor-pointer">
+                                                            {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload"}
+                                                        </label>
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {currentStep === "TAX_DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">
@@ -1763,169 +2125,6 @@ export function CedulaAppointmentClient({
                                                 <span className="text-xs font-black text-primary block">
                                                     ₱{(calcResult?.totalAmount ?? 0).toFixed(2)}
                                                 </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Upload cards */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                                        <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Valid ID <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">PDF / Image (Max 5MB)</p>
-                                                    </div>
-                                                </div>
-
-                                                {idFile ? (
-                                                    idFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
-                                                                src={URL.createObjectURL(idFile)}
-                                                                alt="ID Preview"
-                                                                fill
-                                                                unoptimized
-                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingIdUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingIdUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingIdUrl}
-                                                            alt="Existing ID Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
-                                                    {(idFile || existingIdUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(idFile, existingIdUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="id-upload" className="cursor-pointer">
-                                                            {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
-                                                            Payslip / BIR (Max 5MB)
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {proofFile ? (
-                                                    proofFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
-                                                                src={URL.createObjectURL(proofFile)}
-                                                                alt="Proof Preview"
-                                                                fill
-                                                                unoptimized
-                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingProofUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingProofUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingProofUrl}
-                                                            alt="Existing Proof Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
-                                                    {(proofFile || existingProofUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(proofFile, existingProofUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="proof-upload" className="cursor-pointer">
-                                                            {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
                                             </div>
                                         </div>
                                     </div>

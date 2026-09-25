@@ -183,6 +183,8 @@ export async function submitCedulaAppointment(formData: FormData) {
         // Files
         const idFile = formData.get("idFile") as File;
         const proofFile = formData.get("proofFile") as File;
+        const authorizationLetterFile = formData.get("authorizationLetterFile") as File;
+        const secRegistrationFile = formData.get("secRegistrationFile") as File;
         const existingIdUrl = sanitizeUrl(formData.get("existingIdUrl") as string);
         const existingProofUrl = sanitizeUrl(formData.get("existingProofUrl") as string);
 
@@ -204,11 +206,29 @@ export async function submitCedulaAppointment(formData: FormData) {
         }
         if (!proofUrl && existingProofUrl) proofUrl = existingProofUrl;
 
+        let authorizationLetterUrl = null;
+        if (authorizationLetterFile && authorizationLetterFile.size > 0 && authorizationLetterFile.name !== "undefined") {
+            authorizationLetterUrl = await processFileUpload(authorizationLetterFile, "authorizations");
+            if (!authorizationLetterUrl) {
+                return { success: false, error: "Failed to upload Authorization Letter. Please try again or check your connection." };
+            }
+        }
+
+        let secRegistrationUrl = null;
+        if (secRegistrationFile && secRegistrationFile.size > 0 && secRegistrationFile.name !== "undefined") {
+            secRegistrationUrl = await processFileUpload(secRegistrationFile, "sec_registrations");
+            if (!secRegistrationUrl) {
+                return { success: false, error: "Failed to upload SEC Registration. Please try again or check your connection." };
+            }
+        }
+
         // Merge file URLs into additionalData
         const updatedAdditionalData = {
             ...additionalData,
             validIdUrl: idUrl,
-            proofOfIncomeUrl: proofUrl
+            proofOfIncomeUrl: proofUrl,
+            authorizationLetterUrl: authorizationLetterUrl,
+            secRegistrationUrl: secRegistrationUrl
         };
 
         // 1. Check if the slot is still available (concurrency control)
