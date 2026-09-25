@@ -359,26 +359,6 @@ export default function FencingPermitPage() {
     return () => clearTimeout(timer);
   }, [siteBarangay, siteStreet, estimatedCost, fenceType, fenceSecurityFeature, fenceLength, fenceHeight]);
 
-  const handleManualSaveDraft = () => {
-    try {
-      const payload = {
-        siteBarangay,
-        siteStreet,
-        estimatedCost,
-        fenceType,
-        fenceSecurityFeature,
-        fenceLength,
-        fenceHeight,
-        savedAt: Date.now()
-      };
-      localStorage.setItem(DRAFT_DETAILS_STORAGE_KEY, JSON.stringify(payload));
-      toast.success("Fencing project details saved as draft.");
-    } catch (e) {
-      console.error("Failed to save draft:", e);
-      toast.error("Failed to save draft details.");
-    }
-  };
-
   // Beacon Garbage Collector on page close / unload
   React.useEffect(() => {
     const abandonedFiles = abandonedFilesRef.current;
@@ -1441,7 +1421,7 @@ export default function FencingPermitPage() {
 
             {/* Navigation Action Buttons */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <Button
                   variant="ghost"
                   onClick={() => setCurrentStep("GUIDE")}
@@ -1450,14 +1430,10 @@ export default function FencingPermitPage() {
                   <ArrowLeft className="w-4 h-4" />
                   Back to Guidelines
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleManualSaveDraft}
-                  className="rounded-xl text-xs font-bold uppercase tracking-wider border-slate-200 dark:border-white/10 hover:border-primary/40 hover:text-primary transition-colors flex-1 sm:flex-none"
-                >
-                  Save Draft
-                </Button>
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+                  <span>Auto-saved to draft</span>
+                </div>
               </div>
               <Button
                 onClick={() => {

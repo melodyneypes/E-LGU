@@ -44,6 +44,7 @@ interface SidebarProps {
     pendingTransactionsCount?: number;
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
+    bploInspectionCount?: number;
     rhuCenterName?: string | null;
     rhuEquipmentCount?: number;
     rhuVitalsCount?: number;
@@ -61,6 +62,7 @@ export function Sidebar({
     pendingTransactionsCount = 0,
     pendingAnnouncementsCount = 0,
     unviewedLcrCounts = {},
+    bploInspectionCount: initialBploInspectionCount = 0,
     rhuCenterName = null,
     rhuEquipmentCount = 0,
     rhuVitalsCount = 0
@@ -131,6 +133,18 @@ export function Sidebar({
     const prevVitalsCountRef = React.useRef(rhuVitalsCount);
 
     React.useEffect(() => {
+        setLiveLcrCounts(unviewedLcrCounts);
+    }, [unviewedLcrCounts]);
+
+    React.useEffect(() => {
+        setLiveReportsCount(pendingReportsCount);
+    }, [pendingReportsCount]);
+
+    React.useEffect(() => {
+        setLivePendingAnnouncementsCount(pendingAnnouncementsCount);
+    }, [pendingAnnouncementsCount]);
+
+    React.useEffect(() => {
         setLiveRhuEquipmentCount(rhuEquipmentCount);
     }, [rhuEquipmentCount]);
 
@@ -167,8 +181,7 @@ export function Sidebar({
         if (logoUrl) setResolvedLogoUrl(logoUrl);
         if (brandWord1) setResolvedBrandWord1(brandWord1);
         if (brandWord2 !== undefined) setResolvedBrandWord2(brandWord2);
-        fetchThemeSettings();
-    }, [themeColor, logoUrl, brandWord1, brandWord2, fetchThemeSettings]);
+    }, [themeColor, logoUrl, brandWord1, brandWord2]);
 
     React.useEffect(() => {
         if (!supabase) return;
@@ -217,7 +230,11 @@ export function Sidebar({
         });
     }, []);
 
-    const [bploInspectionCount, setBploInspectionCount] = React.useState(0);
+    const [bploInspectionCount, setBploInspectionCount] = React.useState(initialBploInspectionCount);
+
+    React.useEffect(() => {
+        setBploInspectionCount(initialBploInspectionCount);
+    }, [initialBploInspectionCount]);
 
     const fetchBploCount = React.useCallback(async () => {
         try {
@@ -233,8 +250,6 @@ export function Sidebar({
     React.useEffect(() => {
         if (role !== "ADMIN" && role !== "ADMIN_AIDE") return;
 
-        fetchBploCount();
-
         if (!supabase) return;
         let channel: any;
         try {
@@ -248,13 +263,10 @@ export function Sidebar({
                         table: "Transaction",
                     },
                     () => {
-
                         fetchBploCount();
                     }
                 )
-                .subscribe(() => {
-
-                });
+                .subscribe();
         } catch (error) {
             console.warn("Failed to setup sidebar realtime:", error);
         }
@@ -280,7 +292,7 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        if (isLcrRole) {
+        if (isLcrRole && pathname.startsWith("/admin/registrar")) {
             fetchLcrCounts();
         }
     }, [pathname, fetchLcrCounts, isLcrRole]);
@@ -331,7 +343,7 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        if (isReportsRole) {
+        if (isReportsRole && (pathname.startsWith("/admin/reports") || pathname.startsWith("/admin/mdrrmo"))) {
             fetchReportsCount();
         }
     }, [pathname, fetchReportsCount, isReportsRole]);
@@ -383,7 +395,7 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        if (isRhuRole) {
+        if (isRhuRole && pathname.startsWith("/admin/rhu")) {
             fetchRhuEquipmentCount();
         }
     }, [pathname, fetchRhuEquipmentCount, isRhuRole]);
@@ -501,7 +513,7 @@ export function Sidebar({
     }, [role]);
 
     React.useEffect(() => {
-        if (isRhuRole) {
+        if (isRhuRole && pathname.startsWith("/admin/rhu")) {
             fetchVitalsCount();
         }
     }, [pathname, fetchVitalsCount, isRhuRole]);

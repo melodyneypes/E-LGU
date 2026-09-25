@@ -113,8 +113,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
         if (logoUrl) setResolvedLogoUrl(logoUrl);
         if (brandWord1) setResolvedBrandWord1(brandWord1);
         if (brandWord2 !== undefined) setResolvedBrandWord2(brandWord2);
-        fetchThemeSettings();
-    }, [themeColor, logoUrl, brandWord1, brandWord2, fetchThemeSettings]);
+    }, [themeColor, logoUrl, brandWord1, brandWord2]);
 
     React.useEffect(() => {
         if (!supabase) return;

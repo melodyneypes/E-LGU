@@ -303,6 +303,33 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
     const vaultDocs = useMemo(() => {
         if (!transaction) return [];
+
+        if (transaction?.type?.code?.startsWith("FENCING_PERMIT")) {
+            const FENCING_SLOTS: { [key: string]: string } = {
+                proofOfOwnership: "Proof of Land Ownership",
+                taxDeclaration: "Tax Declaration of Real Property",
+                rptReceipt: "Current RPT Official Receipt & Tax Clearance",
+                lotPlan: "Certified Lot Plan & Boundary Survey",
+                fencingPlans: "Architectural & Structural Fencing Plans",
+                billOfMaterials: "Itemized Bill of Materials & Cost Estimate",
+                barangayClearance: "Barangay Construction Clearance (Fencing)",
+                governmentId: "Valid Government ID & Cedula",
+                dpwhClearance: "DPWH Clearance (National Highway)",
+                electricalPlan: "Electrical Layout & Energizer Specification",
+                neighborConsent: "Notarized Neighbor Consent / Affidavit",
+                zoningClearance: "Locational / Zoning Clearance"
+            };
+
+            const docs: { key: string; url: string; label: string; type: string }[] = [];
+            const docMap = additional?.documents || {};
+            for (const [key, label] of Object.entries(FENCING_SLOTS)) {
+                if (docMap[key]) {
+                    docs.push({ key, url: docMap[key], label, type: "REQUIREMENTS" });
+                }
+            }
+            return docs;
+        }
+
         return [
             { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)", type: "REQUIREMENTS" },
             { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)", type: "REQUIREMENTS" },

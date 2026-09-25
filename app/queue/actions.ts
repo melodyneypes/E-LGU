@@ -192,12 +192,26 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             const counterName = additionalData.counterName || `${deptName} Counter`;
 
             let residentName = "N/A";
-            if (tx.user?.residentProfile) {
-                const profile = tx.user.residentProfile;
-                residentName = `${profile.firstName} ${profile.lastName}`;
-            } else if (tx.residentSnapshot) {
-                const snapshot = typeof tx.residentSnapshot === "string" ? JSON.parse(tx.residentSnapshot) : tx.residentSnapshot;
-                residentName = `${snapshot.firstName || ""} ${snapshot.lastName || ""}`.trim();
+            const snap = tx.residentSnapshot
+                ? (typeof tx.residentSnapshot === "string" ? (() => { try { return JSON.parse(tx.residentSnapshot); } catch { return {}; } })() : tx.residentSnapshot)
+                : {};
+
+            if (additionalData.applicantTarget === "RELATIVE" || additionalData.relationshipToApplicant) {
+                const relName = [snap.firstName, snap.middleName, snap.lastName, snap.suffix].filter(Boolean).join(" ").trim() || snap.fullName || snap.name;
+                if (relName) {
+                    residentName = relName;
+                }
+            }
+
+            if (residentName === "N/A") {
+                if (tx.user?.residentProfile) {
+                    const profile = tx.user.residentProfile;
+                    residentName = `${profile.firstName} ${profile.lastName}`.trim();
+                } else if (snap.firstName || snap.lastName) {
+                    residentName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                } else if (snap.fullName || snap.name) {
+                    residentName = snap.fullName || snap.name;
+                }
             }
 
             queueData[deptIdx].nowServing.push({

@@ -80,6 +80,10 @@ export default async function Page({
         expiryDate: true,
         createdAt: true,
         updatedAt: true,
+        department: true,
+        approvalStatus: true,
+        submittedBy: true,
+        approvedBy: true,
     };
 
     let announcements: any[] = [];
@@ -113,30 +117,6 @@ export default async function Page({
         ]);
         announcements = results[0];
         totalCount = results[1];
-    }
-
-    // Enrich with database approval status and department safely
-    try {
-        const ids = announcements.map((a: any) => a.id).filter(Boolean);
-        if (ids.length > 0) {
-            const rawDetails: any[] = await (prisma as any).$queryRawUnsafe(
-                `SELECT id, department, "approvalStatus", "submittedBy", "approvedBy" FROM "Announcement" WHERE id = ANY($1::text[])`,
-                ids
-            );
-            const detailMap = new Map(rawDetails.map((r: any) => [r.id, r]));
-            announcements = announcements.map((a: any) => {
-                const det = detailMap.get(a.id);
-                return {
-                    ...a,
-                    department: det?.department || a.department || "BPLO",
-                    approvalStatus: det?.approvalStatus || a.approvalStatus || "PENDING_APPROVAL",
-                    submittedBy: det?.submittedBy || a.submittedBy || null,
-                    approvedBy: det?.approvedBy || a.approvedBy || null,
-                };
-            });
-        }
-    } catch {
-        // Safe fallback
     }
 
     return (

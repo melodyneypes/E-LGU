@@ -167,7 +167,7 @@ export default function ResidentIdentityProfile({
                     </div>
 
                     {/* Relationship to Subject / Deceased */}
-                    {relationship && (
+                    {relationship && relationship.trim().toUpperCase() !== "SELF" && (
                         <div className="col-span-12 sm:col-span-12 space-y-1.5 animate-in fade-in duration-300">
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{relationshipLabel || "Relationship to Subject / Deceased"}</span>
                             <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
