@@ -245,6 +245,12 @@ export async function submitCedulaAppointment(formData: FormData) {
         // Read priority lane flag from additionalData (passed from form state)
         const isPriority = additionalData.isPriorityLane === true || additionalData.isPriorityLane === "true";
 
+        // Read and sanitize applicant target & relationship representation
+        const applicantTarget = additionalData.applicantTarget === "RELATIVE" ? "RELATIVE" : "SELF";
+        const relationshipToApplicant = applicantTarget === "RELATIVE"
+            ? sanitizeString((additionalData.relationshipToApplicant as string) || "Relative")
+            : "SELF";
+
         const queueNumber = await generateQueueNumber({
             source: "web",
             isPriority,
@@ -263,6 +269,11 @@ export async function submitCedulaAppointment(formData: FormData) {
                     residentSnapshot,
                     additionalData: {
                         ...updatedAdditionalData,
+                        applicantTarget,
+                        relationshipToApplicant,
+                        placeOfBirth: residentSnapshot.placeOfBirth || additionalData.placeOfBirth || null,
+                        height: residentSnapshot.height || additionalData.height || null,
+                        weight: residentSnapshot.weight || additionalData.weight || null,
                         isPriorityLane: isPriority
                     },
                     totalAmount: 0,
@@ -274,26 +285,31 @@ export async function submitCedulaAppointment(formData: FormData) {
                 } as any
             });
 
-            // Update permanent resident profile
-            await tx.resident.update({
-                where: { userId: session.user.id },
-                data: {
-                    firstName: residentSnapshot.firstName,
-                    middleName: residentSnapshot.middleName,
-                    lastName: residentSnapshot.lastName,
-                    suffix: residentSnapshot.suffix,
-                    dateOfBirth: residentSnapshot.dateOfBirth ? new Date(residentSnapshot.dateOfBirth) : undefined,
-                    civilStatus: residentSnapshot.civilStatus,
-                    citizenship: residentSnapshot.citizenship,
-                    houseNumber: residentSnapshot.houseNumber,
-                    street: residentSnapshot.street,
-                    barangay: residentSnapshot.barangay,
-                    municipality: residentSnapshot.municipality,
-                    province: residentSnapshot.province,
-                    contactNumber: residentSnapshot.contactNumber,
-                    email: residentSnapshot.email,
-                }
-            });
+            // Update permanent resident profile ONLY if the applicant applied for themselves
+            if (applicantTarget === "SELF") {
+                await tx.resident.update({
+                    where: { userId: session.user.id },
+                    data: {
+                        firstName: residentSnapshot.firstName,
+                        middleName: residentSnapshot.middleName,
+                        lastName: residentSnapshot.lastName,
+                        suffix: residentSnapshot.suffix,
+                        dateOfBirth: residentSnapshot.dateOfBirth ? new Date(residentSnapshot.dateOfBirth) : undefined,
+                        placeOfBirth: residentSnapshot.placeOfBirth || undefined,
+                        civilStatus: residentSnapshot.civilStatus,
+                        citizenship: residentSnapshot.citizenship,
+                        height: residentSnapshot.height || undefined,
+                        weight: residentSnapshot.weight || undefined,
+                        houseNumber: residentSnapshot.houseNumber,
+                        street: residentSnapshot.street,
+                        barangay: residentSnapshot.barangay,
+                        municipality: residentSnapshot.municipality,
+                        province: residentSnapshot.province,
+                        contactNumber: residentSnapshot.contactNumber,
+                        email: residentSnapshot.email,
+                    }
+                });
+            }
 
             return newTx;
         });

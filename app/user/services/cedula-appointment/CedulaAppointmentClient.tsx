@@ -161,8 +161,11 @@ export function CedulaAppointmentClient({
         suffix: resident?.suffix || "",
         gender: resident?.gender || "Male",
         dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+        placeOfBirth: resident?.placeOfBirth || "",
         civilStatus: resident?.civilStatus || "Single",
         citizenship: resident?.citizenship || "Filipino",
+        height: resident?.height || "",
+        weight: resident?.weight || "",
         houseNumber: resident?.houseNumber || "",
         street: resident?.street || "",
         barangay: resident?.barangay || "",
@@ -183,7 +186,7 @@ export function CedulaAppointmentClient({
         setApplicantTarget(target);
 
         if (target === "SELF") {
-            // Restore verified resident profile
+            // Restore verified resident profile with official physical cedula details
             setFormState(prev => ({
                 ...prev,
                 firstName: resident?.firstName || "",
@@ -192,8 +195,11 @@ export function CedulaAppointmentClient({
                 suffix: resident?.suffix || "",
                 gender: resident?.gender || "Male",
                 dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+                placeOfBirth: resident?.placeOfBirth || "",
                 civilStatus: resident?.civilStatus || "Single",
                 citizenship: resident?.citizenship || "Filipino",
+                height: resident?.height || "",
+                weight: resident?.weight || "",
                 houseNumber: resident?.houseNumber || "",
                 street: resident?.street || "",
                 barangay: resident?.barangay || "",
@@ -203,6 +209,7 @@ export function CedulaAppointmentClient({
                 email: resident?.email || "",
             }));
             setRelationshipToApplicant("");
+            setRelativeErrors({});
         } else {
             // Clear inputs for relative credentials entry
             setFormState(prev => ({
@@ -213,8 +220,11 @@ export function CedulaAppointmentClient({
                 suffix: "",
                 gender: "Male",
                 dateOfBirth: "",
+                placeOfBirth: "",
                 civilStatus: "Single",
                 citizenship: "Filipino",
+                height: "",
+                weight: "",
                 houseNumber: "",
                 street: "",
                 barangay: resident?.barangay || "Poblacion",
@@ -224,6 +234,7 @@ export function CedulaAppointmentClient({
                 email: "",
             }));
             setRelationshipToApplicant("");
+            setRelativeErrors({});
         }
     };
 
@@ -240,6 +251,27 @@ export function CedulaAppointmentClient({
 
     const incomeInputRef = useRef<HTMLInputElement>(null);
     const businessNameInputRef = useRef<HTMLInputElement>(null);
+
+    // Relative required field refs & error state
+    const relationshipRef = useRef<HTMLDivElement>(null);
+    const firstNameRef = useRef<HTMLInputElement>(null);
+    const lastNameRef = useRef<HTMLInputElement>(null);
+    const dateOfBirthRef = useRef<HTMLInputElement>(null);
+    const placeOfBirthRef = useRef<HTMLInputElement>(null);
+    const heightRef = useRef<HTMLInputElement>(null);
+    const weightRef = useRef<HTMLInputElement>(null);
+    const barangayRef = useRef<HTMLDivElement>(null);
+
+    const [relativeErrors, setRelativeErrors] = useState<{
+        relationship?: boolean;
+        firstName?: boolean;
+        lastName?: boolean;
+        dateOfBirth?: boolean;
+        placeOfBirth?: boolean;
+        height?: boolean;
+        weight?: boolean;
+        barangay?: boolean;
+    }>({});
 
     const [idFile, setIdFile] = useState<File | null>(null);
     const [proofFile, setProofFile] = useState<File | null>(null);
@@ -408,6 +440,9 @@ export function CedulaAppointmentClient({
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormState(prev => ({ ...prev, [name]: value }));
+        if (relativeErrors[name as keyof typeof relativeErrors]) {
+            setRelativeErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
     const isStepValid = (stepId: Step) => {
@@ -419,11 +454,14 @@ export function CedulaAppointmentClient({
             case "RESIDENT":
                 if (applicantTarget === "RELATIVE") {
                     return (
+                        !!relationshipToApplicant.trim() &&
                         !!formState.firstName.trim() &&
                         !!formState.lastName.trim() &&
                         !!formState.dateOfBirth.trim() &&
-                        !!formState.barangay.trim() &&
-                        !!relationshipToApplicant.trim()
+                        !!formState.placeOfBirth.trim() &&
+                        !!formState.height.trim() &&
+                        !!formState.weight.trim() &&
+                        !!formState.barangay.trim()
                     );
                 }
                 return true;
@@ -467,15 +505,58 @@ export function CedulaAppointmentClient({
             } else if (currentStep === "RESIDENT") {
                 if (applicantTarget === "RELATIVE") {
                     if (!relationshipToApplicant.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, relationship: true }));
+                        relationshipRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         toast.error("Please select your relationship to the applicant.");
-                    } else if (!formState.firstName.trim() || !formState.lastName.trim()) {
-                        toast.error("Please provide the full name (First & Last Name) of the relative.");
-                    } else if (!formState.dateOfBirth.trim()) {
+                        return;
+                    }
+                    if (!formState.firstName.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, firstName: true }));
+                        firstNameRef.current?.focus();
+                        firstNameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the first name of the relative.");
+                        return;
+                    }
+                    if (!formState.lastName.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, lastName: true }));
+                        lastNameRef.current?.focus();
+                        lastNameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the last name of the relative.");
+                        return;
+                    }
+                    if (!formState.dateOfBirth.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, dateOfBirth: true }));
+                        dateOfBirthRef.current?.focus();
+                        dateOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         toast.error("Please enter the birth date of the relative.");
-                    } else if (!formState.barangay.trim()) {
+                        return;
+                    }
+                    if (!formState.placeOfBirth.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, placeOfBirth: true }));
+                        placeOfBirthRef.current?.focus();
+                        placeOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the place of birth of the relative.");
+                        return;
+                    }
+                    if (!formState.height.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, height: true }));
+                        heightRef.current?.focus();
+                        heightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the height (e.g. 165 cm).");
+                        return;
+                    }
+                    if (!formState.weight.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, weight: true }));
+                        weightRef.current?.focus();
+                        weightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the weight (e.g. 60 kg).");
+                        return;
+                    }
+                    if (!formState.barangay.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, barangay: true }));
+                        barangayRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         toast.error("Please select the barangay of residence.");
-                    } else {
-                        toast.error("Please fill in all required credentials for the relative.");
+                        return;
                     }
                 }
             } else if (currentStep === "TAX_DECLARATION") {
@@ -521,8 +602,11 @@ export function CedulaAppointmentClient({
                 suffix: formState.suffix,
                 gender: formState.gender,
                 dateOfBirth: formState.dateOfBirth,
+                placeOfBirth: formState.placeOfBirth,
                 civilStatus: formState.civilStatus,
                 citizenship: formState.citizenship,
+                height: formState.height,
+                weight: formState.weight,
                 houseNumber: formState.houseNumber,
                 street: formState.street,
                 barangay: formState.barangay,
@@ -535,6 +619,9 @@ export function CedulaAppointmentClient({
                 applicantType: applicantType,
                 applicantTarget: applicantTarget,
                 relationshipToApplicant: applicantTarget === "RELATIVE" ? relationshipToApplicant : "SELF",
+                placeOfBirth: formState.placeOfBirth,
+                height: formState.height,
+                weight: formState.weight,
                 income: parseFloat(formState.income.replace(/,/g, "")) || 0,
                 propertyValue: parseFloat(formState.propertyValue.replace(/,/g, "")) || 0,
                 businessName: formState.businessName,
@@ -922,7 +1009,7 @@ export function CedulaAppointmentClient({
                                             <div className="space-y-3">
                                                 <div className="flex items-center gap-2">
                                                     <User className="w-3.5 h-3.5 text-primary" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal Identity</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal Identity (Cedula Record)</span>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -954,7 +1041,7 @@ export function CedulaAppointmentClient({
 
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
                                                     <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Birth Date</Label>
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date of Birth</Label>
                                                         <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
                                                             {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                                                         </p>
@@ -978,74 +1065,48 @@ export function CedulaAppointmentClient({
                                                         </p>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Residence Address & Contact Info Grid */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pt-2">
-                                                {/* Address Card */}
-                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <MapPin className="w-3.5 h-3.5 text-primary" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Residential Address</span>
-                                                    </div>
-
-                                                    <div className="space-y-1.5 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                        <p>
-                                                            {[formState.houseNumber, formState.street].filter(Boolean).join(" ") || "No street specified"}
-                                                        </p>
-                                                        <p className="text-slate-600 dark:text-slate-400 font-semibold">
-                                                            Barangay {formState.barangay || "Mapandan"}
-                                                        </p>
-                                                        <p className="text-[11px] text-slate-400 font-medium">
-                                                            {formState.municipality || "Mapandan"}, {formState.province || "Pangasinan"}
+                                                <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Height</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.height || "—"}
                                                         </p>
                                                     </div>
-                                                </div>
-
-                                                {/* Contact Card */}
-                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <Phone className="w-3.5 h-3.5 text-primary" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact Channels</span>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                            <span>{formState.contactNumber || "No mobile number provided"}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                            <span className="truncate">{formState.email || "No email on record"}</span>
-                                                        </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Weight</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.weight || "—"}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Valid ID Document Status */}
-                                            <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                                        <FileText className="w-4 h-4" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Registered Government Identification</p>
-                                                        <p className="text-[10px] text-slate-400 font-medium">
-                                                            {existingIdUrl ? "Government ID on file & verified." : "Optional valid ID can be uploaded in final confirmation phase."}
-                                                        </p>
-                                                    </div>
+                                            {/* Residence Address Card (Single Line) */}
+                                            <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Residential Address</span>
                                                 </div>
+                                                <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                    {[
+                                                        [formState.houseNumber, formState.street].filter(Boolean).join(" "),
+                                                        formState.barangay ? `Brgy. ${formState.barangay}` : null,
+                                                        formState.municipality || "Mapandan",
+                                                        formState.province || "Pangasinan"
+                                                    ].filter(Boolean).join(", ") || "No residential address on record"}
+                                                </p>
+                                            </div>
 
-                                                {existingIdUrl && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => handleViewFile(null, existingIdUrl, "Registered Resident ID")}
-                                                        className="text-[10px] font-black uppercase tracking-wider h-8 rounded-xl border-primary/20 text-primary hover:bg-primary/5 shrink-0"
-                                                    >
-                                                        Preview ID
-                                                    </Button>
-                                                )}
+                                            {/* Place of Birth Card (Single Line, Below Residential Address) */}
+                                            <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</span>
+                                                </div>
+                                                <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                    {formState.placeOfBirth || "—"}
+                                                </p>
                                             </div>
                                         </div>
                                     )}
@@ -1054,23 +1115,41 @@ export function CedulaAppointmentClient({
                                     {applicantTarget === "RELATIVE" && (
                                         <div className="space-y-6 animate-in fade-in duration-300">
                                             {/* Relationship to Applicant Section */}
-                                            <div className="p-4 md:p-5 rounded-2xl bg-primary/[0.03] border border-primary/20 space-y-3">
+                                            <div
+                                                ref={relationshipRef}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl bg-primary/[0.03] border transition-all space-y-3",
+                                                    relativeErrors.relationship
+                                                        ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                        : "border-primary/20"
+                                                )}
+                                            >
                                                 <div className="flex items-center gap-2">
-                                                    <Users className="w-4 h-4 text-primary" />
-                                                    <span className="text-xs font-black uppercase tracking-wider text-primary">
+                                                    <Users className={cn("w-4 h-4", relativeErrors.relationship ? "text-destructive" : "text-primary")} />
+                                                    <span className={cn("text-xs font-black uppercase tracking-wider", relativeErrors.relationship ? "text-destructive" : "text-primary")}>
                                                         Relationship with Relative
                                                     </span>
                                                 </div>
 
                                                 <div className="space-y-1.5 max-w-md">
-                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                                                    <Label className={cn("text-[10px] font-black uppercase tracking-wider", relativeErrors.relationship ? "text-destructive" : "text-slate-600 dark:text-slate-400")}>
                                                         Relationship to Applicant <span className="text-destructive">*</span>
                                                     </Label>
                                                     <Select
                                                         value={relationshipToApplicant}
-                                                        onValueChange={(val) => setRelationshipToApplicant(val)}
+                                                        onValueChange={(val) => {
+                                                            setRelationshipToApplicant(val);
+                                                            if (relativeErrors.relationship) {
+                                                                setRelativeErrors(prev => ({ ...prev, relationship: false }));
+                                                            }
+                                                        }}
                                                     >
-                                                        <SelectTrigger className="w-full h-11 px-3.5 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                        <SelectTrigger className={cn(
+                                                            "w-full h-11 px-3.5 rounded-xl bg-white dark:bg-black/40 text-xs font-medium transition-all",
+                                                            relativeErrors.relationship
+                                                                ? "border-destructive ring-2 ring-destructive/30"
+                                                                : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                        )}>
                                                             <SelectValue placeholder="Select Relationship..." />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
@@ -1097,15 +1176,19 @@ export function CedulaAppointmentClient({
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.firstName ? "text-destructive font-black" : "text-slate-400")}>
                                                             First Name <span className="text-destructive">*</span>
                                                         </Label>
                                                         <Input
+                                                            ref={firstNameRef}
                                                             name="firstName"
                                                             value={formState.firstName}
                                                             onChange={handleInputChange}
                                                             placeholder="First name"
-                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.firstName && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
@@ -1119,15 +1202,19 @@ export function CedulaAppointmentClient({
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.lastName ? "text-destructive font-black" : "text-slate-400")}>
                                                             Last Name <span className="text-destructive">*</span>
                                                         </Label>
                                                         <Input
+                                                            ref={lastNameRef}
                                                             name="lastName"
                                                             value={formState.lastName}
                                                             onChange={handleInputChange}
                                                             placeholder="Last name"
-                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.lastName && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
@@ -1144,15 +1231,24 @@ export function CedulaAppointmentClient({
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                            Birth Date <span className="text-destructive">*</span>
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.dateOfBirth ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Date of Birth <span className="text-destructive">*</span>
                                                         </Label>
                                                         <Input
+                                                            ref={dateOfBirthRef}
                                                             type="date"
                                                             name="dateOfBirth"
                                                             value={formState.dateOfBirth}
-                                                            onChange={handleInputChange}
-                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.dateOfBirth) {
+                                                                    setRelativeErrors(prev => ({ ...prev, dateOfBirth: false }));
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.dateOfBirth && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
@@ -1199,14 +1295,59 @@ export function CedulaAppointmentClient({
                                                         />
                                                     </div>
                                                 </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.height ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Height <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={heightRef}
+                                                            name="height"
+                                                            value={formState.height}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.height) {
+                                                                    setRelativeErrors(prev => ({ ...prev, height: false }));
+                                                                }
+                                                            }}
+                                                            placeholder="e.g. 165 cm / 5'5&quot;"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.height && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.weight ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Weight <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={weightRef}
+                                                            name="weight"
+                                                            value={formState.weight}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.weight) {
+                                                                    setRelativeErrors(prev => ({ ...prev, weight: false }));
+                                                                }
+                                                            }}
+                                                            placeholder="e.g. 60 kg / 132 lbs"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.weight && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            {/* Relative's Address & Contact Info */}
+                                            {/* Relative's Address */}
                                             <div className="space-y-3 pt-2">
                                                 <div className="flex items-center gap-2">
                                                     <MapPin className="w-3.5 h-3.5 text-primary" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        Relative's Residential Address & Contact
+                                                        Relative's Residential Address
                                                     </span>
                                                 </div>
 
@@ -1231,15 +1372,25 @@ export function CedulaAppointmentClient({
                                                             className="h-10 text-xs font-medium rounded-xl"
                                                         />
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                    <div className="space-y-1.5" ref={barangayRef}>
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.barangay ? "text-destructive font-black" : "text-slate-400")}>
                                                             Barangay <span className="text-destructive">*</span>
                                                         </Label>
                                                         <Select
                                                             value={formState.barangay}
-                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, barangay: val }))}
+                                                            onValueChange={(val) => {
+                                                                setFormState(prev => ({ ...prev, barangay: val }));
+                                                                if (relativeErrors.barangay) {
+                                                                    setRelativeErrors(prev => ({ ...prev, barangay: false }));
+                                                                }
+                                                            }}
                                                         >
-                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                            <SelectTrigger className={cn(
+                                                                "w-full h-10 px-3 rounded-xl bg-white dark:bg-black/40 text-xs font-medium transition-all",
+                                                                relativeErrors.barangay
+                                                                    ? "border-destructive ring-2 ring-destructive/30"
+                                                                    : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                            )}>
                                                                 <SelectValue placeholder="Select Barangay..." />
                                                             </SelectTrigger>
                                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 max-h-56 z-[200]">
@@ -1253,7 +1404,7 @@ export function CedulaAppointmentClient({
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 pt-1">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Municipality</Label>
                                                         <Input
@@ -1272,27 +1423,38 @@ export function CedulaAppointmentClient({
                                                             className="h-10 text-xs font-medium rounded-xl bg-slate-100 dark:bg-white/5 opacity-80"
                                                         />
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Contact Number</Label>
-                                                        <Input
-                                                            name="contactNumber"
-                                                            value={formState.contactNumber}
-                                                            onChange={handleInputChange}
-                                                            placeholder="09XX XXX XXXX"
-                                                            className="h-10 text-xs font-medium rounded-xl"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Email Address</Label>
-                                                        <Input
-                                                            name="email"
-                                                            type="email"
-                                                            value={formState.email}
-                                                            onChange={handleInputChange}
-                                                            placeholder="email@example.com"
-                                                            className="h-10 text-xs font-medium rounded-xl"
-                                                        />
-                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Place of Birth (Below Residential Address, Single Line) */}
+                                            <div className="space-y-3 pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative's Place of Birth
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.placeOfBirth ? "text-destructive font-black" : "text-slate-400")}>
+                                                        Place of Birth <span className="text-destructive">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        ref={placeOfBirthRef}
+                                                        name="placeOfBirth"
+                                                        value={formState.placeOfBirth}
+                                                        onChange={(e) => {
+                                                            handleInputChange(e);
+                                                            if (relativeErrors.placeOfBirth) {
+                                                                setRelativeErrors(prev => ({ ...prev, placeOfBirth: false }));
+                                                            }
+                                                        }}
+                                                        placeholder="City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        className={cn(
+                                                            "h-10 text-xs font-medium rounded-xl transition-all",
+                                                            relativeErrors.placeOfBirth && "border-destructive ring-2 ring-destructive/30"
+                                                        )}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -1555,9 +1717,37 @@ export function CedulaAppointmentClient({
                                             </div>
 
                                             <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Birth Date</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Date of Birth</span>
                                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
                                                     {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Place of Birth</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
+                                                    {formState.placeOfBirth || "—"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Civil Status</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                                    {formState.civilStatus || "Single"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Height / Weight</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                                    {formState.height || "—"} / {formState.weight || "—"}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-0.5">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Citizenship</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                                    {formState.citizenship || "Filipino"}
                                                 </span>
                                             </div>
 
