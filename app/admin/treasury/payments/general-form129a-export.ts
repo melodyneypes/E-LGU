@@ -296,15 +296,19 @@ const fmtAlways = (num: number): string => {
     return (num || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+export interface Form129AExportOptions {
+    fromDate?: string;
+    toDate?: string;
+    treasurerName?: string;
+    treasurerTitle?: string;
+}
+
 /**
  * Generate official Provincial Form No. 129 (A) PDF (Abstract of General Collections).
  */
 export async function exportForm129APdf(
     payments: any[],
-    options: {
-        fromDate?: string;
-        toDate?: string;
-    }
+    options: Form129AExportOptions
 ) {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "legal" });
     const PAGE_W = doc.internal.pageSize.getWidth();   // 355.6mm (Official Legal Landscape)
@@ -344,10 +348,11 @@ export async function exportForm129APdf(
     doc.setTextColor(0, 0, 0);
     doc.text("ABSTRACT OF GENERAL COLLECTIONS", PAGE_W / 2, 13, { align: "center" });
 
-    // Subtitle with Underscore line for Municipal Treasurer (as requested)
+    // Subtitle with Municipal Treasurer name (defaults to official or configured signatory)
+    const treasurerDisplay = options.treasurerName?.trim() || "Teresita S. Eden";
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.2);
-    const subTitle = `Of ___________________________, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
+    const subTitle = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
     doc.text(subTitle, PAGE_W / 2, 17.5, { align: "center" });
 
     const currentY = 21;
@@ -456,57 +461,58 @@ export async function exportForm129APdf(
         tableWidth: 343.6,
         margin: { left: MARGIN, right: MARGIN, top: MARGIN, bottom: 12 },
         head: [
-            // Row 1: Super-Headers
+            // Row 1: Super-Headers (Matching Official Provincial Form No. 129 (A))
             [
                 { content: "DATE", rowSpan: 3, styles: { valign: "middle", halign: "center" } },
                 { content: "O.R. #", rowSpan: 3, styles: { valign: "middle", halign: "center" } },
-                { content: "TAX ON BUSINESS", colSpan: 4, styles: { halign: "center" } },
+                { content: "TAX ON BUSINESS", colSpan: 3, styles: { halign: "center" } },
+                { content: "OTHER TAXES", colSpan: 1, styles: { halign: "center" } },
                 { content: "REGULATORY FEES (Permits & Licenses)", colSpan: 9, styles: { halign: "center" } },
-                { content: "SERVICE USER CHARGES", colSpan: 5, styles: { halign: "center" } },
+                { content: "SERVICE USER CHARGES", colSpan: 4, styles: { halign: "center" } },
+                { content: "Other Service\nIncome", rowSpan: 2, styles: { valign: "middle", halign: "center" } },
                 { content: "RECEIPTS FROM ECONOMIC ENT.", colSpan: 4, styles: { halign: "center" } },
-                { content: "OTHER RECEIPTS", colSpan: 6, styles: { halign: "center" } },
+                { content: "OTHER RECEIPTS", colSpan: 2, styles: { halign: "center" } },
+                { content: "Documentary\nStamp Tax\n(DST)", rowSpan: 2, styles: { valign: "middle", halign: "center" } },
+                { content: "20% Share\nfrom Bldg\nPermit", rowSpan: 2, styles: { valign: "middle", halign: "center" } },
+                { content: "50% BRGY\nSHARE\nCLEARANCE", rowSpan: 2, styles: { valign: "middle", halign: "center" } },
+                { content: "Share from\nPCSO / Lotto", rowSpan: 2, styles: { valign: "middle", halign: "center" } },
                 { content: "TOTAL", rowSpan: 3, styles: { valign: "middle", halign: "center" } }
             ],
-            // Row 2: Sub-Headers (Column Accounts)
+            // Row 2: Sub-Headers (Column Accounts - All Complete Official Titles)
             [
-                { content: "Tax on Delivery & V\n(P.O. 83-99)", styles: { halign: "center" } },
+                { content: "Tax on Delivery T & V\n(P.O. 82-99)", styles: { halign: "center" } },
                 { content: "Business\nTax", styles: { halign: "center" } },
                 { content: "Fines &\nPenalties -\nBusiness Tax", styles: { halign: "center" } },
-                { content: "OTHER TAXES\nTransfer Tax/\nProf Tax", styles: { halign: "center" } },
+                { content: "Transfer Tax/\nProf Tax", styles: { halign: "center" } },
                 { content: "Weights &\nMeasures", styles: { halign: "center" } },
                 { content: "Tricycle Ope.\nPermit Fees\n(MTOP)", styles: { halign: "center" } },
                 { content: "Mayor's\nPermit", styles: { halign: "center" } },
                 { content: "Permit Fees\nunder the\nbuilding code", styles: { halign: "center" } },
-                { content: "Occupation\nFee", styles: { halign: "center" } },
+                { content: "Occupational\nFees", styles: { halign: "center" } },
                 { content: "ZONING\nFEE", styles: { halign: "center" } },
                 { content: "REGISTRATION\nFEES", styles: { halign: "center" } },
                 { content: "Birth, Death,\nMarriage Cert.", styles: { halign: "center" } },
-                { content: "Inspection Fees\n(including\nPD 1185)", styles: { halign: "center" } },
-                { content: "Con", styles: { halign: "center" } },
+                { content: "Inspection Fees\n(incldg PD 1185)", styles: { halign: "center" } },
+                { content: "Code 153\n(Cedula)", styles: { halign: "center" } },
                 { content: "Police\nClearance", styles: { halign: "center" } },
-                { content: "Clearance/\nCert", styles: { halign: "center" } },
+                { content: "Clearance/\nCert. Fees", styles: { halign: "center" } },
                 { content: "Garbage\nFees", styles: { halign: "center" } },
-                { content: "Other Service\nIncome", styles: { halign: "center" } },
                 { content: "Receipts from\nMarkets", styles: { halign: "center" } },
                 { content: "Receipts from\nSlaughterhouse", styles: { halign: "center" } },
                 { content: "Receipts from\nCemeteries", styles: { halign: "center" } },
-                { content: "Other Receipts\n/ Pen-Mkt", styles: { halign: "center" } },
+                { content: "Other Fines/\nPen-Mkt", styles: { halign: "center" } },
                 { content: "Miscellaneous\nIncome", styles: { halign: "center" } },
-                { content: "Other Fines\n/ Penalties", styles: { halign: "center" } },
-                { content: "Documentary\nStamp Tax (DST)", styles: { halign: "center" } },
-                { content: "20% Share\nfrom Bldg\nPermit", styles: { halign: "center" } },
-                { content: "50% BRGY\nSHARE\nCLEARANCE", styles: { halign: "center" } },
-                { content: "Share from\nPCSO / Lotto", styles: { halign: "center" } }
+                { content: "Other Fines/\nPen", styles: { halign: "center" } }
             ],
-            // Row 3: Account Codes and Index Numbers
+            // Row 3: Account Codes and Official Column Numbers
             [
-                { content: "318\n(1)", styles: { halign: "center" } },
+                { content: "418\n(1)", styles: { halign: "center" } },
                 { content: "582\n(2)", styles: { halign: "center" } },
                 { content: "599\n(3)", styles: { halign: "center" } },
                 { content: "418\n(4)", styles: { halign: "center" } },
                 { content: "601\n(7)", styles: { halign: "center" } },
                 { content: "604\n(8)", styles: { halign: "center" } },
-                { content: "601\n(9)", styles: { halign: "center" } },
+                { content: "605\n(9)", styles: { halign: "center" } },
                 { content: "605\n(9)", styles: { halign: "center" } },
                 { content: "605\n(11)", styles: { halign: "center" } },
                 { content: "605\n(15)", styles: { halign: "center" } },
@@ -535,21 +541,24 @@ export async function exportForm129APdf(
         theme: "grid",
         styles: {
             fontSize: 4.8,
-            cellPadding: 0.45,
+            cellPadding: { top: 0.5, bottom: 0.5, left: 0.3, right: 0.3 },
             font: "helvetica",
             lineColor: [40, 40, 40],
             lineWidth: 0.1,
             textColor: [0, 0, 0],
-            overflow: "ellipsize",
+            overflow: "linebreak",
             fillColor: [255, 255, 255],
         },
         headStyles: {
             fillColor: [255, 255, 255],
             textColor: [0, 0, 0],
             fontStyle: "bold",
-            fontSize: 4.2,
+            fontSize: 3.8,
+            cellPadding: { top: 0.6, bottom: 0.6, left: 0.25, right: 0.25 },
             lineColor: [40, 40, 40],
             lineWidth: 0.12,
+            overflow: "linebreak",
+            valign: "middle"
         },
         footStyles: {
             fillColor: [255, 255, 255],
@@ -561,36 +570,35 @@ export async function exportForm129APdf(
         },
         columnStyles: {
             0: { cellWidth: 12.5, halign: "center" }, // Date
-            1: { cellWidth: 14.5, halign: "center" }, // O.R. #
-            2: { cellWidth: 10.5, halign: "right" },  // Tax Delivery
+            1: { cellWidth: 14, halign: "center" },   // O.R. #
+            2: { cellWidth: 11, halign: "right" },    // Tax Delivery T & V
             3: { cellWidth: 11.5, halign: "right" },  // Business Tax
-            4: { cellWidth: 10.5, halign: "right" },  // Fines Business Tax
+            4: { cellWidth: 11, halign: "right" },    // Fines Business Tax
             5: { cellWidth: 11, halign: "right" },    // Transfer Tax
-            6: { cellWidth: 10, halign: "right" },    // Weights & Measures
-            7: { cellWidth: 10.5, halign: "right" },  // MTOP
-            8: { cellWidth: 10.5, halign: "right" },  // Mayor's Permit
-            9: { cellWidth: 11, halign: "right" },    // Building Permit
-            10: { cellWidth: 10, halign: "right" },   // Occupation Fee
+            6: { cellWidth: 10.5, halign: "right" },  // Weights & Measures
+            7: { cellWidth: 11, halign: "right" },    // MTOP
+            8: { cellWidth: 11, halign: "right" },    // Mayor's Permit
+            9: { cellWidth: 11, halign: "right" },    // Building Code
+            10: { cellWidth: 10.5, halign: "right" }, // Occupational Fees
             11: { cellWidth: 10, halign: "right" },   // Zoning Fee
-            12: { cellWidth: 10.5, halign: "right" }, // Registration Fees
-            13: { cellWidth: 11.5, halign: "right" }, // Civil Registry Cert
-            14: { cellWidth: 11, halign: "right" },   // Inspection Fees
-            15: { cellWidth: 11, halign: "right" },   // Con (Cedula)
+            12: { cellWidth: 11, halign: "right" },   // Registration Fees
+            13: { cellWidth: 11.5, halign: "right" }, // Birth, Death, Marriage Cert
+            14: { cellWidth: 11.5, halign: "right" }, // Inspection Fees
+            15: { cellWidth: 11, halign: "right" },   // Code 153 (Cedula)
             16: { cellWidth: 10.5, halign: "right" }, // Police Clearance
-            17: { cellWidth: 10.5, halign: "right" }, // Clearance/Cert
+            17: { cellWidth: 11, halign: "right" },   // Clearance/Cert. Fees
             18: { cellWidth: 10.5, halign: "right" }, // Garbage Fees
             19: { cellWidth: 11, halign: "right" },   // Other Service Income
-            20: { cellWidth: 11.5, halign: "right" }, // Markets
-            21: { cellWidth: 11, halign: "right" },   // Slaughterhouse
+            20: { cellWidth: 11, halign: "right" },   // Markets
+            21: { cellWidth: 11.5, halign: "right" }, // Slaughterhouse
             22: { cellWidth: 11, halign: "right" },   // Cemeteries
-            23: { cellWidth: 10.5, halign: "right" }, // Other Receipts Pen-Mkt
-            24: { cellWidth: 11, halign: "right" },   // Misc Income
-            25: { cellWidth: 10.5, halign: "right" }, // Other Fines
-            26: { cellWidth: 10.5, halign: "right" }, // DST
-            27: { cellWidth: 10.5, halign: "right" }, // 20% Bldg Permit Share
-            28: { cellWidth: 11, halign: "right" },   // 50% Brgy Clearance Share
+            23: { cellWidth: 11, halign: "right" },   // Other Fines Pen-Mkt
+            24: { cellWidth: 11.5, halign: "right" }, // Misc Income
+            25: { cellWidth: 10.5, halign: "right" }, // Other Fines Pen
+            26: { cellWidth: 11.5, halign: "right" }, // DST
+            27: { cellWidth: 11, halign: "right" },   // 20% Bldg Permit Share
+            28: { cellWidth: 11.5, halign: "right" }, // 50% Brgy Clearance Share
             29: { cellWidth: 10.5, halign: "right" }, // PCSO Lotto Share
-            30: { cellWidth: 14.5, halign: "right", fontStyle: "bold" }, // TOTAL
         }
     });
 
@@ -614,10 +622,7 @@ export async function exportForm129APdf(
  */
 export async function exportForm129AExcel(
     payments: any[],
-    options: {
-        fromDate?: string;
-        toDate?: string;
-    }
+    options: Form129AExportOptions
 ) {
     const dataRows = payments.map(mapPaymentToForm129A);
 
@@ -663,8 +668,9 @@ export async function exportForm129AExcel(
     sheet.getCell("A3").font = { name: "Arial", size: 12, bold: true };
     sheet.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
 
+    const treasurerDisplay = options.treasurerName?.trim() || "Teresita S. Eden";
     sheet.mergeCells("A4:AE4");
-    sheet.getCell("A4").value = `Of ___________________________, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
+    sheet.getCell("A4").value = `Of ${treasurerDisplay}, Municipal Treasurer, Municipality of MAPANDAN, Province of Pangasinan made during the period from ${periodDateRange}`;
     sheet.getCell("A4").font = { name: "Arial", size: 10 };
     sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
 
@@ -675,73 +681,86 @@ export async function exportForm129AExcel(
     sheet.mergeCells("B6:B8");
     sheet.getCell("B6").value = "O.R. #";
 
-    sheet.mergeCells("C6:F6");
+    sheet.mergeCells("C6:E6");
     sheet.getCell("C6").value = "TAX ON BUSINESS";
+
+    sheet.mergeCells("F6:F6");
+    sheet.getCell("F6").value = "OTHER TAXES";
 
     sheet.mergeCells("G6:O6");
     sheet.getCell("G6").value = "REGULATORY FEES (Permits & Licenses)";
 
-    sheet.mergeCells("P6:T6");
+    sheet.mergeCells("P6:S6");
     sheet.getCell("P6").value = "SERVICE USER CHARGES";
+
+    sheet.mergeCells("T6:T7");
+    sheet.getCell("T6").value = "Other Service\nIncome";
 
     sheet.mergeCells("U6:X6");
     sheet.getCell("U6").value = "RECEIPTS FROM ECONOMIC ENT.";
 
-    sheet.mergeCells("Y6:AD6");
+    sheet.mergeCells("Y6:Z6");
     sheet.getCell("Y6").value = "OTHER RECEIPTS";
+
+    sheet.mergeCells("AA6:AA7");
+    sheet.getCell("AA6").value = "Documentary\nStamp Tax (DST)";
+
+    sheet.mergeCells("AB6:AB7");
+    sheet.getCell("AB6").value = "20% Share from\nBldg Permit";
+
+    sheet.mergeCells("AC6:AC7");
+    sheet.getCell("AC6").value = "50% BRGY SHARE\nCLEARANCE";
+
+    sheet.mergeCells("AD6:AD7");
+    sheet.getCell("AD6").value = "Share from\nPCSO / Lotto";
 
     sheet.mergeCells("AE6:AE8");
     sheet.getCell("AE6").value = "TOTAL";
 
-    // Row 7: Sub-headers (Column Accounts)
-    const subHeaders = [
-        "Tax on Delivery & V\n(P.O. 83-99)",
-        "Business Tax",
-        "Fines & Penalties -\nBusiness Tax",
-        "OTHER TAXES\nTransfer Tax/Prof Tax",
-        "Weights & Measures",
-        "Tricycle Ope. Permit\nFees (MTOP)",
-        "Mayor's Permit",
-        "Permit Fees under\nthe building code",
-        "Occupation Fee",
-        "ZONING FEE",
-        "REGISTRATION FEES",
-        "Birth, Death,\nMarriage Cert.",
-        "Inspection Fees\n(including PD 1185)",
-        "Con",
-        "Police Clearance",
-        "Clearance/Cert",
-        "Garbage Fees",
-        "Other Service Income",
-        "Receipts from Markets",
-        "Receipts from Slaughterhouse",
-        "Receipts from Cemeteries",
-        "Other Receipts / Pen-Mkt",
-        "Miscellaneous Income",
-        "Other Fines / Penalties",
-        "Documentary Stamp Tax (DST)",
-        "20% Share from Bldg Permit",
-        "50% BRGY SHARE CLEARANCE",
-        "Share from PCSO / Lotto"
+    // Row 7: Sub-headers (Column Accounts - All Complete Official Titles)
+    const subHeadersMap: { [col: string]: string } = {
+        C: "Tax on Delivery T & V\n(P.O. 82-99)",
+        D: "Business Tax",
+        E: "Fines & Penalties -\nBusiness Tax",
+        F: "Transfer Tax/\nProf Tax",
+        G: "Weights & Measures",
+        H: "Tricycle Ope. Permit\nFees (MTOP)",
+        I: "Mayor's Permit",
+        J: "Permit Fees under\nthe building code",
+        K: "Occupational Fees",
+        L: "ZONING FEE",
+        M: "REGISTRATION FEES",
+        N: "Birth, Death,\nMarriage Cert.",
+        O: "Inspection Fees\n(incldg PD 1185)",
+        P: "Code 153\n(Cedula)",
+        Q: "Police Clearance",
+        R: "Clearance/\nCert. Fees",
+        S: "Garbage Fees",
+        U: "Receipts from Markets",
+        V: "Receipts from\nSlaughterhouse",
+        W: "Receipts from Cemeteries",
+        X: "Other Fines/\nPen-Mkt",
+        Y: "Miscellaneous Income",
+        Z: "Other Fines/ Pen"
+    };
+
+    Object.entries(subHeadersMap).forEach(([col, text]) => {
+        sheet.getCell(`${col}7`).value = text;
+    });
+
+    // Row 8: Account codes and index numbers
+    const codeHeaders = [
+        "418\n(1)", "582\n(2)", "599\n(3)", "418\n(4)",
+        "601\n(7)", "604\n(8)", "605\n(9)", "605\n(9)", "605\n(11)", "605\n(15)",
+        "606\n(13)", "606\n(16)", "617\n(14)",
+        "415\n(12)", "613\n(17)", "613\n(18)", "616\n(19)", "628\n(19a)",
+        "636\n(20)", "637\n(21)", "633\n(22)", "649\n(25)",
+        "678\n(23)", "679\n(24)", "416\n(26)", "416\n(27)", "416\n(27)", "670\n(28)"
     ];
 
     const subCols = [
         "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O",
         "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD"
-    ];
-
-    subHeaders.forEach((sh, idx) => {
-        sheet.getCell(`${subCols[idx]}7`).value = sh;
-    });
-
-    // Row 8: Account codes and index numbers
-    const codeHeaders = [
-        "318\n(1)", "582\n(2)", "599\n(3)", "418\n(4)",
-        "601\n(7)", "604\n(8)", "601\n(9)", "605\n(9)", "605\n(11)", "605\n(15)",
-        "606\n(13)", "606\n(16)", "617\n(14)",
-        "415\n(12)", "613\n(17)", "613\n(18)", "616\n(19)", "628\n(19a)",
-        "636\n(20)", "637\n(21)", "633\n(22)", "649\n(25)",
-        "678\n(23)", "679\n(24)", "416\n(26)", "416\n(27)", "416\n(27)", "670\n(28)"
     ];
 
     codeHeaders.forEach((ch, idx) => {

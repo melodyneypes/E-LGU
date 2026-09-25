@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
     Activity,
     Heart,
@@ -253,33 +253,121 @@ export default function PatientVitalsHistoryGraphs({
     const chartScrollRef2 = useRef<HTMLDivElement | null>(null);
     const chartScrollRef3 = useRef<HTMLDivElement | null>(null);
     const chartScrollRef4 = useRef<HTMLDivElement | null>(null);
+    const isSyncingScroll = useRef(false);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
-    // Ensure charts display the newest consultations first by auto-scrolling to the far right
+    // Scroll all 4 charts all the way to the right (latest visits)
+    const scrollToRight = useCallback(() => {
+        const scrollContainers = [
+            chartScrollRef1.current,
+            chartScrollRef2.current,
+            chartScrollRef3.current,
+            chartScrollRef4.current,
+        ];
+        scrollContainers.forEach((el) => {
+            if (el) {
+                el.scrollLeft = el.scrollWidth || 999999;
+            }
+        });
+    }, []);
+
+    // Set ref and immediately position scrollbar to far right upon element creation
+    const setScrollRef = (idx: 1 | 2 | 3 | 4) => (el: HTMLDivElement | null) => {
+        if (idx === 1) chartScrollRef1.current = el;
+        if (idx === 2) chartScrollRef2.current = el;
+        if (idx === 3) chartScrollRef3.current = el;
+        if (idx === 4) chartScrollRef4.current = el;
+
+        if (el) {
+            el.scrollLeft = el.scrollWidth || 999999;
+            requestAnimationFrame(() => {
+                if (el) el.scrollLeft = el.scrollWidth || 999999;
+            });
+        }
+    };
+
+    // Synchronize scrolling across all 4 charts so when one chart is panned, all align to the same visit
+    const handleChartScroll = (sourceIdx: 1 | 2 | 3 | 4) => (e: React.UIEvent<HTMLDivElement>) => {
+        if (isSyncingScroll.current) return;
+        isSyncingScroll.current = true;
+        const scrollLeft = e.currentTarget.scrollLeft;
+        const containers = [
+            chartScrollRef1.current,
+            chartScrollRef2.current,
+            chartScrollRef3.current,
+            chartScrollRef4.current,
+        ];
+        containers.forEach((c, idx) => {
+            if (c && idx + 1 !== sourceIdx) {
+                c.scrollLeft = scrollLeft;
+            }
+        });
+        requestAnimationFrame(() => {
+            isSyncingScroll.current = false;
+        });
+    };
+
+    // Ensure charts display the newest consultations first by auto-scrolling to the far right by default
     useEffect(() => {
-        if (viewMode !== "graphs") return;
-        const scrollContainers = [chartScrollRef1, chartScrollRef2, chartScrollRef3, chartScrollRef4];
-        const scrollToRight = () => {
-            scrollContainers.forEach((ref) => {
-                if (ref.current) {
-                    ref.current.scrollLeft = ref.current.scrollWidth;
+        if (viewMode !== "graphs" || loading) return;
+
+        // Immediate scroll
+        scrollToRight();
+
+        // Sequential animation frames and timeouts to handle Recharts SVG layout and accordion transition
+        const raf1 = requestAnimationFrame(() => {
+            scrollToRight();
+            const raf2 = requestAnimationFrame(scrollToRight);
+            return () => cancelAnimationFrame(raf2);
+        });
+
+        const timers = [
+            setTimeout(scrollToRight, 60),
+            setTimeout(scrollToRight, 150),
+            setTimeout(scrollToRight, 300),
+            setTimeout(scrollToRight, 600),
+            setTimeout(scrollToRight, 1000),
+        ];
+
+        // ResizeObserver watches containers and inner children so the moment Recharts expands, it stays pinned to the right
+        let observer: ResizeObserver | null = null;
+        try {
+            observer = new ResizeObserver(() => {
+                scrollToRight();
+            });
+
+            const elements = [
+                chartScrollRef1.current,
+                chartScrollRef2.current,
+                chartScrollRef3.current,
+                chartScrollRef4.current,
+            ].filter(Boolean) as HTMLDivElement[];
+
+            elements.forEach((el) => {
+                observer!.observe(el);
+                if (el.firstElementChild) {
+                    observer!.observe(el.firstElementChild);
                 }
             });
-        };
 
-        // Scroll immediately, and also after Recharts layout settles
-        scrollToRight();
-        const t1 = setTimeout(scrollToRight, 60);
-        const t2 = setTimeout(scrollToRight, 250);
+            // Disconnect after initial layout settles so user can freely scroll left
+            const discTimer = setTimeout(() => {
+                if (observer) observer.disconnect();
+            }, 1500);
+            timers.push(discTimer);
+        } catch {
+            // Ignore if ResizeObserver unsupported
+        }
 
         return () => {
-            clearTimeout(t1);
-            clearTimeout(t2);
+            cancelAnimationFrame(raf1);
+            timers.forEach((t) => clearTimeout(t));
+            if (observer) observer.disconnect();
         };
-    }, [viewMode, isMounted]);
+    }, [viewMode, loading, isMounted, scrollToRight]);
 
     // Parse chronological visit points directly matching authentic consultations from history (oldest on left, newest on right)
     const chartData = useMemo(() => {
@@ -387,38 +475,49 @@ export default function PatientVitalsHistoryGraphs({
         return points;
     }, [history, currentVitals]);
 
-    // Extract the latest available valid measurement for each metric (always latest regardless of visual sort)
+    // Extract the last vitals log from historical consultations (or fallback to current check-in if first visit)
     const latestMetrics = useMemo(() => {
         const currentPoint = chartData.find((p) => p.isCurrent);
-        const chronological = [...chartData].sort((a, b) => {
-            const da = new Date(a.rawItem?.date || a.rawItem?.appointmentDate || a.rawItem?.completedAt || a.rawItem?.createdAt || 0).getTime();
-            const db = new Date(b.rawItem?.date || b.rawItem?.appointmentDate || b.rawItem?.completedAt || b.rawItem?.createdAt || 0).getTime();
-            return (isNaN(da) ? 0 : da) - (isNaN(db) ? 0 : db);
-        });
+        const chronologicalHistory = chartData
+            .filter((p) => !p.isCurrent)
+            .sort((a, b) => {
+                const da = new Date(a.rawItem?.date || a.rawItem?.appointmentDate || a.rawItem?.completedAt || a.rawItem?.createdAt || 0).getTime();
+                const db = new Date(b.rawItem?.date || b.rawItem?.appointmentDate || b.rawItem?.completedAt || b.rawItem?.createdAt || 0).getTime();
+                return (isNaN(da) ? 0 : da) - (isNaN(db) ? 0 : db);
+            });
 
-        const reversed = currentPoint
-            ? [currentPoint, ...chronological.filter((p) => !p.isCurrent).reverse()]
-            : [...chronological].reverse();
+        // Most recent past consultation first
+        const reversedHistory = [...chronologicalHistory].reverse();
 
-        const bpPoint = reversed.find((p) => p.systolic !== null && p.diastolic !== null);
-        const pulsePoint = reversed.find((p) => p.pulseRate !== null);
-        const tempPoint = reversed.find((p) => p.temperature !== null);
-        const wtPoint = reversed.find((p) => p.weight !== null);
+        // Prioritize the last vitals log from history; if no prior history exists at all, fallback to current consultation
+        const sourceList = reversedHistory.length > 0 ? reversedHistory : (currentPoint ? [currentPoint] : []);
 
-        // Previous baseline for delta calculation
-        const prevBpPoint = reversed.slice(1).find((p) => p.systolic !== null && p.diastolic !== null);
-        const prevPulsePoint = reversed.slice(1).find((p) => p.pulseRate !== null);
-        const prevTempPoint = reversed.slice(1).find((p) => p.temperature !== null);
-        const prevWtPoint = reversed.slice(1).find((p) => p.weight !== null);
+        const bpPoint = sourceList.find((p) => p.systolic !== null && p.diastolic !== null);
+        const pulsePoint = sourceList.find((p) => p.pulseRate !== null);
+        const tempPoint = sourceList.find((p) => p.temperature !== null);
+        const wtPoint = sourceList.find((p) => p.weight !== null);
+
+        // Previous baseline for delta calculation (earlier record prior to bpPoint)
+        const bpIdx = bpPoint ? sourceList.indexOf(bpPoint) : -1;
+        const prevBpPoint = bpIdx >= 0 ? sourceList.slice(bpIdx + 1).find((p) => p.systolic !== null && p.diastolic !== null) : null;
+
+        const pulseIdx = pulsePoint ? sourceList.indexOf(pulsePoint) : -1;
+        const prevPulsePoint = pulseIdx >= 0 ? sourceList.slice(pulseIdx + 1).find((p) => p.pulseRate !== null) : null;
+
+        const tempIdx = tempPoint ? sourceList.indexOf(tempPoint) : -1;
+        const prevTempPoint = tempIdx >= 0 ? sourceList.slice(tempIdx + 1).find((p) => p.temperature !== null) : null;
+
+        const wtIdx = wtPoint ? sourceList.indexOf(wtPoint) : -1;
+        const prevWtPoint = wtIdx >= 0 ? sourceList.slice(wtIdx + 1).find((p) => p.weight !== null) : null;
 
         return {
-            bp: bpPoint ? { sys: bpPoint.systolic, dia: bpPoint.diastolic, date: bpPoint.date, isCurrent: bpPoint.isCurrent } : null,
+            bp: bpPoint ? { sys: bpPoint.systolic, dia: bpPoint.diastolic, date: bpPoint.fullDate || bpPoint.date, isCurrent: bpPoint.isCurrent } : null,
             bpDiff: bpPoint && prevBpPoint ? (bpPoint.systolic! - prevBpPoint.systolic!) : null,
-            pulse: pulsePoint ? { val: pulsePoint.pulseRate, date: pulsePoint.date, isCurrent: pulsePoint.isCurrent } : null,
+            pulse: pulsePoint ? { val: pulsePoint.pulseRate, date: pulsePoint.fullDate || pulsePoint.date, isCurrent: pulsePoint.isCurrent } : null,
             pulseDiff: pulsePoint && prevPulsePoint ? (pulsePoint.pulseRate! - prevPulsePoint.pulseRate!) : null,
-            temp: tempPoint ? { val: tempPoint.temperature, date: tempPoint.date, isCurrent: tempPoint.isCurrent } : null,
+            temp: tempPoint ? { val: tempPoint.temperature, date: tempPoint.fullDate || tempPoint.date, isCurrent: tempPoint.isCurrent } : null,
             tempDiff: tempPoint && prevTempPoint ? parseFloat((tempPoint.temperature! - prevTempPoint.temperature!).toFixed(1)) : null,
-            wt: wtPoint ? { wt: wtPoint.weight, bmi: wtPoint.bmi, date: wtPoint.date, isCurrent: wtPoint.isCurrent } : null,
+            wt: wtPoint ? { wt: wtPoint.weight, bmi: wtPoint.bmi, date: wtPoint.fullDate || wtPoint.date, isCurrent: wtPoint.isCurrent } : null,
             wtDiff: wtPoint && prevWtPoint ? parseFloat((wtPoint.weight! - prevWtPoint.weight!).toFixed(1)) : null,
         };
     }, [chartData]);
@@ -453,9 +552,16 @@ export default function PatientVitalsHistoryGraphs({
                 {/* Switcher Pills & Timeline Controls */}
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                     {viewMode === "graphs" && chartData.length > 3 && (
-                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] text-slate-400 font-medium select-none">
+                        <button
+                            type="button"
+                            onClick={scrollToRight}
+                            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.03] hover:bg-teal-500/20 border border-white/10 hover:border-teal-500/30 text-[10px] text-slate-300 hover:text-teal-300 font-medium transition-all select-none cursor-pointer"
+                            title="Scroll charts to the latest visit"
+                        >
                             <span>&larr; Scroll left for older visits</span>
-                        </div>
+                            <span className="text-white/20">|</span>
+                            <span className="font-bold text-teal-400">Latest &rarr;</span>
+                        </button>
                     )}
 
                     <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
@@ -481,7 +587,7 @@ export default function PatientVitalsHistoryGraphs({
                             }`}
                         >
                             <ListFilter className="w-3.5 h-3.5" />
-                            Visits Log ({history.length})
+                            Visit Logs ({history.length})
                         </button>
                     </div>
                 </div>
@@ -490,17 +596,24 @@ export default function PatientVitalsHistoryGraphs({
             {/* GRAPHS VIEW */}
             {viewMode === "graphs" && (
                 <div className="space-y-5">
-                    {/* Latest Metrics Summary Cards (Inspired by Image 2 & 3) */}
+                    {/* Last Vitals Log Summary Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {/* Blood Pressure Card */}
                         <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-teal-500/30 transition-all space-y-1 relative overflow-hidden">
-                            <div className="flex items-center justify-between text-slate-400">
-                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                                    <Activity className="w-3 h-3 text-teal-400" /> Blood Pressure
+                            <div className="flex items-center justify-between text-slate-400 gap-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                    <Activity className="w-3 h-3 text-teal-400 shrink-0" /> Blood Pressure
                                 </span>
-                                {latestMetrics.bp?.isCurrent && (
-                                    <span className="text-[8px] font-black text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20">
-                                        Today
+                                {latestMetrics.bp && (
+                                    <span className="text-[8px] font-black text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 whitespace-nowrap shrink-0 uppercase tracking-wider">
+                                        {!latestMetrics.bp.isCurrent ? (
+                                            <>
+                                                <span className="hidden sm:inline">Last Visit Log</span>
+                                                <span className="sm:hidden">Last Log</span>
+                                            </>
+                                        ) : (
+                                            "Current Check-in"
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -511,12 +624,12 @@ export default function PatientVitalsHistoryGraphs({
                                 <span className="text-[10px] font-bold text-slate-400 uppercase">mmHg</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] pt-0.5">
-                                <span className="text-slate-400 font-medium">
+                                <span className="text-slate-400 font-medium truncate">
                                     {latestMetrics.bp?.date ? `Recorded ${latestMetrics.bp.date}` : "No BP on record"}
                                 </span>
                                 {latestMetrics.bpDiff !== null && (
                                     <span
-                                        className={`font-bold flex items-center text-[9px] ${
+                                        className={`font-bold flex items-center text-[9px] shrink-0 ml-1 ${
                                             latestMetrics.bpDiff > 0
                                                 ? "text-rose-400"
                                                 : latestMetrics.bpDiff < 0
@@ -537,13 +650,20 @@ export default function PatientVitalsHistoryGraphs({
 
                         {/* Heart Rate / Pulse Card */}
                         <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-rose-500/30 transition-all space-y-1 relative overflow-hidden">
-                            <div className="flex items-center justify-between text-slate-400">
-                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                                    <Heart className="w-3 h-3 text-rose-400" /> Heart Rate / Pulse
+                            <div className="flex items-center justify-between text-slate-400 gap-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                    <Heart className="w-3 h-3 text-rose-400 shrink-0" /> Heart Rate / Pulse
                                 </span>
-                                {latestMetrics.pulse?.isCurrent && (
-                                    <span className="text-[8px] font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-                                        Today
+                                {latestMetrics.pulse && (
+                                    <span className="text-[8px] font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 whitespace-nowrap shrink-0 uppercase tracking-wider">
+                                        {!latestMetrics.pulse.isCurrent ? (
+                                            <>
+                                                <span className="hidden sm:inline">Last Visit Log</span>
+                                                <span className="sm:hidden">Last Log</span>
+                                            </>
+                                        ) : (
+                                            "Current Check-in"
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -554,12 +674,12 @@ export default function PatientVitalsHistoryGraphs({
                                 <span className="text-[10px] font-bold text-slate-400 uppercase">bpm</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] pt-0.5">
-                                <span className="text-slate-400 font-medium">
+                                <span className="text-slate-400 font-medium truncate">
                                     {latestMetrics.pulse?.date ? `Recorded ${latestMetrics.pulse.date}` : "No HR on record"}
                                 </span>
                                 {latestMetrics.pulseDiff !== null && (
                                     <span
-                                        className={`font-bold flex items-center text-[9px] ${
+                                        className={`font-bold flex items-center text-[9px] shrink-0 ml-1 ${
                                             latestMetrics.pulseDiff > 0
                                                 ? "text-amber-400"
                                                 : latestMetrics.pulseDiff < 0
@@ -580,13 +700,20 @@ export default function PatientVitalsHistoryGraphs({
 
                         {/* Temperature Card */}
                         <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-amber-500/30 transition-all space-y-1 relative overflow-hidden">
-                            <div className="flex items-center justify-between text-slate-400">
-                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                                    <Thermometer className="w-3 h-3 text-amber-400" /> Body Temp
+                            <div className="flex items-center justify-between text-slate-400 gap-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                    <Thermometer className="w-3 h-3 text-amber-400 shrink-0" /> Body Temp
                                 </span>
-                                {latestMetrics.temp?.isCurrent && (
-                                    <span className="text-[8px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                                        Today
+                                {latestMetrics.temp && (
+                                    <span className="text-[8px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 whitespace-nowrap shrink-0 uppercase tracking-wider">
+                                        {!latestMetrics.temp.isCurrent ? (
+                                            <>
+                                                <span className="hidden sm:inline">Last Visit Log</span>
+                                                <span className="sm:hidden">Last Log</span>
+                                            </>
+                                        ) : (
+                                            "Current Check-in"
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -596,12 +723,12 @@ export default function PatientVitalsHistoryGraphs({
                                 </span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] pt-0.5">
-                                <span className="text-slate-400 font-medium">
+                                <span className="text-slate-400 font-medium truncate">
                                     {latestMetrics.temp?.date ? `Recorded ${latestMetrics.temp.date}` : "No Temp on record"}
                                 </span>
                                 {latestMetrics.tempDiff !== null && (
                                     <span
-                                        className={`font-bold flex items-center text-[9px] ${
+                                        className={`font-bold flex items-center text-[9px] shrink-0 ml-1 ${
                                             latestMetrics.tempDiff > 0
                                                 ? "text-rose-400"
                                                 : latestMetrics.tempDiff < 0
@@ -622,13 +749,20 @@ export default function PatientVitalsHistoryGraphs({
 
                         {/* Weight & BMI Card */}
                         <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-purple-500/30 transition-all space-y-1 relative overflow-hidden">
-                            <div className="flex items-center justify-between text-slate-400">
-                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                                    <Scale className="w-3 h-3 text-purple-400" /> Weight &amp; BMI
+                            <div className="flex items-center justify-between text-slate-400 gap-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                    <Scale className="w-3 h-3 text-purple-400 shrink-0" /> Weight &amp; BMI
                                 </span>
-                                {latestMetrics.wt?.isCurrent && (
-                                    <span className="text-[8px] font-black text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
-                                        Today
+                                {latestMetrics.wt && (
+                                    <span className="text-[8px] font-black text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 whitespace-nowrap shrink-0 uppercase tracking-wider">
+                                        {!latestMetrics.wt.isCurrent ? (
+                                            <>
+                                                <span className="hidden sm:inline">Last Visit Log</span>
+                                                <span className="sm:hidden">Last Log</span>
+                                            </>
+                                        ) : (
+                                            "Current Check-in"
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -643,12 +777,12 @@ export default function PatientVitalsHistoryGraphs({
                                 )}
                             </div>
                             <div className="flex items-center justify-between text-[10px] pt-0.5">
-                                <span className="text-slate-400 font-medium">
+                                <span className="text-slate-400 font-medium truncate">
                                     {latestMetrics.wt?.date ? `Recorded ${latestMetrics.wt.date}` : "No Weight on record"}
                                 </span>
                                 {latestMetrics.wtDiff !== null && (
                                     <span
-                                        className={`font-bold flex items-center text-[9px] ${
+                                        className={`font-bold flex items-center text-[9px] shrink-0 ml-1 ${
                                             latestMetrics.wtDiff > 0
                                                 ? "text-amber-400"
                                                 : latestMetrics.wtDiff < 0
@@ -704,7 +838,8 @@ export default function PatientVitalsHistoryGraphs({
                                 </div>
 
                                 <div 
-                                    ref={chartScrollRef1}
+                                    ref={setScrollRef(1)}
+                                    onScroll={handleChartScroll(1)}
                                     className="w-full overflow-x-auto pb-2 pt-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
                                 >
                                     <div style={{ minWidth: `${Math.max(480, chartData.length * 85)}px`, height: "220px" }}>
@@ -782,7 +917,8 @@ export default function PatientVitalsHistoryGraphs({
                                 </div>
 
                                 <div 
-                                    ref={chartScrollRef2}
+                                    ref={setScrollRef(2)}
+                                    onScroll={handleChartScroll(2)}
                                     className="w-full overflow-x-auto pb-2 pt-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
                                 >
                                     <div style={{ minWidth: `${Math.max(480, chartData.length * 85)}px`, height: "220px" }}>
@@ -857,7 +993,8 @@ export default function PatientVitalsHistoryGraphs({
                                 </div>
 
                                 <div 
-                                    ref={chartScrollRef3}
+                                    ref={setScrollRef(3)}
+                                    onScroll={handleChartScroll(3)}
                                     className="w-full overflow-x-auto pb-2 pt-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
                                 >
                                     <div style={{ minWidth: `${Math.max(480, chartData.length * 85)}px`, height: "220px" }}>
@@ -933,7 +1070,8 @@ export default function PatientVitalsHistoryGraphs({
                                 </div>
 
                                 <div 
-                                    ref={chartScrollRef4}
+                                    ref={setScrollRef(4)}
+                                    onScroll={handleChartScroll(4)}
                                     className="w-full overflow-x-auto pb-2 pt-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
                                 >
                                     <div style={{ minWidth: `${Math.max(480, chartData.length * 85)}px`, height: "220px" }}>

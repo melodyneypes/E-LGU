@@ -11,7 +11,8 @@ import {
     ZoomIn, ZoomOut, RotateCw, Eye, AlertTriangle,
     Search, Pill, Clock, UserCheck, ShieldAlert, Lock,
     Syringe, FileText, Building, X,
-    Repeat, Calendar, History, Loader2, ExternalLink
+    Repeat, Calendar, History, Loader2, ExternalLink,
+    ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -375,6 +376,7 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+    const [isVitalsHistoryCollapsed, setIsVitalsHistoryCollapsed] = useState(false);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -1453,6 +1455,110 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                         </Card>
                     )}
 
+                    {/* Collapsible Patient Vitals & Health Trends History Card */}
+                    <Card className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-slate-900 dark:bg-[#151922] shadow-sm overflow-hidden transition-all duration-300">
+                        {/* Interactive Card Header to Toggle Collapse */}
+                        <div
+                            onClick={() => setIsVitalsHistoryCollapsed((prev) => !prev)}
+                            className="bg-slate-900 dark:bg-[#1c222d] px-6 py-4 flex items-center justify-between border-b border-slate-100/10 dark:border-white/10 cursor-pointer select-none hover:bg-slate-800/90 dark:hover:bg-[#222936] transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 shrink-0">
+                                    <Activity className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-400 italic">
+                                            PATIENT HEALTH TRENDS &amp; VITALS HISTORY
+                                        </p>
+                                        {consultationHistory.length > 0 && (
+                                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20">
+                                                {consultationHistory.length} Past {consultationHistory.length === 1 ? "Visit" : "Visits"}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs font-black text-white uppercase tracking-wide">
+                                        Vitals Analytics Dashboard &amp; Consultation Archive
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsVitalsHistoryCollapsed((prev) => !prev);
+                                    }}
+                                    className="h-8 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold gap-1.5 border border-white/10 transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <span className="text-[11px] font-bold">
+                                        {isVitalsHistoryCollapsed ? "Expand History" : "Collapse"}
+                                    </span>
+                                    {isVitalsHistoryCollapsed ? (
+                                        <ChevronDown className="w-3.5 h-3.5 text-teal-400" />
+                                    ) : (
+                                        <ChevronUp className="w-3.5 h-3.5 text-teal-400" />
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Collapsed Preview Banner */}
+                        {isVitalsHistoryCollapsed && (
+                            <div
+                                onClick={() => setIsVitalsHistoryCollapsed(false)}
+                                className="px-6 py-3.5 bg-slate-900/60 dark:bg-white/[0.02] flex items-center justify-between text-xs cursor-pointer hover:bg-slate-800/60 dark:hover:bg-white/[0.04] transition-colors"
+                            >
+                                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                                    <span className="font-semibold text-slate-300">Vitals analytics &amp; trend history collapsed.</span>
+                                    <span className="text-[11px] text-slate-500">
+                                        • Click to expand graphs &amp; previous visit logs ({consultationHistory.length})
+                                    </span>
+                                </div>
+                                <span className="text-teal-400 font-bold text-xs flex items-center gap-1 hover:underline">
+                                    Expand Analytics <ChevronDown className="w-3.5 h-3.5" />
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Expanded Full Vitals Analytics & Graphs */}
+                        {!isVitalsHistoryCollapsed && (
+                            <div className="p-6 md:p-8 animate-in fade-in duration-300">
+                                <PatientVitalsHistoryGraphs
+                                    loading={loadingHistory}
+                                    history={consultationHistory}
+                                    currentVitals={addData.vitals}
+                                    patientName={patientName}
+                                    onViewDetails={(item) => {
+                                        setSelectedHistoryItem(item);
+                                        setHistoryModalOpen(true);
+                                    }}
+                                    onCopyDiagnosis={(prevDx) => {
+                                        setDeos(prev => ({
+                                            ...prev,
+                                            diagnosis: prev.diagnosis
+                                                ? `${prev.diagnosis}\n[Follow-up of previous: ${prevDx}]`
+                                                : prevDx
+                                        }));
+                                        toast.success("Previous diagnosis copied to consultation notes.");
+                                    }}
+                                    onAppendOrders={(prevOrders) => {
+                                        setDeos(prev => ({
+                                            ...prev,
+                                            orders: prev.orders
+                                                ? `${prev.orders}\n\n[Previous Rx Ref]:\n${prevOrders}`
+                                                : prevOrders
+                                        }));
+                                        toast.success("Previous prescription orders appended.");
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </Card>
+
                     {/* Doctor's Clinical Notes Card (visible after PRESCRIBED) */}
                     {addData.deos && (
                         <Card className="rounded-3xl border border-teal-500/20 dark:border-teal-500/10 bg-gradient-to-b from-slate-500/5 via-white dark:via-[#151922] to-slate-500/5 dark:to-[#0e1219] shadow-xl overflow-hidden backdrop-blur-md">
@@ -1638,83 +1744,6 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                                         <Clock className="w-3.5 h-3.5 text-emerald-400" /> Dispensed on: {new Date(addData.dispenseInfo.dispensedAt).toLocaleString("en-US", { timeZone: "Asia/Manila" })}
                                     </p>
                                 )}
-                            </div>
-                        </Card>
-                    )}
-
-                    {/* Previous Consultations & Medical History Card */}
-                    {consultationHistory.length > 0 && (
-                        <Card className="rounded-3xl border border-teal-500/30 bg-white dark:bg-[#151922] shadow-sm overflow-hidden">
-                            <div className="border-b border-teal-500/20 px-6 py-4 flex items-center justify-between bg-teal-500/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 shrink-0">
-                                        <History className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
-                                            Prior Consultations &amp; Clinical History
-                                        </h3>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                            {consultationHistory.length} Previous RHU Visit{consultationHistory.length === 1 ? "" : "s"} On File
-                                        </p>
-                                    </div>
-                                </div>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setSelectedHistoryItem(null);
-                                        setHistoryModalOpen(true);
-                                    }}
-                                    className="h-8 px-3 rounded-xl border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-xs font-black uppercase tracking-wider"
-                                >
-                                    View Full Records
-                                </Button>
-                            </div>
-                            <div className="p-6 space-y-3">
-                                {consultationHistory.slice(0, 2).map((item, idx) => (
-                                    <div
-                                        key={item.id || idx}
-                                        className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-2 text-xs"
-                                    >
-                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/50 dark:border-white/5 pb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-slate-900 dark:text-white">
-                                                    {formatDateTime(item.date)}
-                                                </span>
-                                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-500 border border-teal-500/20">
-                                                    {item.isFollowUp ? `Follow-up #${item.followUpSequence || 1}` : "Initial Consultation"}
-                                                </span>
-                                            </div>
-                                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                                                Attending: <strong className="text-slate-700 dark:text-slate-200">{item.attendingPhysician}</strong>
-                                            </span>
-                                        </div>
-
-                                        {item.vitals && (
-                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                                                <span>BP: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.bloodPressure || "N/A"}</strong></span>
-                                                <span>Temp: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.temperature ? `${item.vitals.temperature}°C` : "N/A"}</strong></span>
-                                                <span>Weight: <strong className="text-slate-700 dark:text-slate-200">{item.vitals.weight ? `${item.vitals.weight}kg` : "N/A"}</strong></span>
-                                            </div>
-                                        )}
-
-                                        {item.diagnosis && (
-                                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                                                <span className="text-[9px] font-black uppercase text-amber-500 mr-1.5">Diagnosis:</span>
-                                                {item.diagnosis}
-                                            </p>
-                                        )}
-
-                                        {item.orders && (
-                                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-500/20 font-mono text-[11px] text-teal-900 dark:text-teal-200 whitespace-pre-wrap">
-                                                <span className="text-[9px] font-sans font-black uppercase text-teal-600 dark:text-teal-400 block mb-1">Prescription Orders:</span>
-                                                {item.orders}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
                             </div>
                         </Card>
                     )}
