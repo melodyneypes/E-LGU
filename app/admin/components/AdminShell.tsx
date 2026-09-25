@@ -27,6 +27,7 @@ interface AdminShellProps {
     pendingTransactionsCount?: number;
     pendingAnnouncementsCount?: number;
     unviewedLcrCounts?: Record<string, number>;
+    bploInspectionCount?: number;
     rhuCenterName?: string | null;
     rhuEquipmentCount?: number;
     rhuVitalsCount?: number;
@@ -44,6 +45,7 @@ export function AdminShell({
     pendingTransactionsCount: initialPendingTransactionsCount = 0,
     pendingAnnouncementsCount: initialPendingAnnouncementsCount = 0,
     unviewedLcrCounts: initialUnviewedLcrCounts = {},
+    bploInspectionCount: initialBploInspectionCount = 0,
     rhuCenterName = null,
     rhuEquipmentCount: initialRhuEquipmentCount = 0,
     rhuVitalsCount: initialRhuVitalsCount = 0,
@@ -56,6 +58,7 @@ export function AdminShell({
     const [transactionsCount, setTransactionsCount] = React.useState(initialPendingTransactionsCount);
     const [announcementsCount, setAnnouncementsCount] = React.useState(initialPendingAnnouncementsCount);
     const [lcrCounts, setLcrCounts] = React.useState<Record<string, number>>(initialUnviewedLcrCounts);
+    const [bploInspectionCount, setBploInspectionCount] = React.useState(initialBploInspectionCount);
     const [rhuEquipmentCount, setRhuEquipmentCount] = React.useState(initialRhuEquipmentCount);
     const [rhuVitalsCount, setRhuVitalsCount] = React.useState(initialRhuVitalsCount);
 
@@ -76,6 +79,9 @@ export function AdminShell({
                         setTransactionsCount(data.pendingTransactionsCount || 0);
                         setAnnouncementsCount(data.pendingAnnouncementsCount || 0);
                         setLcrCounts(data.unviewedLcrCounts || {});
+                        if (data.bploInspectionCount !== undefined) {
+                            setBploInspectionCount(data.bploInspectionCount);
+                        }
                         if (data.rhuEquipmentNotificationCount !== undefined) {
                             setRhuEquipmentCount(data.rhuEquipmentNotificationCount);
                         }
@@ -289,6 +295,7 @@ export function AdminShell({
                 pendingTransactionsCount={transactionsCount}
                 pendingAnnouncementsCount={announcementsCount}
                 unviewedLcrCounts={lcrCounts}
+                bploInspectionCount={bploInspectionCount}
                 rhuCenterName={rhuCenterName}
                 rhuEquipmentCount={rhuEquipmentCount}
                 rhuVitalsCount={rhuVitalsCount}

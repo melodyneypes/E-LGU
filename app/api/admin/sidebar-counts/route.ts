@@ -11,6 +11,7 @@ interface CacheEntry {
         pendingTransactionsCount: number;
         pendingAnnouncementsCount?: number;
         unviewedLcrCounts: Record<string, number>;
+        bploInspectionCount?: number;
         rhuEquipmentNotificationCount?: number;
     };
     timestamp: number;
@@ -72,7 +73,18 @@ export async function GET() {
             "MDRRMO_ADMIN"
         ].includes(role) || department.includes("MDRRMO") || department.includes("DISASTER");
 
-        const [pendingReportsCount, pendingResidentsCount, pendingTransactionsCount, lcrTransactions] = await Promise.all([
+        const isBploRole = [
+            "ADMIN",
+            "ADMIN_AIDE"
+        ].includes(role) || department.includes("BPLO") || department.includes("TREASURY");
+
+        const [
+            pendingReportsCount,
+            pendingResidentsCount,
+            pendingTransactionsCount,
+            lcrTransactions,
+            bploInspectionCount
+        ] = await Promise.all([
             isReportsRole ? prisma.report.count({ where: reportsWhere }).catch(() => 0) : Promise.resolve(0),
             isReportsRole ? prisma.resident.count({ where: residentsWhere }).catch(() => 0) : Promise.resolve(0),
             (role === "ADMIN" || role === "TREASURY_STAFF") ? prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0) : Promise.resolve(0),
@@ -92,7 +104,17 @@ export async function GET() {
                     id: true,
                     type: { select: { code: true } }
                 }
-            }).catch(() => []) : Promise.resolve([])
+            }).catch(() => []) : Promise.resolve([]),
+            isBploRole ? prisma.transaction.count({
+                where: {
+                    type: {
+                        processorRole: "TREASURY_STAFF",
+                        code: { startsWith: "BUSINESS_PERMIT" }
+                    },
+                    status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] as any },
+                    isCancelled: false
+                }
+            }).catch(() => 0) : Promise.resolve(0)
         ]);
 
         const codeToCategory: Record<string, string> = {
@@ -120,13 +142,15 @@ export async function GET() {
         }
 
         let pendingAnnouncementsCount = 0;
-        try {
-            const rawPending: any[] = await (prisma as any).$queryRawUnsafe(
-                `SELECT COUNT(*)::int as count FROM "Announcement" WHERE "approvalStatus" = 'PENDING_APPROVAL'`
-            );
-            pendingAnnouncementsCount = Number(rawPending?.[0]?.count || 0);
-        } catch {
-            pendingAnnouncementsCount = 0;
+        if (role === "ADMIN" || role === "CONTENT_ADMIN") {
+            try {
+                const rawPending: any[] = await (prisma as any).$queryRawUnsafe(
+                    `SELECT COUNT(*)::int as count FROM "Announcement" WHERE "approvalStatus" = 'PENDING_APPROVAL'`
+                );
+                pendingAnnouncementsCount = Number(rawPending?.[0]?.count || 0);
+            } catch {
+                pendingAnnouncementsCount = 0;
+            }
         }
 
         let rhuEquipmentNotificationCount = 0;
@@ -147,6 +171,7 @@ export async function GET() {
             pendingTransactionsCount,
             pendingAnnouncementsCount,
             unviewedLcrCounts,
+            bploInspectionCount,
             rhuEquipmentNotificationCount
         };
 

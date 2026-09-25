@@ -69,6 +69,8 @@ export default async function AdminLayout({
     let pendingTreasuryCount = 0;
     let lcrTransactions: any[] = [];
     let rhuCenterName: string | null = null;
+    let rhuEquipmentCount = 0;
+    let rhuVitalsCount = 0;
 
     const isRhuRole = [
         "ADMIN",
@@ -90,8 +92,15 @@ export default async function AdminLayout({
         "MDRRMO_ADMIN"
     ].includes(role || "") || department.includes("MDRRMO") || department.includes("DISASTER");
 
+    const isBploRole = [
+        "ADMIN",
+        "ADMIN_AIDE"
+    ].includes(role || "") || department.includes("BPLO") || department.includes("TREASURY");
+
+    let bploInspectionCount = 0;
+
     try {
-        const [repCnt, resCnt, trsCnt, lcrTx, matchedCenter] = await Promise.all([
+        const [repCnt, resCnt, trsCnt, lcrTx, matchedCenter, bploCnt, rhuEqRes, vitalsRes] = await Promise.all([
             isReportsRole ? prisma.report.count({ where: reportsWhere }).catch(() => 0) : Promise.resolve(0),
             isReportsRole ? prisma.resident.count({ where: residentsWhere }).catch(() => 0) : Promise.resolve(0),
             (role === "ADMIN" || role === "TREASURY_STAFF") ? prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }).catch(() => 0) : Promise.resolve(0),
@@ -113,14 +122,33 @@ export default async function AdminLayout({
                     type: { select: { code: true } }
                 }
             }).catch(() => []) : Promise.resolve([]),
-            (isRhuRole && session?.user) ? getMatchedCenterForUser(session.user).catch(() => null) : Promise.resolve(null)
+            (isRhuRole && session?.user) ? getMatchedCenterForUser(session.user).catch(() => null) : Promise.resolve(null),
+            isBploRole ? prisma.transaction.count({
+                where: {
+                    type: {
+                        processorRole: "TREASURY_STAFF",
+                        code: { startsWith: "BUSINESS_PERMIT" }
+                    },
+                    status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] as any },
+                    isCancelled: false
+                }
+            }).catch(() => 0) : Promise.resolve(0),
+            isRhuRole ? getRHUEquipmentNotificationCount().catch(() => null) : Promise.resolve(null),
+            isRhuRole ? getRHUCheckedInVitalsCount().catch(() => null) : Promise.resolve(null)
         ]);
         pendingReportsCount = repCnt;
         pendingResidentsCount = resCnt;
         pendingTreasuryCount = trsCnt;
         lcrTransactions = lcrTx;
+        bploInspectionCount = bploCnt;
         if (matchedCenter?.name) {
             rhuCenterName = matchedCenter.name;
+        }
+        if (rhuEqRes?.success) {
+            rhuEquipmentCount = rhuEqRes.count;
+        }
+        if (vitalsRes?.success) {
+            rhuVitalsCount = vitalsRes.count;
         }
     } catch (err) {
         console.error("Error fetching admin layout counts:", err);
@@ -154,26 +182,6 @@ export default async function AdminLayout({
         }
     }
 
-    let rhuEquipmentCount = 0;
-    if (isRhuRole) {
-        try {
-            const rhuNotificationRes = await getRHUEquipmentNotificationCount().catch(() => null);
-            if (rhuNotificationRes?.success) {
-                rhuEquipmentCount = rhuNotificationRes.count;
-            }
-        } catch {}
-    }
-
-    let rhuVitalsCount = 0;
-    if (isRhuRole) {
-        try {
-            const vitalsRes = await getRHUCheckedInVitalsCount().catch(() => null);
-            if (vitalsRes?.success) {
-                rhuVitalsCount = vitalsRes.count;
-            }
-        } catch {}
-    }
-
     return (
         <ThemeProvider themeColor={settings.get("theme_color") || "#2563eb"}>
             <div
@@ -190,6 +198,7 @@ export default async function AdminLayout({
                     pendingResidentsCount={pendingResidentsCount}
                     pendingTransactionsCount={pendingTreasuryCount}
                     unviewedLcrCounts={unviewedLcrCounts}
+                    bploInspectionCount={bploInspectionCount}
                     rhuCenterName={rhuCenterName}
                     rhuEquipmentCount={rhuEquipmentCount}
                     rhuVitalsCount={rhuVitalsCount}

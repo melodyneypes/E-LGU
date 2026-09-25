@@ -1391,10 +1391,15 @@ async function processFileUpload(file: File, folder: string = "transactions"): P
 
 // --- ACTIONS ---
 
-/**
- * Fetch available transaction types (services)
- */
+// In-memory short-lived cache for active transaction types to prevent repeated DB scans
+let _transactionTypesCache: { level?: number; data: any[]; expiresAt: number } | null = null;
+
 export async function getTransactionTypes(level?: number) {
+    const now = Date.now();
+    if (_transactionTypesCache && _transactionTypesCache.level === level && _transactionTypesCache.expiresAt > now) {
+        return { success: true, data: _transactionTypesCache.data };
+    }
+
     try {
         const where: any = { isActive: true };
         if (level) where.level = level;
@@ -1403,9 +1408,17 @@ export async function getTransactionTypes(level?: number) {
             where,
             orderBy: { name: "asc" }
         });
+        _transactionTypesCache = {
+            level,
+            data: types,
+            expiresAt: now + 30_000 // Cache for 30s
+        };
         return { success: true, data: types };
     } catch (error) {
         console.error("Fetch transaction types error:", error);
+        if (_transactionTypesCache?.data) {
+            return { success: true, data: _transactionTypesCache.data };
+        }
         return { success: false, error: "Failed to fetch services" };
     }
 }
