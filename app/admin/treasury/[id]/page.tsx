@@ -708,12 +708,7 @@ export default function TreasuryDetailPage() {
 
     const handleRelease = useCallback(async () => {
 
-        // CTC or Permit Number required for all initial processing phases (Only for non-Business Permits)
-        const ctcRequired = !isBusinessPermit && !isLcrCertifiedCopy && !["PAID", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status);
-        if (ctcRequired && !ctcNumber && !transaction?.cedula?.ctcNumber) {
-            toast.error("CTC Number Required");
-            return;
-        }
+        // CTC or Permit Number check removed per Treasury workflow preference
         // Require E-Copy for LCR releases (except PSA Appointment Endorsements)
         const isAppointmentPsa = typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
             typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
@@ -824,7 +819,7 @@ export default function TreasuryDetailPage() {
             toast.error("An error occurred while releasing the document.");
             setActionLoading(false);
         }
-    }, [transaction, ctcNumber, eCopyFile, orFile, orSeriesNumber, router, isBusinessPermit, isLCR, isLcrCertifiedCopy, typeCode, backUrl]);
+    }, [transaction, ctcNumber, eCopyFile, orFile, orSeriesNumber, router, isBusinessPermit, isLCR, typeCode, backUrl]);
 
     const handleResolveDispute = async () => {
         if (!remarks) { toast.error("Remarks required for resolution"); return; }
@@ -1520,11 +1515,20 @@ export default function TreasuryDetailPage() {
             return docs;
         }
 
-        // Default: generic user documents
-        return [
+        // Default: generic user documents (including Cedula and relative appointments)
+        const defaultDocs = [
             { url: additional.validIdUrl, label: "Valid ID Evidence" },
             { url: additional.proofOfIncomeUrl, label: transaction.isStudent ? "Student ID / Enrollment Proof" : "Income Verification" }
         ];
+
+        if (additional.authorizationLetterUrl) {
+            defaultDocs.push({ url: additional.authorizationLetterUrl, label: "Authorization Letter" });
+        }
+        if (additional.secRegistrationUrl) {
+            defaultDocs.push({ url: additional.secRegistrationUrl, label: "SEC Registration" });
+        }
+
+        return defaultDocs;
     })();
 
     const handleEvaluate = async () => {
