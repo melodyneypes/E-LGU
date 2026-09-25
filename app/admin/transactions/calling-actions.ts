@@ -59,7 +59,6 @@ export async function callTicketToCounter(id: string, counterName: string) {
         const updated = await prisma.transaction.update({
             where: { id: sanitizedId },
             data: {
-                status: "FOR_PROCESSING",
                 additionalData: updatedAdditionalData,
                 updatedAt: new Date()
             }
@@ -165,7 +164,6 @@ export async function fetchAndCallNextTicket(counterName: string) {
         const updated = await prisma.transaction.update({
             where: { id: nextTx.id },
             data: {
-                status: "FOR_PROCESSING",
                 additionalData: updatedAdditionalData,
                 updatedAt: new Date()
             }
@@ -590,7 +588,9 @@ export async function getTreasuryQueueTickets(counterName: string) {
         // Fetch currently serving at this counter specifically for Treasury
         const rawServing = await prisma.transaction.findMany({
             where: {
-                status: "FOR_PROCESSING",
+                status: {
+                    notIn: ["RELEASED", "CANCELLED", "REJECTED", "DELIVERED", "PAID"]
+                },
                 isCancelled: false
             },
             include: {

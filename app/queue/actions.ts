@@ -170,6 +170,11 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 return hasCounter && allowedBploServing.includes(tx.status);
             }
 
+            if (additionalData.servingDepartment === "Treasury") {
+                const finalStatuses = ["RELEASED", "CANCELLED", "REJECTED", "DELIVERED", "PAID"];
+                return hasCounter && !finalStatuses.includes(tx.status);
+            }
+
             if (tx.status === "FOR_PROCESSING") {
                 return hasCounter;
             }
