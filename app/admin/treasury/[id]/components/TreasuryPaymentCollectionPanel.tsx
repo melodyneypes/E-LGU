@@ -92,6 +92,11 @@ export default function TreasuryPaymentCollectionPanel({
                                 ) : (
                                     <input
                                         type="text"
+                                        name="official_receipt_series_number"
+                                        autoComplete="off"
+                                        data-lpignore="true"
+                                        data-1p-ignore="true"
+                                        data-form-type="other"
                                         value={orSeriesNumber || ""}
                                         onChange={(e) => setOrSeriesNumber?.(e.target.value)}
                                         placeholder="Enter O.R. Series Number..."

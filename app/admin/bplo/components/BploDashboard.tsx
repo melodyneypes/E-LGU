@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     getBploTransactions,
-    getPendingBploCount,
     getTransactionTypes
 } from "@/app/admin/transactions/actions";
 import {
@@ -155,7 +154,6 @@ export default function BploDashboard() {
                 setTotalCount(0);
                 toast.error(res.error || "Failed to load transactions.");
             }
-            await getPendingBploCount();
         } catch (err) {
             console.error("[BploDashboard] Unexpected error:", err);
             toast.error("Failed to load transactions");

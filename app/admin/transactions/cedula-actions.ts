@@ -10,6 +10,8 @@ import { calculateCedula } from "@/lib/cedula";
 import { sanitizeString, sanitizeUrl } from "@/lib/validation";
 import { updateDeceasedResidentStatus } from "./death-regis-actions";
 import { clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
+import { logActivity } from "@/lib/audit";
+import bcrypt from "bcryptjs";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 
@@ -1209,3 +1211,96 @@ export async function getCedulaSettings() {
         return { success: false, error: err.message || "Failed to load settings" };
     }
 }
+
+interface VerifyGrossAdjustmentParams {
+    password: string;
+    transactionId: string;
+    previousGross: number;
+    newGross: number;
+    reason?: string;
+}
+
+/**
+ * Verifies the currently logged-in Treasury Staff / Admin password
+ * and records an immutable AuditLog entry for modifying the Declared Gross Income.
+ */
+export async function verifyTreasuryPasswordAndLogGrossAdjustmentAction(params: VerifyGrossAdjustmentParams) {
+    try {
+        const session = await getSession();
+        const sessionUser = session?.user as any;
+        if (!sessionUser || !sessionUser.id) {
+            return { success: false, error: "Unauthorized: Session expired or invalid." };
+        }
+
+        const allowedRoles = ["TREASURY_STAFF", "ADMIN", "BARANGAY_ADMIN", "ADMIN_AIDE"];
+        if (!allowedRoles.includes(sessionUser.role)) {
+            return { success: false, error: "Forbidden: You do not have permission to modify tax declarations." };
+        }
+
+        const inputPassword = params.password?.trim();
+        if (!inputPassword) {
+            return { success: false, error: "Password is required for authorization." };
+        }
+
+        // Fetch user from database to compare password
+        const dbUser = await prisma.user.findUnique({
+            where: { id: sessionUser.id },
+            select: { id: true, name: true, email: true, role: true, department: true, password: true }
+        });
+
+        if (!dbUser || !dbUser.password) {
+            return { success: false, error: "User record not found or password not configured." };
+        }
+
+        const isMatch = await bcrypt.compare(inputPassword, dbUser.password);
+        if (!isMatch) {
+            // Optional security audit on failed attempt
+            await logActivity({
+                action: "EVALUATION",
+                entityType: "Cedula",
+                entityId: params.transactionId,
+                entityName: "Declared Gross Income Modification (Failed Attempt)",
+                description: `Failed authorization attempt to adjust gross income on transaction ${params.transactionId} by ${dbUser.name || dbUser.email} (Incorrect Password).`,
+                metadata: {
+                    attemptedBy: dbUser.email,
+                    attemptedAt: new Date().toISOString()
+                }
+            });
+
+            return { success: false, error: "Incorrect password. Authorization denied." };
+        }
+
+        // Password verified successfully -> Persist AuditLog entry
+        const staffName = dbUser.name || dbUser.email?.split("@")[0] || "Treasury Staff";
+        const sanitizedReason = params.reason ? sanitizeString(params.reason) : "Counter assessment adjustment";
+
+        await logActivity({
+            action: "UPDATE",
+            entityType: "Cedula",
+            entityId: params.transactionId,
+            entityName: "Declared Gross Income Modification",
+            description: `Treasury Staff ${staffName} verified password and authorized adjusting Declared Gross Income from ₱${(Number(params.previousGross) || 0).toLocaleString()} to ₱${(Number(params.newGross) || 0).toLocaleString()}. Reason: ${sanitizedReason}`,
+            metadata: {
+                previousGross: params.previousGross,
+                newGross: params.newGross,
+                reason: sanitizedReason,
+                authorizedBy: dbUser.email,
+                authorizedRole: dbUser.role,
+                department: dbUser.department || "TREASURY",
+                authorizedAt: new Date().toISOString()
+            }
+        });
+
+        return {
+            success: true,
+            data: {
+                authorizedBy: staffName,
+                authorizedAt: new Date().toISOString()
+            }
+        };
+    } catch (error: any) {
+        console.error("verifyTreasuryPasswordAndLogGrossAdjustmentAction error:", error);
+        return { success: false, error: error?.message || "An unexpected error occurred during password verification." };
+    }
+}
+

@@ -22,13 +22,49 @@ import {
 
 function getCitizenName(item: any): string {
     if (!item) return "NON-RESIDENT / WALK-IN";
+
+    // 1. If this is a Cedula or appointment processed for a RELATIVE, prioritize the relative's name
+    const addData = typeof item.additionalData === "string"
+        ? (() => { try { return JSON.parse(item.additionalData); } catch { return {}; } })()
+        : (item.additionalData || {});
+
+    const snap = typeof item.residentSnapshot === "string"
+        ? (() => { try { return JSON.parse(item.residentSnapshot); } catch { return {}; } })()
+        : (item.residentSnapshot || {});
+
+    const relStr = String(addData.relationshipToApplicant || "").trim().toUpperCase();
+    const isRelative = (addData.applicantTarget === "RELATIVE" || Boolean(addData.relationshipToApplicant)) &&
+        addData.applicantTarget !== "SELF" &&
+        relStr !== "SELF" &&
+        relStr !== "";
+
+    if (isRelative) {
+        if (snap.firstName || snap.lastName) {
+            const relativeFullName = [snap.firstName, snap.middleName, snap.lastName, snap.suffix]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+            if (relativeFullName) {
+                return relativeFullName;
+            }
+        }
+        if (snap.fullName && typeof snap.fullName === "string") {
+            return snap.fullName.trim();
+        }
+        if (snap.name && typeof snap.name === "string") {
+            return snap.name.trim();
+        }
+    }
+
+    // 2. Standard authenticated user profile name
     if (item.user?.residentProfile?.firstName || item.user?.residentProfile?.lastName) {
         return `${item.user.residentProfile.firstName || ""} ${item.user.residentProfile.lastName || ""}`.trim();
     }
     if (item.user?.name) {
         return item.user.name;
     }
-    const snap = item.residentSnapshot || {};
+
+    // 3. Fallback to resident snapshot for non-relative walk-ins or unlinked profiles
     if (snap.fullName && typeof snap.fullName === "string") {
         return snap.fullName;
     }
@@ -39,11 +75,52 @@ function getCitizenName(item: any): string {
         const full = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
         if (full) return full;
     }
-    const addData = item.additionalData || {};
+
+    // 4. POSO citation fine violator name
     if (addData.violatorName && typeof addData.violatorName === "string") {
         return addData.violatorName;
     }
+
     return "NON-RESIDENT / WALK-IN";
+}
+
+function getCitizenDetails(item: any): { name: string; isRelative: boolean; relationship?: string; applicantName?: string } {
+    if (!item) return { name: "NON-RESIDENT / WALK-IN", isRelative: false };
+
+    const addData = typeof item.additionalData === "string"
+        ? (() => { try { return JSON.parse(item.additionalData); } catch { return {}; } })()
+        : (item.additionalData || {});
+
+    const snap = typeof item.residentSnapshot === "string"
+        ? (() => { try { return JSON.parse(item.residentSnapshot); } catch { return {}; } })()
+        : (item.residentSnapshot || {});
+
+    const isRelative = Boolean(addData.applicantTarget === "RELATIVE" || addData.relationshipToApplicant);
+    const relationship = addData.relationshipToApplicant || "";
+    const applicantName = item.user?.residentProfile
+        ? `${item.user.residentProfile.firstName || ""} ${item.user.residentProfile.lastName || ""}`.trim()
+        : item.user?.name || "";
+
+    if (isRelative) {
+        if (snap.firstName || snap.lastName) {
+            const relFullName = [snap.firstName, snap.middleName, snap.lastName, snap.suffix]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+            if (relFullName) {
+                return { name: relFullName, isRelative: true, relationship, applicantName };
+            }
+        }
+        if (snap.fullName && typeof snap.fullName === "string") {
+            return { name: snap.fullName.trim(), isRelative: true, relationship, applicantName };
+        }
+        if (snap.name && typeof snap.name === "string") {
+            return { name: snap.name.trim(), isRelative: true, relationship, applicantName };
+        }
+    }
+
+    const standardName = getCitizenName(item);
+    return { name: standardName, isRelative: false };
 }
 
 function isTicketForToday(tx: any): boolean {
@@ -377,12 +454,31 @@ export default function TreasuryQueuePage() {
                                                     </h2>
                                                 </div>
 
-                                                <div className="space-y-1 max-w-md mx-auto">
-                                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Citizen Name</p>
-                                                    <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                        {getCitizenName(currentlyServing)}
-                                                    </h3>
-                                                </div>
+                                                {(() => {
+                                                    const details = getCitizenDetails(currentlyServing);
+                                                    return (
+                                                        <div className="space-y-1.5 max-w-md mx-auto">
+                                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                                                    {details.isRelative ? "Relative&apos;s Name (Cedula Holder)" : "Citizen Name"}
+                                                                </p>
+                                                                {details.isRelative && (
+                                                                    <span className="text-[8px] font-black tracking-widest uppercase bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full italic">
+                                                                        {details.relationship ? `Relative: ${details.relationship}` : "Relative"}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white uppercase leading-tight">
+                                                                {details.name}
+                                                            </h3>
+                                                            {details.isRelative && details.applicantName && (
+                                                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                                                                    Processed by: <span className="text-slate-600 dark:text-slate-300 font-bold">{details.applicantName}</span>
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                                 <div className="space-y-1">
                                                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Service Type</p>
@@ -461,9 +557,21 @@ export default function TreasuryQueuePage() {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
-                                                        {getCitizenName(tx)}
-                                                    </p>
+                                                    {(() => {
+                                                        const details = getCitizenDetails(tx);
+                                                        return (
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
+                                                                    {details.name}
+                                                                </p>
+                                                                {details.isRelative && (
+                                                                    <p className="text-[8px] font-black uppercase text-primary tracking-wider">
+                                                                        {details.relationship ? `Relative (${details.relationship})` : "Relative"}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         );

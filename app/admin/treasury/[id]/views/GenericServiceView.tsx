@@ -22,14 +22,20 @@ import {
     Ban,
     AlertCircle,
     Printer,
-    Pencil
+    Pencil,
+    Lock,
+    Unlock,
+    Eye,
+    EyeOff,
+    ShieldCheck,
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import LightboxView from "../components/LightboxView";
 import ResidentIdentityProfile from "../components/ResidentIdentityProfile";
@@ -38,6 +44,7 @@ import RejectionRevisionControls from "../components/RejectionRevisionControls";
 import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 import { TreasuryViewProps } from "./types";
 import { cn } from "@/lib/utils";
+import { verifyTreasuryPasswordAndLogGrossAdjustmentAction } from "@/app/admin/transactions/cedula-actions";
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
 const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg"];
@@ -134,6 +141,50 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const [paymentReference, setPaymentReference] = React.useState('');
     const [isConfirmPaidModalOpen, setIsConfirmPaidModalOpen] = React.useState(false);
 
+    // Declared Gross Security Authorization States
+    const [isGrossLocked, setIsGrossLocked] = React.useState(true);
+    const [unlockModalOpen, setUnlockModalOpen] = React.useState(false);
+    const [unlockPassword, setUnlockPassword] = React.useState('');
+    const [showUnlockPassword, setShowUnlockPassword] = React.useState(false);
+    const [unlockReason, setUnlockReason] = React.useState('');
+    const [unlockLoading, setUnlockLoading] = React.useState(false);
+    const [authorizedStaffName, setAuthorizedStaffName] = React.useState<string | null>(null);
+
+    const handleVerifyAndUnlockGross = async () => {
+        if (!unlockPassword.trim()) {
+            toast.error("Please enter your account password to authorize changes.");
+            return;
+        }
+
+        setUnlockLoading(true);
+        try {
+            const previousGrossVal = Number(declaredValue) || 0;
+            const newGrossVal = editedIncome !== null && editedIncome !== undefined ? editedIncome : previousGrossVal;
+
+            const res = await verifyTreasuryPasswordAndLogGrossAdjustmentAction({
+                password: unlockPassword,
+                transactionId: transaction.id,
+                previousGross: previousGrossVal,
+                newGross: newGrossVal,
+                reason: unlockReason
+            });
+
+            if (res.success && res.data) {
+                setIsGrossLocked(false);
+                setAuthorizedStaffName(res.data.authorizedBy);
+                setUnlockModalOpen(false);
+                setUnlockPassword('');
+                toast.success(`Access granted. Authorized by ${res.data.authorizedBy}`);
+            } else {
+                toast.error(res.error || "Authorization failed. Incorrect password.");
+            }
+        } catch {
+            toast.error("An error occurred while verifying credentials.");
+        } finally {
+            setUnlockLoading(false);
+        }
+    };
+
     const isCedula = 
         transaction.type?.category?.toUpperCase() === "CEDULA" || 
         transaction.type?.code?.toUpperCase().includes("CEDULA");
@@ -143,7 +194,26 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const [isProfileOpen, setIsProfileOpen] = React.useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = React.useState(true);
     const additional = transaction.additionalData || {};
-    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
+    const relStr = String(additional?.relationshipToApplicant || "").trim().toUpperCase();
+    const isRelative = (additional?.applicantTarget === "RELATIVE" || Boolean(additional?.relationshipToApplicant)) &&
+        additional?.applicantTarget !== "SELF" &&
+        relStr !== "SELF" &&
+        relStr !== "";
+    const rawSnapshot = transaction.residentSnapshot;
+    const parsedSnapshot = typeof rawSnapshot === "string"
+        ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
+        : (rawSnapshot || {});
+
+    // For Relative applications, resident represents the relative (the actual Cedula Holder)
+    const resident = isRelative
+        ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
+        : (transaction.user?.residentProfile || parsedSnapshot);
+
+    const requesterProfile = transaction.user?.residentProfile || transaction.user || {};
+    const requesterFullName = requesterProfile?.firstName || requesterProfile?.lastName
+        ? `${requesterProfile.firstName || ""} ${requesterProfile.lastName || ""}`.trim()
+        : requesterProfile?.name || "Online Applicant";
+
     const deliveryAddr = transaction.deliveryAddress
         ? (typeof transaction.deliveryAddress === 'string' ? JSON.parse(transaction.deliveryAddress) : transaction.deliveryAddress)
         : null;
@@ -243,10 +313,15 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
                         >
                             <div className="space-y-1">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">
-                                        Primary Applicant Profile
+                                        {isRelative ? "Relative Profile (Cedula Holder)" : "Primary Applicant Profile"}
                                     </span>
+                                    {isRelative && (
+                                        <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-0.5 rounded-full">
+                                            {additional?.relationshipToApplicant ? `Relative: ${additional.relationshipToApplicant}` : "Relative Application"}
+                                        </Badge>
+                                    )}
                                     {transaction.revisionCount > 0 ? (
                                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-0.5 rounded-full">
                                             Revision Count: {transaction.revisionCount}
@@ -260,6 +335,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 <h1 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     {resident.firstName} {resident.lastName}
                                 </h1>
+                                {isRelative && requesterFullName && (
+                                    <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider pt-1">
+                                        Application Filed By: <span className="text-slate-700 dark:text-slate-300 font-bold">{requesterFullName}</span>
+                                    </p>
+                                )}
                             </div>
                             <div className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all focus:outline-none">
                                 {isProfileOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -271,47 +351,76 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
                                 {/* TOP METRICS GRID */}
                                 <div className="grid grid-cols-4 gap-4">
-                                    <div
-                                        className={`p-4 rounded-2xl space-y-1 transition-all ${
-                                            isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
-                                                ? "bg-primary/5 border border-primary/20 hover:border-primary/40"
-                                                : "bg-[#f8fafd] dark:bg-white/5"
-                                        }`}
-                                        title={transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                                {declaredLabel}
-                                            </span>
-                                            {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && (
-                                                <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                                                    <Pencil className="w-2.5 h-2.5" />
-                                                    Editable
+                                        <div
+                                            onClick={() => {
+                                                if (isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && isGrossLocked) {
+                                                    setUnlockModalOpen(true);
+                                                }
+                                            }}
+                                            className={`p-4 rounded-2xl space-y-1 transition-all ${
+                                                isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent
+                                                    ? !isGrossLocked
+                                                        ? "bg-emerald-500/5 border border-emerald-500/30"
+                                                        : "bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer group"
+                                                    : "bg-[#f8fafd] dark:bg-white/5"
+                                            }`}
+                                            title={
+                                                transaction.isStudent
+                                                    ? String(declaredValue)
+                                                    : isGrossLocked && isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
+                                                        ? "Click to unlock and adjust declared gross income"
+                                                        : `₱${Number(declaredValue).toLocaleString()}`
+                                            }
+                                        >
+                                            <div className="flex items-center justify-between gap-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 truncate">
+                                                    {declaredLabel}
                                                 </span>
+                                                {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && !isGrossLocked && (
+                                                    <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                                                        Authorized
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
+                                                !isGrossLocked ? (
+                                                    <div className="space-y-1">
+                                                        <div className="relative flex items-center mt-1">
+                                                            <span className="absolute left-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 select-none">₱</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="any"
+                                                                autoFocus
+                                                                value={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || 0)}
+                                                                onChange={(e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    setEditedIncome(isNaN(val) ? 0 : Math.max(0, val));
+                                                                }}
+                                                                className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-lg text-sm font-black italic tracking-tighter text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        {authorizedStaffName && (
+                                                            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                                                                By: {authorizedStaffName}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="pt-1">
+                                                        <p className="text-xl font-black italic tracking-tighter text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
+                                                            ₱{Number(declaredValue).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
+                                                    {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
+                                                </p>
                                             )}
                                         </div>
-                                        {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
-                                            <div className="relative flex items-center mt-1">
-                                                <span className="absolute left-2.5 text-xs font-black text-slate-400 dark:text-slate-500 select-none">₱</span>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="any"
-                                                    value={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || 0)}
-                                                    onChange={(e) => {
-                                                        const val = parseFloat(e.target.value);
-                                                        setEditedIncome(isNaN(val) ? 0 : Math.max(0, val));
-                                                    }}
-                                                    className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-black italic tracking-tighter text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-inner"
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
-                                                {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
-                                            </p>
-                                        )}
-                                    </div>
                                     <div
                                         className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-2xl space-y-1 cursor-help"
                                         title={transaction.paymentType?.replace(/_/g, " ") || ""}
@@ -513,14 +622,17 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         )}
                     </div>
 
-                    {/* RESIDENT IDENTITY PROFILE ACCORDION — Hiding from Treasury per request */}
-                    {/*
+                    {/* RESIDENT / RELATIVE IDENTITY PROFILE ACCORDION */}
                     <ResidentIdentityProfile
                         resident={resident}
                         safeFormatDate={safeFormatDate}
                         themeColor={themeColor}
+                        titleColorText={isRelative ? "Relative" : "Resident"}
+                        titleWhiteText="Identity Profile"
+                        subtitleText={isRelative ? "Relative / Cedula Holder Dossier" : "Verified Citizen Data Dossier"}
+                        relationship={isRelative ? (additional?.relationshipToApplicant || "Relative") : undefined}
+                        relationshipLabel="Relationship to Representative / Applicant"
                     />
-                    */}
 
                     {/* EVIDENCE VAULT */}
                     <div className="bg-white dark:bg-[#151b28] p-10 rounded-[2.5rem] border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
@@ -840,6 +952,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
                                                 <Input
                                                     type="text"
+                                                    name="official_receipt_series_number"
+                                                    autoComplete="off"
+                                                    data-lpignore="true"
+                                                    data-1p-ignore="true"
+                                                    data-form-type="other"
                                                     placeholder="Enter OR Series Number..."
                                                     value={orSeriesNumber || ""}
                                                     onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
@@ -847,24 +964,16 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 />
                                             </div>
 
-                                            {isCedula && (
-                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">CTC Number (Community Tax Certificate)</Label>
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Enter CTC Booklet Number..."
-                                                        value={ctcNumber || ""}
-                                                        onChange={(e) => setCtcNumber && setCtcNumber(e.target.value)}
-                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
-                                                    />
-                                                </div>
-                                            )}
-
                                             {paymentMethod !== "CASH" && (
                                                 <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
                                                     <Input
                                                         type="text"
+                                                        name="online_payment_reference_code"
+                                                        autoComplete="off"
+                                                        data-lpignore="true"
+                                                        data-1p-ignore="true"
+                                                        data-form-type="other"
                                                         placeholder={`Enter ${paymentMethod} Transaction Reference...`}
                                                         value={paymentReference}
                                                         onChange={(e) => setPaymentReference(e.target.value)}
@@ -877,8 +986,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <Button
                                             type="button"
                                             onClick={() => setIsConfirmPaidModalOpen(true)}
-                                            disabled={actionLoading || hasInvalidFees || !orSeriesNumber?.trim() || (isCedula && !ctcNumber?.trim()) || (paymentMethod !== "CASH" && !paymentReference.trim())}
-                                            title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : (!orSeriesNumber?.trim() ? "Official Receipt (OR) Number is required." : (isCedula && !ctcNumber?.trim() ? "CTC booklet number is required for Cedula." : (paymentMethod !== "CASH" && !paymentReference.trim() ? `${paymentMethod} reference number is required.` : undefined)))}
+                                            disabled={actionLoading || hasInvalidFees || !orSeriesNumber?.trim() || (paymentMethod !== "CASH" && !paymentReference.trim())}
+                                            title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : (!orSeriesNumber?.trim() ? "Official Receipt (OR) Number is required." : (paymentMethod !== "CASH" && !paymentReference.trim() ? `${paymentMethod} reference number is required.` : undefined))}
                                             className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                                         >
                                             {actionLoading ? "Processing..." : "Mark as Paid & Released"}
@@ -990,19 +1099,6 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     handleViewFile={handleViewFile}
                                 />
 
-                                {/* CTC Serial Number input — Required when status is FOR_PROCESSING */}
-                                {transaction.status === "FOR_PROCESSING" && (
-                                    <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-3">
-                                        <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Community Tax Certificate (CTC) Serial Number <span className="text-rose-500">*</span></Label>
-                                        <Input
-                                            value={ctcNumber}
-                                            onChange={(e) => setCtcNumber(e.target.value)}
-                                            placeholder="ENTER CTC SERIAL NUMBER..."
-                                            className="h-12 rounded-xl border-slate-100 dark:border-white/5 italic font-black text-sm tracking-[0.2em] focus:ring-primary/10 dark:bg-slate-950 dark:text-white"
-                                        />
-                                    </div>
-                                )}
-
                                 {/* E-Copy document upload — Required when status is FOR_PROCESSING */}
                                 {transaction.status === "FOR_PROCESSING" && (
                                     <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-3">
@@ -1093,10 +1189,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 onClick={handleRelease}
                                                 disabled={
                                                     actionLoading ||
-                                                    (transaction.status === "FOR_PROCESSING" && (
-                                                        (!ctcNumber && !transaction.cedula?.ctcNumber) ||
-                                                        (!eCopyFile && !transaction.eCopyUrl)
-                                                    ))
+                                                    (transaction.status === "FOR_PROCESSING" && (!eCopyFile && !transaction.eCopyUrl))
                                                 }
                                                 className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
                                             >
@@ -1315,20 +1408,10 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         </span>
                                     </div>
                                 )}
-
-                                {/* CTC Number (for Cedula) */}
-                                {isCedula && (
-                                    <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">CTC Booklet #</span>
-                                        <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-sm tracking-wide">
-                                            {ctcNumber?.trim() || "N/A"}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
 
                             <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium text-center italic leading-relaxed">
-                                Please confirm that the entered Official Receipt and Booklet numbers match the physical documents issued to the citizen.
+                                Please confirm that the entered Official Receipt details match the physical transaction.
                             </p>
                         </div>
 
@@ -1360,6 +1443,119 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     </div>
                 </div>
             )}
+
+            {/* TREASURY GROSS UNLOCK AUTHORIZATION MODAL */}
+            <Dialog open={unlockModalOpen} onOpenChange={(open) => {
+                if (!unlockLoading) {
+                    setUnlockModalOpen(open);
+                    if (!open) {
+                        setUnlockPassword('');
+                        setUnlockReason('');
+                    }
+                }
+            }}>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6">
+                    <DialogHeader className="space-y-2">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-1">
+                            <Lock className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-lg font-black text-center text-slate-800 dark:text-slate-100">
+                            Staff Authorization Required
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-center text-slate-500 dark:text-slate-400">
+                            Modifying the declared gross income recalculates community tax assessments and is logged in the municipal audit trail. Please enter your account password to unlock.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleVerifyAndUnlockGross();
+                        }}
+                        autoComplete="off"
+                        className="space-y-4 my-2"
+                    >
+                        {/* Hidden fake inputs to absorb any stubborn browser autofill */}
+                        <input type="text" name="fake_user_name_absorber" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+                        <input type="password" name="fake_password_absorber" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Treasury Staff Password
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showUnlockPassword ? "text" : "password"}
+                                    name="staff_security_passphrase"
+                                    autoComplete="new-password"
+                                    data-lpignore="true"
+                                    data-1p-ignore="true"
+                                    value={unlockPassword}
+                                    onChange={(e) => setUnlockPassword(e.target.value)}
+                                    placeholder="Enter your current password"
+                                    className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowUnlockPassword(!showUnlockPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                >
+                                    {showUnlockPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Reason for Adjustment (Optional / Recommended)
+                            </label>
+                            <input
+                                type="text"
+                                name="staff_adjustment_rationale"
+                                autoComplete="off"
+                                data-lpignore="true"
+                                data-1p-ignore="true"
+                                value={unlockReason}
+                                onChange={(e) => setUnlockReason(e.target.value)}
+                                placeholder="e.g. Verified with BIR Form 2316 or payslip"
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                            />
+                        </div>
+                    </form>
+
+                    <DialogFooter className="flex items-center gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setUnlockModalOpen(false);
+                                setUnlockPassword('');
+                                setUnlockReason('');
+                            }}
+                            disabled={unlockLoading}
+                            className="flex-1 rounded-xl font-bold py-2.5 text-slate-700 dark:text-slate-300"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleVerifyAndUnlockGross}
+                            disabled={unlockLoading || !unlockPassword}
+                            className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 shadow-md shadow-amber-600/20"
+                        >
+                            {unlockLoading ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-2">
+                                    <Unlock className="w-4 h-4" /> Authorize & Unlock
+                                </span>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -135,6 +135,9 @@ function getResidentSnapshot(tx: any): any {
 }
 
 function getEngineerTransactionUrl(tx: any): string {
+    if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
+        return `/admin/engineer/${tx.id}/fencing`;
+    }
     if (tx.isCancelled || tx.status === "CANCELLED") {
         return `/admin/engineer/${tx.id}/evaluation?view=true`;
     }

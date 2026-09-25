@@ -20,12 +20,23 @@ import {
     ArrowLeft,
     Upload,
     MapPin,
-    Info
+    Info,
+    ShieldCheck,
+    Users,
+    Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -48,13 +59,14 @@ import { submitCedulaAppointment } from "./actions";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaReviewsTab from "./components/CedulaReviewsTab";
 
-type Step = "STATUS" | "RESIDENT" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM" | "SUCCESS";
+type Step = "STATUS" | "RESIDENT" | "UPLOAD" | "TAX_DECLARATION" | "DECLARATION" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
+    { id: "RESIDENT", label: "Profile", icon: User },
+    { id: "UPLOAD", label: "Upload", icon: Upload },
     { id: "TAX_DECLARATION", label: "Tax Declaration", icon: Calculator },
     { id: "DECLARATION", label: "Schedule", icon: Calendar },
-    { id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
 ];
 
 interface CedulaAppointmentClientProps {
@@ -128,8 +140,17 @@ export function CedulaAppointmentClient({
     const [calcResult, setCalcResult] = useState<CedulaResult | null>(null);
     const [newTransactionId] = useState<string | null>(null);
     const [queueNumber] = useState<string | null>(null);
-    const [isPriorityLane, setIsPriorityLane] = useState(false);
+    const [isPriorityLane, _setIsPriorityLane] = useState(false);
     const [printTriggered, setPrintTriggered] = useState(false);
+
+    // Applicant Target Selection ("SELF" vs "RELATIVE")
+    const [applicantTarget, setApplicantTarget] = useState<"SELF" | "RELATIVE">("SELF");
+    const [relationshipToApplicant, setRelationshipToApplicant] = useState<string>("");
+
+    const MAPANDAN_BARANGAYS = [
+        "Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez",
+        "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"
+    ];
 
     // Form inputs state
     const [formState, setFormState] = useState({
@@ -139,8 +160,11 @@ export function CedulaAppointmentClient({
         suffix: resident?.suffix || "",
         gender: resident?.gender || "Male",
         dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+        placeOfBirth: resident?.placeOfBirth || "",
         civilStatus: resident?.civilStatus || "Single",
         citizenship: resident?.citizenship || "Filipino",
+        height: resident?.height || "",
+        weight: resident?.weight || "",
         houseNumber: resident?.houseNumber || "",
         street: resident?.street || "",
         barangay: resident?.barangay || "",
@@ -156,6 +180,63 @@ export function CedulaAppointmentClient({
         purpose: ""
     });
 
+    const handleSelectApplicantTarget = (target: "SELF" | "RELATIVE") => {
+        if (target === applicantTarget) return;
+        setApplicantTarget(target);
+
+        if (target === "SELF") {
+            // Restore verified resident profile with official physical cedula details
+            setFormState(prev => ({
+                ...prev,
+                firstName: resident?.firstName || "",
+                lastName: resident?.lastName || "",
+                middleName: resident?.middleName || "",
+                suffix: resident?.suffix || "",
+                gender: resident?.gender || "Male",
+                dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+                placeOfBirth: resident?.placeOfBirth || "",
+                civilStatus: resident?.civilStatus || "Single",
+                citizenship: resident?.citizenship || "Filipino",
+                height: resident?.height || "",
+                weight: resident?.weight || "",
+                houseNumber: resident?.houseNumber || "",
+                street: resident?.street || "",
+                barangay: resident?.barangay || "",
+                municipality: resident?.municipality || "Mapandan",
+                province: resident?.province || "Pangasinan",
+                contactNumber: resident?.contactNumber || "",
+                email: resident?.email || "",
+            }));
+            setRelationshipToApplicant("");
+            setRelativeErrors({});
+        } else {
+            // Clear inputs for relative credentials entry
+            setFormState(prev => ({
+                ...prev,
+                firstName: "",
+                lastName: "",
+                middleName: "",
+                suffix: "",
+                gender: "Male",
+                dateOfBirth: "",
+                placeOfBirth: "",
+                civilStatus: "Single",
+                citizenship: "Filipino",
+                height: "",
+                weight: "",
+                houseNumber: "",
+                street: "",
+                barangay: "",
+                municipality: "Mapandan",
+                province: "Pangasinan",
+                contactNumber: "",
+                email: "",
+            }));
+            setRelationshipToApplicant("");
+            setRelativeErrors({});
+        }
+    };
+
     useEffect(() => {
         if (applicantType === "JURIDICAL" && (formState.incomeSource === "PROFESSION" || formState.incomeSource === "UNEMPLOYED")) {
             setFormState(prev => ({ ...prev, incomeSource: "BUSINESS" }));
@@ -170,17 +251,60 @@ export function CedulaAppointmentClient({
     const incomeInputRef = useRef<HTMLInputElement>(null);
     const businessNameInputRef = useRef<HTMLInputElement>(null);
 
+    // Relative required field refs & error state
+    const relationshipRef = useRef<HTMLDivElement>(null);
+    const firstNameRef = useRef<HTMLInputElement>(null);
+    const lastNameRef = useRef<HTMLInputElement>(null);
+    const dateOfBirthRef = useRef<HTMLInputElement>(null);
+    const placeOfBirthRef = useRef<HTMLInputElement>(null);
+    const heightRef = useRef<HTMLInputElement>(null);
+    const weightRef = useRef<HTMLInputElement>(null);
+    const barangayRef = useRef<HTMLDivElement>(null);
+
+    const [relativeErrors, setRelativeErrors] = useState<{
+        relationship?: boolean;
+        firstName?: boolean;
+        lastName?: boolean;
+        dateOfBirth?: boolean;
+        placeOfBirth?: boolean;
+        height?: boolean;
+        weight?: boolean;
+        barangay?: boolean;
+    }>({});
+
+    // Self missing fields refs & error state (fallback inputs if null in database)
+    const selfPlaceOfBirthRef = useRef<HTMLInputElement>(null);
+    const selfCitizenshipRef = useRef<HTMLInputElement>(null);
+    const selfHeightRef = useRef<HTMLInputElement>(null);
+    const selfWeightRef = useRef<HTMLInputElement>(null);
+
+    const [selfFieldErrors, setSelfFieldErrors] = useState<{
+        placeOfBirth?: boolean;
+        citizenship?: boolean;
+        height?: boolean;
+        weight?: boolean;
+    }>({});
+
     const [idFile, setIdFile] = useState<File | null>(null);
     const [proofFile, setProofFile] = useState<File | null>(null);
+    const [authorizationLetterFile, setAuthorizationLetterFile] = useState<File | null>(null);
+    const [secRegistrationFile, setSecRegistrationFile] = useState<File | null>(null);
     const [existingIdUrl] = useState<string | null>(resident?.idFrontUrl || null);
     const [existingProofUrl] = useState<string | null>(null);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
+    const [uploadErrors, setUploadErrors] = useState<{
+        id?: boolean;
+        authorizationLetter?: boolean;
+        secRegistration?: boolean;
+    }>({});
     const [incomeError, setIncomeError] = useState(false);
     const [businessNameError, setBusinessNameError] = useState(false);
 
     // Refs for sections (smooth scrolling)
     const idSectionRef = useRef<HTMLDivElement>(null);
     const proofSectionRef = useRef<HTMLDivElement>(null);
+    const authorizationSectionRef = useRef<HTMLDivElement>(null);
+    const secRegistrationSectionRef = useRef<HTMLDivElement>(null);
     const privacySectionRef = useRef<HTMLDivElement>(null);
 
     // Document Viewer state
@@ -195,13 +319,20 @@ export function CedulaAppointmentClient({
         if (title) {
             setViewerTitle(title);
         } else {
-            const isProof = file === proofFile || (existingUrl === existingProofUrl && existingUrl !== null);
-            setViewerTitle(isProof ? "Proof of Income Document" : "Valid ID Document");
+            if (file === proofFile || (existingUrl === existingProofUrl && existingUrl !== null)) {
+                setViewerTitle("Proof of Income Document");
+            } else if (file === authorizationLetterFile) {
+                setViewerTitle("Authorization Letter Document");
+            } else if (file === secRegistrationFile) {
+                setViewerTitle("SEC Registration / Certificate of Incorporation");
+            } else {
+                setViewerTitle("Valid Government ID");
+            }
         }
         setViewerOpen(true);
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile") => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile" | "authorizationLetterFile" | "secRegistrationFile") => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
@@ -274,6 +405,13 @@ export function CedulaAppointmentClient({
 
             if (field === "idFile") {
                 setIdFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, id: false }));
+            } else if (field === "authorizationLetterFile") {
+                setAuthorizationLetterFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, authorizationLetter: false }));
+            } else if (field === "secRegistrationFile") {
+                setSecRegistrationFile(fileToProcess);
+                setUploadErrors(prev => ({ ...prev, secRegistration: false }));
             } else {
                 setProofFile(fileToProcess);
             }
@@ -337,6 +475,12 @@ export function CedulaAppointmentClient({
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormState(prev => ({ ...prev, [name]: value }));
+        if (relativeErrors[name as keyof typeof relativeErrors]) {
+            setRelativeErrors(prev => ({ ...prev, [name]: false }));
+        }
+        if (selfFieldErrors[name as keyof typeof selfFieldErrors]) {
+            setSelfFieldErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
     const isStepValid = (stepId: Step) => {
@@ -345,6 +489,45 @@ export function CedulaAppointmentClient({
                 if (hasActiveIndividual && applicantType === "INDIVIDUAL") return false;
                 if (hasActiveJuridical && applicantType === "JURIDICAL") return false;
                 return !!activeType?.id;
+            case "RESIDENT":
+                if (applicantTarget === "RELATIVE") {
+                    return (
+                        !!relationshipToApplicant.trim() &&
+                        !!formState.firstName.trim() &&
+                        !!formState.lastName.trim() &&
+                        !!formState.dateOfBirth.trim() &&
+                        !!formState.placeOfBirth.trim() &&
+                        !!formState.height.trim() &&
+                        !!formState.weight.trim() &&
+                        !!formState.barangay.trim()
+                    );
+                } else if (applicantTarget === "SELF") {
+                    // Check required physical cedula details (must not be empty)
+                    return (
+                        !!formState.placeOfBirth.trim() &&
+                        !!formState.citizenship.trim() &&
+                        !!formState.height.trim() &&
+                        !!formState.weight.trim()
+                    );
+                }
+                return true;
+            case "UPLOAD": {
+                // 1. Valid ID is mandatory for everyone (either newly uploaded or existing from resident profile)
+                const hasValidId = !!(idFile || existingIdUrl);
+                if (!hasValidId) return false;
+
+                // 2. Relative applicants must provide an Authorization Letter
+                if (applicantTarget === "RELATIVE" && !authorizationLetterFile) {
+                    return false;
+                }
+
+                // 3. Juridical applicants must provide SEC Registration / Certificate of Incorporation
+                if (applicantType === "JURIDICAL" && !secRegistrationFile) {
+                    return false;
+                }
+
+                return true;
+            }
             case "TAX_DECLARATION":
                 if (formState.incomeSource === "UNEMPLOYED") return true;
                 const isIncomeValid = !!formState.income.trim();
@@ -353,9 +536,7 @@ export function CedulaAppointmentClient({
                 }
                 return isIncomeValid;
             case "DECLARATION":
-                return !!selectedDate && !!selectedSlot;
-            case "CONFIRM":
-                return privacyAccepted;
+                return !!selectedDate && !!selectedSlot && privacyAccepted;
             default:
                 return true;
         }
@@ -381,6 +562,112 @@ export function CedulaAppointmentClient({
                     toast.error("You already have an active Juridical Cedula request currently in progress.");
                 } else {
                     toast.error("Please select your application status.");
+                }
+            } else if (currentStep === "RESIDENT") {
+                if (applicantTarget === "RELATIVE") {
+                    if (!relationshipToApplicant.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, relationship: true }));
+                        relationshipRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please select your relationship to the applicant.");
+                        return;
+                    }
+                    if (!formState.firstName.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, firstName: true }));
+                        firstNameRef.current?.focus();
+                        firstNameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the first name of the relative.");
+                        return;
+                    }
+                    if (!formState.lastName.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, lastName: true }));
+                        lastNameRef.current?.focus();
+                        lastNameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the last name of the relative.");
+                        return;
+                    }
+                    if (!formState.dateOfBirth.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, dateOfBirth: true }));
+                        dateOfBirthRef.current?.focus();
+                        dateOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the birth date of the relative.");
+                        return;
+                    }
+                    if (!formState.placeOfBirth.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, placeOfBirth: true }));
+                        placeOfBirthRef.current?.focus();
+                        placeOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the place of birth of the relative.");
+                        return;
+                    }
+                    if (!formState.height.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, height: true }));
+                        heightRef.current?.focus();
+                        heightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the height (e.g. 165 cm).");
+                        return;
+                    }
+                    if (!formState.weight.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, weight: true }));
+                        weightRef.current?.focus();
+                        weightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter the weight (e.g. 60 kg).");
+                        return;
+                    }
+                    if (!formState.barangay.trim()) {
+                        setRelativeErrors(prev => ({ ...prev, barangay: true }));
+                        barangayRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please select the barangay of residence.");
+                        return;
+                    }
+                } else if (applicantTarget === "SELF") {
+                    if (!formState.citizenship.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, citizenship: true }));
+                        selfCitizenshipRef.current?.focus();
+                        selfCitizenshipRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Citizenship.");
+                        return;
+                    }
+                    if (!formState.height.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, height: true }));
+                        selfHeightRef.current?.focus();
+                        selfHeightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Height (e.g. 165 cm).");
+                        return;
+                    }
+                    if (!formState.weight.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, weight: true }));
+                        selfWeightRef.current?.focus();
+                        selfWeightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Weight (e.g. 60 kg).");
+                        return;
+                    }
+                    if (!formState.placeOfBirth.trim()) {
+                        setSelfFieldErrors(prev => ({ ...prev, placeOfBirth: true }));
+                        selfPlaceOfBirthRef.current?.focus();
+                        selfPlaceOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Please enter your Place of Birth to complete your Cedula details.");
+                        return;
+                    }
+                }
+            } else if (currentStep === "UPLOAD") {
+                const hasValidId = !!(idFile || existingIdUrl);
+                if (!hasValidId) {
+                    setUploadErrors(prev => ({ ...prev, id: true }));
+                    idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload a Valid Government ID.");
+                    return;
+                }
+                if (applicantTarget === "RELATIVE" && !authorizationLetterFile) {
+                    setUploadErrors(prev => ({ ...prev, authorizationLetter: true }));
+                    authorizationSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload the signed Authorization Letter from the applicant.");
+                    return;
+                }
+                if (applicantType === "JURIDICAL" && !secRegistrationFile) {
+                    setUploadErrors(prev => ({ ...prev, secRegistration: true }));
+                    secRegistrationSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please upload the SEC Registration / Certificate of Incorporation.");
+                    return;
                 }
             } else if (currentStep === "TAX_DECLARATION") {
                 if (applicantType === "JURIDICAL" && !formState.businessName.trim()) {
@@ -425,8 +712,11 @@ export function CedulaAppointmentClient({
                 suffix: formState.suffix,
                 gender: formState.gender,
                 dateOfBirth: formState.dateOfBirth,
+                placeOfBirth: formState.placeOfBirth,
                 civilStatus: formState.civilStatus,
                 citizenship: formState.citizenship,
+                height: formState.height,
+                weight: formState.weight,
                 houseNumber: formState.houseNumber,
                 street: formState.street,
                 barangay: formState.barangay,
@@ -437,6 +727,11 @@ export function CedulaAppointmentClient({
             }));
             submitData.append("additionalData", JSON.stringify({
                 applicantType: applicantType,
+                applicantTarget: applicantTarget,
+                relationshipToApplicant: applicantTarget === "RELATIVE" ? relationshipToApplicant : "SELF",
+                placeOfBirth: formState.placeOfBirth,
+                height: formState.height,
+                weight: formState.weight,
                 income: parseFloat(formState.income.replace(/,/g, "")) || 0,
                 propertyValue: parseFloat(formState.propertyValue.replace(/,/g, "")) || 0,
                 businessName: formState.businessName,
@@ -447,6 +742,8 @@ export function CedulaAppointmentClient({
             }));
             if (idFile) submitData.append("idFile", idFile);
             if (proofFile) submitData.append("proofFile", proofFile);
+            if (authorizationLetterFile) submitData.append("authorizationLetterFile", authorizationLetterFile);
+            if (secRegistrationFile) submitData.append("secRegistrationFile", secRegistrationFile);
             if (existingIdUrl) submitData.append("existingIdUrl", existingIdUrl);
             if (existingProofUrl) submitData.append("existingProofUrl", existingProofUrl);
 
@@ -574,7 +871,7 @@ export function CedulaAppointmentClient({
                 <>
                     {/* Progress Stepper */}
                     {currentStep !== "SUCCESS" && (
-                        <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
+                        <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
                             {STEPS.map((step, idx) => {
                                 const isActive = currentStep === step.id;
                                 const isCompleted = STEPS.findIndex(s => s.id === currentStep) > idx;
@@ -716,7 +1013,1019 @@ export function CedulaAppointmentClient({
                                 </div>
                             )}
 
+                            {currentStep === "RESIDENT" && (
+                                <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+                                        <div className="space-y-1 text-center sm:text-left">
+                                            <h2 className="text-xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
+                                                Resident <span className="text-primary italic">Profile & Identity</span>
+                                            </h2>
+                                            <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium italic">
+                                                Specify if you are applying for yourself or requesting on behalf of a relative or family member.
+                                            </p>
+                                        </div>
 
+                                        <div className="flex items-center justify-center sm:justify-end gap-2">
+                                            {applicantTarget === "SELF" ? (
+                                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider py-1 px-3 flex items-center gap-1.5 shadow-sm">
+                                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                                    Verified Citizen Record
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider py-1 px-3 flex items-center gap-1.5 shadow-sm">
+                                                    <Users className="w-3.5 h-3.5" />
+                                                    Representative Application
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Pathway Selector: For Myself vs For a Relative */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            Who is this Cedula for? <span className="text-destructive">*</span>
+                                        </Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSelectApplicantTarget("SELF")}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl border text-left transition-all relative flex items-start gap-3.5 group",
+                                                    applicantTarget === "SELF"
+                                                        ? "bg-primary/[0.04] border-primary shadow-sm ring-1 ring-primary/20"
+                                                        : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    applicantTarget === "SELF" ? "bg-primary text-white shadow-md shadow-primary/25" : "bg-slate-200/70 dark:bg-white/10 text-slate-500"
+                                                )}>
+                                                    <User className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                                                            For Myself
+                                                        </span>
+                                                        {applicantTarget === "SELF" && (
+                                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white">
+                                                                <Check className="w-3 h-3 stroke-[3]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                                                        Use your own verified municipal account records and personal data.
+                                                    </p>
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSelectApplicantTarget("RELATIVE")}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl border text-left transition-all relative flex items-start gap-3.5 group",
+                                                    applicantTarget === "RELATIVE"
+                                                        ? "bg-primary/[0.04] border-primary shadow-sm ring-1 ring-primary/20"
+                                                        : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    applicantTarget === "RELATIVE" ? "bg-primary text-white shadow-md shadow-primary/25" : "bg-slate-200/70 dark:bg-white/10 text-slate-500"
+                                                )}>
+                                                    <Users className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1 min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                                                            For a Relative / Someone Else
+                                                        </span>
+                                                        {applicantTarget === "RELATIVE" && (
+                                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white">
+                                                                <Check className="w-3 h-3 stroke-[3]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                                                        Input credentials for your parent, spouse, child, sibling, or representative.
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* SELF MODE: Verified Read-Only Profile View */}
+                                    {applicantTarget === "SELF" && (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            {/* Personal Identity Grid */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal Identity (Cedula Record)</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">First Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.firstName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.middleName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last Name</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.lastName || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                            {formState.suffix || "None"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date of Birth</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gender</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.gender || "—"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Civil Status</Label>
+                                                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                            {formState.civilStatus || "Single"}
+                                                        </p>
+                                                    </div>
+                                                    {!resident?.citizenship ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.citizenship
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.citizenship ? "text-destructive" : "text-slate-400")}>
+                                                                    Citizenship <span className="text-destructive">*</span>
+                                                                </Label>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfCitizenshipRef}
+                                                                name="citizenship"
+                                                                value={formState.citizenship}
+                                                                onChange={handleInputChange}
+                                                                placeholder="Citizenship"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.citizenship && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.citizenship || "Filipino"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    {!resident?.height ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.height
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.height ? "text-destructive" : "text-slate-400")}>
+                                                                    Height <span className="text-destructive">*</span>
+                                                                </Label>
+                                                                <span className="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Required</span>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfHeightRef}
+                                                                name="height"
+                                                                value={formState.height}
+                                                                onChange={handleInputChange}
+                                                                placeholder="e.g. 165 cm / 5'5&quot;"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.height && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Height</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.height || "—"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {!resident?.weight ? (
+                                                        <div
+                                                            className={cn(
+                                                                "p-3.5 md:p-4 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-1",
+                                                                selfFieldErrors.weight
+                                                                    ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                                    : "border-slate-200/80 dark:border-white/10"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className={cn("text-[9px] font-black uppercase tracking-widest", selfFieldErrors.weight ? "text-destructive" : "text-slate-400")}>
+                                                                    Weight <span className="text-destructive">*</span>
+                                                                </Label>
+                                                                <span className="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Required</span>
+                                                            </div>
+                                                            <Input
+                                                                ref={selfWeightRef}
+                                                                name="weight"
+                                                                value={formState.weight}
+                                                                onChange={handleInputChange}
+                                                                placeholder="e.g. 60 kg / 132 lbs"
+                                                                className={cn(
+                                                                    "h-8 text-xs font-medium rounded-lg transition-all",
+                                                                    selfFieldErrors.weight && "border-destructive ring-2 ring-destructive/30"
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3.5 md:p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1">
+                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Weight</Label>
+                                                            <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {formState.weight || "—"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Residence Address Card (Single Line) */}
+                                            <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Residential Address</span>
+                                                </div>
+                                                <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                    {[
+                                                        [formState.houseNumber, formState.street].filter(Boolean).join(" "),
+                                                        formState.barangay ? `Brgy. ${formState.barangay}` : null,
+                                                        formState.municipality || "Mapandan",
+                                                        formState.province || "Pangasinan"
+                                                    ].filter(Boolean).join(", ") || "No residential address on record"}
+                                                </p>
+                                            </div>
+
+                                            {/* Place of Birth Card (Single Line, Below Residential Address) */}
+                                            {!resident?.placeOfBirth ? (
+                                                <div
+                                                    className={cn(
+                                                        "p-4 md:p-5 rounded-2xl bg-white dark:bg-white/[0.03] border transition-all space-y-2",
+                                                        selfFieldErrors.placeOfBirth
+                                                            ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                            : "border-slate-200/80 dark:border-white/10"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <MapPin className={cn("w-3.5 h-3.5 shrink-0", selfFieldErrors.placeOfBirth ? "text-destructive" : "text-primary")} />
+                                                            <span className={cn("text-[10px] font-black uppercase tracking-widest", selfFieldErrors.placeOfBirth ? "text-destructive" : "text-slate-400")}>
+                                                                Place of Birth <span className="text-destructive">*</span>
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">Required for Cedula</span>
+                                                    </div>
+                                                    <Input
+                                                        ref={selfPlaceOfBirthRef}
+                                                        name="placeOfBirth"
+                                                        value={formState.placeOfBirth}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Enter your City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        className={cn(
+                                                            "h-10 text-xs font-medium rounded-xl transition-all",
+                                                            selfFieldErrors.placeOfBirth
+                                                                ? "border-destructive ring-2 ring-destructive/30"
+                                                                : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                        )}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</span>
+                                                    </div>
+                                                    <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                        {formState.placeOfBirth || "—"}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* RELATIVE MODE: Interactive Editable Credentials Form */}
+                                    {applicantTarget === "RELATIVE" && (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            {/* Relationship to Applicant Section */}
+                                            <div
+                                                ref={relationshipRef}
+                                                className={cn(
+                                                    "p-4 md:p-5 rounded-2xl bg-primary/[0.03] border transition-all space-y-3",
+                                                    relativeErrors.relationship
+                                                        ? "border-destructive ring-2 ring-destructive/20 bg-destructive/[0.02]"
+                                                        : "border-primary/20"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Users className={cn("w-4 h-4", relativeErrors.relationship ? "text-destructive" : "text-primary")} />
+                                                    <span className={cn("text-xs font-black uppercase tracking-wider", relativeErrors.relationship ? "text-destructive" : "text-primary")}>
+                                                        Relationship with Relative
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-1.5 max-w-md">
+                                                    <Label className={cn("text-[10px] font-black uppercase tracking-wider", relativeErrors.relationship ? "text-destructive" : "text-slate-600 dark:text-slate-400")}>
+                                                        Relationship to Applicant <span className="text-destructive">*</span>
+                                                    </Label>
+                                                    <Select
+                                                        value={relationshipToApplicant}
+                                                        onValueChange={(val) => {
+                                                            setRelationshipToApplicant(val);
+                                                            if (relativeErrors.relationship) {
+                                                                setRelativeErrors(prev => ({ ...prev, relationship: false }));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className={cn(
+                                                            "w-full h-11 px-3.5 rounded-xl bg-white dark:bg-black/40 text-xs font-medium transition-all",
+                                                            relativeErrors.relationship
+                                                                ? "border-destructive ring-2 ring-destructive/30"
+                                                                : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                        )}>
+                                                            <SelectValue placeholder="Select Relationship..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                            <SelectItem value="Parent">Parent (Mother / Father)</SelectItem>
+                                                            <SelectItem value="Spouse">Spouse (Husband / Wife)</SelectItem>
+                                                            <SelectItem value="Child">Child (Son / Daughter)</SelectItem>
+                                                            <SelectItem value="Sibling">Sibling (Brother / Sister)</SelectItem>
+                                                            <SelectItem value="Grandparent">Grandparent</SelectItem>
+                                                            <SelectItem value="Authorized Representative">Authorized Representative</SelectItem>
+                                                            <SelectItem value="Other Relative">Other Relative</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Personal Identity */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative&apos;s Personal Information
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.firstName ? "text-destructive font-black" : "text-slate-400")}>
+                                                            First Name <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={firstNameRef}
+                                                            name="firstName"
+                                                            autoComplete="off"
+                                                            value={formState.firstName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="First name"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.firstName && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
+                                                        <Input
+                                                            name="middleName"
+                                                            autoComplete="off"
+                                                            value={formState.middleName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Middle name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.lastName ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Last Name <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={lastNameRef}
+                                                            name="lastName"
+                                                            autoComplete="off"
+                                                            value={formState.lastName}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Last name"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.lastName && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
+                                                        <Input
+                                                            name="suffix"
+                                                            autoComplete="off"
+                                                            value={formState.suffix}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Jr., Sr., III (optional)"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.dateOfBirth ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Date of Birth <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={dateOfBirthRef}
+                                                            type="date"
+                                                            name="dateOfBirth"
+                                                            value={formState.dateOfBirth}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.dateOfBirth) {
+                                                                    setRelativeErrors(prev => ({ ...prev, dateOfBirth: false }));
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.dateOfBirth && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Gender</Label>
+                                                        <Select
+                                                            value={formState.gender || "Male"}
+                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, gender: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                                <SelectValue placeholder="Gender" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                                <SelectItem value="Male">Male</SelectItem>
+                                                                <SelectItem value="Female">Female</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Civil Status</Label>
+                                                        <Select
+                                                            value={formState.civilStatus || "Single"}
+                                                            onValueChange={(val) => setFormState(prev => ({ ...prev, civilStatus: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full h-10 px-3 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-black/40 text-xs font-medium focus:ring-primary/20">
+                                                                <SelectValue placeholder="Civil Status" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 z-[200]">
+                                                                <SelectItem value="Single">Single</SelectItem>
+                                                                <SelectItem value="Married">Married</SelectItem>
+                                                                <SelectItem value="Widowed">Widowed</SelectItem>
+                                                                <SelectItem value="Separated">Separated</SelectItem>
+                                                                <SelectItem value="Divorced">Divorced</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+                                                        <Input
+                                                            name="citizenship"
+                                                            value={formState.citizenship}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Citizenship"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.height ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Height <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={heightRef}
+                                                            name="height"
+                                                            value={formState.height}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.height) {
+                                                                    setRelativeErrors(prev => ({ ...prev, height: false }));
+                                                                }
+                                                            }}
+                                                            placeholder="e.g. 165 cm / 5'5&quot;"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.height && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.weight ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Weight <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Input
+                                                            ref={weightRef}
+                                                            name="weight"
+                                                            value={formState.weight}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e);
+                                                                if (relativeErrors.weight) {
+                                                                    setRelativeErrors(prev => ({ ...prev, weight: false }));
+                                                                }
+                                                            }}
+                                                            placeholder="e.g. 60 kg / 132 lbs"
+                                                            className={cn(
+                                                                "h-10 text-xs font-medium rounded-xl transition-all",
+                                                                relativeErrors.weight && "border-destructive ring-2 ring-destructive/30"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Address */}
+                                            <div className="space-y-3 pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative&apos;s Residential Address
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">House / Bldg No.</Label>
+                                                        <Input
+                                                            name="houseNumber"
+                                                            autoComplete="off"
+                                                            value={formState.houseNumber}
+                                                            onChange={handleInputChange}
+                                                            placeholder="House / Lot No."
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Street Name</Label>
+                                                        <Input
+                                                            name="street"
+                                                            autoComplete="off"
+                                                            value={formState.street}
+                                                            onChange={handleInputChange}
+                                                            placeholder="Street name"
+                                                            className="h-10 text-xs font-medium rounded-xl"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5" ref={barangayRef}>
+                                                        <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.barangay ? "text-destructive font-black" : "text-slate-400")}>
+                                                            Barangay <span className="text-destructive">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={formState.barangay}
+                                                            onValueChange={(val) => {
+                                                                setFormState(prev => ({ ...prev, barangay: val }));
+                                                                if (relativeErrors.barangay) {
+                                                                    setRelativeErrors(prev => ({ ...prev, barangay: false }));
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className={cn(
+                                                                "w-full h-10 px-3 rounded-xl bg-white dark:bg-black/40 text-xs font-medium transition-all",
+                                                                relativeErrors.barangay
+                                                                    ? "border-destructive ring-2 ring-destructive/30"
+                                                                    : "border-slate-200 dark:border-white/10 focus:ring-primary/20"
+                                                            )}>
+                                                                <SelectValue placeholder="Select Barangay..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 max-h-56 z-[200]">
+                                                                {MAPANDAN_BARANGAYS.map((brgy) => (
+                                                                    <SelectItem key={brgy} value={brgy}>
+                                                                        {brgy}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 pt-1">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Municipality</Label>
+                                                        <Input
+                                                            name="municipality"
+                                                            value={formState.municipality}
+                                                            disabled
+                                                            className="h-10 text-xs font-medium rounded-xl bg-slate-100 dark:bg-white/5 opacity-80"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Province</Label>
+                                                        <Input
+                                                            name="province"
+                                                            value={formState.province}
+                                                            disabled
+                                                            className="h-10 text-xs font-medium rounded-xl bg-slate-100 dark:bg-white/5 opacity-80"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Relative's Place of Birth (Below Residential Address, Single Line) */}
+                                            <div className="space-y-3 pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        Relative&apos;s Place of Birth
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className={cn("text-[9px] font-black uppercase tracking-widest", relativeErrors.placeOfBirth ? "text-destructive font-black" : "text-slate-400")}>
+                                                        Place of Birth <span className="text-destructive">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        ref={placeOfBirthRef}
+                                                        name="placeOfBirth"
+                                                        autoComplete="off"
+                                                        value={formState.placeOfBirth}
+                                                        onChange={(e) => {
+                                                            handleInputChange(e);
+                                                            if (relativeErrors.placeOfBirth) {
+                                                                setRelativeErrors(prev => ({ ...prev, placeOfBirth: false }));
+                                                            }
+                                                        }}
+                                                        placeholder="City / Municipality, Province of birth (e.g. Mapandan, Pangasinan)"
+                                                        className={cn(
+                                                            "h-10 text-xs font-medium rounded-xl transition-all",
+                                                            relativeErrors.placeOfBirth && "border-destructive ring-2 ring-destructive/30"
+                                                        )}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {currentStep === "UPLOAD" && (
+                                <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
+                                    <div className="space-y-2 md:space-y-4 text-center md:text-left">
+                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
+                                            Document <span className="text-primary italic">Upload</span>
+                                        </h2>
+                                        <p className="text-slate-500 font-medium italic text-xs md:text-sm">
+                                            Upload your required government credentials and supporting documents to proceed with your appointment.
+                                        </p>
+                                    </div>
+
+                                    {/* Upload cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                         {/* 1. Valid ID Card (Mandatory for everyone) */}
+                                         <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
+                                             <div className={cn(
+                                                 "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                 uploadErrors.id ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                             )}>
+                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                     </div>
+                                                     <div className="space-y-0.5">
+                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                             Valid Government ID <span className="text-destructive font-bold text-[9px]">*</span>
+                                                         </h4>
+                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                             {existingIdUrl && !idFile ? "Using verified ID from profile" : "PDF / Image (Max 5MB)"}
+                                                         </p>
+                                                     </div>
+                                                 </div>
+
+                                                 {idFile ? (
+                                                     idFile.type.startsWith("image/") ? (
+                                                         <div
+                                                             onClick={() => handleViewFile(idFile, null)}
+                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                         >
+                                                             <Image
+                                                                src={URL.createObjectURL(idFile)}
+                                                                alt="ID Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                             />
+                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                             </div>
+                                                         </div>
+                                                     ) : (
+                                                         <div
+                                                             onClick={() => handleViewFile(idFile, null)}
+                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                         >
+                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
+                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                         </div>
+                                                     )
+                                                 ) : existingIdUrl ? (
+                                                     <div
+                                                         onClick={() => handleViewFile(null, existingIdUrl)}
+                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                     >
+                                                         <Image
+                                                             src={existingIdUrl}
+                                                             alt="Existing ID Preview"
+                                                             fill
+                                                             unoptimized
+                                                             className="object-cover opacity-75 group-hover/preview:scale-105 transition-transform duration-500"
+                                                         />
+                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Verified ID on File (Click to View)</span>
+                                                         </div>
+                                                     </div>
+                                                 ) : null}
+
+                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                     <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
+                                                     {(idFile || existingIdUrl) && (
+                                                         <Button
+                                                             type="button"
+                                                             variant="outline"
+                                                             onClick={() => handleViewFile(idFile, existingIdUrl)}
+                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                         >
+                                                             View Document
+                                                         </Button>
+                                                     )}
+                                                     <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                         <label htmlFor="id-upload" className="cursor-pointer">
+                                                             {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload ID"}
+                                                         </label>
+                                                     </Button>
+                                                 </div>
+                                             </div>
+                                         </div>
+
+                                         {/* 2. Relative Authorization Letter (Mandatory when applicantTarget === "RELATIVE") */}
+                                         {applicantTarget === "RELATIVE" && (
+                                             <div className="space-y-4 md:space-y-6" ref={authorizationSectionRef}>
+                                                 <div className={cn(
+                                                     "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                     uploadErrors.authorizationLetter ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                                 )}>
+                                                     <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                         <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                             <FileText className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                         </div>
+                                                         <div className="space-y-0.5">
+                                                             <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                 Authorization Letter <span className="text-destructive font-bold text-[9px]">*</span>
+                                                             </h4>
+                                                             <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                 Signed authorization from applicant (PDF / Image)
+                                                             </p>
+                                                         </div>
+                                                     </div>
+
+                                                     {authorizationLetterFile ? (
+                                                         authorizationLetterFile.type.startsWith("image/") ? (
+                                                             <div
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                             >
+                                                                 <Image
+                                                                     src={URL.createObjectURL(authorizationLetterFile)}
+                                                                     alt="Authorization Letter Preview"
+                                                                     fill
+                                                                     unoptimized
+                                                                     className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                 />
+                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                 </div>
+                                                             </div>
+                                                         ) : (
+                                                             <div
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                             >
+                                                                 <span className="text-xs font-bold text-primary truncate max-w-[200px]">{authorizationLetterFile.name}</span>
+                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                             </div>
+                                                         )
+                                                     ) : null}
+
+                                                     <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                         <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "authorizationLetterFile")} className="hidden" id="authorization-upload" />
+                                                         {authorizationLetterFile && (
+                                                             <Button
+                                                                 type="button"
+                                                                 variant="outline"
+                                                                 onClick={() => handleViewFile(authorizationLetterFile, null)}
+                                                                 className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                             >
+                                                                 View Document
+                                                             </Button>
+                                                         )}
+                                                         <Button asChild variant={authorizationLetterFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                             <label htmlFor="authorization-upload" className="cursor-pointer">
+                                                                 {authorizationLetterFile ? "Change" : "Upload Authorization Letter"}
+                                                             </label>
+                                                         </Button>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )}
+
+                                         {/* 3. Juridical SEC Registration / Certificate of Incorporation (Mandatory when applicantType === "JURIDICAL") */}
+                                         {applicantType === "JURIDICAL" && (
+                                             <div className="space-y-4 md:space-y-6" ref={secRegistrationSectionRef}>
+                                                 <div className={cn(
+                                                     "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                                     uploadErrors.secRegistration ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
+                                                 )}>
+                                                     <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                         <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                             <Building2 className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                         </div>
+                                                         <div className="space-y-0.5">
+                                                             <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                 SEC Registration <span className="text-destructive font-bold text-[9px]">*</span>
+                                                             </h4>
+                                                             <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                 Certificate of Incorporation / DTI / Articles (Max 5MB)
+                                                             </p>
+                                                         </div>
+                                                     </div>
+
+                                                     {secRegistrationFile ? (
+                                                         secRegistrationFile.type.startsWith("image/") ? (
+                                                             <div
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                             >
+                                                                 <Image
+                                                                     src={URL.createObjectURL(secRegistrationFile)}
+                                                                     alt="SEC Registration Preview"
+                                                                     fill
+                                                                     unoptimized
+                                                                     className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                 />
+                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                 </div>
+                                                             </div>
+                                                         ) : (
+                                                             <div
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                             >
+                                                                 <span className="text-xs font-bold text-primary truncate max-w-[200px]">{secRegistrationFile.name}</span>
+                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                             </div>
+                                                         )
+                                                     ) : null}
+
+                                                     <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                         <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "secRegistrationFile")} className="hidden" id="sec-upload" />
+                                                         {secRegistrationFile && (
+                                                             <Button
+                                                                 type="button"
+                                                                 variant="outline"
+                                                                 onClick={() => handleViewFile(secRegistrationFile, null)}
+                                                                 className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                             >
+                                                                 View Document
+                                                             </Button>
+                                                         )}
+                                                         <Button asChild variant={secRegistrationFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                             <label htmlFor="sec-upload" className="cursor-pointer">
+                                                                 {secRegistrationFile ? "Change" : "Upload SEC Registration"}
+                                                             </label>
+                                                         </Button>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )}
+
+                                         {/* 4. Proof of Income Card (Optional) */}
+                                         <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
+                                             <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
+                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                                                     </div>
+                                                     <div className="space-y-0.5">
+                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
+                                                             Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
+                                                         </h4>
+                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                             Payslip / BIR / ITR (Max 5MB)
+                                                         </p>
+                                                     </div>
+                                                 </div>
+
+                                                 {proofFile ? (
+                                                     proofFile.type.startsWith("image/") ? (
+                                                         <div
+                                                             onClick={() => handleViewFile(proofFile, null)}
+                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                         >
+                                                             <Image
+                                                                 src={URL.createObjectURL(proofFile)}
+                                                                 alt="Proof Preview"
+                                                                 fill
+                                                                 unoptimized
+                                                                 className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                             />
+                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                             </div>
+                                                         </div>
+                                                     ) : (
+                                                         <div
+                                                             onClick={() => handleViewFile(proofFile, null)}
+                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                         >
+                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
+                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                         </div>
+                                                     )
+                                                 ) : existingProofUrl ? (
+                                                     <div
+                                                         onClick={() => handleViewFile(null, existingProofUrl)}
+                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                     >
+                                                         <Image
+                                                             src={existingProofUrl}
+                                                             alt="Existing Proof Preview"
+                                                             fill
+                                                             unoptimized
+                                                             className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                         />
+                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                         </div>
+                                                     </div>
+                                                 ) : null}
+
+                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                     <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
+                                                     {(proofFile || existingProofUrl) && (
+                                                         <Button
+                                                             type="button"
+                                                             variant="outline"
+                                                             onClick={() => handleViewFile(proofFile, existingProofUrl)}
+                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                         >
+                                                             View Document
+                                                         </Button>
+                                                     )}
+                                                     <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                         <label htmlFor="proof-upload" className="cursor-pointer">
+                                                             {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload Proof"}
+                                                         </label>
+                                                     </Button>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </div>
+                                </div>
+                            )}
 
                             {currentStep === "TAX_DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
@@ -933,182 +2242,10 @@ export function CedulaAppointmentClient({
                                         config={config}
                                         themeColor={themeColor}
                                     />
-                                </div>
-                            )}
-
-                            {currentStep === "CONFIRM" && (
-                                <div className="space-y-8 md:space-y-10">
-                                    <div className="space-y-2 md:space-y-4 text-center md:text-left">
-                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">Review <span className="text-primary italic">& Finalize</span></h2>
-                                        <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">Review your declaration before submitting for evaluation.</p>
-                                    </div>
-
-                                    {/* Upload cards */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                                        <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Valid ID <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">PDF / Image (Max 5MB)</p>
-                                                    </div>
-                                                </div>
-
-                                                {idFile ? (
-                                                    idFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
-                                                                src={URL.createObjectURL(idFile)}
-                                                                alt="ID Preview"
-                                                                fill
-                                                                unoptimized
-                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(idFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{idFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingIdUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingIdUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingIdUrl}
-                                                            alt="Existing ID Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
-                                                    {(idFile || existingIdUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(idFile, existingIdUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="id-upload" className="cursor-pointer">
-                                                            {idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
-                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
-                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
-                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                                                        <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
-                                                        </h4>
-                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
-                                                            Payslip / BIR (Max 5MB)
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {proofFile ? (
-                                                    proofFile.type.startsWith("image/") ? (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                        >
-                                                            <Image
-                                                                src={URL.createObjectURL(proofFile)}
-                                                                alt="Proof Preview"
-                                                                fill
-                                                                unoptimized
-                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={() => handleViewFile(proofFile, null)}
-                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        >
-                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{proofFile.name}</span>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                        </div>
-                                                    )
-                                                ) : existingProofUrl ? (
-                                                    <div
-                                                        onClick={() => handleViewFile(null, existingProofUrl)}
-                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                    >
-                                                        <Image
-                                                            src={existingProofUrl}
-                                                            alt="Existing Proof Preview"
-                                                            fill
-                                                            unoptimized
-                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                        </div>
-                                                    </div>
-                                                ) : null}
-
-                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
-                                                    {(proofFile || existingProofUrl) && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleViewFile(proofFile, existingProofUrl)}
-                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                        >
-                                                            View Document
-                                                        </Button>
-                                                    )}
-                                                    <Button asChild variant={(proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                        <label htmlFor="proof-upload" className="cursor-pointer">
-                                                            {proofFile ? "Change" : existingProofUrl ? "Replace Proof" : "Upload"}
-                                                        </label>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     {/* Paalala / Reminder Note */}
                                     {(activeType?.pickupAddress || activeType?.processingTime || fees.length > 0) && (
-                                        <div className="flex gap-3 p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10">
+                                        <div className="flex gap-3 p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 mt-6">
                                             <Info className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                                             <div className="space-y-2">
                                                 <p className="font-black uppercase tracking-widest text-[8px] md:text-[9px] text-amber-500">Important Reminders Before Your Appointment</p>
@@ -1136,40 +2273,8 @@ export function CedulaAppointmentClient({
                                         </div>
                                     )}
 
-                                    {/* ♿ Minimalist Priority Lane Row Checkbox (Hidden for now) */}
-                                     {false && (
-                                         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                                             <div
-                                                 onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                                 className="flex items-start gap-3 md:gap-4 cursor-pointer select-none p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors"
-                                             >
-                                                 <div className={cn(
-                                                     "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                                     isPriorityLane
-                                                         ? "bg-primary border-primary text-white"
-                                                         : "border-slate-300 dark:border-white/10"
-                                                 )}
-                                                     style={isPriorityLane ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
-                                                 >
-                                                     {isPriorityLane && <Check className="w-3.5 h-3.5" />}
-                                                 </div>
-                                                 <div className="space-y-1">
-                                                     <p className="text-xs md:text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                                         ♿ Request Priority lane service
-                                                     </p>
-                                                     <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                                         Check this if you are a Senior Citizen, PWD, or Pregnant applicant.
-                                                     </p>
-                                                     <p className="text-[8px] md:text-[9px] text-amber-600 dark:text-amber-500 font-bold leading-relaxed uppercase tracking-wider mt-1">
-                                                         ⚠️ WARNING: You must present a valid Priority ID or proof of entitlement at the counter. Failure to produce valid verification will result in the immediate disapproval of your priority queue status, and you will be required to book a new appointment on another day.
-                                                     </p>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     )}
-
-                                    {/* Privacy — full width, below upload grid */}
-                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5" ref={privacySectionRef}>
+                                    {/* Data Privacy & Terms Agreement — in Schedule tab */}
+                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5" ref={privacySectionRef}>
                                         <div
                                             onClick={() => {
                                                 if (privacyAccepted) {
@@ -1347,8 +2452,8 @@ export function CedulaAppointmentClient({
                         Back
                     </Button>
                     <Button
-                        onClick={currentStep === "CONFIRM" ? handleSubmit : handleNext}
-                        disabled={submitting || (currentStep === "CONFIRM" && (!privacyAccepted))}
+                        onClick={currentStep === "DECLARATION" ? handleSubmit : handleNext}
+                        disabled={submitting || (currentStep === "DECLARATION" && (!privacyAccepted || !selectedDate || !selectedSlot))}
                         className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
                         style={{ backgroundColor: themeColor }}
                     >
@@ -1359,7 +2464,7 @@ export function CedulaAppointmentClient({
                             </div>
                         ) : (
                             <div className="flex items-center">
-                                {currentStep === "CONFIRM" ? "Book Appointment" : "Next Phase"}
+                                {currentStep === "DECLARATION" ? "Book Appointment" : "Next Phase"}
                                 <ChevronRight className={cn("w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform", submitting && "hidden")} />
                             </div>
                         )}
