@@ -32,7 +32,13 @@ function getCitizenName(item: any): string {
         ? (() => { try { return JSON.parse(item.residentSnapshot); } catch { return {}; } })()
         : (item.residentSnapshot || {});
 
-    if (addData.applicantTarget === "RELATIVE" || addData.relationshipToApplicant) {
+    const relStr = String(addData.relationshipToApplicant || "").trim().toUpperCase();
+    const isRelative = (addData.applicantTarget === "RELATIVE" || Boolean(addData.relationshipToApplicant)) &&
+        addData.applicantTarget !== "SELF" &&
+        relStr !== "SELF" &&
+        relStr !== "";
+
+    if (isRelative) {
         if (snap.firstName || snap.lastName) {
             const relativeFullName = [snap.firstName, snap.middleName, snap.lastName, snap.suffix]
                 .filter(Boolean)

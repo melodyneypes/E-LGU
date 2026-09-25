@@ -194,7 +194,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const [isProfileOpen, setIsProfileOpen] = React.useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = React.useState(true);
     const additional = transaction.additionalData || {};
-    const isRelative = Boolean(additional?.applicantTarget === "RELATIVE" || additional?.relationshipToApplicant);
+    const relStr = String(additional?.relationshipToApplicant || "").trim().toUpperCase();
+    const isRelative = (additional?.applicantTarget === "RELATIVE" || Boolean(additional?.relationshipToApplicant)) &&
+        additional?.applicantTarget !== "SELF" &&
+        relStr !== "SELF" &&
+        relStr !== "";
     const rawSnapshot = transaction.residentSnapshot;
     const parsedSnapshot = typeof rawSnapshot === "string"
         ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
@@ -348,35 +352,35 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 {/* TOP METRICS GRID */}
                                 <div className="grid grid-cols-4 gap-4">
                                         <div
+                                            onClick={() => {
+                                                if (isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && isGrossLocked) {
+                                                    setUnlockModalOpen(true);
+                                                }
+                                            }}
                                             className={`p-4 rounded-2xl space-y-1 transition-all ${
-                                                isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
+                                                isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent
                                                     ? !isGrossLocked
-                                                        ? "bg-emerald-500/5 border border-emerald-500/30 hover:border-emerald-500/50"
-                                                        : "bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/30"
+                                                        ? "bg-emerald-500/5 border border-emerald-500/30"
+                                                        : "bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer group"
                                                     : "bg-[#f8fafd] dark:bg-white/5"
                                             }`}
-                                            title={transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
+                                            title={
+                                                transaction.isStudent
+                                                    ? String(declaredValue)
+                                                    : isGrossLocked && isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
+                                                        ? "Click to unlock and adjust declared gross income"
+                                                        : `₱${Number(declaredValue).toLocaleString()}`
+                                            }
                                         >
                                             <div className="flex items-center justify-between gap-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 truncate">
                                                     {declaredLabel}
                                                 </span>
-                                                {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && (
-                                                    isGrossLocked ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setUnlockModalOpen(true)}
-                                                            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded-full transition-colors cursor-pointer"
-                                                        >
-                                                            <Lock className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
-                                                            Unlock
-                                                        </button>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                            <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
-                                                            Authorized
-                                                        </span>
-                                                    )
+                                                {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && !isGrossLocked && (
+                                                    <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                                                        Authorized
+                                                    </span>
                                                 )}
                                             </div>
                                             {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
@@ -405,18 +409,10 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center justify-between pt-1">
-                                                        <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
+                                                    <div className="pt-1">
+                                                        <p className="text-xl font-black italic tracking-tighter text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
                                                             ₱{Number(declaredValue).toLocaleString()}
                                                         </p>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setUnlockModalOpen(true)}
-                                                            className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 p-1"
-                                                            title="Click to enter password and edit declared gross"
-                                                        >
-                                                            <Lock className="w-3.5 h-3.5" />
-                                                        </button>
                                                     </div>
                                                 )
                                             ) : (

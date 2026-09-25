@@ -226,7 +226,7 @@ export function CedulaAppointmentClient({
                 weight: "",
                 houseNumber: "",
                 street: "",
-                barangay: resident?.barangay || "Poblacion",
+                barangay: "",
                 municipality: "Mapandan",
                 province: "Pangasinan",
                 contactNumber: "",
@@ -1415,6 +1415,7 @@ export function CedulaAppointmentClient({
                                                         <Input
                                                             ref={firstNameRef}
                                                             name="firstName"
+                                                            autoComplete="off"
                                                             value={formState.firstName}
                                                             onChange={handleInputChange}
                                                             placeholder="First name"
@@ -1428,6 +1429,7 @@ export function CedulaAppointmentClient({
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
                                                         <Input
                                                             name="middleName"
+                                                            autoComplete="off"
                                                             value={formState.middleName}
                                                             onChange={handleInputChange}
                                                             placeholder="Middle name"
@@ -1441,6 +1443,7 @@ export function CedulaAppointmentClient({
                                                         <Input
                                                             ref={lastNameRef}
                                                             name="lastName"
+                                                            autoComplete="off"
                                                             value={formState.lastName}
                                                             onChange={handleInputChange}
                                                             placeholder="Last name"
@@ -1454,6 +1457,7 @@ export function CedulaAppointmentClient({
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
                                                         <Input
                                                             name="suffix"
+                                                            autoComplete="off"
                                                             value={formState.suffix}
                                                             onChange={handleInputChange}
                                                             placeholder="Jr., Sr., III (optional)"
@@ -1589,6 +1593,7 @@ export function CedulaAppointmentClient({
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">House / Bldg No.</Label>
                                                         <Input
                                                             name="houseNumber"
+                                                            autoComplete="off"
                                                             value={formState.houseNumber}
                                                             onChange={handleInputChange}
                                                             placeholder="House / Lot No."
@@ -1599,6 +1604,7 @@ export function CedulaAppointmentClient({
                                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Street Name</Label>
                                                         <Input
                                                             name="street"
+                                                            autoComplete="off"
                                                             value={formState.street}
                                                             onChange={handleInputChange}
                                                             placeholder="Street name"
@@ -1675,6 +1681,7 @@ export function CedulaAppointmentClient({
                                                     <Input
                                                         ref={placeOfBirthRef}
                                                         name="placeOfBirth"
+                                                        autoComplete="off"
                                                         value={formState.placeOfBirth}
                                                         onChange={(e) => {
                                                             handleInputChange(e);
