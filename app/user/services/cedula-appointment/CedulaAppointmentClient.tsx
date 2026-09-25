@@ -61,7 +61,7 @@ import { submitCedulaAppointment } from "./actions";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaReviewsTab from "./components/CedulaReviewsTab";
 
-type Step = "STATUS" | "RESIDENT" | "UPLOAD" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM" | "SUCCESS";
+type Step = "STATUS" | "RESIDENT" | "UPLOAD" | "TAX_DECLARATION" | "DECLARATION" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
@@ -69,7 +69,6 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "UPLOAD", label: "Upload", icon: Upload },
     { id: "TAX_DECLARATION", label: "Tax Declaration", icon: Calculator },
     { id: "DECLARATION", label: "Schedule", icon: Calendar },
-    { id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
 ];
 
 interface CedulaAppointmentClientProps {
@@ -539,9 +538,7 @@ export function CedulaAppointmentClient({
                 }
                 return isIncomeValid;
             case "DECLARATION":
-                return !!selectedDate && !!selectedSlot;
-            case "CONFIRM":
-                return privacyAccepted;
+                return !!selectedDate && !!selectedSlot && privacyAccepted;
             default:
                 return true;
         }
@@ -2240,123 +2237,10 @@ export function CedulaAppointmentClient({
                                         config={config}
                                         themeColor={themeColor}
                                     />
-                                </div>
-                            )}
-
-                            {currentStep === "CONFIRM" && (
-                                <div className="space-y-8 md:space-y-10">
-                                    <div className="space-y-2 md:space-y-4 text-center md:text-left">
-                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">Review <span className="text-primary italic">& Finalize</span></h2>
-                                        <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">Review your declaration before submitting for evaluation.</p>
-                                    </div>
-
-                                    {/* Application & Beneficiary Summary Card */}
-                                    <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 space-y-4">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-white/5 pb-3">
-                                            <div className="flex items-center gap-2">
-                                                <User className="w-4 h-4 text-primary" />
-                                                <h4 className="text-xs md:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                                    Applicant Summary
-                                                </h4>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 px-2">
-                                                    {applicantTarget === "SELF" ? "Personal Application" : `Representative: ${relationshipToApplicant || "Relative"}`}
-                                                </Badge>
-                                                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase tracking-wider py-0.5 px-2">
-                                                    {applicantType}
-                                                </Badge>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-left">
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
-                                                    {applicantTarget === "SELF" ? "Applicant Name" : "Relative's Name"}
-                                                </span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
-                                                    {[formState.firstName, formState.middleName, formState.lastName, formState.suffix].filter(Boolean).join(" ") || "—"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Date of Birth</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                                    {formState.dateOfBirth ? new Date(formState.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Place of Birth</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
-                                                    {formState.placeOfBirth || "—"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Civil Status</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                                    {formState.civilStatus || "Single"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Height / Weight</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                                    {formState.height || "—"} / {formState.weight || "—"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Citizenship</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                                    {formState.citizenship || "Filipino"}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Address</span>
-                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
-                                                    Brgy. {formState.barangay || "Mapandan"}, Mapandan
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Estimated Cedula Tax</span>
-                                                <span className="text-xs font-black text-primary block">
-                                                    ₱{(calcResult?.totalAmount ?? 0).toFixed(2)}
-                                                </span>
-                                            </div>
-
-                                            <div className="space-y-0.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Uploaded Credentials</span>
-                                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                        <Check className="w-2.5 h-2.5" /> Valid ID
-                                                    </span>
-                                                    {applicantTarget === "RELATIVE" && authorizationLetterFile && (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                            <Check className="w-2.5 h-2.5" /> Auth Letter
-                                                        </span>
-                                                    )}
-                                                    {applicantType === "JURIDICAL" && secRegistrationFile && (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                            <Check className="w-2.5 h-2.5" /> SEC Reg
-                                                        </span>
-                                                    )}
-                                                    {(proofFile || existingProofUrl) && (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full">
-                                                            <Check className="w-2.5 h-2.5" /> Proof
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     {/* Paalala / Reminder Note */}
                                     {(activeType?.pickupAddress || activeType?.processingTime || fees.length > 0) && (
-                                        <div className="flex gap-3 p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10">
+                                        <div className="flex gap-3 p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 mt-6">
                                             <Info className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                                             <div className="space-y-2">
                                                 <p className="font-black uppercase tracking-widest text-[8px] md:text-[9px] text-amber-500">Important Reminders Before Your Appointment</p>
@@ -2384,40 +2268,8 @@ export function CedulaAppointmentClient({
                                         </div>
                                     )}
 
-                                    {/* ♿ Minimalist Priority Lane Row Checkbox (Hidden for now) */}
-                                     {false && (
-                                         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                                             <div
-                                                 onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                                 className="flex items-start gap-3 md:gap-4 cursor-pointer select-none p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors"
-                                             >
-                                                 <div className={cn(
-                                                     "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                                     isPriorityLane
-                                                         ? "bg-primary border-primary text-white"
-                                                         : "border-slate-300 dark:border-white/10"
-                                                 )}
-                                                     style={isPriorityLane ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
-                                                 >
-                                                     {isPriorityLane && <Check className="w-3.5 h-3.5" />}
-                                                 </div>
-                                                 <div className="space-y-1">
-                                                     <p className="text-xs md:text-sm font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                                         ♿ Request Priority lane service
-                                                     </p>
-                                                     <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                                         Check this if you are a Senior Citizen, PWD, or Pregnant applicant.
-                                                     </p>
-                                                     <p className="text-[8px] md:text-[9px] text-amber-600 dark:text-amber-500 font-bold leading-relaxed uppercase tracking-wider mt-1">
-                                                         ⚠️ WARNING: You must present a valid Priority ID or proof of entitlement at the counter. Failure to produce valid verification will result in the immediate disapproval of your priority queue status, and you will be required to book a new appointment on another day.
-                                                     </p>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     )}
-
-                                    {/* Privacy — full width, below upload grid */}
-                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5" ref={privacySectionRef}>
+                                    {/* Data Privacy & Terms Agreement — in Schedule tab */}
+                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5" ref={privacySectionRef}>
                                         <div
                                             onClick={() => {
                                                 if (privacyAccepted) {
@@ -2595,8 +2447,8 @@ export function CedulaAppointmentClient({
                         Back
                     </Button>
                     <Button
-                        onClick={currentStep === "CONFIRM" ? handleSubmit : handleNext}
-                        disabled={submitting || (currentStep === "CONFIRM" && (!privacyAccepted))}
+                        onClick={currentStep === "DECLARATION" ? handleSubmit : handleNext}
+                        disabled={submitting || (currentStep === "DECLARATION" && (!privacyAccepted || !selectedDate || !selectedSlot))}
                         className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
                         style={{ backgroundColor: themeColor }}
                     >
@@ -2607,7 +2459,7 @@ export function CedulaAppointmentClient({
                             </div>
                         ) : (
                             <div className="flex items-center">
-                                {currentStep === "CONFIRM" ? "Book Appointment" : "Next Phase"}
+                                {currentStep === "DECLARATION" ? "Book Appointment" : "Next Phase"}
                                 <ChevronRight className={cn("w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform", submitting && "hidden")} />
                             </div>
                         )}
