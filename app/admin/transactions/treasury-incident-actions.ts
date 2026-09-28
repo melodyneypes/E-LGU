@@ -4,7 +4,6 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { logActivity } from "@/lib/audit";
-import { revalidatePath } from "next/cache";
 import { sanitizeString } from "@/lib/validation";
 
 export interface ReportAccountableFormIncidentParams {
