@@ -71,6 +71,7 @@ interface Props {
 }
 
 export default function AccountableFormsView({ initialIncidents, currentUser, settings }: Props) {
+    const router = useRouter();
     const [incidents, setIncidents] = useState<IncidentItem[]>(initialIncidents);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
@@ -554,14 +555,9 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                             </Button>
                         </Link>
                         <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                    Registry of Cancelled Accountable Forms
-                                </h1>
-                                <Badge className="bg-primary/10 text-primary border-primary/20 font-mono font-bold text-[10px]">
-                                    COA AUDIT READY
-                                </Badge>
-                            </div>
+                            <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                                Registry of Cancelled Accountable Forms
+                            </h1>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 Official municipal audit trail for cancelled accountable forms, paper jams, and replacement serial numbers issued across Treasury counters.
                             </p>
@@ -569,18 +565,8 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                     </div>
                 </div>
 
-                {/* Header Action Buttons (Sync, PDF, Excel) */}
+                {/* Header Action Buttons (PDF, Excel) */}
                 <div className="flex flex-wrap items-center gap-3 self-end lg:self-auto">
-                    <Button
-                        variant="outline"
-                        onClick={handleRefresh}
-                        disabled={isRefreshing}
-                        className="h-11 rounded-2xl border-slate-200 dark:border-white/10 font-bold text-xs flex items-center gap-2"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-primary" : "text-slate-400"}`} />
-                        Sync Records
-                    </Button>
-
                     <Button
                         onClick={handleExportPDF}
                         disabled={isExportingPdf}
@@ -733,30 +719,27 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                             <select
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
-                                className="h-9 px-2 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                                className="h-9 px-2 bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
                             >
-                                <option value="ALL">All Categories</option>
-                                <option value="PAPER_JAM">Paper Jam</option>
-                                <option value="PRINTER_MISFEED">Printer Misfeed</option>
-                                <option value="INK_SMUDGE">Ink Smudge</option>
-                                <option value="DAMAGED_LEAF">Torn / Damaged Leaf</option>
-                                <option value="ENCODING_ERROR">Encoding Error</option>
+                                <option value="ALL" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">All Categories</option>
+                                <option value="PAPER_JAM" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">Paper Jam</option>
+                                <option value="PRINTER_MISFEED" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">Printer Misfeed</option>
+                                <option value="INK_SMUDGE" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">Ink Smudge</option>
+                                <option value="DAMAGED_LEAF" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">Torn / Damaged Leaf</option>
+                                <option value="ENCODING_ERROR" className="bg-white dark:bg-[#151b2b] text-slate-900 dark:text-slate-100">Encoding Error</option>
                             </select>
                         </div>
 
-                        {/* Page Size Selector */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 font-bold hidden sm:inline">Rows:</span>
-                            <select
-                                value={pageSize}
-                                onChange={(e) => setPageSize(Number(e.target.value))}
-                                className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none shadow-sm"
-                            >
-                                <option value={10}>10 rows</option>
-                                <option value={25}>25 rows</option>
-                                <option value={50}>50 rows</option>
-                            </select>
-                        </div>
+                        {/* Sync Records Button placed beside category filter */}
+                        <Button
+                            variant="outline"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="h-11 px-3.5 rounded-2xl border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a2234] font-bold text-xs flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 shadow-sm"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-primary" : "text-slate-400"}`} />
+                            <span className="hidden sm:inline">Sync</span>
+                        </Button>
                     </div>
                 </div>
 
@@ -765,13 +748,13 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                     <table className="w-full text-left text-xs">
                         <thead className="bg-slate-100/60 dark:bg-white/5 border-b border-slate-200 dark:border-white/5 text-[10px] font-black uppercase tracking-wider text-slate-400">
                             <tr>
+                                <th className="py-4 px-4 w-12 text-center">#</th>
                                 <th className="py-4 px-6">Timestamp & Counter</th>
                                 <th className="py-4 px-6">Classification</th>
                                 <th className="py-4 px-6">Category</th>
                                 <th className="py-4 px-6">Cancelled Serial #</th>
                                 <th className="py-4 px-6">Replacement Serial # (Active)</th>
                                 <th className="py-4 px-6">Remarks & Officer</th>
-                                <th className="py-4 px-6 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
@@ -792,79 +775,83 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                                     </td>
                                 </tr>
                             ) : (
-                                paginatedIncidents.map((item) => (
-                                    <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
-                                        <td className="py-4 px-6">
-                                            <div className="space-y-0.5">
-                                                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                                    {format(new Date(item.createdAt), "MMM dd, yyyy · hh:mm a")}
+                                paginatedIncidents.map((item, idx) => {
+                                    const rowNumber = (currentPage - 1) * pageSize + idx + 1;
+                                    const isClickable = Boolean(item.transactionId);
+
+                                    return (
+                                        <tr 
+                                            key={item.id} 
+                                            onClick={() => {
+                                                if (item.transactionId) {
+                                                    router.push(`/admin/treasury/${item.transactionId}`);
+                                                }
+                                            }}
+                                            className={`transition-colors group ${
+                                                isClickable 
+                                                    ? "hover:bg-primary/5 dark:hover:bg-primary/10 cursor-pointer" 
+                                                    : "hover:bg-slate-50/70 dark:hover:bg-white/[0.02]"
+                                            }`}
+                                        >
+                                            <td className="py-4 px-4 text-center font-mono font-bold text-slate-400 group-hover:text-primary transition-colors">
+                                                {rowNumber}
+                                            </td>
+
+                                            <td className="py-4 px-6">
+                                                <div className="space-y-0.5">
+                                                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                        {format(new Date(item.createdAt), "MMM dd, yyyy · hh:mm a")}
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-400">
+                                                        Counter: <span className="font-bold text-slate-700 dark:text-slate-200">{item.counterName || "Window 1"}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="text-[11px] text-slate-400">
-                                                    Counter: <span className="font-bold text-slate-700 dark:text-slate-200">{item.counterName || "Window 1"}</span>
+                                            </td>
+
+                                            <td className="py-4 px-6">
+                                                <Badge variant="outline" className="font-bold border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-[11px] bg-slate-50 dark:bg-white/5">
+                                                    {item.formType}
+                                                </Badge>
+                                            </td>
+
+                                            <td className="py-4 px-6">
+                                                {getIncidentBadge(item.incidentType)}
+                                            </td>
+
+                                            <td className="py-4 px-6">
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-black text-xs line-through tracking-wider">
+                                                    {item.damagedSeriesNumber}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-4 px-6">
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono font-black text-xs tracking-wider">
+                                                    {item.replacedSeriesNumber}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-4 px-6 max-w-[280px]">
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate" title={item.reasonDetails || "No remarks provided"}>
+                                                        {item.reasonDetails || <span className="text-slate-400 italic">No remarks provided</span>}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                                        By: <span className="font-bold text-slate-800 dark:text-slate-200">{item.reportedBy}</span>
+                                                    </p>
                                                 </div>
-                                            </div>
-                                        </td>
-
-                                        <td className="py-4 px-6">
-                                            <Badge variant="outline" className="font-bold border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-[11px] bg-slate-50 dark:bg-white/5">
-                                                {item.formType}
-                                            </Badge>
-                                        </td>
-
-                                        <td className="py-4 px-6">
-                                            {getIncidentBadge(item.incidentType)}
-                                        </td>
-
-                                        <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-black text-xs line-through tracking-wider">
-                                                {item.damagedSeriesNumber}
-                                            </span>
-                                        </td>
-
-                                        <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono font-black text-xs tracking-wider">
-                                                {item.replacedSeriesNumber}
-                                            </span>
-                                        </td>
-
-                                        <td className="py-4 px-6 max-w-[260px]">
-                                            <div className="space-y-0.5">
-                                                <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate" title={item.reasonDetails || "No remarks provided"}>
-                                                    {item.reasonDetails || <span className="text-slate-400 italic">No remarks provided</span>}
-                                                </p>
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                                    By: <span className="font-bold text-slate-800 dark:text-slate-200">{item.reportedBy}</span>
-                                                </p>
-                                            </div>
-                                        </td>
-
-                                        <td className="py-4 px-6 text-right">
-                                            {item.transactionId ? (
-                                                <Link href={`/admin/treasury/${item.transactionId}`}>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        className="h-8 rounded-xl text-primary font-bold text-xs hover:bg-primary/10 flex items-center gap-1.5 ml-auto"
-                                                    >
-                                                        View Tx
-                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </Link>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-400 italic">Standalone</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
 
-                {/* Footer with Pagination Controls */}
+                {/* Footer with Rows Dropdown & Pagination Controls */}
                 <div className="p-4 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
-                    <div>
+                    <div className="flex items-center gap-4 flex-wrap">
                         <p>
                             Showing <span className="font-bold text-slate-800 dark:text-white">{filteredIncidents.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{" "}
                             <span className="font-bold text-slate-800 dark:text-white">
@@ -875,6 +862,23 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                                 <span className="text-slate-400 ml-1">({incidents.length} total)</span>
                             )}
                         </p>
+
+                        {/* Page Size / Rows Dropdown moved to footer */}
+                        <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-white/10">
+                            <span className="text-[11px] font-bold text-slate-400">Rows per page:</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                    setPageSize(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="h-8 px-2.5 rounded-xl bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none shadow-sm cursor-pointer"
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Pagination Nav */}
