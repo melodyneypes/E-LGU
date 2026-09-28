@@ -193,21 +193,25 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const hasDispute = transaction.status === "RETURN_REQUESTED" || transaction.status === "REFUND_REQUESTED" || !!transaction.disputeReason;
     const [isProfileOpen, setIsProfileOpen] = React.useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = React.useState(true);
-    const additional = transaction.additionalData || {};
+    const additional = React.useMemo(() => transaction.additionalData || {}, [transaction.additionalData]);
     const relStr = String(additional?.relationshipToApplicant || "").trim().toUpperCase();
     const isRelative = (additional?.applicantTarget === "RELATIVE" || Boolean(additional?.relationshipToApplicant)) &&
         additional?.applicantTarget !== "SELF" &&
         relStr !== "SELF" &&
         relStr !== "";
     const rawSnapshot = transaction.residentSnapshot;
-    const parsedSnapshot = typeof rawSnapshot === "string"
-        ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
-        : (rawSnapshot || {});
+    const parsedSnapshot = React.useMemo(() => {
+        return typeof rawSnapshot === "string"
+            ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
+            : (rawSnapshot || {});
+    }, [rawSnapshot]);
 
     // For Relative applications, resident represents the relative (the actual Cedula Holder)
-    const baseResident = isRelative
-        ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
-        : (transaction.user?.residentProfile || parsedSnapshot);
+    const baseResident = React.useMemo(() => {
+        return isRelative
+            ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
+            : (transaction.user?.residentProfile || parsedSnapshot);
+    }, [isRelative, parsedSnapshot, transaction.user?.residentProfile]);
 
     const resident = React.useMemo(() => ({
         ...baseResident,
