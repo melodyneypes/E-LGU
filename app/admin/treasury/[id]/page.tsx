@@ -294,6 +294,7 @@ export default function TreasuryDetailPage() {
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [editedIncome, setEditedIncome] = useState<number | null>(null);
+    const [draftProfileValues, setDraftProfileValues] = useState<Record<string, string> | null>(null);
     const [miscFee, setMiscFee] = useState<string>("0");
     const [cedulaLayout, setCedulaLayout] = useState<any>(null);
     const [cedulaPreviewOpen, setCedulaPreviewOpen] = useState(false);
@@ -1643,7 +1644,9 @@ export default function TreasuryDetailPage() {
                     ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || "",
                     remarks,
                     orSeriesNumber,
-                    declaredGross: activeIncome
+                    declaredGross: activeIncome,
+                    draftProfileValues: draftProfileValues || undefined,
+                    authorizedStaffName: (session?.user as any)?.name || (session?.user as any)?.email
                 })
                 : await processOnsitePaymentAndReleaseAction({
                     transactionId: transaction.id,
@@ -1758,6 +1761,15 @@ export default function TreasuryDetailPage() {
             if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
             if (orFile) formData.append("orFile", orFile);
             if (isBuildingPermit && arg1) formData.append("amountPaid", arg1);
+            if (draftProfileValues && Object.keys(draftProfileValues).length > 0) {
+                formData.append("updatedProfileJson", JSON.stringify(draftProfileValues));
+            }
+            if (editedIncome !== null && editedIncome !== undefined) {
+                formData.append("declaredGross", String(editedIncome));
+            }
+            if ((session?.user as any)?.name || (session?.user as any)?.email) {
+                formData.append("authorizedStaffName", (session?.user as any)?.name || (session?.user as any)?.email);
+            }
 
             const res = await confirmTransactionPaymentWithReceipt(formData);
             if (res.success) {
@@ -2176,16 +2188,34 @@ export default function TreasuryDetailPage() {
             });
         },
         editedIncome,
-        setEditedIncome
+        setEditedIncome,
+        draftProfileValues,
+        setDraftProfileValues
     };
+
+    const mergedResidentSnapshot = (() => {
+        if (!transaction) return null;
+        const rawSnap = transaction.residentSnapshot;
+        const currentSnapshot = typeof rawSnap === "string"
+            ? (() => { try { return JSON.parse(rawSnap); } catch { return {}; } })()
+            : (rawSnap || {});
+
+        if (!draftProfileValues) return transaction.residentSnapshot;
+        return {
+            ...currentSnapshot,
+            ...draftProfileValues
+        };
+    })();
 
     const cedulaTransaction = (!transaction)
         ? transaction
         : {
             ...transaction,
             totalAmount: displayTotal,
+            residentSnapshot: mergedResidentSnapshot,
             additionalData: {
                 ...(transaction.additionalData || {}),
+                ...(draftProfileValues || {}),
                 income: activeIncome,
                 calculatedTax: {
                     basicTax: calcResult.basicTax,

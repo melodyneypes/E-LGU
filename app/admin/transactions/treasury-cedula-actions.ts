@@ -10,6 +10,7 @@ import { sanitizeString, sanitizeUrl } from "@/lib/validation";
 import { updateDeceasedResidentStatus } from "./death-regis-actions";
 import { clearCategoryRejection } from "@/lib/transactions/rejection-tracker";
 import { getMultipleSystemSettings } from "@/lib/settings";
+import { logActivity } from "@/lib/audit";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 
@@ -214,6 +215,8 @@ interface ProcessCedulaOnsiteParams {
     remarks?: string;
     orSeriesNumber?: string;
     declaredGross?: number;
+    draftProfileValues?: Record<string, string> | null;
+    authorizedStaffName?: string | null;
 }
 
 /**
@@ -339,6 +342,56 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
             ? null
             : (params.paymentReference ? sanitizeString(params.paymentReference) : (currentAdditional.referenceNo || transaction.paymentReference || `manual_${transactionId}`));
 
+        // Handle draft profile edits if submitted
+        const incomingProfile = params.draftProfileValues || null;
+        let finalResidentSnapshot = transaction.residentSnapshot;
+        let finalAdditionalData = updatedAdditionalData;
+
+        if (incomingProfile && Object.keys(incomingProfile).length > 0) {
+            const rawSnap = transaction.residentSnapshot;
+            const currentSnapshot = typeof rawSnap === "string"
+                ? (() => { try { return JSON.parse(rawSnap); } catch { return {}; } })()
+                : (rawSnap || {});
+
+            const mergedSnapshot = {
+                ...currentSnapshot,
+                ...incomingProfile,
+                firstName: incomingProfile.firstName ?? currentSnapshot.firstName,
+                middleName: incomingProfile.middleName ?? currentSnapshot.middleName,
+                lastName: incomingProfile.lastName ?? currentSnapshot.lastName,
+                suffix: incomingProfile.suffix ?? currentSnapshot.suffix,
+                dateOfBirth: incomingProfile.dateOfBirth ?? currentSnapshot.dateOfBirth,
+                gender: incomingProfile.gender ?? currentSnapshot.gender,
+                civilStatus: incomingProfile.civilStatus ?? currentSnapshot.civilStatus,
+                citizenship: incomingProfile.citizenship ?? currentSnapshot.citizenship,
+                height: incomingProfile.height ?? currentSnapshot.height,
+                weight: incomingProfile.weight ?? currentSnapshot.weight,
+                placeOfBirth: incomingProfile.placeOfBirth ?? currentSnapshot.placeOfBirth,
+                contactNumber: incomingProfile.contactNumber ?? currentSnapshot.contactNumber,
+                occupation: incomingProfile.occupation ?? currentSnapshot.occupation,
+                houseNumber: incomingProfile.houseNumber ?? currentSnapshot.houseNumber,
+                street: incomingProfile.street ?? currentSnapshot.street,
+                barangay: incomingProfile.barangay ?? currentSnapshot.barangay,
+                municipality: incomingProfile.municipality ?? currentSnapshot.municipality ?? "Mapandan",
+                province: incomingProfile.province ?? currentSnapshot.province ?? "Pangasinan",
+            };
+
+            finalResidentSnapshot = typeof rawSnap === "string" ? JSON.stringify(mergedSnapshot) : mergedSnapshot;
+
+            finalAdditionalData = {
+                ...finalAdditionalData,
+                placeOfBirth: incomingProfile.placeOfBirth ?? finalAdditionalData.placeOfBirth,
+                height: incomingProfile.height ?? finalAdditionalData.height,
+                weight: incomingProfile.weight ?? finalAdditionalData.weight,
+                civilStatus: incomingProfile.civilStatus ?? finalAdditionalData.civilStatus,
+                gender: incomingProfile.gender ?? finalAdditionalData.gender,
+                citizenship: incomingProfile.citizenship ?? finalAdditionalData.citizenship,
+                occupation: incomingProfile.occupation ?? finalAdditionalData.occupation,
+                lastModifiedByStaff: params.authorizedStaffName || user.name || user.email,
+                lastModifiedAt: new Date().toISOString()
+            };
+        }
+
         const now = new Date();
 
         // Perform all DB mutations in 1 single fast transaction
@@ -352,7 +405,8 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
                     totalAmount: updatedTotalAmount,
                     paymentType: mappedPaymentType,
                     paymentReference: refNo,
-                    additionalData: updatedAdditionalData,
+                    residentSnapshot: finalResidentSnapshot as any,
+                    additionalData: finalAdditionalData as any,
                     fiscalSnapshot: {
                         basicTax: calc.basicTax,
                         additionalTax: calc.additionalTax,
@@ -443,6 +497,26 @@ export async function processCedulaOnsitePaymentAndRelease(params: ProcessCedula
                 amount: updatedTotalAmount,
                 serviceName: transaction.type.name
             }).catch(err => console.error("Background email send error:", err));
+        }
+
+        // Audit log if identity profile or gross was updated
+        if (incomingProfile && Object.keys(incomingProfile).length > 0) {
+            const staffName = params.authorizedStaffName || user.name || user.email || "Treasury Staff";
+            logActivity({
+                action: "UPDATE",
+                entityType: "TransactionProfile",
+                entityId: transactionId,
+                entityName: `${(incomingProfile.firstName || "")} ${(incomingProfile.lastName || "")}`.trim() || "Cedula Citizen Profile",
+                description: `Staff ${staffName} updated citizen profile dossier and declared gross income (₱${effectiveIncome.toLocaleString()}) upon payment & document release.`,
+                metadata: {
+                    transactionId,
+                    authorizedBy: user.email,
+                    authorizedRole: user.role,
+                    declaredGross: effectiveIncome,
+                    updatedFields: Object.keys(incomingProfile),
+                    settledAt: now.toISOString()
+                }
+            }).catch(err => console.error("Audit log error:", err));
         }
 
         revalidatePath("/admin/treasury");

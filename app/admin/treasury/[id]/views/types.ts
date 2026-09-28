@@ -103,4 +103,6 @@ export interface TreasuryViewProps {
     openCedulaPreview?: () => void;
     editedIncome?: number | null;
     setEditedIncome?: (val: number | null) => void;
+    draftProfileValues?: Record<string, string> | null;
+    setDraftProfileValues?: (val: Record<string, string> | null) => void;
 }

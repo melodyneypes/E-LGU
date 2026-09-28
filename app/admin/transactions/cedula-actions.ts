@@ -152,13 +152,87 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
         }
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
-        const updatedAdditionalData = {
+        let updatedAdditionalData = {
             ...currentAdditionalData,
             ...(sanitizedRemarks && { treasuryRemarks: sanitizedRemarks }),
             ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
             ...(orSeriesNumber && { orSeriesNumber: sanitizeString(orSeriesNumber) }),
             ...(orDocumentUrl && { orDocumentUrl })
         };
+
+        const updatedProfileRaw = formData.get("updatedProfileJson") as string;
+        const declaredGrossRaw = formData.get("declaredGross") as string;
+        const authorizedStaffName = formData.get("authorizedStaffName") as string;
+
+        let finalResidentSnapshot = transaction.residentSnapshot;
+        if (updatedProfileRaw) {
+            try {
+                const incomingProfile = JSON.parse(updatedProfileRaw);
+                if (incomingProfile && typeof incomingProfile === "object") {
+                    const rawSnap = transaction.residentSnapshot;
+                    const currentSnapshot = typeof rawSnap === "string"
+                        ? (() => { try { return JSON.parse(rawSnap); } catch { return {}; } })()
+                        : (rawSnap || {});
+
+                    const mergedSnapshot = {
+                        ...currentSnapshot,
+                        ...incomingProfile,
+                        firstName: incomingProfile.firstName ?? currentSnapshot.firstName,
+                        middleName: incomingProfile.middleName ?? currentSnapshot.middleName,
+                        lastName: incomingProfile.lastName ?? currentSnapshot.lastName,
+                        suffix: incomingProfile.suffix ?? currentSnapshot.suffix,
+                        dateOfBirth: incomingProfile.dateOfBirth ?? currentSnapshot.dateOfBirth,
+                        gender: incomingProfile.gender ?? currentSnapshot.gender,
+                        civilStatus: incomingProfile.civilStatus ?? currentSnapshot.civilStatus,
+                        citizenship: incomingProfile.citizenship ?? currentSnapshot.citizenship,
+                        height: incomingProfile.height ?? currentSnapshot.height,
+                        weight: incomingProfile.weight ?? currentSnapshot.weight,
+                        placeOfBirth: incomingProfile.placeOfBirth ?? currentSnapshot.placeOfBirth,
+                        contactNumber: incomingProfile.contactNumber ?? currentSnapshot.contactNumber,
+                        occupation: incomingProfile.occupation ?? currentSnapshot.occupation,
+                        houseNumber: incomingProfile.houseNumber ?? currentSnapshot.houseNumber,
+                        street: incomingProfile.street ?? currentSnapshot.street,
+                        barangay: incomingProfile.barangay ?? currentSnapshot.barangay,
+                        municipality: incomingProfile.municipality ?? currentSnapshot.municipality ?? "Mapandan",
+                        province: incomingProfile.province ?? currentSnapshot.province ?? "Pangasinan",
+                    };
+
+                    finalResidentSnapshot = typeof rawSnap === "string" ? JSON.stringify(mergedSnapshot) : mergedSnapshot;
+
+                    updatedAdditionalData = {
+                        ...updatedAdditionalData,
+                        placeOfBirth: incomingProfile.placeOfBirth ?? updatedAdditionalData.placeOfBirth,
+                        height: incomingProfile.height ?? updatedAdditionalData.height,
+                        weight: incomingProfile.weight ?? updatedAdditionalData.weight,
+                        civilStatus: incomingProfile.civilStatus ?? updatedAdditionalData.civilStatus,
+                        gender: incomingProfile.gender ?? updatedAdditionalData.gender,
+                        citizenship: incomingProfile.citizenship ?? updatedAdditionalData.citizenship,
+                        occupation: incomingProfile.occupation ?? updatedAdditionalData.occupation,
+                        ...(declaredGrossRaw ? { income: parseFloat(declaredGrossRaw) } : {}),
+                        lastModifiedByStaff: authorizedStaffName || user.name || user.email,
+                        lastModifiedAt: new Date().toISOString()
+                    };
+
+                    const staffName = authorizedStaffName || user.name || user.email || "Treasury Staff";
+                    logActivity({
+                        action: "UPDATE",
+                        entityType: "TransactionProfile",
+                        entityId: sanitizedId,
+                        entityName: `${incomingProfile.firstName || ""} ${incomingProfile.lastName || ""}`.trim() || "Citizen Profile",
+                        description: `Staff ${staffName} updated citizen profile dossier and declared gross income upon confirming payment.`,
+                        metadata: {
+                            transactionId: sanitizedId,
+                            authorizedBy: user.email,
+                            authorizedRole: user.role,
+                            declaredGross: declaredGrossRaw ? parseFloat(declaredGrossRaw) : undefined,
+                            updatedFields: Object.keys(incomingProfile)
+                        }
+                    }).catch(err => console.error("Audit log error:", err));
+                }
+            } catch (parseErr) {
+                console.error("Error parsing updatedProfileJson:", parseErr);
+            }
+        }
 
         const paymentMethod = formData.get("paymentMethod") as string;
         const paymentReferenceInput = formData.get("paymentReference") as string;
@@ -179,6 +253,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                 paymentReference: paymentReferenceInput ? sanitizeString(paymentReferenceInput) : transaction.paymentReference,
                 isPaid: true,
                 updatedAt: new Date(),
+                residentSnapshot: finalResidentSnapshot,
                 additionalData: updatedAdditionalData
             } as any,
             include: { user: true, type: true }

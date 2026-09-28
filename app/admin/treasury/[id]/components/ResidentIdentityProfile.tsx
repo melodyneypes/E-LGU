@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, UserCheck, Edit3, Check, X, ShieldAlert, KeyRound, Loader2, Eye, EyeOff, Lock, Unlock } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ChevronDown, ChevronUp, UserCheck, ShieldAlert, KeyRound, Loader2, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import { toast } from "sonner";
-import { verifyStaffPasswordToUnlockAction, saveTransactionIdentityProfileAndGrossAction } from "../profile-actions";
+import { verifyStaffPasswordToUnlockAction } from "../profile-actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ interface ResidentIdentityProfileProps {
     authorizedStaffName?: string | null;
     setAuthorizedStaffName?: (val: string | null) => void;
     declaredGross?: number | null;
+    onOpenUnlockModal?: () => void;
+    // Draft profile changes notifier
+    onFormValuesChange?: (values: Record<string, string>) => void;
 }
 
 export default function ResidentIdentityProfile({
@@ -46,12 +49,14 @@ export default function ResidentIdentityProfile({
     relationshipLabel,
     transactionId,
     canEdit = true,
-    onProfileUpdated,
+    onProfileUpdated: _onProfileUpdated,
     isAuthorized,
     setIsAuthorized,
     authorizedStaffName,
     setAuthorizedStaffName,
-    declaredGross
+    declaredGross: _declaredGross,
+    onOpenUnlockModal,
+    onFormValuesChange
 }: ResidentIdentityProfileProps) {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -81,9 +86,6 @@ export default function ResidentIdentityProfile({
     const [showUnlockPassword, setShowUnlockPassword] = useState(false);
     const [isVerifyingUnlock, setIsVerifyingUnlock] = useState(false);
 
-    // Saving state
-    const [isSaving, setIsSaving] = useState(false);
-
     const formatDobForInput = (dob: any) => {
         if (!dob) return "";
         try {
@@ -95,7 +97,7 @@ export default function ResidentIdentityProfile({
         }
     };
 
-    const resetFormValues = () => {
+    const resetFormValues = useCallback(() => {
         setFormValues({
             firstName: resident?.firstName || "",
             middleName: resident?.middleName || "",
@@ -116,14 +118,18 @@ export default function ResidentIdentityProfile({
             municipality: resident?.municipality || "Mapandan",
             province: resident?.province || "Pangasinan",
         });
-    };
+    }, [resident]);
 
     useEffect(() => {
         resetFormValues();
-    }, [resident]);
+    }, [resetFormValues]);
 
     const handleInputChange = (field: string, val: string) => {
-        setFormValues(prev => ({ ...prev, [field]: val }));
+        const next = { ...formValues, [field]: val };
+        setFormValues(next);
+        if (onFormValuesChange) {
+            onFormValuesChange(next);
+        }
     };
 
     const calculateAge = (dob: string) => {
@@ -161,6 +167,12 @@ export default function ResidentIdentityProfile({
             if (!isOpen) setIsOpen(true);
             return;
         }
+
+        if (onOpenUnlockModal) {
+            onOpenUnlockModal();
+            return;
+        }
+
         setUnlockPassword("");
         setUnlockReason("");
         setUnlockModalOpen(true);
@@ -195,67 +207,6 @@ export default function ResidentIdentityProfile({
             toast.error(error?.message || "An unexpected error occurred.");
         } finally {
             setIsVerifyingUnlock(false);
-        }
-    };
-
-    const handleCancelEditing = () => {
-        resetFormValues();
-        setAuthorized(false);
-        setStaffName(null);
-    };
-
-    // Human readable field names
-    const fieldLabels: Record<string, string> = {
-        firstName: "First Name",
-        middleName: "Middle Name",
-        lastName: "Last Name",
-        suffix: "Suffix",
-        dateOfBirth: "Date of Birth",
-        gender: "Gender",
-        civilStatus: "Civil Status",
-        citizenship: "Citizenship",
-        placeOfBirth: "Place of Birth",
-        height: "Height",
-        weight: "Weight",
-        contactNumber: "Contact Number",
-        occupation: "Occupation",
-        houseNumber: "House No.",
-        street: "Street",
-        barangay: "Barangay",
-        municipality: "Municipality",
-        province: "Province",
-    };
-
-    const handleSaveAllChanges = async () => {
-        if (!transactionId) {
-            toast.error("Cannot modify profile: Transaction ID is missing.");
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const res = await saveTransactionIdentityProfileAndGrossAction({
-                transactionId,
-                updatedProfile: formValues,
-                declaredGross: declaredGross !== undefined && declaredGross !== null ? declaredGross : undefined,
-                authorizedStaffName: staffName || undefined,
-                reason: unlockReason.trim() || undefined
-            });
-
-            if (res.success) {
-                toast.success("Changes saved and immutable Audit Log recorded successfully!");
-                setAuthorized(false);
-                setStaffName(null);
-                if (onProfileUpdated) {
-                    onProfileUpdated();
-                }
-            } else {
-                toast.error(res.error || "Failed to save profile changes.");
-            }
-        } catch (error: any) {
-            toast.error(error?.message || "An unexpected error occurred.");
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -294,10 +245,10 @@ export default function ResidentIdentityProfile({
 
                 <div className="flex items-center gap-2">
                     {/* Authorized Badge */}
-                    {authorized && staffName && (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[9px] font-black uppercase tracking-wider">
-                            <Unlock className="w-3 h-3" />
-                            Unlocked by {staffName}
+                    {authorized && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[9px] font-black uppercase tracking-wider">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            {staffName ? `Unlocked by ${staffName}` : "Unlocked for Editing"}
                         </span>
                     )}
 
@@ -312,41 +263,6 @@ export default function ResidentIdentityProfile({
                             <Lock className="w-3.5 h-3.5 text-amber-500" />
                             Edit Profile
                         </Button>
-                    )}
-
-                    {authorized && (
-                        <div className="flex items-center gap-2 animate-in fade-in duration-300">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleCancelEditing}
-                                disabled={isSaving}
-                                className="h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
-                            >
-                                <X className="w-3.5 h-3.5 mr-1" />
-                                Cancel
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                onClick={handleSaveAllChanges}
-                                disabled={isSaving}
-                                className="h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider bg-primary text-white shadow-md shadow-primary/20 gap-1.5 hover:opacity-90 transition-all"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Check className="w-3.5 h-3.5" />
-                                        Save Changes
-                                    </>
-                                )}
-                            </Button>
-                        </div>
                     )}
 
                     <button

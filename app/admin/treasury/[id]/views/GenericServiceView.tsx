@@ -134,7 +134,9 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         handlePrintCedula,
         openCedulaPreview,
         editedIncome,
-        setEditedIncome
+        setEditedIncome,
+        draftProfileValues,
+        setDraftProfileValues
     } = props;
 
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
@@ -229,10 +231,12 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const fiscal = (transaction.fiscalSnapshot as any) || null;
 
     const hasCheckIn = Boolean(
+        additional?.checkedIn === true ||
         additional?.checkInData ||
         additional?.checkIn ||
         additional?.checkInTime ||
         additional?.checkedInAt ||
+        additional?.counterName ||
         additional?.scannedAt ||
         additional?.checkInStatus ||
         transaction?.checkIn ||
@@ -649,6 +653,14 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         authorizedStaffName={authorizedStaffName}
                         setAuthorizedStaffName={setAuthorizedStaffName}
                         declaredGross={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || undefined)}
+                        onOpenUnlockModal={() => {
+                            setUnlockPassword('');
+                            setUnlockReason('');
+                            setUnlockModalOpen(true);
+                        }}
+                        onFormValuesChange={(values) => {
+                            setDraftProfileValues?.(values);
+                        }}
                     />
 
                     {/* EVIDENCE VAULT */}
@@ -900,8 +912,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
                     {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && !transaction.orSeriesNumber && !transaction.paymentType)) && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
-                            {/* If status is FOR_REQUESTING: Show Queue notice and optional Request Revision */}
-                            {transaction.status === "FOR_REQUESTING" && (
+                            {/* If status is FOR_REQUESTING and NOT checked-in: Show Queue notice and optional Request Revision */}
+                            {transaction.status === "FOR_REQUESTING" && !hasCheckIn && (
                                 <div className="space-y-4">
                                     {/* Notice Banner */}
                                     <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2">
@@ -930,8 +942,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {/* If status is EVALUATED / FOR_PROCESSING: Show Payment & Release stage */}
-                            {(transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") && (() => {
+                            {/* If status is EVALUATED / FOR_PROCESSING OR checked-in FOR_REQUESTING: Show Payment & Release stage */}
+                            {((transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") || (transaction.status === "FOR_REQUESTING" && hasCheckIn)) && (() => {
                                 const hasInvalidFees = feeLineItems.some(item => {
                                     const labelEmpty = item.label.trim() === "";
                                     const amountEmpty = item.amount.trim() === "" || item.amount === "0";
@@ -1011,7 +1023,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         </Button>
 
                                         {/* Dedicated Print Cedula action - positioned right below Mark as Paid & Released */}
-                                        {isCedula && transaction.status === "FOR_PROCESSING" && (
+                                        {isCedula && (transaction.status === "FOR_PROCESSING" || (transaction.status === "FOR_REQUESTING" && hasCheckIn) || transaction.status === "EVALUATED") && (
                                             <Button
                                                 type="button"
                                                 onClick={() => openCedulaPreview ? openCedulaPreview() : (handlePrintCedula ? handlePrintCedula() : window.print())}
@@ -1480,7 +1492,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             Staff Authorization Required
                         </DialogTitle>
                         <DialogDescription className="text-xs text-center text-slate-500 dark:text-slate-400">
-                            Modifying the declared gross income recalculates community tax assessments and is logged in the municipal audit trail. Please enter your account password to unlock.
+                            Please enter your account password to authorize and unlock editing for the citizen profile and declared gross income. All modifications are logged in the municipal audit trail.
                         </DialogDescription>
                     </DialogHeader>
 
