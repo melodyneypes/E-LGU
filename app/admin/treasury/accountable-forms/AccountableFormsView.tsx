@@ -143,7 +143,7 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="w-full space-y-8 animate-in fade-in duration-500">
             {/* Header / Sub-Nav */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white dark:bg-[#151b2b] p-6 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm">
                 <div>

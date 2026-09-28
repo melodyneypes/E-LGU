@@ -32,7 +32,7 @@ export default async function AccountableFormsPage() {
     const incidents = res.success && res.data ? res.data : [];
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+        <div className="p-6 md:p-8 space-y-8 animate-in fade-in duration-500 w-full min-h-screen">
             <AccountableFormsView initialIncidents={incidents as any} />
         </div>
     );
