@@ -53,11 +53,11 @@ export default async function AccountableFormsPage() {
                     role: user?.role || "TREASURY_STAFF"
                 }}
                 settings={{
-                    logoUrl: settings?.site_logo || null,
-                    brandWord1: settings?.brand_word_1 || "Municipality of",
-                    brandWord2: settings?.brand_word_2 || "Mapandan",
-                    themeColor: settings?.theme_color || "#2563eb",
-                    treasurerName: settings?.municipal_treasurer_name || "Municipal Treasurer"
+                    logoUrl: settings.get("site_logo") || null,
+                    brandWord1: settings.get("brand_word_1") || "Municipality of",
+                    brandWord2: settings.get("brand_word_2") || "Mapandan",
+                    themeColor: settings.get("theme_color") || "#2563eb",
+                    treasurerName: settings.get("municipal_treasurer_name") || "Municipal Treasurer"
                 }}
             />
         </div>

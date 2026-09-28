@@ -9,7 +9,7 @@ import {
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, Store, Scale,
-    FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate, FileWarning
+    FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate, FileWarning, Landmark
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -1041,7 +1041,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "Treasury Queue", "Cancelled Accountable Forms"].includes(item.label) ||
+                        ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "RPT Reports & Collections", "Treasury Queue", "Cancelled Accountable Forms"].includes(item.label) ||
                         (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
@@ -1077,7 +1077,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "Treasury Queue", "Cancelled Accountable Forms"].includes(item.label) ||
+                ["Treasury Hub", "Daily Ticket Collections", "Collector Registry", "Payments Ledger", "RPT Reports & Collections", "Treasury Queue", "Cancelled Accountable Forms"].includes(item.label) ||
                 (item.label === "Citizen Feedback" && item.category === "Treasury Department") ||
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
