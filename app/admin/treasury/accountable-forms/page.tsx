@@ -10,8 +10,8 @@ import AccountableFormsView from "./AccountableFormsView";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Accountable Forms & Spoiled Stubs Log | Treasury Hub",
-    description: "Official municipal COA audit registry for spoiled stubs, paper jams, and accountable forms liquidation.",
+    title: "Registry of Cancelled Accountable Forms | Treasury Hub",
+    description: "Official municipal COA audit registry for cancelled accountable forms, paper jams, and serial liquidation.",
 };
 
 export default async function AccountableFormsPage() {

@@ -885,7 +885,7 @@ export function Sidebar({
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
         { href: "/admin/treasury/cedula-template", label: "Cedula Template Studio", icon: LayoutTemplate, category: "Treasury Department" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury Department" },
-        { href: "/admin/treasury/accountable-forms", label: "Accountable Forms Log", icon: FileWarning, category: "Treasury Department" },
+        { href: "/admin/treasury/accountable-forms", label: "Cancelled Accountable Forms", icon: FileWarning, category: "Treasury Department" },
         {
             href: "/admin/assessor",
             label: "Assessor Hub",

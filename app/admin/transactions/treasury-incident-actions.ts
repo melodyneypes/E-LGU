@@ -18,7 +18,7 @@ export interface ReportAccountableFormIncidentParams {
 }
 
 /**
- * Enterprise server action to report and log a spoiled/jammed accountable form
+ * Enterprise server action to report and log a cancelled/jammed accountable form
  * strictly adhering to government municipal audit standards.
  */
 export async function reportAccountableFormIncidentAction(params: ReportAccountableFormIncidentParams) {
@@ -102,7 +102,14 @@ export async function getAccountableFormIncidentsAction() {
             where: {
                 action: "ACCOUNTABLE_FORM_INCIDENT"
             },
-            include: {
+            select: {
+                id: true,
+                action: true,
+                entityName: true,
+                description: true,
+                entityId: true,
+                metadata: true,
+                createdAt: true,
                 user: {
                     select: {
                         name: true,

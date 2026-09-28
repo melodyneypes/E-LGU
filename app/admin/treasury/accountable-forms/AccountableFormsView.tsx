@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
     FileWarning, 
     ArrowLeft, 
@@ -252,7 +253,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(15, 23, 42);
-            doc.text("REGISTRY OF SPOILED & CANCELLED ACCOUNTABLE FORMS", PAGE_W / 2, currentY, { align: "center" });
+            doc.text("REGISTRY OF CANCELLED ACCOUNTABLE FORMS", PAGE_W / 2, currentY, { align: "center" });
             currentY += 3.5;
 
             doc.setFontSize(6.5);
@@ -343,7 +344,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             doc.setFont("helvetica", "italic");
             doc.setTextColor(71, 85, 105);
             doc.text(
-                "I hereby certify under oath that the above accountable forms and stubs were spoiled, damaged, or jammed during official issuance, and replacement stubs were verified.",
+                "I hereby certify under oath that the above accountable forms and stubs were cancelled, damaged, or jammed during official issuance, and replacement stubs were verified.",
                 MARGIN,
                 finalY
             );
@@ -376,7 +377,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             doc.text("Noted by / Municipal Treasurer", PAGE_W - MARGIN - 60, finalY + 7);
 
             const fileSuffix = startDate && endDate ? `${startDate}_to_${endDate}` : format(new Date(), "yyyyMMdd_HHmm");
-            doc.save(`COA_Accountable_Forms_Registry_${fileSuffix}.pdf`);
+            doc.save(`Cancelled_Accountable_Forms_${fileSuffix}.pdf`);
             toast.success("COA PDF Registry generated successfully!", { id: toastId });
         } catch (err) {
             console.error("Error generating PDF:", err);
@@ -400,11 +401,11 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
 
         try {
             const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet("Spoiled Accountable Forms");
+            const worksheet = workbook.addWorksheet("Cancelled Accountable Forms");
 
             // Municipal Headers
             worksheet.addRow(["MUNICIPALITY OF MAPANDAN — OFFICE OF THE MUNICIPAL TREASURER"]);
-            worksheet.addRow(["REGISTRY OF SPOILED & CANCELLED ACCOUNTABLE FORMS"]);
+            worksheet.addRow(["REGISTRY OF CANCELLED ACCOUNTABLE FORMS"]);
             worksheet.addRow([`Period: ${rangeLabel} | Exported: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`]);
             worksheet.addRow([]); // Blank spacer
 
@@ -427,7 +428,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                 "Counter Window",
                 "Form Classification",
                 "Incident Category",
-                "Damaged Serial (Spoiled)",
+                "Cancelled Serial #",
                 "Replacement Serial (Active)",
                 "Remarks / Detailed Cause",
                 "Reporting Officer",
@@ -492,7 +493,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                     cell.font = { size: 9 };
                 });
 
-                // Style Spoiled Serial in Red
+                // Style Cancelled Serial in Red
                 row.getCell(6).font = { bold: true, color: { argb: "FFE11D48" }, strike: true };
                 // Style Replacement Serial in Green
                 row.getCell(7).font = { bold: true, color: { argb: "FF10B981" } };
@@ -511,7 +512,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             const a = document.createElement("a");
             a.href = url;
             const fileSuffix = startDate && endDate ? `${startDate}_to_${endDate}` : format(new Date(), "yyyyMMdd_HHmm");
-            a.download = `COA_Accountable_Forms_Registry_${fileSuffix}.xlsx`;
+            a.download = `Cancelled_Accountable_Forms_${fileSuffix}.xlsx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -555,14 +556,14 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                         <div>
                             <div className="flex items-center gap-2">
                                 <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                    Accountable Forms & Spoiled Stubs Log
+                                    Registry of Cancelled Accountable Forms
                                 </h1>
                                 <Badge className="bg-primary/10 text-primary border-primary/20 font-mono font-bold text-[10px]">
                                     COA AUDIT READY
                                 </Badge>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                Comprehensive audit trail of paper jams, damaged stubs, and replacement serial numbers issued across Treasury counters.
+                                Official municipal audit trail for cancelled accountable forms, paper jams, and replacement serial numbers issued across Treasury counters.
                             </p>
                         </div>
                     </div>
@@ -604,7 +605,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-[#151b2b] p-5 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Spoiled Forms</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Cancelled Forms</p>
                         <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-1">{stats.total}</h3>
                         <p className="text-[10px] text-slate-400 mt-1">Logged by Treasury Cashiers</p>
                     </div>
@@ -767,7 +768,7 @@ export default function AccountableFormsView({ initialIncidents, currentUser, se
                                 <th className="py-4 px-6">Timestamp & Counter</th>
                                 <th className="py-4 px-6">Classification</th>
                                 <th className="py-4 px-6">Category</th>
-                                <th className="py-4 px-6">Damaged Serial # (Spoiled)</th>
+                                <th className="py-4 px-6">Cancelled Serial #</th>
                                 <th className="py-4 px-6">Replacement Serial # (Active)</th>
                                 <th className="py-4 px-6">Remarks & Officer</th>
                                 <th className="py-4 px-6 text-right">Action</th>

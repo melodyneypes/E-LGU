@@ -157,7 +157,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         transaction?.type?.category?.toUpperCase() === "CEDULA" || 
         transaction?.type?.code?.toUpperCase().includes("CEDULA");
 
-    // Accountable Form Incident (Paper Jam / Spoiled Stubs) States
+    // Accountable Form Incident (Paper Jam / Cancelled Stubs) States
     const [incidentModalOpen, setIncidentModalOpen] = React.useState(false);
     const [incidentFormType, setIncidentFormType] = React.useState<string>("");
     const [incidentType, setIncidentType] = React.useState<"PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR">("PAPER_JAM");
@@ -1055,7 +1055,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             </Button>
                                         )}
 
-                                        {/* Report Paper Jam / Spoiled Serial Action Button — strictly available once called to an active counter */}
+                                        {/* Report Paper Jam / Cancelled Serial Action Button — strictly available once called to an active counter */}
                                         {hasAssignedCounter ? (
                                             <Button
                                                 type="button"
@@ -1074,7 +1074,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3 flex items-center justify-center gap-2"
                                             >
                                                 <FileWarning className="w-4 h-4 text-amber-500 shrink-0" />
-                                                Report Paper Jam / Spoiled Form
+                                                Report Cancelled / Jammed Form
                                             </Button>
                                         ) : (
                                             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2 mt-3 text-left">
@@ -1643,7 +1643,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                 </DialogContent>
             </Dialog>
 
-            {/* ACCOUNTABLE FORM INCIDENT (PAPER JAM / SPOILED STUB) MODAL */}
+            {/* ACCOUNTABLE FORM INCIDENT (PAPER JAM / CANCELLED STUB) MODAL */}
             <Dialog open={incidentModalOpen} onOpenChange={(open) => {
                 if (!incidentSubmitting) {
                     setIncidentModalOpen(open);
@@ -1655,10 +1655,10 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <FileWarning className="w-7 h-7" />
                         </div>
                         <DialogTitle className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                            Report Accountable Form Incident
+                            Log Cancelled Accountable Form
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
-                            Log a spoiled or paper-jammed physical stub. This event is permanently recorded in the municipal audit trail for official COA RAAF compliance.
+                            Log a cancelled or paper-jammed physical stub. This event is permanently recorded in the municipal audit trail for official COA RAAF compliance.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1695,11 +1695,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             </select>
                         </div>
 
-                        {/* Damaged Serial & Replacement Serial Inputs */}
+                        {/* Cancelled Serial & Replacement Serial Inputs */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black uppercase tracking-wider text-rose-500">
-                                    Damaged Serial # (Spoiled)
+                                    Cancelled Serial #
                                 </Label>
                                 <Input
                                     type="text"
@@ -1753,7 +1753,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             type="button"
                             onClick={async () => {
                                 if (!damagedSerialInput.trim()) {
-                                    toast.error("Please specify the damaged / jammed serial number.");
+                                    toast.error("Please specify the cancelled / jammed serial number.");
                                     return;
                                 }
                                 if (!replacementSerialInput.trim()) {
@@ -1761,7 +1761,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     return;
                                 }
                                 if (damagedSerialInput.trim() === replacementSerialInput.trim()) {
-                                    toast.error("Replacement serial must be different from damaged serial.");
+                                    toast.error("Replacement serial must be different from cancelled serial.");
                                     return;
                                 }
 
@@ -1784,7 +1784,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     });
 
                                     if (res.success) {
-                                        toast.success("Spoiled form incident logged to AuditLog!");
+                                        toast.success("Form cancellation incident logged to AuditLog!");
                                         
                                         // Update active serial in UI form inputs only
                                         const isCtcForm = isCedula || incidentFormType.toLowerCase().includes("cedula") || incidentFormType.toLowerCase().includes("ctc");
