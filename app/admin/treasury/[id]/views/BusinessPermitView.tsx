@@ -719,8 +719,8 @@ export default function BusinessPermitView({
                                     <div className="space-y-4 animate-in slide-in-from-bottom-4">
 
 
-                                        {/* Upload Official Receipt (OR) */}
-                                        {transaction.status === "PAID" && (
+                                        {/* Treasury Payment Collection Panel */}
+                                        {["PAID", "FOR_PROCESSING", "UNPAID", "EVALUATED"].includes(transaction.status) && (
                                             <TreasuryPaymentCollectionPanel
                                                 transaction={transaction}
                                                 additional={additional}

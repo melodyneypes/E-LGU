@@ -23,6 +23,12 @@ import {
     AlertCircle,
     Printer,
     Pencil,
+    Layers,
+    Sparkles,
+    CheckSquare,
+    Square,
+    RotateCw,
+    Calendar,
     Lock,
     Unlock,
     Eye,
@@ -31,6 +37,28 @@ import {
     Loader2,
     FileWarning
 } from "lucide-react";
+import {
+    getSameDayPendingAppointments,
+    confirmMergedTreasuryPaymentAction,
+    SiblingAppointment
+} from "@/app/admin/treasury/merged-payment-actions";
+
+const getAlphaColor = (color: string, opacityPercent: number) => {
+    if (!color) return undefined;
+    const trimmed = color.trim();
+    if (trimmed.startsWith("var") || trimmed.startsWith("rgb") || trimmed.startsWith("hsl")) {
+        return `color-mix(in srgb, ${trimmed} ${opacityPercent}%, transparent)`;
+    }
+    if (trimmed.startsWith("#")) {
+        const cleanHex = trimmed.length === 4
+            ? `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`
+            : trimmed.slice(0, 7);
+        const alphaInt = Math.round((opacityPercent / 100) * 255);
+        const alphaHex = Math.max(0, Math.min(255, alphaInt)).toString(16).padStart(2, "0");
+        return `${cleanHex}${alphaHex}`;
+    }
+    return `color-mix(in srgb, ${trimmed} ${opacityPercent}%, transparent)`;
+};
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -140,9 +168,94 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         setDraftProfileValues
     } = props;
 
+    const effectiveThemeColor = themeColor || "#f43f5e";
+
     const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
     const [paymentReference, setPaymentReference] = React.useState('');
     const [isConfirmPaidModalOpen, setIsConfirmPaidModalOpen] = React.useState(false);
+
+    // Sibling Same-Day Appointments for Merged Payment
+    const [siblingAppointments, setSiblingAppointments] = React.useState<SiblingAppointment[]>([]);
+    const [selectedSiblingIds, setSelectedSiblingIds] = React.useState<string[]>([]);
+    const [isLoadingSiblings, setIsLoadingSiblings] = React.useState(false);
+    const [isSubmittingMerge, setIsSubmittingMerge] = React.useState(false);
+
+    // Refresh sibling same-day appointments
+    const handleRefreshSiblings = React.useCallback(async () => {
+        if (!transaction?.id || transaction.status === "PAID") return;
+        setIsLoadingSiblings(true);
+        try {
+            const res = await getSameDayPendingAppointments(transaction.id);
+            if (res.success && res.siblings.length > 0) {
+                setSiblingAppointments(res.siblings);
+                setSelectedSiblingIds((prev) =>
+                    prev.filter((id) => res.siblings.some((s) => s.id === id && s.isPayable))
+                );
+                toast.success(`Found ${res.siblings.length} same-day appointment(s)!`);
+            } else {
+                setSiblingAppointments([]);
+                setSelectedSiblingIds([]);
+                toast.info("No other same-day appointments found for this citizen.");
+            }
+        } catch (err) {
+            console.error("Error refreshing sibling appointments in GenericServiceView:", err);
+            toast.error("Failed to check for other same-day appointments.");
+        } finally {
+            setIsLoadingSiblings(false);
+        }
+    }, [transaction?.id, transaction?.status]);
+
+    // Fetch sibling appointments on mount or when transaction changes
+    React.useEffect(() => {
+        if (!transaction?.id || transaction.status === "PAID") return;
+        let isMounted = true;
+        setIsLoadingSiblings(true);
+        getSameDayPendingAppointments(transaction.id)
+            .then((res) => {
+                if (!isMounted) return;
+                if (res.success && res.siblings.length > 0) {
+                    setSiblingAppointments(res.siblings);
+                } else {
+                    setSiblingAppointments([]);
+                    setSelectedSiblingIds([]);
+                }
+            })
+            .catch((err) => {
+                console.error("Error fetching sibling appointments in GenericServiceView:", err);
+            })
+            .finally(() => {
+                if (isMounted) setIsLoadingSiblings(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [transaction?.id, transaction?.status]);
+
+    const handleToggleSibling = (sibling: SiblingAppointment) => {
+        if (!sibling.isPayable) {
+            toast.info(`Cannot issue O.R. for ${sibling.serviceName}: ${sibling.unpayableReason || "Not yet ready for payment."}`);
+            return;
+        }
+        setSelectedSiblingIds((prev) =>
+            prev.includes(sibling.id)
+                ? prev.filter((id) => id !== sibling.id)
+                : [...prev, sibling.id]
+        );
+    };
+
+    const handleSelectAllSiblings = () => {
+        const payableSiblings = siblingAppointments.filter((s) => s.isPayable);
+        if (payableSiblings.length === 0) {
+            toast.info("None of the detected appointments are ready for payment collection yet.");
+            return;
+        }
+        if (selectedSiblingIds.length === payableSiblings.length) {
+            setSelectedSiblingIds([]);
+        } else {
+            setSelectedSiblingIds(payableSiblings.map((s) => s.id));
+        }
+    };
 
     // Declared Gross Security Authorization States
     const [isAuthorized, setIsAuthorized] = React.useState(false);
@@ -276,6 +389,65 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         ? displayTotal + itemsSum
         : displayTotal;
 
+    const primaryFee = Number(
+        displayTotal ||
+        calcResult?.totalAmount ||
+        transaction.totalAmount ||
+        additional?.calculatedTax?.totalAmount ||
+        0
+    );
+    const selectedMergedAmount = siblingAppointments
+        .filter((s) => selectedSiblingIds.includes(s.id))
+        .reduce((sum, s) => sum + s.amount, 0);
+    const consolidatedGrandTotal = primaryFee + selectedMergedAmount;
+    const isMerging = selectedSiblingIds.length > 0;
+
+    const handleProceedMergedPayment = async () => {
+        if (!orSeriesNumber || !orSeriesNumber.trim()) {
+            toast.error("Please enter the O.R. Series Number before proceeding.");
+            return;
+        }
+        if (isCedula && !ctcNumber?.trim()) {
+            toast.error("Please enter the CTC Booklet Number for this Cedula.");
+            return;
+        }
+        if (paymentMethod !== "CASH" && !paymentReference.trim()) {
+            toast.error(`Please enter the ${paymentMethod} Reference Number.`);
+            return;
+        }
+
+        setIsSubmittingMerge(true);
+        const toastId = "merging-payment";
+        toast.loading(`Consolidating ${selectedSiblingIds.length + 1} appointments under O.R. #${orSeriesNumber}...`, { id: toastId });
+
+        try {
+            const formData = new FormData();
+            formData.append("primaryId", transaction.id);
+            formData.append("selectedIds", JSON.stringify(selectedSiblingIds));
+            formData.append("orSeriesNumber", orSeriesNumber.trim());
+            formData.append("paymentMethod", paymentMethod);
+            if (paymentReference.trim()) formData.append("paymentReference", paymentReference.trim());
+            if (remarks?.trim()) formData.append("remarks", remarks.trim());
+            if (ctcNumber?.trim()) formData.append("ctcNumber", ctcNumber.trim());
+            if (orFile) formData.append("orFile", orFile);
+
+            const res = await confirmMergedTreasuryPaymentAction(formData);
+            if (res.success) {
+                toast.success(
+                    `Consolidated payment recorded! ${res.mergedCount} appointments linked to O.R. #${res.orNumber} (Total: ₱${res.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2 })})`,
+                    { id: toastId }
+                );
+                window.location.reload();
+            } else {
+                toast.error(res.error || "Failed to merge appointments payment.", { id: toastId });
+            }
+        } catch (err: any) {
+            toast.error(err.message || "An unexpected error occurred during merged payment.", { id: toastId });
+        } finally {
+            setIsSubmittingMerge(false);
+        }
+    };
+
 
     return (
         <div
@@ -384,76 +556,75 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
                                 {/* TOP METRICS GRID */}
                                 <div className="grid grid-cols-4 gap-4">
-                                        <div
-                                            onClick={() => {
-                                                if (isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && isGrossLocked) {
-                                                    setUnlockModalOpen(true);
-                                                }
-                                            }}
-                                            className={`p-4 rounded-2xl space-y-1 transition-all ${
-                                                isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent
-                                                    ? !isGrossLocked
-                                                        ? "bg-emerald-500/5 border border-emerald-500/30"
-                                                        : "bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer group"
-                                                    : "bg-[#f8fafd] dark:bg-white/5"
-                                            }`}
-                                            title={
-                                                transaction.isStudent
-                                                    ? String(declaredValue)
-                                                    : isGrossLocked && isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
-                                                        ? "Click to unlock and adjust declared gross income"
-                                                        : `₱${Number(declaredValue).toLocaleString()}`
+                                    <div
+                                        onClick={() => {
+                                            if (isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && isGrossLocked) {
+                                                setUnlockModalOpen(true);
                                             }
-                                        >
-                                            <div className="flex items-center justify-between gap-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 truncate">
-                                                    {declaredLabel}
+                                        }}
+                                        className={`p-4 rounded-2xl space-y-1 transition-all ${isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent
+                                                ? !isGrossLocked
+                                                    ? "bg-emerald-500/5 border border-emerald-500/30"
+                                                    : "bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer group"
+                                                : "bg-[#f8fafd] dark:bg-white/5"
+                                            }`}
+                                        title={
+                                            transaction.isStudent
+                                                ? String(declaredValue)
+                                                : isGrossLocked && isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING")
+                                                    ? "Click to unlock and adjust declared gross income"
+                                                    : `₱${Number(declaredValue).toLocaleString()}`
+                                        }
+                                    >
+                                        <div className="flex items-center justify-between gap-1">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 truncate">
+                                                {declaredLabel}
+                                            </span>
+                                            {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && !isGrossLocked && (
+                                                <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                                                    Authorized
                                                 </span>
-                                                {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent && !isGrossLocked && (
-                                                    <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
-                                                        Authorized
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
-                                                !isGrossLocked ? (
-                                                    <div className="space-y-1">
-                                                        <div className="relative flex items-center mt-1">
-                                                            <span className="absolute left-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 select-none">₱</span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                step="any"
-                                                                autoFocus
-                                                                value={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || 0)}
-                                                                onChange={(e) => {
-                                                                    const val = parseFloat(e.target.value);
-                                                                    setEditedIncome(isNaN(val) ? 0 : Math.max(0, val));
-                                                                }}
-                                                                className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-lg text-sm font-black italic tracking-tighter text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-                                                                placeholder="0.00"
-                                                            />
-                                                        </div>
-                                                        {authorizedStaffName && (
-                                                            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
-                                                                By: {authorizedStaffName}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="pt-1">
-                                                        <p className="text-xl font-black italic tracking-tighter text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
-                                                            ₱{Number(declaredValue).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
-                                                    {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
-                                                </p>
                                             )}
                                         </div>
+                                        {isCedula && setEditedIncome && (transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && !transaction.isStudent ? (
+                                            !isGrossLocked ? (
+                                                <div className="space-y-1">
+                                                    <div className="relative flex items-center mt-1">
+                                                        <span className="absolute left-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 select-none">₱</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            autoFocus
+                                                            value={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || 0)}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value);
+                                                                setEditedIncome(isNaN(val) ? 0 : Math.max(0, val));
+                                                            }}
+                                                            className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-lg text-sm font-black italic tracking-tighter text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                    {authorizedStaffName && (
+                                                        <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                                                            By: {authorizedStaffName}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="pt-1">
+                                                    <p className="text-xl font-black italic tracking-tighter text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
+                                                        ₱{Number(declaredValue).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            )
+                                        ) : (
+                                            <p className="text-base font-black italic tracking-tighter dark:text-slate-200 truncate">
+                                                {transaction.isStudent ? String(declaredValue) : `₱${Number(declaredValue).toLocaleString()}`}
+                                            </p>
+                                        )}
+                                    </div>
                                     <div
                                         className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-2xl space-y-1 cursor-help"
                                         title={transaction.paymentType?.replace(/_/g, " ") || ""}
@@ -971,6 +1142,209 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 });
                                 return (
                                     <div className="space-y-4">
+                                        {/* SIBLING SAME-DAY APPOINTMENTS SELECTION PANEL */}
+                                        {isLoadingSiblings && siblingAppointments.length === 0 && (
+                                            <div className="flex items-center gap-2 p-3.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs font-bold animate-pulse">
+                                                <RotateCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                                                <span>Checking same-day appointments for this citizen...</span>
+                                            </div>
+                                        )}
+
+                                        {siblingAppointments.length > 0 && (() => {
+                                            const payableCount = siblingAppointments.filter(s => s.isPayable).length;
+                                            const unpayableCount = siblingAppointments.length - payableCount;
+                                            return (
+                                                <div className="bg-slate-50/70 dark:bg-[#121824] border border-slate-200 dark:border-white/10 rounded-3xl p-5 space-y-4 animate-in fade-in duration-300 shadow-sm">
+                                                    {/* Header */}
+                                                    <div className="space-y-3">
+                                                        {/* Row 1: Title & Action Buttons */}
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center shrink-0">
+                                                                    <Layers className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                                                                </div>
+                                                                <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 truncate">
+                                                                    Same-Day Appointments
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={handleRefreshSiblings}
+                                                                    disabled={isLoadingSiblings}
+                                                                    title="Refresh same-day appointments"
+                                                                    className="text-[9px] font-black uppercase tracking-wider h-6 px-2 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                                                >
+                                                                    <RotateCw className={`w-3 h-3 ${isLoadingSiblings ? "animate-spin" : ""}`} />
+                                                                    <span>Refresh</span>
+                                                                </Button>
+                                                                {payableCount > 0 && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={handleSelectAllSiblings}
+                                                                        className="text-[9px] font-black uppercase tracking-wider h-6 px-2.5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 shrink-0 rounded-lg transition-all active:scale-95 cursor-pointer"
+                                                                    >
+                                                                        {selectedSiblingIds.length === payableCount ? "Deselect All" : "Select All Payable"}
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Row 2: Status Chips (Cleanly Relocated) */}
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                                                {siblingAppointments.length} Found
+                                                            </span>
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                                {payableCount} Payable
+                                                            </span>
+                                                            {unpayableCount > 0 && (
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-500 dark:text-slate-400 border border-slate-500/20">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                                                    {unpayableCount} In Review
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Row 3: Explanatory Helper Text */}
+                                                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                                            This citizen has other appointments today. You can combine appointments that are ready for payment into this Official Receipt:
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Appointment Items List */}
+                                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                                        {siblingAppointments.map((sibling) => {
+                                                            const isSelected = selectedSiblingIds.includes(sibling.id);
+                                                            return (
+                                                                <div
+                                                                    key={sibling.id}
+                                                                    onClick={() => handleToggleSibling(sibling)}
+                                                                    className={cn(
+                                                                        "flex items-center justify-between p-3 rounded-xl border transition-all select-none",
+                                                                        sibling.isPayable
+                                                                            ? (isSelected
+                                                                                ? "shadow-sm cursor-pointer"
+                                                                                : "bg-white/80 dark:bg-[#151c28] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 cursor-pointer")
+                                                                            : "bg-slate-100/50 dark:bg-white/[0.02] border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-75"
+                                                                    )}
+                                                                    style={
+                                                                        sibling.isPayable && isSelected
+                                                                            ? {
+                                                                                backgroundColor: getAlphaColor(effectiveThemeColor, 12),
+                                                                                borderColor: getAlphaColor(effectiveThemeColor, 50)
+                                                                            }
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="shrink-0">
+                                                                            {!sibling.isPayable ? (
+                                                                                <div title={sibling.unpayableReason || "Not yet payable"} className="w-5 h-5 flex items-center justify-center">
+                                                                                    <Ban className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                                                                </div>
+                                                                            ) : isSelected ? (
+                                                                                <CheckSquare
+                                                                                    className="w-5 h-5 text-white dark:text-slate-900"
+                                                                                    style={{ fill: effectiveThemeColor, color: effectiveThemeColor }}
+                                                                                />
+                                                                            ) : (
+                                                                                <Square className="w-5 h-5 text-slate-400" />
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="space-y-0.5">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <p
+                                                                                    className={cn("text-xs font-black uppercase tracking-tight", !sibling.isPayable && "text-slate-500 dark:text-slate-400")}
+                                                                                    style={sibling.isPayable && isSelected ? { color: effectiveThemeColor } : undefined}
+                                                                                >
+                                                                                    {sibling.serviceName}
+                                                                                </p>
+                                                                                {!sibling.isPayable && (
+                                                                                    <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap shrink-0">
+                                                                                        {sibling.unpayableReason || "Not for payment"}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500">
+                                                                                <span className="font-mono font-bold">Ref: {sibling.reference}</span>
+                                                                                <span>•</span>
+                                                                                <span className="flex items-center gap-1">
+                                                                                    <Calendar className="w-3 h-3" />
+                                                                                    {sibling.appointmentSlot}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right shrink-0">
+                                                                        <p
+                                                                            className={cn(
+                                                                                "text-xs font-black font-mono",
+                                                                                sibling.isPayable ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"
+                                                                            )}
+                                                                            style={sibling.isPayable && isSelected ? { color: effectiveThemeColor } : undefined}
+                                                                        >
+                                                                            ₱{sibling.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                        </p>
+                                                                        <span className={cn(
+                                                                            "text-[8px] font-black uppercase tracking-wider",
+                                                                            sibling.isPayable ? "text-emerald-500" : "text-slate-400"
+                                                                        )}>
+                                                                            {sibling.isPayable ? "READY FOR OR" : sibling.status}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Dynamic Consolidated Totalizer */}
+                                                    <div className="bg-slate-900 dark:bg-black/40 text-white rounded-2xl p-3.5 flex items-center justify-between border border-white/10">
+                                                        <div className="space-y-0.5">
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                Consolidated Cashier Total
+                                                            </span>
+                                                            <p className="text-[10px] text-slate-300">
+                                                                {isMerging
+                                                                    ? `Current (₱${primaryFee.toFixed(2)}) + ${selectedSiblingIds.length} Merged`
+                                                                    : "Current Request Only"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-lg md:text-xl font-black font-mono text-emerald-400 tracking-tight">
+                                                                ₱{consolidatedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </p>
+                                                            {isMerging && (
+                                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-300">
+                                                                    {selectedSiblingIds.length + 1} Appointments in 1 O.R.
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {!isLoadingSiblings && siblingAppointments.length === 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRefreshSiblings}
+                                                className="w-full flex items-center justify-between p-3 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 text-[11px] font-bold transition-all"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <Layers className="w-3.5 h-3.5 text-slate-400" />
+                                                    Check Same-Day Mergeable Appointments
+                                                </span>
+                                                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-black">Scan</span>
+                                            </button>
+                                        )}
+
                                         {/* Inline Payment Selector */}
                                         <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
                                             <div className="space-y-2">
@@ -998,7 +1372,9 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
                                             {/* OR Number Input */}
                                             <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                                                    {isMerging ? "Consolidated OR Number (Official Receipt)" : "OR Number (Official Receipt)"}
+                                                </Label>
                                                 <Input
                                                     type="text"
                                                     name="official_receipt_series_number"
@@ -1006,7 +1382,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                     data-lpignore="true"
                                                     data-1p-ignore="true"
                                                     data-form-type="other"
-                                                    placeholder="Enter OR Series Number..."
+                                                    placeholder={isMerging ? "Enter Shared OR Series Number for All..." : "Enter OR Series Number..."}
                                                     value={orSeriesNumber || ""}
                                                     onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
                                                     className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
@@ -1035,11 +1411,25 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <Button
                                             type="button"
                                             onClick={() => setIsConfirmPaidModalOpen(true)}
-                                            disabled={actionLoading || hasInvalidFees || !orSeriesNumber?.trim() || (paymentMethod !== "CASH" && !paymentReference.trim())}
+                                            disabled={actionLoading || isSubmittingMerge || hasInvalidFees || !orSeriesNumber?.trim() || (paymentMethod !== "CASH" && !paymentReference.trim())}
                                             title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : (!orSeriesNumber?.trim() ? "Official Receipt (OR) Number is required." : (paymentMethod !== "CASH" && !paymentReference.trim() ? `${paymentMethod} reference number is required.` : undefined))}
-                                            className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                                            className={cn(
+                                                "w-full h-14 font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+                                                isMerging
+                                                    ? "bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:opacity-95 text-white shadow-amber-500/25"
+                                                    : "bg-primary hover:opacity-90 text-white shadow-primary/20"
+                                            )}
                                         >
-                                            {actionLoading ? "Processing..." : "Mark as Paid & Released"}
+                                            {actionLoading || isSubmittingMerge ? (
+                                                <span className="flex items-center gap-2">
+                                                    <RotateCw className="w-4 h-4 animate-spin" />
+                                                    Processing...
+                                                </span>
+                                            ) : isMerging ? (
+                                                `Consolidate & Release (${selectedSiblingIds.length + 1} Appointments • ₱${consolidatedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })})`
+                                            ) : (
+                                                "Mark as Paid & Released"
+                                            )}
                                         </Button>
 
                                         {/* Dedicated Print Cedula action - positioned right below Mark as Paid & Released */}
@@ -1110,6 +1500,30 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     </div>
                                 );
                             })()}
+
+                            {/* Merged Payment Metadata Banner if Already Paid */}
+                            {transaction.status === "PAID" && additional?.isMergedPayment && (
+                                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-2 mb-4">
+                                    <div className="flex items-center gap-2 text-emerald-500 font-black text-xs uppercase tracking-wider">
+                                        <Layers className="w-4 h-4" />
+                                        <span>Consolidated Municipal Payment</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase">Consolidated O.R.</p>
+                                            <p className="font-mono font-extrabold text-slate-800 dark:text-slate-100">
+                                                {additional.mergedGroupOr || additional.orSeriesNumber || transaction.orSeriesNumber}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase">Grand Total Collected</p>
+                                            <p className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                                                ₱{Number(additional.mergedGrandTotal || transaction.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {transaction.status === "PAID" && (
                                 <Button
@@ -1465,9 +1879,18 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Amount Collected</span>
                                     <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                                        ₱{adjustedTotalAmount.toFixed(2)}
+                                        ₱{(isMerging ? consolidatedGrandTotal : adjustedTotalAmount).toFixed(2)}
                                     </span>
                                 </div>
+
+                                {isMerging && (
+                                    <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">Merged Appointments</span>
+                                        <span className="font-black text-amber-500 text-xs">
+                                            Current + {selectedSiblingIds.length} Sibling(s)
+                                        </span>
+                                    </div>
+                                )}
 
                                 {/* Payment Method */}
                                 <div className="flex justify-between items-center border-t border-dashed border-slate-200 dark:border-white/5 pt-2.5">
@@ -1507,7 +1930,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsConfirmPaidModalOpen(false)}
-                                disabled={actionLoading}
+                                disabled={actionLoading || isSubmittingMerge}
                                 className="flex-1 rounded-xl border-slate-200 dark:border-white/10 font-bold py-6 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
                             >
                                 Edit / Go Back
@@ -1515,15 +1938,22 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <Button
                                 type="button"
                                 onClick={async () => {
-                                    if (handleOnsitePayment) {
+                                    if (isMerging) {
+                                        await handleProceedMergedPayment();
+                                    } else if (handleOnsitePayment) {
                                         await handleOnsitePayment(paymentMethod, undefined, paymentMethod !== "CASH" ? paymentReference : undefined);
                                     }
                                     setIsConfirmPaidModalOpen(false);
                                 }}
-                                disabled={actionLoading}
-                                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-wider py-6 shadow-lg shadow-emerald-600/20"
+                                disabled={actionLoading || isSubmittingMerge}
+                                className={cn(
+                                    "flex-1 rounded-xl text-white font-black italic uppercase tracking-wider py-6 shadow-lg",
+                                    isMerging
+                                        ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                                        : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                                )}
                             >
-                                {actionLoading ? "Finalizing..." : "Confirm & Release"}
+                                {actionLoading || isSubmittingMerge ? "Finalizing..." : isMerging ? "Confirm Consolidated Payment" : "Confirm & Release"}
                             </Button>
                         </div>
                     </div>

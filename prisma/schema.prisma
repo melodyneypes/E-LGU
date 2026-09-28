@@ -1691,7 +1691,7 @@ model RoadClosure {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model FollowUpAppointment {
-  id                    String   @id
+  id                    String   @id @default(cuid())
   patientId             String
   patientName           String?
   doctorId              String?
@@ -1704,7 +1704,7 @@ model FollowUpAppointment {
   sourceTransactionId   String?
   injectedTransactionId String?
   createdAt             DateTime @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime @updatedAt
 
   @@index([doctorId])
   @@index([patientId])

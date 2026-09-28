@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Copy, Check, DollarSign, CalendarIcon, ChevronLeft, ChevronRight, FileText, RotateCcw, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/utils";
 
 interface PaymentRecord {
     id: string;
@@ -268,11 +269,15 @@ export default function PosoPaymentsClient({
         );
     }, [fromDate, toDate, methodFilter, searchVal]);
 
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedId(id);
-        toast.success("Reference number copied!");
-        setTimeout(() => setCopiedId(null), 2000);
+    const handleCopy = async (text: string, id: string) => {
+        const success = await copyToClipboard(text);
+        if (success) {
+            setCopiedId(id);
+            toast.success("Reference number copied!");
+            setTimeout(() => setCopiedId(null), 2000);
+        } else {
+            toast.error("Failed to copy reference number.");
+        }
     };
 
     const formatDateTime = (dateStr: string) => {
