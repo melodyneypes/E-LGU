@@ -144,3 +144,59 @@ export async function reportAccountableFormIncidentAction(params: ReportAccounta
         return { success: false, error: error?.message || "Failed to log accountable form incident." };
     }
 }
+
+/**
+ * Fetch all logged accountable form incidents from the immutable AuditLog table.
+ */
+export async function getAccountableFormIncidentsAction() {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+
+        if (!user || !["ADMIN", "TREASURY_STAFF", "TREASURY_OFFICER", "ADMIN_AIDE", "MAYOR"].includes(user.role)) {
+            return { success: false, error: "Unauthorized access to audit registry." };
+        }
+
+        const logs = await prisma.auditLog.findMany({
+            where: {
+                action: "ACCOUNTABLE_FORM_INCIDENT"
+            },
+            orderBy: {
+                createdAt: "desc"
+            },
+            take: 200
+        });
+
+        const incidents = logs.map((log) => {
+            const meta = (typeof log.metadata === "string" 
+                ? (() => { try { return JSON.parse(log.metadata); } catch { return {}; } })()
+                : (log.metadata || {})) as Record<string, any>;
+
+            return {
+                id: log.id,
+                action: log.action,
+                entityName: log.entityName,
+                description: log.description,
+                transactionId: log.entityId,
+                formType: meta.formType || "Official Receipt",
+                incidentType: meta.incidentType || "PAPER_JAM",
+                damagedSeriesNumber: meta.damagedSeriesNumber || "—",
+                replacedSeriesNumber: meta.replacedSeriesNumber || "—",
+                reasonDetails: meta.reasonDetails || null,
+                counterName: meta.counterName || null,
+                reportedBy: meta.reportedBy || log.userId || "Treasury Staff",
+                reportedRole: meta.reportedRole || "STAFF",
+                createdAt: log.createdAt
+            };
+        });
+
+        return {
+            success: true,
+            data: incidents
+        };
+    } catch (error: any) {
+        console.error("Error retrieving accountable form incidents:", error);
+        return { success: false, error: error?.message || "Failed to retrieve incidents." };
+    }
+}
+

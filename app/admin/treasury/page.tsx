@@ -30,12 +30,21 @@ export default async function TreasuryPage() {
                     </p>
                 </div>
 
-                <Link href="/admin/treasury/queue">
-                    <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer select-none whitespace-nowrap">
-                        <Volume2 className="w-4 h-4 animate-bounce" />
-                        Live Queue
-                    </div>
-                </Link>
+                <div className="flex items-center gap-3">
+                    <Link href="/admin/treasury/accountable-forms">
+                        <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold uppercase tracking-wider text-xs hover:bg-slate-50 dark:hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer select-none whitespace-nowrap shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            Accountable Forms Log
+                        </div>
+                    </Link>
+
+                    <Link href="/admin/treasury/queue">
+                        <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer select-none whitespace-nowrap">
+                            <Volume2 className="w-4 h-4 animate-bounce" />
+                            Live Queue
+                        </div>
+                    </Link>
+                </div>
             </div>
 
             <TreasuryDashboard />

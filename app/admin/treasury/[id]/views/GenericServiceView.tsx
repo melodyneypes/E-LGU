@@ -159,7 +159,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
     // Accountable Form Incident (Paper Jam / Spoiled Stubs) States
     const [incidentModalOpen, setIncidentModalOpen] = React.useState(false);
-    const [incidentFormType, setIncidentFormType] = React.useState<string>(isCedula ? "Cedula (CTC Form)" : "Official Receipt (OR 51)");
+    const [incidentFormType, setIncidentFormType] = React.useState<string>("");
     const [incidentType, setIncidentType] = React.useState<"PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR">("PAPER_JAM");
     const [damagedSerialInput, setDamagedSerialInput] = React.useState("");
     const [replacementSerialInput, setReplacementSerialInput] = React.useState("");
@@ -1061,7 +1061,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 setDamagedSerialInput(currentSerial);
                                                 setReplacementSerialInput("");
                                                 setIncidentReasonDetails("");
-                                                setIncidentFormType(isCedula ? "COMMUNITY_TAX_CERTIFICATE" : "OFFICIAL_RECEIPT");
+                                                setIncidentFormType("");
                                                 setIncidentType("PAPER_JAM");
                                                 setIncidentModalOpen(true);
                                             }}
@@ -1651,8 +1651,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 type="text"
                                 value={incidentFormType}
                                 onChange={(e) => setIncidentFormType(e.target.value)}
-                                placeholder="e.g. Cedula (CTC Form), Official Receipt (OR 51), Form 56..."
-                                className="h-10 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/10"
+                                placeholder="Official Receipt"
+                                className="h-10 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/10 placeholder:text-slate-400/70"
                             />
                         </div>
 
@@ -1747,9 +1747,10 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 setIncidentSubmitting(true);
                                 try {
                                     const { reportAccountableFormIncidentAction } = await import("@/app/admin/transactions/treasury-incident-actions");
+                                    const effectiveFormType = incidentFormType.trim() || (isCedula ? "Cedula (CTC Form)" : "Official Receipt");
                                     const res = await reportAccountableFormIncidentAction({
                                         transactionId: transaction.id,
-                                        formType: incidentFormType,
+                                        formType: effectiveFormType,
                                         incidentType,
                                         damagedSeriesNumber: damagedSerialInput.trim(),
                                         replacedSeriesNumber: replacementSerialInput.trim(),
