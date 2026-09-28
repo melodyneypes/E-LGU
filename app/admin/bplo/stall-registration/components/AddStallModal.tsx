@@ -343,8 +343,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRate}
-                                        onChange={(e) => setDailyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRate(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 50"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -354,8 +363,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRate}
-                                        onChange={(e) => setMonthlyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRate(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 1500"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -368,8 +386,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRateOverdueFee}
-                                        onChange={(e) => setDailyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRateOverdueFee(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 10"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -379,8 +406,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRateOverdueFee}
-                                        onChange={(e) => setMonthlyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRateOverdueFee(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 100"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -439,9 +475,18 @@ export function AddStallModal() {
                                                     <Input
                                                         type="number"
                                                         step="any"
+                                                        min="0"
                                                         placeholder="Amount"
                                                         value={fee.amount}
-                                                        onChange={(e) => handleUpdateOtherFee(fee.id, "amount", e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                                        }}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === "" || parseFloat(val) >= 0) {
+                                                                handleUpdateOtherFee(fee.id, "amount", val);
+                                                            }
+                                                        }}
                                                         className="h-8 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs"
                                                     />
                                                 </div>

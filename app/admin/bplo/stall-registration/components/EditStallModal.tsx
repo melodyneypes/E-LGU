@@ -226,8 +226,17 @@ export function EditStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRate}
-                                        onChange={(e) => setDailyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRate(val);
+                                            }
+                                        }}
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
                                 </div>
@@ -236,8 +245,17 @@ export function EditStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRate}
-                                        onChange={(e) => setMonthlyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRate(val);
+                                            }
+                                        }}
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
                                 </div>
@@ -249,8 +267,17 @@ export function EditStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRateOverdueFee}
-                                        onChange={(e) => setDailyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRateOverdueFee(val);
+                                            }
+                                        }}
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
                                 </div>
@@ -259,8 +286,17 @@ export function EditStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRateOverdueFee}
-                                        onChange={(e) => setMonthlyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRateOverdueFee(val);
+                                            }
+                                        }}
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
                                 </div>
@@ -318,9 +354,18 @@ export function EditStallModal() {
                                                 <Input
                                                     type="number"
                                                     step="any"
+                                                    min="0"
                                                     placeholder="Amount"
                                                     value={fee.amount}
-                                                    onChange={(e) => handleFeeChange(idx, "amount", e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "-" || e.key === "e") e.preventDefault();
+                                                    }}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === "" || parseFloat(val) >= 0) {
+                                                            handleFeeChange(idx, "amount", val);
+                                                        }
+                                                    }}
                                                     className="h-8 w-20 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold"
                                                 />
                                                 <Select
