@@ -9,7 +9,7 @@ import { sanitizeString } from "@/lib/validation";
 
 export interface ReportAccountableFormIncidentParams {
     transactionId?: string;
-    formType: "OFFICIAL_RECEIPT" | "COMMUNITY_TAX_CERTIFICATE";
+    formType: string;
     incidentType: "PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR";
     damagedSeriesNumber: string;
     replacedSeriesNumber: string;

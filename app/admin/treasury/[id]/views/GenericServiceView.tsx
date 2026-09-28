@@ -159,7 +159,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
     // Accountable Form Incident (Paper Jam / Spoiled Stubs) States
     const [incidentModalOpen, setIncidentModalOpen] = React.useState(false);
-    const [incidentFormType, setIncidentFormType] = React.useState<"OFFICIAL_RECEIPT" | "COMMUNITY_TAX_CERTIFICATE">(isCedula ? "COMMUNITY_TAX_CERTIFICATE" : "OFFICIAL_RECEIPT");
+    const [incidentFormType, setIncidentFormType] = React.useState<string>(isCedula ? "Cedula (CTC Form)" : "Official Receipt (OR 51)");
     const [incidentType, setIncidentType] = React.useState<"PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR">("PAPER_JAM");
     const [damagedSerialInput, setDamagedSerialInput] = React.useState("");
     const [replacementSerialInput, setReplacementSerialInput] = React.useState("");
@@ -1647,32 +1647,13 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                                 Form Classification
                             </Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIncidentFormType("COMMUNITY_TAX_CERTIFICATE")}
-                                    className={cn(
-                                        "h-10 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
-                                        incidentFormType === "COMMUNITY_TAX_CERTIFICATE"
-                                            ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
-                                            : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
-                                    )}
-                                >
-                                    Cedula (CTC Form)
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setIncidentFormType("OFFICIAL_RECEIPT")}
-                                    className={cn(
-                                        "h-10 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
-                                        incidentFormType === "OFFICIAL_RECEIPT"
-                                            ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
-                                            : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
-                                    )}
-                                >
-                                    Official Receipt (OR 51)
-                                </button>
-                            </div>
+                            <Input
+                                type="text"
+                                value={incidentFormType}
+                                onChange={(e) => setIncidentFormType(e.target.value)}
+                                placeholder="e.g. Cedula (CTC Form), Official Receipt (OR 51), Form 56..."
+                                className="h-10 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/10"
+                            />
                         </div>
 
                         {/* Incident Type Selector */}
@@ -1780,7 +1761,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         toast.success(res.message || "Incident recorded successfully!");
                                         
                                         // Update active serial in UI
-                                        if (incidentFormType === "COMMUNITY_TAX_CERTIFICATE") {
+                                        const isCtcForm = isCedula || incidentFormType.toLowerCase().includes("cedula") || incidentFormType.toLowerCase().includes("ctc");
+                                        if (isCtcForm) {
                                             setCtcNumber?.(replacementSerialInput.trim());
                                         } else {
                                             setOrSeriesNumber?.(replacementSerialInput.trim());
