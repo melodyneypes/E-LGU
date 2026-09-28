@@ -17,7 +17,10 @@ import {
     CheckCircle2,
     Calendar,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    FileSpreadsheet,
+    FileText,
+    X
 } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -25,6 +28,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getAccountableFormIncidentsAction } from "@/app/admin/transactions/treasury-incident-actions";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
 
 interface IncidentItem {
     id: string;
@@ -43,18 +49,38 @@ interface IncidentItem {
     createdAt: string | Date;
 }
 
-interface Props {
-    initialIncidents: IncidentItem[];
+interface CurrentUserContext {
+    name: string;
+    email: string;
+    role: string;
 }
 
-export default function AccountableFormsView({ initialIncidents }: Props) {
+interface SystemSettingsContext {
+    logoUrl: string | null;
+    brandWord1: string;
+    brandWord2: string;
+    themeColor: string;
+    treasurerName: string;
+}
+
+interface Props {
+    initialIncidents: IncidentItem[];
+    currentUser?: CurrentUserContext;
+    settings?: SystemSettingsContext;
+}
+
+export default function AccountableFormsView({ initialIncidents, currentUser, settings }: Props) {
     const [incidents, setIncidents] = useState<IncidentItem[]>(initialIncidents);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-    const [dateRangePreset, setDateRangePreset] = useState<"ALL" | "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CUSTOM">("ALL");
-    const [customStartDate, setCustomStartDate] = useState<string>("");
-    const [customEndDate, setCustomEndDate] = useState<string>("");
+    
+    // Explicit Start & End Date State
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
+    
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -78,10 +104,27 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
         }
     };
 
+    // Quick Date Range Helpers
+    const setQuickDateRange = (preset: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CLEAR") => {
+        const now = new Date();
+        if (preset === "TODAY") {
+            const d = format(now, "yyyy-MM-dd");
+            setStartDate(d);
+            setEndDate(d);
+        } else if (preset === "THIS_WEEK") {
+            setStartDate(format(subDays(now, 7), "yyyy-MM-dd"));
+            setEndDate(format(now, "yyyy-MM-dd"));
+        } else if (preset === "THIS_MONTH") {
+            setStartDate(format(startOfMonth(now), "yyyy-MM-dd"));
+            setEndDate(format(endOfMonth(now), "yyyy-MM-dd"));
+        } else {
+            setStartDate("");
+            setEndDate("");
+        }
+    };
+
     // Filtered Incidents
     const filteredIncidents = useMemo(() => {
-        const now = new Date();
-
         return incidents.filter(item => {
             const itemDate = new Date(item.createdAt);
 
@@ -98,44 +141,27 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
             // 2. Incident Category Filter
             const matchesCategory = categoryFilter === "ALL" || item.incidentType === categoryFilter;
 
-            // 3. Date Range Filter
+            // 3. Explicit Start & End Date Filter
             let matchesDate = true;
-            if (dateRangePreset === "TODAY") {
+            if (startDate && endDate) {
                 matchesDate = isWithinInterval(itemDate, {
-                    start: startOfDay(now),
-                    end: endOfDay(now)
+                    start: startOfDay(new Date(startDate)),
+                    end: endOfDay(new Date(endDate))
                 });
-            } else if (dateRangePreset === "THIS_WEEK") {
-                matchesDate = isWithinInterval(itemDate, {
-                    start: startOfDay(subDays(now, 7)),
-                    end: endOfDay(now)
-                });
-            } else if (dateRangePreset === "THIS_MONTH") {
-                matchesDate = isWithinInterval(itemDate, {
-                    start: startOfMonth(now),
-                    end: endOfMonth(now)
-                });
-            } else if (dateRangePreset === "CUSTOM") {
-                if (customStartDate && customEndDate) {
-                    matchesDate = isWithinInterval(itemDate, {
-                        start: startOfDay(new Date(customStartDate)),
-                        end: endOfDay(new Date(customEndDate))
-                    });
-                } else if (customStartDate) {
-                    matchesDate = itemDate >= startOfDay(new Date(customStartDate));
-                } else if (customEndDate) {
-                    matchesDate = itemDate <= endOfDay(new Date(customEndDate));
-                }
+            } else if (startDate) {
+                matchesDate = itemDate >= startOfDay(new Date(startDate));
+            } else if (endDate) {
+                matchesDate = itemDate <= endOfDay(new Date(endDate));
             }
 
             return matchesSearch && matchesCategory && matchesDate;
         });
-    }, [incidents, search, categoryFilter, dateRangePreset, customStartDate, customEndDate]);
+    }, [incidents, search, categoryFilter, startDate, endDate]);
 
     // Reset page to 1 whenever filters change
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [search, categoryFilter, dateRangePreset, customStartDate, customEndDate, pageSize]);
+    }, [search, categoryFilter, startDate, endDate, pageSize]);
 
     // Paginated Sliced Incidents
     const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / pageSize));
@@ -144,36 +170,15 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
         return filteredIncidents.slice(start, start + pageSize);
     }, [filteredIncidents, currentPage, pageSize]);
 
-    // Export to CSV for COA Compliance Liquidation (exports all matching filtered items)
-    const handleExportCSV = () => {
-        if (!filteredIncidents.length) {
-            toast.error("No incident logs available to export.");
-            return;
+    // Helper for date range display string
+    const rangeLabel = useMemo(() => {
+        if (startDate && endDate) {
+            return `${format(new Date(startDate), "MMM dd, yyyy")} to ${format(new Date(endDate), "MMM dd, yyyy")}`;
         }
-
-        const headers = ["Timestamp", "Form Classification", "Incident Category", "Spoiled Serial #", "Replacement Serial #", "Remarks", "Counter", "Reported By (Staff)", "Transaction ID"];
-        const rows = filteredIncidents.map(item => [
-            format(new Date(item.createdAt), "yyyy-MM-dd HH:mm:ss"),
-            `"${(item.formType || "").replace(/"/g, '""')}"`,
-            item.incidentType,
-            item.damagedSeriesNumber,
-            item.replacedSeriesNumber,
-            `"${(item.reasonDetails || "").replace(/"/g, '""')}"`,
-            `"${(item.counterName || "Unassigned").replace(/"/g, '""')}"`,
-            `"${item.reportedBy}"`,
-            item.transactionId || "N/A"
-        ]);
-
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `COA_Spoiled_Accountable_Forms_${format(new Date(), "yyyyMMdd_HHmm")}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success(`Exported ${filteredIncidents.length} records successfully!`);
-    };
+        if (startDate) return `From ${format(new Date(startDate), "MMM dd, yyyy")}`;
+        if (endDate) return `Until ${format(new Date(endDate), "MMM dd, yyyy")}`;
+        return `All Records (Cumulative as of ${format(new Date(), "MMM dd, yyyy")})`;
+    }, [startDate, endDate]);
 
     // KPI Metrics
     const stats = useMemo(() => {
@@ -185,6 +190,341 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
 
         return { total, paperJams, misfeeds, damagedLeaves, others };
     }, [incidents]);
+
+    // -------------------------------------------------------------
+    // 📄 OFFICIAL COA MUNICIPAL PDF EXPORT (jsPDF + autoTable)
+    // -------------------------------------------------------------
+    const handleExportPDF = async () => {
+        if (!filteredIncidents.length) {
+            toast.error("No incident logs available to export.");
+            return;
+        }
+
+        setIsExportingPdf(true);
+        const toastId = toast.loading("Generating Official COA PDF Registry...");
+
+        try {
+            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const PAGE_W = doc.internal.pageSize.getWidth();  // 297mm
+            const PAGE_H = doc.internal.pageSize.getHeight(); // 210mm
+            const MARGIN = 14;
+
+            let currentY = 12;
+
+            // Municipal Logo (if present)
+            if (settings?.logoUrl) {
+                try {
+                    const imgRes = await fetch(settings.logoUrl);
+                    const imgBlob = await imgRes.blob();
+                    const imgDataUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.readAsDataURL(imgBlob);
+                    });
+                    const ext = (settings.logoUrl.split(".").pop()?.toUpperCase() || "PNG") as any;
+                    doc.addImage(imgDataUrl, ext, PAGE_W / 2 - 8, currentY, 16, 16);
+                    currentY += 19;
+                } catch {
+                    currentY += 2;
+                }
+            }
+
+            // Republic Letterhead
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80, 80, 80);
+            doc.text("Republic of the Philippines", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            const brandTitle = `${settings?.brandWord1 || "Municipality of"} ${settings?.brandWord2 || "Mapandan"}`.toUpperCase();
+            doc.text(brandTitle, PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4.5;
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(71, 85, 105);
+            doc.text("Province of Pangasinan · Office of the Municipal Treasurer", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 23, 42);
+            doc.text("REGISTRY OF SPOILED & CANCELLED ACCOUNTABLE FORMS", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 3.5;
+
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(100, 116, 139);
+            doc.text("Compliance with COA Circular No. 92-382 & RAAF Liquidation Standards", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            // Top Header Double Rule
+            doc.setDrawColor(15, 23, 42);
+            doc.setLineWidth(0.7);
+            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
+            currentY += 1;
+            doc.setLineWidth(0.2);
+            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
+            currentY += 4;
+
+            // Audit Metadata Bar
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Covered Period: ${rangeLabel}`, MARGIN, currentY);
+            doc.text(`Generated By: ${currentUser?.name || "Treasury Staff"} (${format(new Date(), "MMMM d, yyyy · hh:mm a")})`, PAGE_W - MARGIN, currentY, { align: "right" });
+            currentY += 4;
+
+            // Table Data Mapping
+            const tableRows = filteredIncidents.map((item, idx) => [
+                idx + 1,
+                format(new Date(item.createdAt), "yyyy-MM-dd HH:mm"),
+                item.counterName || "Window 1",
+                item.formType,
+                item.incidentType.replace(/_/g, " "),
+                item.damagedSeriesNumber,
+                item.replacedSeriesNumber,
+                item.reasonDetails || "No Remarks",
+                item.reportedBy
+            ]);
+
+            autoTable(doc, {
+                startY: currentY,
+                head: [["#", "Timestamp", "Counter", "Form Classification", "Incident Category", "Damaged Serial", "Replacement Serial", "Audit Remarks / Cause", "Reporting Officer"]],
+                body: tableRows,
+                theme: "grid",
+                styles: { fontSize: 6.5, cellPadding: 2, font: "helvetica", lineColor: [203, 213, 225], lineWidth: 0.15 },
+                headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+                columnStyles: {
+                    0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
+                    1: { cellWidth: 26, halign: "center" },
+                    2: { cellWidth: 22, halign: "center", fontStyle: "bold" },
+                    3: { cellWidth: 34, halign: "left" },
+                    4: { cellWidth: 28, halign: "center" },
+                    5: { cellWidth: 32, halign: "center", fontStyle: "bold", textColor: [225, 29, 72] },
+                    6: { cellWidth: 32, halign: "center", fontStyle: "bold", textColor: [16, 185, 129] },
+                    7: { cellWidth: 50, halign: "left" },
+                    8: { cellWidth: 37, halign: "left" },
+                },
+                margin: { left: MARGIN, right: MARGIN, top: MARGIN },
+                didDrawPage: (data) => {
+                    // Page number footer
+                    doc.setFontSize(6.5);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(148, 163, 184);
+                    doc.text(
+                        `Page ${data.pageNumber} of ${doc.getNumberOfPages()} · Municipality of Mapandan Treasury System`,
+                        PAGE_W / 2,
+                        PAGE_H - 7,
+                        { align: "center" }
+                    );
+                }
+            });
+
+            // Summary Footer & Formal COA Sign-off
+            let finalY = (doc as any).lastAutoTable.finalY + 6;
+            if (finalY > PAGE_H - 35) {
+                doc.addPage();
+                finalY = 20;
+            }
+
+            // Summary Totals
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text(`Total Recorded Incidents: ${filteredIncidents.length} stub(s)`, MARGIN, finalY);
+
+            // Audit Certification Clause
+            finalY += 8;
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(71, 85, 105);
+            doc.text(
+                "I hereby certify under oath that the above accountable forms and stubs were spoiled, damaged, or jammed during official issuance, and replacement stubs were verified.",
+                MARGIN,
+                finalY
+            );
+
+            // Signatures
+            finalY += 14;
+            doc.setDrawColor(71, 85, 105);
+            doc.setLineWidth(0.3);
+
+            // Left Signature: Reporting Officer
+            doc.line(MARGIN, finalY, MARGIN + 60, finalY);
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 23, 42);
+            doc.text(currentUser?.name || "Treasury Accountable Officer", MARGIN, finalY + 4);
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.text("Prepared by / Accountable Form Custodian", MARGIN, finalY + 7);
+
+            // Right Signature: Municipal Treasurer
+            doc.line(PAGE_W - MARGIN - 60, finalY, PAGE_W - MARGIN, finalY);
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 23, 42);
+            doc.text(settings?.treasurerName || "Municipal Treasurer", PAGE_W - MARGIN - 60, finalY + 4);
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 116, 139);
+            doc.text("Noted by / Municipal Treasurer", PAGE_W - MARGIN - 60, finalY + 7);
+
+            const fileSuffix = startDate && endDate ? `${startDate}_to_${endDate}` : format(new Date(), "yyyyMMdd_HHmm");
+            doc.save(`COA_Accountable_Forms_Registry_${fileSuffix}.pdf`);
+            toast.success("COA PDF Registry generated successfully!", { id: toastId });
+        } catch (err) {
+            console.error("Error generating PDF:", err);
+            toast.error("Failed to generate PDF document.", { id: toastId });
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 📗 OFFICIAL EXCEL EXPORT (ExcelJS)
+    // -------------------------------------------------------------
+    const handleExportExcel = async () => {
+        if (!filteredIncidents.length) {
+            toast.error("No incident logs available to export.");
+            return;
+        }
+
+        setIsExportingExcel(true);
+        const toastId = toast.loading("Generating Official Excel (.xlsx) Ledger...");
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet("Spoiled Accountable Forms");
+
+            // Municipal Headers
+            worksheet.addRow(["MUNICIPALITY OF MAPANDAN — OFFICE OF THE MUNICIPAL TREASURER"]);
+            worksheet.addRow(["REGISTRY OF SPOILED & CANCELLED ACCOUNTABLE FORMS"]);
+            worksheet.addRow([`Period: ${rangeLabel} | Exported: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}`]);
+            worksheet.addRow([]); // Blank spacer
+
+            worksheet.mergeCells("A1:I1");
+            worksheet.mergeCells("A2:I2");
+            worksheet.mergeCells("A3:I3");
+
+            worksheet.getCell("A1").font = { bold: true, size: 12, color: { argb: "FF0F172A" } };
+            worksheet.getCell("A2").font = { bold: true, size: 11, color: { argb: "FF2563EB" } };
+            worksheet.getCell("A3").font = { italic: true, size: 9, color: { argb: "FF64748B" } };
+
+            worksheet.getCell("A1").alignment = { horizontal: "left" };
+            worksheet.getCell("A2").alignment = { horizontal: "left" };
+            worksheet.getCell("A3").alignment = { horizontal: "left" };
+
+            // Column Headers
+            const headers = [
+                "#",
+                "Timestamp",
+                "Counter Window",
+                "Form Classification",
+                "Incident Category",
+                "Damaged Serial (Spoiled)",
+                "Replacement Serial (Active)",
+                "Remarks / Detailed Cause",
+                "Reporting Officer",
+            ];
+
+            const headerRow = worksheet.addRow(headers);
+            headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: "pattern",
+                    pattern: "solid",
+                    fgColor: { argb: "FF2563EB" },
+                };
+                cell.alignment = { vertical: "middle", horizontal: "center" };
+                cell.border = {
+                    top: { style: "thin", color: { argb: "FFCBD5E1" } },
+                    bottom: { style: "medium", color: { argb: "FF1E293B" } },
+                    left: { style: "thin", color: { argb: "FFCBD5E1" } },
+                    right: { style: "thin", color: { argb: "FFCBD5E1" } },
+                };
+            });
+            headerRow.height = 24;
+
+            // Set Column Widths
+            worksheet.columns = [
+                { width: 6 },
+                { width: 20 },
+                { width: 16 },
+                { width: 28 },
+                { width: 22 },
+                { width: 24 },
+                { width: 24 },
+                { width: 40 },
+                { width: 26 },
+            ];
+
+            // Data Rows
+            filteredIncidents.forEach((item, idx) => {
+                const row = worksheet.addRow([
+                    idx + 1,
+                    format(new Date(item.createdAt), "yyyy-MM-dd HH:mm"),
+                    item.counterName || "Window 1",
+                    item.formType,
+                    item.incidentType.replace(/_/g, " "),
+                    item.damagedSeriesNumber,
+                    item.replacedSeriesNumber,
+                    item.reasonDetails || "No Remarks",
+                    item.reportedBy,
+                ]);
+
+                row.eachCell((cell, colNumber) => {
+                    cell.border = {
+                        top: { style: "thin", color: { argb: "FFE2E8F0" } },
+                        bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+                        left: { style: "thin", color: { argb: "FFE2E8F0" } },
+                        right: { style: "thin", color: { argb: "FFE2E8F0" } },
+                    };
+                    cell.alignment = {
+                        vertical: "middle",
+                        horizontal: [1, 2, 3, 5, 6, 7].includes(colNumber) ? "center" : "left",
+                    };
+                    cell.font = { size: 9 };
+                });
+
+                // Style Spoiled Serial in Red
+                row.getCell(6).font = { bold: true, color: { argb: "FFE11D48" }, strike: true };
+                // Style Replacement Serial in Green
+                row.getCell(7).font = { bold: true, color: { argb: "FF10B981" } };
+            });
+
+            // Summary Rows
+            worksheet.addRow([]);
+            const summaryRow = worksheet.addRow(["", "TOTAL INCIDENTS", filteredIncidents.length, "", "", "", "", "", ""]);
+            summaryRow.font = { bold: true, size: 10 };
+            summaryRow.getCell(2).font = { bold: true, color: { argb: "FF0F172A" } };
+            summaryRow.getCell(3).font = { bold: true, color: { argb: "FF2563EB" } };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const fileSuffix = startDate && endDate ? `${startDate}_to_${endDate}` : format(new Date(), "yyyyMMdd_HHmm");
+            a.download = `COA_Accountable_Forms_Registry_${fileSuffix}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Excel Ledger (.xlsx) generated successfully!", { id: toastId });
+        } catch (err) {
+            console.error("Error generating Excel ledger:", err);
+            toast.error("Failed to generate Excel file.", { id: toastId });
+        } finally {
+            setIsExportingExcel(false);
+        }
+    };
 
     const getIncidentBadge = (type: string) => {
         switch (type) {
@@ -228,7 +568,8 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end lg:self-auto">
+                {/* Header Action Buttons (Sync, PDF, Excel) */}
+                <div className="flex flex-wrap items-center gap-3 self-end lg:self-auto">
                     <Button
                         variant="outline"
                         onClick={handleRefresh}
@@ -238,12 +579,23 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                         <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-primary" : "text-slate-400"}`} />
                         Sync Records
                     </Button>
+
                     <Button
-                        onClick={handleExportCSV}
-                        className="h-11 rounded-2xl bg-primary text-white font-black uppercase tracking-wider text-xs shadow-lg shadow-primary/20 flex items-center gap-2"
+                        onClick={handleExportPDF}
+                        disabled={isExportingPdf}
+                        className="h-11 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-wider text-xs shadow-lg shadow-rose-600/20 flex items-center gap-2"
                     >
-                        <Download className="w-4 h-4" />
-                        Export COA CSV
+                        <FileText className="w-4 h-4" />
+                        {isExportingPdf ? "Generating PDF..." : "Export COA PDF"}
+                    </Button>
+
+                    <Button
+                        onClick={handleExportExcel}
+                        disabled={isExportingExcel}
+                        className="h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                    >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        {isExportingExcel ? "Generating Excel..." : "Export Excel (.xlsx)"}
                     </Button>
                 </div>
             </div>
@@ -313,40 +665,66 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
 
                     {/* Filter Controls Row */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* Date Range Preset Selector */}
-                        <div className="flex items-center gap-1.5 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1 rounded-2xl shadow-sm">
-                            <Calendar className="w-4 h-4 text-slate-400 ml-2" />
-                            <select
-                                value={dateRangePreset}
-                                onChange={(e) => setDateRangePreset(e.target.value as any)}
-                                className="h-9 px-2 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
-                            >
-                                <option value="ALL">All Dates</option>
-                                <option value="TODAY">Today</option>
-                                <option value="THIS_WEEK">Past 7 Days</option>
-                                <option value="THIS_MONTH">This Month</option>
-                                <option value="CUSTOM">Custom Date Range</option>
-                            </select>
-                        </div>
-
-                        {/* Custom Date Range Pickers (shown when CUSTOM is selected) */}
-                        {dateRangePreset === "CUSTOM" && (
-                            <div className="flex items-center gap-2 animate-in fade-in duration-300">
+                        {/* Start to End Date Inputs */}
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1.5 rounded-2xl shadow-sm">
+                            <Calendar className="w-4 h-4 text-slate-400 ml-1.5" />
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                                <span>From:</span>
                                 <Input
                                     type="date"
-                                    value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
-                                    className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border-slate-200 dark:border-white/10 text-xs font-bold w-[140px]"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="h-8 px-2 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-xs font-bold w-[125px]"
                                 />
-                                <span className="text-xs text-slate-400 font-bold">to</span>
+                                <span>To:</span>
                                 <Input
                                     type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                    className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border-slate-200 dark:border-white/10 text-xs font-bold w-[140px]"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="h-8 px-2 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-xs font-bold w-[125px]"
                                 />
                             </div>
-                        )}
+
+                            {(startDate || endDate) && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        setStartDate("");
+                                        setEndDate("");
+                                    }}
+                                    className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600"
+                                    title="Clear date filter"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="hidden sm:flex items-center gap-1 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1 rounded-2xl shadow-sm">
+                            <button
+                                type="button"
+                                onClick={() => setQuickDateRange("TODAY")}
+                                className="px-2.5 py-1 text-[11px] font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300"
+                            >
+                                Today
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setQuickDateRange("THIS_WEEK")}
+                                className="px-2.5 py-1 text-[11px] font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300"
+                            >
+                                7 Days
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setQuickDateRange("THIS_MONTH")}
+                                className="px-2.5 py-1 text-[11px] font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300"
+                            >
+                                Month
+                            </button>
+                        </div>
 
                         {/* Category Dropdown */}
                         <div className="flex items-center gap-1.5 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1 rounded-2xl shadow-sm">
@@ -407,7 +785,7 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                                                 No accountable form incidents found
                                             </p>
                                             <p className="text-xs text-slate-400 max-w-sm">
-                                                No records match your active search, category, or date range filter.
+                                                No records match your active search, category, or date range filter ({rangeLabel}).
                                             </p>
                                         </div>
                                     </td>

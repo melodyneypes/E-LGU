@@ -259,6 +259,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         transaction?.checkInDetails
     );
 
+    const hasAssignedCounter = Boolean(
+        additional?.counterName ||
+        (typeof window !== "undefined" && localStorage.getItem("activeCounterName"))
+    );
+
     // Calculate sum of fee line items currently entered in the UI
     const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
     const isEvaluating = transaction.status === "FOR_REQUESTING";
@@ -1050,26 +1055,42 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             </Button>
                                         )}
 
-                                        {/* Report Paper Jam / Spoiled Serial Action Button */}
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => {
-                                                const currentSerial = isCedula 
-                                                    ? (ctcNumber || transaction.cedula?.ctcNumber || orSeriesNumber || "")
-                                                    : (orSeriesNumber || transaction.additionalData?.orSeriesNumber || "");
-                                                setDamagedSerialInput(currentSerial);
-                                                setReplacementSerialInput("");
-                                                setIncidentReasonDetails("");
-                                                setIncidentFormType("");
-                                                setIncidentType("PAPER_JAM");
-                                                setIncidentModalOpen(true);
-                                            }}
-                                            className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3 flex items-center justify-center gap-2"
-                                        >
-                                            <FileWarning className="w-4 h-4 text-amber-500 shrink-0" />
-                                            Report Paper Jam / Spoiled Form
-                                        </Button>
+                                        {/* Report Paper Jam / Spoiled Serial Action Button — strictly available once called to an active counter */}
+                                        {hasAssignedCounter ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const currentSerial = isCedula 
+                                                        ? (ctcNumber || transaction.cedula?.ctcNumber || orSeriesNumber || "")
+                                                        : (orSeriesNumber || transaction.additionalData?.orSeriesNumber || "");
+                                                    setDamagedSerialInput(currentSerial);
+                                                    setReplacementSerialInput("");
+                                                    setIncidentReasonDetails("");
+                                                    setIncidentFormType("");
+                                                    setIncidentType("PAPER_JAM");
+                                                    setIncidentModalOpen(true);
+                                                }}
+                                                className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3 flex items-center justify-center gap-2"
+                                            >
+                                                <FileWarning className="w-4 h-4 text-amber-500 shrink-0" />
+                                                Report Paper Jam / Spoiled Form
+                                            </Button>
+                                        ) : (
+                                            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2 mt-3 text-left">
+                                                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-wider">Unassigned Counter Window</span>
+                                                </div>
+                                                <p className="text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                                    This ticket has not yet been assigned to a counter window. Please call this ticket from the{" "}
+                                                    <Link href="/admin/treasury/queue" className="underline font-bold text-primary hover:opacity-80">
+                                                        Live Queue board
+                                                    </Link>{" "}
+                                                    to enable form printing and incident reporting.
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {hasCheckIn && (
                                             <Button

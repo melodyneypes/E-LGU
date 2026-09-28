@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getAccountableFormIncidentsAction } from "@/app/admin/transactions/treasury-incident-actions";
+import { getMultipleSystemSettings } from "@/lib/settings";
 import AccountableFormsView from "./AccountableFormsView";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,9 @@ export const metadata: Metadata = {
 
 export default async function AccountableFormsPage() {
     const session = await getServerSession(authOptions);
-    const userRole = (session?.user as any)?.role;
-    const userDepartment = (session?.user as any)?.department?.toUpperCase();
+    const user = session?.user as any;
+    const userRole = user?.role;
+    const userDepartment = user?.department?.toUpperCase();
 
     const allowedRoles = ["ADMIN", "TREASURY_STAFF", "TREASURY_OFFICER", "ADMIN_AIDE", "MAYOR"];
     const allowedDepartments = ["TREASURY", "LGU"];
@@ -28,12 +30,36 @@ export default async function AccountableFormsPage() {
         redirect("/auth/login");
     }
 
-    const res = await getAccountableFormIncidentsAction();
+    const [res, settings] = await Promise.all([
+        getAccountableFormIncidentsAction(),
+        getMultipleSystemSettings([
+            "site_logo",
+            "brand_word_1",
+            "brand_word_2",
+            "theme_color",
+            "municipal_treasurer_name"
+        ])
+    ]);
+
     const incidents = res.success && res.data ? res.data : [];
 
     return (
         <div className="p-6 md:p-8 space-y-8 animate-in fade-in duration-500 w-full min-h-screen">
-            <AccountableFormsView initialIncidents={incidents as any} />
+            <AccountableFormsView 
+                initialIncidents={incidents as any} 
+                currentUser={{
+                    name: user?.name || "Treasury Staff",
+                    email: user?.email || "",
+                    role: user?.role || "TREASURY_STAFF"
+                }}
+                settings={{
+                    logoUrl: settings?.site_logo || null,
+                    brandWord1: settings?.brand_word_1 || "Municipality of",
+                    brandWord2: settings?.brand_word_2 || "Mapandan",
+                    themeColor: settings?.theme_color || "#2563eb",
+                    treasurerName: settings?.municipal_treasurer_name || "Municipal Treasurer"
+                }}
+            />
         </div>
     );
 }
