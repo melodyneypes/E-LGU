@@ -54,61 +54,7 @@ export async function reportAccountableFormIncidentAction(params: ReportAccounta
 
         const now = new Date();
 
-        // 1. If linked to an active Transaction, update active serial & store incident history
-        if (transactionId) {
-            const txRecord = await prisma.transaction.findUnique({
-                where: { id: transactionId },
-                select: { id: true, additionalData: true, fiscalSnapshot: true }
-            });
-
-            if (txRecord) {
-                const currentAdditional = typeof txRecord.additionalData === "string"
-                    ? (() => { try { return JSON.parse(txRecord.additionalData); } catch { return {}; } })()
-                    : (txRecord.additionalData || {});
-
-                const existingIncidents = Array.isArray(currentAdditional.spoiledForms)
-                    ? currentAdditional.spoiledForms
-                    : [];
-
-                const newIncidentEntry = {
-                    formType,
-                    incidentType,
-                    damagedSeriesNumber,
-                    replacedSeriesNumber,
-                    reasonDetails: reasonDetails || incidentTypeName,
-                    counterName: counterName || currentAdditional.counterName || null,
-                    reportedBy: staffName,
-                    reportedAt: now.toISOString()
-                };
-
-                const updatedAdditional = {
-                    ...currentAdditional,
-                    spoiledForms: [...existingIncidents, newIncidentEntry],
-                    ...(formType === "OFFICIAL_RECEIPT" ? { orSeriesNumber: replacedSeriesNumber } : { ctcNumber: replacedSeriesNumber }),
-                    lastModifiedByStaff: staffName,
-                    lastModifiedAt: now.toISOString()
-                };
-
-                const currentFiscal = typeof txRecord.fiscalSnapshot === "string"
-                    ? (() => { try { return JSON.parse(txRecord.fiscalSnapshot); } catch { return {}; } })()
-                    : (txRecord.fiscalSnapshot || {});
-
-                const updatedFiscal = {
-                    ...currentFiscal,
-                    ...(formType === "OFFICIAL_RECEIPT" ? { orNumber: replacedSeriesNumber } : {})
-                };
-
-                await prisma.transaction.update({
-                    where: { id: transactionId },
-                    data: {
-                        additionalData: updatedAdditional as any,
-                        fiscalSnapshot: updatedFiscal as any
-                    }
-                });
-            }
-        }
-
-        // 2. Persist to universal immutable AuditLog table
+        // Persist strictly to universal immutable AuditLog table (ZERO mutations to Transaction table)
         await logActivity({
             action: "ACCOUNTABLE_FORM_INCIDENT",
             entityType: "AccountableForm",
@@ -128,16 +74,10 @@ export async function reportAccountableFormIncidentAction(params: ReportAccounta
             }
         });
 
-        if (transactionId) {
-            revalidatePath(`/admin/treasury/${transactionId}`);
-        }
-        revalidatePath("/admin/treasury/queue");
-        revalidatePath("/admin/treasury");
-
         return {
             success: true,
             replacedSeriesNumber,
-            message: `Accountable form incident logged successfully. Serial #${replacedSeriesNumber} is now active.`
+            message: `Accountable form incident logged to AuditLog successfully.`
         };
     } catch (error: any) {
         console.error("Error reporting accountable form incident:", error);

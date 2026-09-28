@@ -632,7 +632,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             <div className="flex justify-between items-center pt-2 gap-4">
                                                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400 italic">Delivery Fee</span>
                                                 <span className="text-xs font-black dark:text-white italic">
-                                                    ₱{deliveryFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    ₱{Number(deliveryFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         )}
@@ -641,7 +641,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <div className="border-t border-dotted border-slate-300 dark:border-white/10 pt-4 mt-4 flex justify-between items-center">
                                             <span className="text-base font-black uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">Total Amount</span>
                                             <span className="text-3xl font-black italic tracking-tighter text-primary leading-none">
-                                                ₱{adjustedDisplayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{Number(adjustedDisplayTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     </div>
@@ -1759,9 +1759,9 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     });
 
                                     if (res.success) {
-                                        toast.success(res.message || "Incident recorded successfully!");
+                                        toast.success("Spoiled form incident logged to AuditLog!");
                                         
-                                        // Update active serial in UI
+                                        // Update active serial in UI form inputs only
                                         const isCtcForm = isCedula || incidentFormType.toLowerCase().includes("cedula") || incidentFormType.toLowerCase().includes("ctc");
                                         if (isCtcForm) {
                                             setCtcNumber?.(replacementSerialInput.trim());
@@ -1769,8 +1769,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             setOrSeriesNumber?.(replacementSerialInput.trim());
                                         }
                                         
+                                        // Terminate / dismiss modal without refreshing page
                                         setIncidentModalOpen(false);
-                                        props.fetchTransaction?.();
                                     } else {
                                         toast.error(res.error || "Failed to record incident.");
                                     }
