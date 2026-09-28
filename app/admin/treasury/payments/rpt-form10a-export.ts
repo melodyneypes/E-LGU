@@ -59,13 +59,13 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
     const dateFormatted = format(rawDate, "MM/dd/yyyy");
 
     const taxPayer = (
-        snap.fullName ||
-        snap.violatorName ||
-        snap.applicantName ||
-        snap.name ||
         additional.ownerName ||
-        additional.applicantName ||
         additional.taxPayer ||
+        snap.fullName ||
+        snap.applicantName ||
+        additional.applicantName ||
+        snap.name ||
+        snap.violatorName ||
         additional.violatorName ||
         (snap.firstName || snap.lastName ? `${snap.firstName || ""} ${snap.lastName || ""}`.trim() : "") ||
         p.transaction?.businessName ||
@@ -226,14 +226,26 @@ const fmtAlways = (num: number): string => {
     return (num || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+export function getAbstractTitle(category?: string): string {
+    if (!category || category.trim() === "" || category.toUpperCase() === "ALL" || category.toUpperCase() === "ALL CATEGORIES") {
+        return "ABSTRACT OF REAL PROPERTY TAX RECEIPTS";
+    }
+    const cat = category.trim().toUpperCase();
+    if (cat === "RPT" || cat === "REAL PROPERTY TAX" || cat === "REALPROPERTYTAX") {
+        return "ABSTRACT OF REAL PROPERTY TAX RECEIPTS";
+    }
+    return `ABSTRACT OF ${cat}`;
+}
+
 /**
- * Generate official Prov. Form No. 10(A) PDF (Abstract of Real Property Tax Receipts).
+ * Generate official Prov. Form No. 10(A) PDF (Abstract of Real Property Tax Receipts or Selected Category).
  */
 export async function exportForm10APdf(
     payments: any[],
     options: {
         fromDate?: string;
         toDate?: string;
+        category?: string;
     }
 ) {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "legal" });
@@ -269,9 +281,10 @@ export async function exportForm10APdf(
     doc.text("Revised January 1994", MARGIN, 11.5);
 
     // Centered Title Block (Starts cleanly at Y=17, below top left metadata)
+    const abstractTitle = getAbstractTitle(options.category);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
-    doc.text("ABSTRACT OF REAL PROPERTY TAX RECEIPTS", PAGE_W / 2, 17, { align: "center" });
+    doc.text(abstractTitle, PAGE_W / 2, 17, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -460,18 +473,22 @@ export async function exportForm10APdf(
         doc.text(`Page ${i}`, PAGE_W - MARGIN, PAGE_H - 5, { align: "right" });
     }
 
+    const catPart = options.category && options.category.toUpperCase() !== "ALL"
+        ? `_${options.category.trim().replace(/\s+/g, "_").toUpperCase()}`
+        : "";
     const fileSuffix = options.fromDate && options.toDate ? `${options.fromDate}_to_${options.toDate}` : format(new Date(), "yyyy-MM-dd");
-    doc.save(`Prov_Form_10A_Abstract_${fileSuffix}.pdf`);
+    doc.save(`Prov_Form_10A_Abstract${catPart}_${fileSuffix}.pdf`);
 }
 
 /**
- * Generate official Prov. Form No. 10(A) Excel (Abstract of Real Property Tax Receipts).
+ * Generate official Prov. Form No. 10(A) Excel (Abstract of Real Property Tax Receipts or Selected Category).
  */
 export async function exportForm10AExcel(
     payments: any[],
     options: {
         fromDate?: string;
         toDate?: string;
+        category?: string;
     }
 ) {
     const dataRows = payments.map(mapPaymentToForm10A);
@@ -496,7 +513,11 @@ export async function exportForm10AExcel(
     workbook.creator = "Treasury Department - Municipality of Mapandan";
     workbook.created = new Date();
 
-    const sheet = workbook.addWorksheet("Form 10(A) Abstract", {
+    const sheetName = options.category && options.category.toUpperCase() !== "ALL"
+        ? `${options.category.trim()} Abstract`.slice(0, 31)
+        : "Form 10(A) Abstract";
+
+    const sheet = workbook.addWorksheet(sheetName, {
         pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
 
@@ -514,8 +535,9 @@ export async function exportForm10AExcel(
     sheet.getCell("A3").value = "Revised January 1994";
     sheet.getCell("A3").font = { name: "Arial", size: 8, italic: true };
 
+    const abstractTitle = getAbstractTitle(options.category);
     sheet.mergeCells("A4:X4");
-    sheet.getCell("A4").value = "ABSTRACT OF REAL PROPERTY TAX RECEIPTS";
+    sheet.getCell("A4").value = abstractTitle;
     sheet.getCell("A4").font = { name: "Arial", size: 12, bold: true };
     sheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
 
@@ -733,8 +755,11 @@ export async function exportForm10AExcel(
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
+    const catPart = options.category && options.category.toUpperCase() !== "ALL"
+        ? `_${options.category.trim().replace(/\s+/g, "_").toUpperCase()}`
+        : "";
     const fileSuffix = options.fromDate && options.toDate ? `${options.fromDate}_to_${options.toDate}` : format(new Date(), "yyyy-MM-dd");
-    link.download = `Prov_Form_10A_Abstract_${fileSuffix}.xlsx`;
+    link.download = `Prov_Form_10A_Abstract${catPart}_${fileSuffix}.xlsx`;
     link.click();
     URL.revokeObjectURL(url);
 }

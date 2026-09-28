@@ -881,6 +881,7 @@ export function Sidebar({
         { href: "/admin/treasury/collections", label: "Daily Ticket Collections", icon: Store, category: "Treasury Department" },
         { href: "/admin/treasury/collectors", label: "Collector Registry", icon: Users, category: "Treasury Department" },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
+        { href: "/admin/treasury/rpt-collections", label: "RPT Reports & Collections", icon: Landmark, category: "Treasury Department" },
         { href: "/admin/treasury/feedback", label: "Citizen Feedback", icon: MessageSquareHeart, category: "Treasury Department" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
         { href: "/admin/treasury/cedula-template", label: "Cedula Template Studio", icon: LayoutTemplate, category: "Treasury Department" },
