@@ -14,9 +14,12 @@ import {
     ShieldAlert,
     ExternalLink,
     RefreshCw,
-    CheckCircle2
+    CheckCircle2,
+    Calendar,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +51,14 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
     const [incidents, setIncidents] = useState<IncidentItem[]>(initialIncidents);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+    const [dateRangePreset, setDateRangePreset] = useState<"ALL" | "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CUSTOM">("ALL");
+    const [customStartDate, setCustomStartDate] = useState<string>("");
+    const [customEndDate, setCustomEndDate] = useState<string>("");
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Pagination States
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(10);
 
     // Refresh incidents on demand
     const handleRefresh = async () => {
@@ -68,15 +78,81 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
         }
     };
 
-    // Export to CSV for COA Compliance Liquidation
+    // Filtered Incidents
+    const filteredIncidents = useMemo(() => {
+        const now = new Date();
+
+        return incidents.filter(item => {
+            const itemDate = new Date(item.createdAt);
+
+            // 1. Text Search Filter
+            const term = search.toLowerCase();
+            const matchesSearch = 
+                item.damagedSeriesNumber.toLowerCase().includes(term) ||
+                item.replacedSeriesNumber.toLowerCase().includes(term) ||
+                item.formType.toLowerCase().includes(term) ||
+                item.reportedBy.toLowerCase().includes(term) ||
+                (item.counterName && item.counterName.toLowerCase().includes(term)) ||
+                (item.reasonDetails && item.reasonDetails.toLowerCase().includes(term));
+
+            // 2. Incident Category Filter
+            const matchesCategory = categoryFilter === "ALL" || item.incidentType === categoryFilter;
+
+            // 3. Date Range Filter
+            let matchesDate = true;
+            if (dateRangePreset === "TODAY") {
+                matchesDate = isWithinInterval(itemDate, {
+                    start: startOfDay(now),
+                    end: endOfDay(now)
+                });
+            } else if (dateRangePreset === "THIS_WEEK") {
+                matchesDate = isWithinInterval(itemDate, {
+                    start: startOfDay(subDays(now, 7)),
+                    end: endOfDay(now)
+                });
+            } else if (dateRangePreset === "THIS_MONTH") {
+                matchesDate = isWithinInterval(itemDate, {
+                    start: startOfMonth(now),
+                    end: endOfMonth(now)
+                });
+            } else if (dateRangePreset === "CUSTOM") {
+                if (customStartDate && customEndDate) {
+                    matchesDate = isWithinInterval(itemDate, {
+                        start: startOfDay(new Date(customStartDate)),
+                        end: endOfDay(new Date(customEndDate))
+                    });
+                } else if (customStartDate) {
+                    matchesDate = itemDate >= startOfDay(new Date(customStartDate));
+                } else if (customEndDate) {
+                    matchesDate = itemDate <= endOfDay(new Date(customEndDate));
+                }
+            }
+
+            return matchesSearch && matchesCategory && matchesDate;
+        });
+    }, [incidents, search, categoryFilter, dateRangePreset, customStartDate, customEndDate]);
+
+    // Reset page to 1 whenever filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [search, categoryFilter, dateRangePreset, customStartDate, customEndDate, pageSize]);
+
+    // Paginated Sliced Incidents
+    const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / pageSize));
+    const paginatedIncidents = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredIncidents.slice(start, start + pageSize);
+    }, [filteredIncidents, currentPage, pageSize]);
+
+    // Export to CSV for COA Compliance Liquidation (exports all matching filtered items)
     const handleExportCSV = () => {
-        if (!incidents.length) {
+        if (!filteredIncidents.length) {
             toast.error("No incident logs available to export.");
             return;
         }
 
-        const headers = ["Timestamp", "Form Classification", "Incident Category", "Spoiled Serial #", "Replacement Serial #", "Remarks", "Counter", "Reported By", "Transaction ID"];
-        const rows = incidents.map(item => [
+        const headers = ["Timestamp", "Form Classification", "Incident Category", "Spoiled Serial #", "Replacement Serial #", "Remarks", "Counter", "Reported By (Staff)", "Transaction ID"];
+        const rows = filteredIncidents.map(item => [
             format(new Date(item.createdAt), "yyyy-MM-dd HH:mm:ss"),
             `"${(item.formType || "").replace(/"/g, '""')}"`,
             item.incidentType,
@@ -96,25 +172,8 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast.success("COA Incident Report exported successfully!");
+        toast.success(`Exported ${filteredIncidents.length} records successfully!`);
     };
-
-    // Filtered Incidents
-    const filteredIncidents = useMemo(() => {
-        return incidents.filter(item => {
-            const term = search.toLowerCase();
-            const matchesSearch = 
-                item.damagedSeriesNumber.toLowerCase().includes(term) ||
-                item.replacedSeriesNumber.toLowerCase().includes(term) ||
-                item.formType.toLowerCase().includes(term) ||
-                item.reportedBy.toLowerCase().includes(term) ||
-                (item.reasonDetails && item.reasonDetails.toLowerCase().includes(term));
-
-            const matchesCategory = categoryFilter === "ALL" || item.incidentType === categoryFilter;
-
-            return matchesSearch && matchesCategory;
-        });
-    }, [incidents, search, categoryFilter]);
 
     // KPI Metrics
     const stats = useMemo(() => {
@@ -238,33 +297,87 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
 
             {/* Main Content Table & Filters */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-                {/* Search & Category Filter Toolbar */}
-                <div className="p-5 border-b border-slate-200 dark:border-[#2a3040] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]">
-                    <div className="relative flex-1 max-w-md">
+                {/* Search, Date Range & Category Filter Toolbar */}
+                <div className="p-5 border-b border-slate-200 dark:border-[#2a3040] flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]">
+                    {/* Search Field */}
+                    <div className="relative flex-1 min-w-[260px] max-w-md">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <Input
                             type="text"
-                            placeholder="Search by serial #, staff email, classification, or remark..."
+                            placeholder="Search serial #, staff, counter, remarks..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="h-11 pl-10 rounded-2xl bg-white dark:bg-[#1a2234] border-slate-200 dark:border-white/10 text-xs font-medium"
                         />
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-                        <select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="h-11 px-3.5 rounded-2xl bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-                        >
-                            <option value="ALL">All Categories</option>
-                            <option value="PAPER_JAM">Paper Jam</option>
-                            <option value="PRINTER_MISFEED">Printer Misfeed</option>
-                            <option value="INK_SMUDGE">Ink Smudge</option>
-                            <option value="DAMAGED_LEAF">Torn / Damaged Leaf</option>
-                            <option value="ENCODING_ERROR">Encoding Error</option>
-                        </select>
+                    {/* Filter Controls Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Date Range Preset Selector */}
+                        <div className="flex items-center gap-1.5 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1 rounded-2xl shadow-sm">
+                            <Calendar className="w-4 h-4 text-slate-400 ml-2" />
+                            <select
+                                value={dateRangePreset}
+                                onChange={(e) => setDateRangePreset(e.target.value as any)}
+                                className="h-9 px-2 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                            >
+                                <option value="ALL">All Dates</option>
+                                <option value="TODAY">Today</option>
+                                <option value="THIS_WEEK">Past 7 Days</option>
+                                <option value="THIS_MONTH">This Month</option>
+                                <option value="CUSTOM">Custom Date Range</option>
+                            </select>
+                        </div>
+
+                        {/* Custom Date Range Pickers (shown when CUSTOM is selected) */}
+                        {dateRangePreset === "CUSTOM" && (
+                            <div className="flex items-center gap-2 animate-in fade-in duration-300">
+                                <Input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border-slate-200 dark:border-white/10 text-xs font-bold w-[140px]"
+                                />
+                                <span className="text-xs text-slate-400 font-bold">to</span>
+                                <Input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border-slate-200 dark:border-white/10 text-xs font-bold w-[140px]"
+                                />
+                            </div>
+                        )}
+
+                        {/* Category Dropdown */}
+                        <div className="flex items-center gap-1.5 bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 p-1 rounded-2xl shadow-sm">
+                            <Filter className="w-4 h-4 text-slate-400 ml-2" />
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="h-9 px-2 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                            >
+                                <option value="ALL">All Categories</option>
+                                <option value="PAPER_JAM">Paper Jam</option>
+                                <option value="PRINTER_MISFEED">Printer Misfeed</option>
+                                <option value="INK_SMUDGE">Ink Smudge</option>
+                                <option value="DAMAGED_LEAF">Torn / Damaged Leaf</option>
+                                <option value="ENCODING_ERROR">Encoding Error</option>
+                            </select>
+                        </div>
+
+                        {/* Page Size Selector */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-bold hidden sm:inline">Rows:</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => setPageSize(Number(e.target.value))}
+                                className="h-11 px-3 rounded-2xl bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none shadow-sm"
+                            >
+                                <option value={10}>10 rows</option>
+                                <option value={25}>25 rows</option>
+                                <option value={50}>50 rows</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -283,7 +396,7 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
-                            {filteredIncidents.length === 0 ? (
+                            {paginatedIncidents.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="py-14 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3">
@@ -294,13 +407,13 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                                                 No accountable form incidents found
                                             </p>
                                             <p className="text-xs text-slate-400 max-w-sm">
-                                                All accountable forms and stubs are in clean order. Any reported paper jams will automatically appear here.
+                                                No records match your active search, category, or date range filter.
                                             </p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
-                                filteredIncidents.map((item) => (
+                                paginatedIncidents.map((item) => (
                                     <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
                                         <td className="py-4 px-6">
                                             <div className="space-y-0.5">
@@ -309,7 +422,7 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                                                     {format(new Date(item.createdAt), "MMM dd, yyyy · hh:mm a")}
                                                 </div>
                                                 <div className="text-[11px] text-slate-400">
-                                                    Counter: <span className="font-bold text-slate-600 dark:text-slate-300">{item.counterName || "Main Treasury"}</span>
+                                                    Counter: <span className="font-bold text-slate-700 dark:text-slate-200">{item.counterName || "Window 1"}</span>
                                                 </div>
                                             </div>
                                         </td>
@@ -341,8 +454,8 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                                                 <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate" title={item.reasonDetails || "No remarks provided"}>
                                                     {item.reasonDetails || <span className="text-slate-400 italic">No remarks provided</span>}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400 truncate">
-                                                    By: <span className="font-bold text-slate-500 dark:text-slate-400">{item.reportedBy}</span>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                                    By: <span className="font-bold text-slate-800 dark:text-slate-200">{item.reportedBy}</span>
                                                 </p>
                                             </div>
                                         </td>
@@ -370,10 +483,45 @@ export default function AccountableFormsView({ initialIncidents }: Props) {
                     </table>
                 </div>
 
-                {/* Footer Count */}
-                <div className="p-4 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <p>Showing <span className="font-bold text-slate-800 dark:text-white">{filteredIncidents.length}</span> of {incidents.length} incident record(s)</p>
-                    <p className="text-[11px] italic">Official Municipal Audit Registry · Compliant with COA Circular No. 92-382</p>
+                {/* Footer with Pagination Controls */}
+                <div className="p-4 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <div>
+                        <p>
+                            Showing <span className="font-bold text-slate-800 dark:text-white">{filteredIncidents.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{" "}
+                            <span className="font-bold text-slate-800 dark:text-white">
+                                {Math.min(currentPage * pageSize, filteredIncidents.length)}
+                            </span> of{" "}
+                            <span className="font-bold text-slate-800 dark:text-white">{filteredIncidents.length}</span> filtered record(s)
+                            {filteredIncidents.length !== incidents.length && (
+                                <span className="text-slate-400 ml-1">({incidents.length} total)</span>
+                            )}
+                        </p>
+                    </div>
+
+                    {/* Pagination Nav */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold mr-2">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage <= 1}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className="h-8 w-8 rounded-xl border-slate-200 dark:border-white/10"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage >= totalPages}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className="h-8 w-8 rounded-xl border-slate-200 dark:border-white/10"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

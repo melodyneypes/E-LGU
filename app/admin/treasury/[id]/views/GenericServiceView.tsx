@@ -1748,6 +1748,10 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 try {
                                     const { reportAccountableFormIncidentAction } = await import("@/app/admin/transactions/treasury-incident-actions");
                                     const effectiveFormType = incidentFormType.trim() || (isCedula ? "Cedula (CTC Form)" : "Official Receipt");
+                                    const activeCounter = (typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null) 
+                                        || transaction.additionalData?.counterName 
+                                        || "Counter 1";
+
                                     const res = await reportAccountableFormIncidentAction({
                                         transactionId: transaction.id,
                                         formType: effectiveFormType,
@@ -1755,7 +1759,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         damagedSeriesNumber: damagedSerialInput.trim(),
                                         replacedSeriesNumber: replacementSerialInput.trim(),
                                         reasonDetails: incidentReasonDetails.trim(),
-                                        counterName: transaction.additionalData?.counterName || undefined
+                                        counterName: activeCounter
                                     });
 
                                     if (res.success) {

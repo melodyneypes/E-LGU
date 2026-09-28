@@ -68,7 +68,8 @@ export async function reportAccountableFormIncidentAction(params: ReportAccounta
                 replacedSeriesNumber,
                 reasonDetails: reasonDetails || null,
                 counterName: counterName || null,
-                reportedBy: user.email,
+                reportedBy: staffName,
+                reportedEmail: user.email,
                 reportedRole: user.role,
                 timestamp: now.toISOString()
             }
@@ -101,16 +102,31 @@ export async function getAccountableFormIncidentsAction() {
             where: {
                 action: "ACCOUNTABLE_FORM_INCIDENT"
             },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        email: true
+                    }
+                }
+            },
             orderBy: {
                 createdAt: "desc"
             },
-            take: 200
+            take: 500
         });
 
         const incidents = logs.map((log) => {
             const meta = (typeof log.metadata === "string" 
                 ? (() => { try { return JSON.parse(log.metadata); } catch { return {}; } })()
                 : (log.metadata || {})) as Record<string, any>;
+
+            // Prefer staff full name over email
+            const reportedBy = log.user?.name 
+                || (meta.reportedBy && !meta.reportedBy.includes("@") ? meta.reportedBy : null)
+                || log.user?.email 
+                || meta.reportedBy 
+                || "Treasury Staff";
 
             return {
                 id: log.id,
@@ -124,7 +140,7 @@ export async function getAccountableFormIncidentsAction() {
                 replacedSeriesNumber: meta.replacedSeriesNumber || "—",
                 reasonDetails: meta.reasonDetails || null,
                 counterName: meta.counterName || null,
-                reportedBy: meta.reportedBy || log.userId || "Treasury Staff",
+                reportedBy,
                 reportedRole: meta.reportedRole || "STAFF",
                 createdAt: log.createdAt
             };
