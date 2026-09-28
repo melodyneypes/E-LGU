@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useStalls } from "./StallsProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Store, Plus, Trash2, Search, X, MapPin } from "lucide-react";
+import { Store, Plus, Trash2, Search, X, MapPin, ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createStall } from "../actions/stalls.actions";
 
@@ -34,6 +35,10 @@ export function AddStallModal() {
 
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState(stallTypes[0]?.id || "");
+    const [isSectionOpen, setIsSectionOpen] = useState(false);
+    const [sectionSearch, setSectionSearch] = useState("");
+    const sectionDropdownRef = useRef<HTMLDivElement>(null);
+
     const [vendorId, setVendorId] = useState<string>("NONE");
     const [vendorSearch, setVendorSearch] = useState("");
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
@@ -46,6 +51,31 @@ export function AddStallModal() {
     const [monthlyRateOverdueFee, setMonthlyRateOverdueFee] = useState("");
     const [otherFees, setOtherFees] = useState<OtherFeeInput[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Close section dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target as Node)) {
+                setIsSectionOpen(false);
+            }
+        };
+        if (isSectionOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isSectionOpen]);
+
+    // Filter section list by search query
+    const filteredStallTypes = stallTypes.filter((t) => {
+        const query = sectionSearch.toLowerCase().trim();
+        if (!query) return true;
+        return (
+            (t.name && t.name.toLowerCase().includes(query)) ||
+            (t.code && t.code.toLowerCase().includes(query))
+        );
+    });
 
     // Filter vendor list by search input
     const filteredVendors = vendors.filter((v) => {
@@ -181,19 +211,75 @@ export function AddStallModal() {
                                     />
                                 </div>
 
-                                {/* Section / Stall Type */}
-                                <div className="space-y-1">
+                                {/* Section / Stall Type - Plan A Custom Searchable Combobox */}
+                                <div className="space-y-1 relative" ref={sectionDropdownRef}>
                                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Section *</label>
-                                    <Select value={stallTypeId} onValueChange={setStallTypeId}>
-                                        <SelectTrigger className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
-                                            <SelectValue placeholder="Select Section" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            {stallTypes.map((t) => (
-                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsSectionOpen((prev) => !prev)}
+                                        className={cn(
+                                            "w-full h-10 px-3 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer text-left",
+                                            isSectionOpen && "ring-2 ring-emerald-500/30 border-emerald-500"
+                                        )}
+                                    >
+                                        <span className={cn("truncate", !stallTypeId && "text-slate-400 font-normal")}>
+                                            {stallTypes.find((t) => t.id === stallTypeId)?.name || "Select Section"}
+                                        </span>
+                                        <ChevronDown className={cn("w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200", isSectionOpen && "rotate-180")} />
+                                    </button>
+
+                                    {/* Inline Absolute Dropdown Menu */}
+                                    {isSectionOpen && (
+                                        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl z-[100] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                                            {/* Search Header */}
+                                            <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#121622]">
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search section..."
+                                                        value={sectionSearch}
+                                                        onChange={(e) => setSectionSearch(e.target.value)}
+                                                        autoFocus
+                                                        className="w-full pl-8 pr-3 h-8 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Options List */}
+                                            <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                                {filteredStallTypes.length === 0 ? (
+                                                    <div className="py-4 text-center text-xs text-slate-400 italic">
+                                                        No sections matching &quot;{sectionSearch}&quot;
+                                                    </div>
+                                                ) : (
+                                                    filteredStallTypes.map((t) => {
+                                                        const isSelected = stallTypeId === t.id;
+                                                        return (
+                                                            <button
+                                                                key={t.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setStallTypeId(t.id);
+                                                                    setIsSectionOpen(false);
+                                                                    setSectionSearch("");
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                                    isSelected
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                                )}
+                                                            >
+                                                                <span className="truncate">{t.name}</span>
+                                                                {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
