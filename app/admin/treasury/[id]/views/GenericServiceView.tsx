@@ -2216,13 +2216,16 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     if (res.success) {
                                         toast.success("Form cancellation incident logged to AuditLog!");
                                         
-                                        // Update active serial in UI form inputs only
+                                        const cleanReplacement = replacementSerialInput.trim();
+
+                                        // Auto-fill active serial in UI form inputs immediately
                                         const isCtcForm = isCedula || incidentFormType.toLowerCase().includes("cedula") || incidentFormType.toLowerCase().includes("ctc");
                                         if (isCtcForm) {
-                                            setCtcNumber?.(replacementSerialInput.trim());
-                                        } else {
-                                            setOrSeriesNumber?.(replacementSerialInput.trim());
+                                            setCtcNumber?.(cleanReplacement);
                                         }
+                                        
+                                        // Always auto-fill the main OR Number field as well so the payment/fulfillment panel gets the new active serial
+                                        setOrSeriesNumber?.(cleanReplacement);
                                         
                                         // Terminate / dismiss modal without refreshing page
                                         setIncidentModalOpen(false);
