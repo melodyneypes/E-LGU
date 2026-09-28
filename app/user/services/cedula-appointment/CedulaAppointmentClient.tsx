@@ -1391,8 +1391,7 @@ export function CedulaAppointmentClient({
                                                             <SelectItem value="Child">Child (Son / Daughter)</SelectItem>
                                                             <SelectItem value="Sibling">Sibling (Brother / Sister)</SelectItem>
                                                             <SelectItem value="Grandparent">Grandparent</SelectItem>
-                                                            <SelectItem value="Authorized Representative">Authorized Representative</SelectItem>
-                                                            <SelectItem value="Other Relative">Other Relative</SelectItem>
+                                                            <SelectItem value="Other">Other</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>

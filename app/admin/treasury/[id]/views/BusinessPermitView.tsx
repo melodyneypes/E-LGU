@@ -361,6 +361,9 @@ export default function BusinessPermitView({
                             resident={resident}
                             safeFormatDate={safeFormatDate}
                             themeColor={themeColor}
+                            transactionId={transaction.id}
+                            canEdit={!isReadOnlyAide}
+                            onProfileUpdated={fetchTransaction}
                         />
                     )}
 
@@ -712,7 +715,7 @@ export default function BusinessPermitView({
                                     </div>
                                 )}
 
-                                {["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status) && (
+                                {["UNPAID", "PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status) && (
                                     <div className="space-y-4 animate-in slide-in-from-bottom-4">
 
 
@@ -732,6 +735,68 @@ export default function BusinessPermitView({
                                                 handleConfirmPayment={handleConfirmPayment}
                                                 handleViewFile={handleViewFile}
                                             />
+                                        )}
+
+                                        {(transaction.status === "FOR_PROCESSING" || transaction.status === "UNPAID") && (
+                                            <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
+                                                            <button
+                                                                key={method}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setPaymentMethod(method);
+                                                                }}
+                                                                className={cn(
+                                                                    "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
+                                                                    paymentMethod === method
+                                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                                        : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
+                                                                )}
+                                                            >
+                                                                {method}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* OR Number Input */}
+                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
+                                                    <Input
+                                                        type="text"
+                                                        name="official_receipt_series_number"
+                                                        autoComplete="off"
+                                                        data-lpignore="true"
+                                                        data-1p-ignore="true"
+                                                        data-form-type="other"
+                                                        placeholder="Enter OR Series Number..."
+                                                        value={orSeriesNumber || ""}
+                                                        onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
+                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                    />
+                                                </div>
+
+                                                {paymentMethod !== "CASH" && (
+                                                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
+                                                        <Input
+                                                            type="text"
+                                                            name="online_payment_reference_code"
+                                                            autoComplete="off"
+                                                            data-lpignore="true"
+                                                            data-1p-ignore="true"
+                                                            data-form-type="other"
+                                                            placeholder={`Enter ${paymentMethod} Transaction Reference...`}
+                                                            value={paymentReference}
+                                                            onChange={(e) => setPaymentReference(e.target.value)}
+                                                            className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
 
                                         {/* Prepared Serial Badge */}
@@ -802,7 +867,7 @@ export default function BusinessPermitView({
                                                         <Button
                                                             type="button"
                                                             onClick={() => {
-                                                                if (["FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                                                                if (["FOR_PROCESSING", "PAID", "UNPAID"].includes(transaction.status)) {
                                                                     setIsConfirmPaymentModalOpen(true);
                                                                 } else {
                                                                     handleRelease();
@@ -815,16 +880,16 @@ export default function BusinessPermitView({
                                                                 (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
                                                                 (transaction.status === "FOR_REINSPECTION" && !eCopyFile && !transaction.eCopyUrl) ||
                                                                 (transaction.status === "PAID" && !orFile && !transaction.orUrl) ||
-                                                                (transaction.status === "FOR_PROCESSING" && (!orSeriesNumber || (paymentMethod !== "CASH" && !paymentReference)))
+                                                                ((transaction.status === "FOR_PROCESSING" || transaction.status === "UNPAID") && (!orSeriesNumber || (paymentMethod !== "CASH" && !paymentReference)))
                                                             }
                                                             className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
                                                         >
-                                                            {actionLoading ? "Submitting..." : ["FOR_PROCESSING", "PAID"].includes(transaction.status) ? "Payment Received" : (transaction.status === "FOR_REINSPECTION" ? (transaction.fulfillmentType === "DELIVERY" ? "Ready for Picking" : "Mark Ready for Claiming") : "Confirm & Release Document")}
+                                                            {actionLoading ? "Submitting..." : ["FOR_PROCESSING", "PAID", "UNPAID"].includes(transaction.status) ? "Payment Received" : (transaction.status === "FOR_REINSPECTION" ? (transaction.fulfillmentType === "DELIVERY" ? "Ready for Picking" : "Mark Ready for Claiming") : "Confirm & Release Document")}
                                                         </Button>
                                                     )}
 
 
-                                                    {!(["PAID", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status)) && (
+                                                    {!(["PAID", "FOR_PROCESSING", "FOR_REINSPECTION", "UNPAID"].includes(transaction.status)) && (
                                                         <Button
                                                             onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                                             className="w-full h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-red-600/20 transition-all active:scale-95"
@@ -957,7 +1022,7 @@ export default function BusinessPermitView({
                                 type="button"
                                 onClick={() => {
                                     setIsConfirmPaymentModalOpen(false);
-                                    if (transaction.status === "FOR_PROCESSING") {
+                                    if (transaction.status === "FOR_PROCESSING" || transaction.status === "UNPAID") {
                                         handleConfirmPayment(paymentMethod, paymentMethod !== "CASH" ? paymentReference : undefined);
                                     } else if (transaction.status === "PAID") {
                                         handleConfirmPayment();

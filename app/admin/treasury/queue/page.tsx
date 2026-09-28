@@ -95,8 +95,12 @@ function getCitizenDetails(item: any): { name: string; isRelative: boolean; rela
         ? (() => { try { return JSON.parse(item.residentSnapshot); } catch { return {}; } })()
         : (item.residentSnapshot || {});
 
-    const isRelative = Boolean(addData.applicantTarget === "RELATIVE" || addData.relationshipToApplicant);
-    const relationship = addData.relationshipToApplicant || "";
+    const relStr = String(addData.relationshipToApplicant || "").trim().toUpperCase();
+    const isRelative = (addData.applicantTarget === "RELATIVE" || Boolean(addData.relationshipToApplicant)) &&
+        addData.applicantTarget !== "SELF" &&
+        relStr !== "SELF" &&
+        relStr !== "";
+    const relationship = isRelative ? (addData.relationshipToApplicant || "") : "";
     const applicantName = item.user?.residentProfile
         ? `${item.user.residentProfile.firstName || ""} ${item.user.residentProfile.lastName || ""}`.trim()
         : item.user?.name || "";

@@ -34,7 +34,8 @@ import {
     Eye,
     EyeOff,
     ShieldCheck,
-    Loader2
+    Loader2,
+    FileWarning
 } from "lucide-react";
 import {
     getSameDayPendingAppointments,
@@ -162,7 +163,9 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         handlePrintCedula,
         openCedulaPreview,
         editedIncome,
-        setEditedIncome
+        setEditedIncome,
+        draftProfileValues,
+        setDraftProfileValues
     } = props;
 
     const effectiveThemeColor = themeColor || "#f43f5e";
@@ -255,13 +258,28 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     };
 
     // Declared Gross Security Authorization States
-    const [isGrossLocked, setIsGrossLocked] = React.useState(true);
+    const [isAuthorized, setIsAuthorized] = React.useState(false);
     const [unlockModalOpen, setUnlockModalOpen] = React.useState(false);
     const [unlockPassword, setUnlockPassword] = React.useState('');
     const [showUnlockPassword, setShowUnlockPassword] = React.useState(false);
     const [unlockReason, setUnlockReason] = React.useState('');
     const [unlockLoading, setUnlockLoading] = React.useState(false);
     const [authorizedStaffName, setAuthorizedStaffName] = React.useState<string | null>(null);
+
+    const isCedula = 
+        transaction?.type?.category?.toUpperCase() === "CEDULA" || 
+        transaction?.type?.code?.toUpperCase().includes("CEDULA");
+
+    // Accountable Form Incident (Paper Jam / Cancelled Stubs) States
+    const [incidentModalOpen, setIncidentModalOpen] = React.useState(false);
+    const [incidentFormType, setIncidentFormType] = React.useState<string>("");
+    const [incidentType, setIncidentType] = React.useState<"PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR">("PAPER_JAM");
+    const [damagedSerialInput, setDamagedSerialInput] = React.useState("");
+    const [replacementSerialInput, setReplacementSerialInput] = React.useState("");
+    const [incidentReasonDetails, setIncidentReasonDetails] = React.useState("");
+    const [incidentSubmitting, setIncidentSubmitting] = React.useState(false);
+
+    const isGrossLocked = !isAuthorized;
 
     const handleVerifyAndUnlockGross = async () => {
         if (!unlockPassword.trim()) {
@@ -271,23 +289,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
         setUnlockLoading(true);
         try {
-            const previousGrossVal = Number(declaredValue) || 0;
-            const newGrossVal = editedIncome !== null && editedIncome !== undefined ? editedIncome : previousGrossVal;
-
-            const res = await verifyTreasuryPasswordAndLogGrossAdjustmentAction({
-                password: unlockPassword,
+            const { verifyStaffPasswordToUnlockAction } = await import("../profile-actions");
+            const res = await verifyStaffPasswordToUnlockAction({
                 transactionId: transaction.id,
-                previousGross: previousGrossVal,
-                newGross: newGrossVal,
-                reason: unlockReason
+                password: unlockPassword.trim(),
+                reason: unlockReason.trim() || undefined
             });
 
             if (res.success && res.data) {
-                setIsGrossLocked(false);
+                setIsAuthorized(true);
                 setAuthorizedStaffName(res.data.authorizedBy);
                 setUnlockModalOpen(false);
                 setUnlockPassword('');
-                toast.success(`Access granted. Authorized by ${res.data.authorizedBy}`);
+                toast.success(`Access granted. Authorized by ${res.data.authorizedBy}. Profile and declared gross unlocked for editing.`);
             } else {
                 toast.error(res.error || "Authorization failed. Incorrect password.");
             }
@@ -298,29 +312,41 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         }
     };
 
-    const isCedula =
-        transaction.type?.category?.toUpperCase() === "CEDULA" ||
-        transaction.type?.code?.toUpperCase().includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
     const canApprove = (transaction.status === "FOR_REQUESTING") && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide;
     const hasDispute = transaction.status === "RETURN_REQUESTED" || transaction.status === "REFUND_REQUESTED" || !!transaction.disputeReason;
     const [isProfileOpen, setIsProfileOpen] = React.useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = React.useState(true);
-    const additional = transaction.additionalData || {};
+    const additional = React.useMemo(() => transaction.additionalData || {}, [transaction.additionalData]);
     const relStr = String(additional?.relationshipToApplicant || "").trim().toUpperCase();
     const isRelative = (additional?.applicantTarget === "RELATIVE" || Boolean(additional?.relationshipToApplicant)) &&
         additional?.applicantTarget !== "SELF" &&
         relStr !== "SELF" &&
         relStr !== "";
     const rawSnapshot = transaction.residentSnapshot;
-    const parsedSnapshot = typeof rawSnapshot === "string"
-        ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
-        : (rawSnapshot || {});
+    const parsedSnapshot = React.useMemo(() => {
+        return typeof rawSnapshot === "string"
+            ? (() => { try { return JSON.parse(rawSnapshot); } catch { return {}; } })()
+            : (rawSnapshot || {});
+    }, [rawSnapshot]);
 
     // For Relative applications, resident represents the relative (the actual Cedula Holder)
-    const resident = isRelative
-        ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
-        : (transaction.user?.residentProfile || parsedSnapshot);
+    const baseResident = React.useMemo(() => {
+        return isRelative
+            ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
+            : (transaction.user?.residentProfile || parsedSnapshot);
+    }, [isRelative, parsedSnapshot, transaction.user?.residentProfile]);
+
+    const resident = React.useMemo(() => ({
+        ...baseResident,
+        gender: baseResident?.gender || parsedSnapshot?.gender || additional?.gender || "—",
+        placeOfBirth: baseResident?.placeOfBirth || parsedSnapshot?.placeOfBirth || additional?.placeOfBirth || "—",
+        citizenship: baseResident?.citizenship || parsedSnapshot?.citizenship || additional?.citizenship || "Filipino",
+        height: baseResident?.height || parsedSnapshot?.height || additional?.height || "—",
+        weight: baseResident?.weight || parsedSnapshot?.weight || additional?.weight || "—",
+        civilStatus: baseResident?.civilStatus || parsedSnapshot?.civilStatus || additional?.civilStatus || "Single",
+        occupation: baseResident?.occupation || parsedSnapshot?.occupation || additional?.incomeSource || additional?.occupation || "—",
+    }), [baseResident, parsedSnapshot, additional]);
 
     const requesterProfile = transaction.user?.residentProfile || transaction.user || {};
     const requesterFullName = requesterProfile?.firstName || requesterProfile?.lastName
@@ -333,15 +359,22 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const fiscal = (transaction.fiscalSnapshot as any) || null;
 
     const hasCheckIn = Boolean(
+        additional?.checkedIn === true ||
         additional?.checkInData ||
         additional?.checkIn ||
         additional?.checkInTime ||
         additional?.checkedInAt ||
+        additional?.counterName ||
         additional?.scannedAt ||
         additional?.checkInStatus ||
         transaction?.checkIn ||
         transaction?.checkedInAt ||
         transaction?.checkInDetails
+    );
+
+    const hasAssignedCounter = Boolean(
+        additional?.counterName ||
+        (typeof window !== "undefined" && localStorage.getItem("activeCounterName"))
     );
 
     // Calculate sum of fee line items currently entered in the UI
@@ -775,7 +808,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             <div className="flex justify-between items-center pt-2 gap-4">
                                                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400 italic">Delivery Fee</span>
                                                 <span className="text-xs font-black dark:text-white italic">
-                                                    ₱{deliveryFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    ₱{Number(deliveryFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         )}
@@ -784,7 +817,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <div className="border-t border-dotted border-slate-300 dark:border-white/10 pt-4 mt-4 flex justify-between items-center">
                                             <span className="text-base font-black uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">Total Amount</span>
                                             <span className="text-3xl font-black italic tracking-tighter text-primary leading-none">
-                                                ₱{adjustedDisplayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{Number(adjustedDisplayTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     </div>
@@ -803,6 +836,22 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         subtitleText={isRelative ? "Relative / Cedula Holder Dossier" : "Verified Citizen Data Dossier"}
                         relationship={isRelative ? (additional?.relationshipToApplicant || "Relative") : undefined}
                         relationshipLabel="Relationship to Representative / Applicant"
+                        transactionId={transaction.id}
+                        canEdit={!isReadOnlyAide}
+                        onProfileUpdated={props.fetchTransaction}
+                        isAuthorized={isAuthorized}
+                        setIsAuthorized={setIsAuthorized}
+                        authorizedStaffName={authorizedStaffName}
+                        setAuthorizedStaffName={setAuthorizedStaffName}
+                        declaredGross={editedIncome !== null && editedIncome !== undefined ? editedIncome : (Number(declaredValue) || undefined)}
+                        onOpenUnlockModal={() => {
+                            setUnlockPassword('');
+                            setUnlockReason('');
+                            setUnlockModalOpen(true);
+                        }}
+                        onFormValuesChange={(values) => {
+                            setDraftProfileValues?.(values);
+                        }}
                     />
 
                     {/* EVIDENCE VAULT */}
@@ -1054,8 +1103,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
                     {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && !transaction.orSeriesNumber && !transaction.paymentType)) && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
-                            {/* If status is FOR_REQUESTING: Show Queue notice and optional Request Revision */}
-                            {transaction.status === "FOR_REQUESTING" && (
+                            {/* If status is FOR_REQUESTING and NOT checked-in: Show Queue notice and optional Request Revision */}
+                            {transaction.status === "FOR_REQUESTING" && !hasCheckIn && (
                                 <div className="space-y-4">
                                     {/* Notice Banner */}
                                     <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2">
@@ -1084,8 +1133,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {/* If status is EVALUATED / FOR_PROCESSING: Show Payment & Release stage */}
-                            {(transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") && (() => {
+                            {/* If status is EVALUATED / FOR_PROCESSING OR checked-in FOR_REQUESTING: Show Payment & Release stage */}
+                            {((transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") || (transaction.status === "FOR_REQUESTING" && hasCheckIn)) && (() => {
                                 const hasInvalidFees = feeLineItems.some(item => {
                                     const labelEmpty = item.label.trim() === "";
                                     const amountEmpty = item.amount.trim() === "" || item.amount === "0";
@@ -1384,7 +1433,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         </Button>
 
                                         {/* Dedicated Print Cedula action - positioned right below Mark as Paid & Released */}
-                                        {isCedula && transaction.status === "FOR_PROCESSING" && (
+                                        {isCedula && (transaction.status === "FOR_PROCESSING" || (transaction.status === "FOR_REQUESTING" && hasCheckIn) || transaction.status === "EVALUATED") && (
                                             <Button
                                                 type="button"
                                                 onClick={() => openCedulaPreview ? openCedulaPreview() : (handlePrintCedula ? handlePrintCedula() : window.print())}
@@ -1394,6 +1443,43 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 <Printer className="w-4 h-4 mr-2" />
                                                 Preview & Print Cedula Form
                                             </Button>
+                                        )}
+
+                                        {/* Report Paper Jam / Cancelled Serial Action Button — strictly available once called to an active counter */}
+                                        {hasAssignedCounter ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const currentSerial = isCedula 
+                                                        ? (ctcNumber || transaction.cedula?.ctcNumber || orSeriesNumber || "")
+                                                        : (orSeriesNumber || transaction.additionalData?.orSeriesNumber || "");
+                                                    setDamagedSerialInput(currentSerial);
+                                                    setReplacementSerialInput("");
+                                                    setIncidentReasonDetails("");
+                                                    setIncidentFormType("");
+                                                    setIncidentType("PAPER_JAM");
+                                                    setIncidentModalOpen(true);
+                                                }}
+                                                className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3 flex items-center justify-center gap-2"
+                                            >
+                                                <FileWarning className="w-4 h-4 text-amber-500 shrink-0" />
+                                                Report Cancelled / Jammed Form
+                                            </Button>
+                                        ) : (
+                                            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2 mt-3 text-left">
+                                                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-wider">Unassigned Counter Window</span>
+                                                </div>
+                                                <p className="text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                                    This ticket has not yet been assigned to a counter window. Please call this ticket from the{" "}
+                                                    <Link href="/admin/treasury/queue" className="underline font-bold text-primary hover:opacity-80">
+                                                        Live Queue board
+                                                    </Link>{" "}
+                                                    to enable form printing and incident reporting.
+                                                </p>
+                                            </div>
                                         )}
 
                                         {hasCheckIn && (
@@ -1893,7 +1979,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             Staff Authorization Required
                         </DialogTitle>
                         <DialogDescription className="text-xs text-center text-slate-500 dark:text-slate-400">
-                            Modifying the declared gross income recalculates community tax assessments and is logged in the municipal audit trail. Please enter your account password to unlock.
+                            Please enter your account password to authorize and unlock editing for the citizen profile and declared gross income. All modifications are logged in the municipal audit trail.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1980,6 +2066,186 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             ) : (
                                 <span className="flex items-center gap-2">
                                     <Unlock className="w-4 h-4" /> Authorize & Unlock
+                                </span>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ACCOUNTABLE FORM INCIDENT (PAPER JAM / CANCELLED STUB) MODAL */}
+            <Dialog open={incidentModalOpen} onOpenChange={(open) => {
+                if (!incidentSubmitting) {
+                    setIncidentModalOpen(open);
+                }
+            }}>
+                <DialogContent className="sm:max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
+                    <DialogHeader className="space-y-2 text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-1 border border-amber-500/20 shadow-sm">
+                            <FileWarning className="w-7 h-7" />
+                        </div>
+                        <DialogTitle className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                            Log Cancelled Accountable Form
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
+                            Log a cancelled or paper-jammed physical stub. This event is permanently recorded in the municipal audit trail for official COA RAAF compliance.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Form Type Selector */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Form Classification
+                            </Label>
+                            <Input
+                                type="text"
+                                value={incidentFormType}
+                                onChange={(e) => setIncidentFormType(e.target.value)}
+                                placeholder="Official Receipt"
+                                className="h-10 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/10 placeholder:text-slate-400/70"
+                            />
+                        </div>
+
+                        {/* Incident Type Selector */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Incident Category
+                            </Label>
+                            <select
+                                value={incidentType}
+                                onChange={(e) => setIncidentType(e.target.value as any)}
+                                className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                            >
+                                <option value="PAPER_JAM">Paper Jam / Printer Feeder Jam</option>
+                                <option value="PRINTER_MISFEED">Printer Misfeed / Misaligned Sheet</option>
+                                <option value="INK_SMUDGE">Ink Smudge / Illegible Printout</option>
+                                <option value="DAMAGED_LEAF">Torn / Damaged Booklet Leaf</option>
+                                <option value="ENCODING_ERROR">Encoding Error / Cancelled Serial</option>
+                            </select>
+                        </div>
+
+                        {/* Cancelled Serial & Replacement Serial Inputs */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-wider text-rose-500">
+                                    Cancelled Serial #
+                                </Label>
+                                <Input
+                                    type="text"
+                                    value={damagedSerialInput}
+                                    onChange={(e) => setDamagedSerialInput(e.target.value)}
+                                    placeholder="e.g. 029293882"
+                                    className="h-11 rounded-xl border-rose-300 dark:border-rose-900/50 bg-rose-500/5 text-rose-700 dark:text-rose-400 font-mono font-black text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                    Replacement Serial # (Active)
+                                </Label>
+                                <Input
+                                    type="text"
+                                    value={replacementSerialInput}
+                                    onChange={(e) => setReplacementSerialInput(e.target.value)}
+                                    placeholder="e.g. 029293883"
+                                    className="h-11 rounded-xl border-emerald-300 dark:border-emerald-900/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 font-mono font-black text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Remarks / Reason Details */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Notes / Cashier Remarks (Optional)
+                            </Label>
+                            <Input
+                                type="text"
+                                value={incidentReasonDetails}
+                                onChange={(e) => setIncidentReasonDetails(e.target.value)}
+                                placeholder="e.g. Paper folded in roller during printing"
+                                className="h-10 rounded-xl text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex items-center gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIncidentModalOpen(false)}
+                            disabled={incidentSubmitting}
+                            className="flex-1 rounded-xl font-bold py-2.5 text-slate-700 dark:text-slate-300"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={async () => {
+                                if (!damagedSerialInput.trim()) {
+                                    toast.error("Please specify the cancelled / jammed serial number.");
+                                    return;
+                                }
+                                if (!replacementSerialInput.trim()) {
+                                    toast.error("Please enter the new replacement serial number.");
+                                    return;
+                                }
+                                if (damagedSerialInput.trim() === replacementSerialInput.trim()) {
+                                    toast.error("Replacement serial must be different from cancelled serial.");
+                                    return;
+                                }
+
+                                setIncidentSubmitting(true);
+                                try {
+                                    const { reportAccountableFormIncidentAction } = await import("@/app/admin/transactions/treasury-incident-actions");
+                                    const effectiveFormType = incidentFormType.trim() || (isCedula ? "Cedula (CTC Form)" : "Official Receipt");
+                                    const activeCounter = (typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null) 
+                                        || transaction.additionalData?.counterName 
+                                        || "Counter 1";
+
+                                    const res = await reportAccountableFormIncidentAction({
+                                        transactionId: transaction.id,
+                                        formType: effectiveFormType,
+                                        incidentType,
+                                        damagedSeriesNumber: damagedSerialInput.trim(),
+                                        replacedSeriesNumber: replacementSerialInput.trim(),
+                                        reasonDetails: incidentReasonDetails.trim(),
+                                        counterName: activeCounter
+                                    });
+
+                                    if (res.success) {
+                                        toast.success("Form cancellation incident logged to AuditLog!");
+                                        
+                                        // Update active serial in UI form inputs only
+                                        const isCtcForm = isCedula || incidentFormType.toLowerCase().includes("cedula") || incidentFormType.toLowerCase().includes("ctc");
+                                        if (isCtcForm) {
+                                            setCtcNumber?.(replacementSerialInput.trim());
+                                        } else {
+                                            setOrSeriesNumber?.(replacementSerialInput.trim());
+                                        }
+                                        
+                                        // Terminate / dismiss modal without refreshing page
+                                        setIncidentModalOpen(false);
+                                    } else {
+                                        toast.error(res.error || "Failed to record incident.");
+                                    }
+                                } catch (err: any) {
+                                    console.error("Error logging form incident:", err);
+                                    toast.error(err?.message || "An unexpected error occurred.");
+                                } finally {
+                                    setIncidentSubmitting(false);
+                                }
+                            }}
+                            disabled={incidentSubmitting || !damagedSerialInput.trim() || !replacementSerialInput.trim()}
+                            className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 shadow-md shadow-amber-600/20"
+                        >
+                            {incidentSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Recording...
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-2">
+                                    <Check className="w-4 h-4" /> Apply & Record Incident
                                 </span>
                             )}
                         </Button>

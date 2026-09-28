@@ -1689,6 +1689,7 @@ model RoadClosure {
   @@index([barangay])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model FollowUpAppointment {
   id                    String   @id @default(cuid())
   patientId             String
@@ -1705,9 +1706,9 @@ model FollowUpAppointment {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  @@index([scheduledDate])
-  @@index([patientId])
   @@index([doctorId])
+  @@index([patientId])
+  @@index([scheduledDate])
   @@index([status])
 }
 

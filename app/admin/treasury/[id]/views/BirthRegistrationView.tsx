@@ -416,6 +416,9 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                             titleWhiteText="Profile"
                             subtitleText="Verified Requester / Informant Data Dossier"
                             relationship={additional.relationship}
+                            transactionId={transaction.id}
+                            canEdit={!props.isReadOnlyAide}
+                            onProfileUpdated={props.fetchTransaction}
                         />
 
                         {/* Primary LCR Specific Details Panel */}

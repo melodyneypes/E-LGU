@@ -305,6 +305,9 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                             titleWhiteText="Party"
                             subtitleText="Verified Requester / Informant Data Dossier"
                             relationship={additional.relationship}
+                            transactionId={transaction.id}
+                            canEdit={!isReadOnlyAide}
+                            onProfileUpdated={props.fetchTransaction}
                         />
 
                         {/* Primary LCR Specific Details Panel */}

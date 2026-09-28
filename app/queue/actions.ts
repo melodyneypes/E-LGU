@@ -170,6 +170,11 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 return hasCounter && allowedBploServing.includes(tx.status);
             }
 
+            if (additionalData.servingDepartment === "Treasury") {
+                const finalStatuses = ["RELEASED", "CANCELLED", "REJECTED", "DELIVERED", "PAID"];
+                return hasCounter && !finalStatuses.includes(tx.status);
+            }
+
             if (tx.status === "FOR_PROCESSING") {
                 return hasCounter;
             }
@@ -196,7 +201,13 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 ? (typeof tx.residentSnapshot === "string" ? (() => { try { return JSON.parse(tx.residentSnapshot); } catch { return {}; } })() : tx.residentSnapshot)
                 : {};
 
-            if (additionalData.applicantTarget === "RELATIVE" || additionalData.relationshipToApplicant) {
+            const relStr = String(additionalData.relationshipToApplicant || "").trim().toUpperCase();
+            const isRelative = (additionalData.applicantTarget === "RELATIVE" || Boolean(additionalData.relationshipToApplicant)) &&
+                additionalData.applicantTarget !== "SELF" &&
+                relStr !== "SELF" &&
+                relStr !== "";
+
+            if (isRelative) {
                 const relName = [snap.firstName, snap.middleName, snap.lastName, snap.suffix].filter(Boolean).join(" ").trim() || snap.fullName || snap.name;
                 if (relName) {
                     residentName = relName;
