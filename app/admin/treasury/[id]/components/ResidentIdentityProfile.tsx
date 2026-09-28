@@ -97,6 +97,9 @@ export default function ResidentIdentityProfile({
         }
     };
 
+    const hasInitializedRef = React.useRef(false);
+    const lastTxIdRef = React.useRef<string | null>(null);
+
     const resetFormValues = useCallback(() => {
         setFormValues({
             firstName: resident?.firstName || "",
@@ -120,9 +123,15 @@ export default function ResidentIdentityProfile({
         });
     }, [resident]);
 
+    // Initial mount or transaction switch only - NEVER reset while authorized and typing!
     useEffect(() => {
-        resetFormValues();
-    }, [resetFormValues]);
+        const isNewTx = transactionId && transactionId !== lastTxIdRef.current;
+        if (!hasInitializedRef.current || isNewTx) {
+            resetFormValues();
+            hasInitializedRef.current = true;
+            if (transactionId) lastTxIdRef.current = transactionId;
+        }
+    }, [transactionId, resetFormValues]);
 
     const handleInputChange = (field: string, val: string) => {
         const next = { ...formValues, [field]: val };

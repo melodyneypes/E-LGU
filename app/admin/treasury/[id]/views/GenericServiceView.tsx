@@ -209,7 +209,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         ? (parsedSnapshot.firstName || parsedSnapshot.lastName ? parsedSnapshot : (transaction.user?.residentProfile || parsedSnapshot))
         : (transaction.user?.residentProfile || parsedSnapshot);
 
-    const resident = {
+    const resident = React.useMemo(() => ({
         ...baseResident,
         gender: baseResident?.gender || parsedSnapshot?.gender || additional?.gender || "—",
         placeOfBirth: baseResident?.placeOfBirth || parsedSnapshot?.placeOfBirth || additional?.placeOfBirth || "—",
@@ -218,7 +218,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         weight: baseResident?.weight || parsedSnapshot?.weight || additional?.weight || "—",
         civilStatus: baseResident?.civilStatus || parsedSnapshot?.civilStatus || additional?.civilStatus || "Single",
         occupation: baseResident?.occupation || parsedSnapshot?.occupation || additional?.incomeSource || additional?.occupation || "—",
-    };
+    }), [baseResident, parsedSnapshot, additional]);
 
     const requesterProfile = transaction.user?.residentProfile || transaction.user || {};
     const requesterFullName = requesterProfile?.firstName || requesterProfile?.lastName
