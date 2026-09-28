@@ -28,7 +28,8 @@ import {
     Eye,
     EyeOff,
     ShieldCheck,
-    Loader2
+    Loader2,
+    FileWarning
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -152,6 +153,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
     const [unlockLoading, setUnlockLoading] = React.useState(false);
     const [authorizedStaffName, setAuthorizedStaffName] = React.useState<string | null>(null);
 
+    const isCedula = 
+        transaction?.type?.category?.toUpperCase() === "CEDULA" || 
+        transaction?.type?.code?.toUpperCase().includes("CEDULA");
+
+    // Accountable Form Incident (Paper Jam / Spoiled Stubs) States
+    const [incidentModalOpen, setIncidentModalOpen] = React.useState(false);
+    const [incidentFormType, setIncidentFormType] = React.useState<"OFFICIAL_RECEIPT" | "COMMUNITY_TAX_CERTIFICATE">(isCedula ? "COMMUNITY_TAX_CERTIFICATE" : "OFFICIAL_RECEIPT");
+    const [incidentType, setIncidentType] = React.useState<"PAPER_JAM" | "PRINTER_MISFEED" | "INK_SMUDGE" | "DAMAGED_LEAF" | "ENCODING_ERROR">("PAPER_JAM");
+    const [damagedSerialInput, setDamagedSerialInput] = React.useState("");
+    const [replacementSerialInput, setReplacementSerialInput] = React.useState("");
+    const [incidentReasonDetails, setIncidentReasonDetails] = React.useState("");
+    const [incidentSubmitting, setIncidentSubmitting] = React.useState(false);
+
     const isGrossLocked = !isAuthorized;
 
     const handleVerifyAndUnlockGross = async () => {
@@ -185,9 +199,6 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         }
     };
 
-    const isCedula = 
-        transaction.type?.category?.toUpperCase() === "CEDULA" || 
-        transaction.type?.code?.toUpperCase().includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
     const canApprove = (transaction.status === "FOR_REQUESTING") && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide;
     const hasDispute = transaction.status === "RETURN_REQUESTED" || transaction.status === "REFUND_REQUESTED" || !!transaction.disputeReason;
@@ -1039,6 +1050,27 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             </Button>
                                         )}
 
+                                        {/* Report Paper Jam / Spoiled Serial Action Button */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => {
+                                                const currentSerial = isCedula 
+                                                    ? (ctcNumber || transaction.cedula?.ctcNumber || orSeriesNumber || "")
+                                                    : (orSeriesNumber || transaction.additionalData?.orSeriesNumber || "");
+                                                setDamagedSerialInput(currentSerial);
+                                                setReplacementSerialInput("");
+                                                setIncidentReasonDetails("");
+                                                setIncidentFormType(isCedula ? "COMMUNITY_TAX_CERTIFICATE" : "OFFICIAL_RECEIPT");
+                                                setIncidentType("PAPER_JAM");
+                                                setIncidentModalOpen(true);
+                                            }}
+                                            className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all shadow-sm active:scale-95 mt-3 flex items-center justify-center gap-2"
+                                        >
+                                            <FileWarning className="w-4 h-4 text-amber-500 shrink-0" />
+                                            Report Paper Jam / Spoiled Form
+                                        </Button>
+
                                         {hasCheckIn && (
                                             <Button
                                                 type="button"
@@ -1583,6 +1615,199 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             ) : (
                                 <span className="flex items-center gap-2">
                                     <Unlock className="w-4 h-4" /> Authorize & Unlock
+                                </span>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ACCOUNTABLE FORM INCIDENT (PAPER JAM / SPOILED STUB) MODAL */}
+            <Dialog open={incidentModalOpen} onOpenChange={(open) => {
+                if (!incidentSubmitting) {
+                    setIncidentModalOpen(open);
+                }
+            }}>
+                <DialogContent className="sm:max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
+                    <DialogHeader className="space-y-2 text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-1 border border-amber-500/20 shadow-sm">
+                            <FileWarning className="w-7 h-7" />
+                        </div>
+                        <DialogTitle className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                            Report Accountable Form Incident
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
+                            Log a spoiled or paper-jammed physical stub. This event is permanently recorded in the municipal audit trail for official COA RAAF compliance.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Form Type Selector */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Form Classification
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIncidentFormType("COMMUNITY_TAX_CERTIFICATE")}
+                                    className={cn(
+                                        "h-10 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                                        incidentFormType === "COMMUNITY_TAX_CERTIFICATE"
+                                            ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
+                                            : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
+                                    )}
+                                >
+                                    Cedula (CTC Form)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIncidentFormType("OFFICIAL_RECEIPT")}
+                                    className={cn(
+                                        "h-10 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                                        incidentFormType === "OFFICIAL_RECEIPT"
+                                            ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
+                                            : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
+                                    )}
+                                >
+                                    Official Receipt (OR 51)
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Incident Type Selector */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Incident Category
+                            </Label>
+                            <select
+                                value={incidentType}
+                                onChange={(e) => setIncidentType(e.target.value as any)}
+                                className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                            >
+                                <option value="PAPER_JAM">Paper Jam / Printer Feeder Jam</option>
+                                <option value="PRINTER_MISFEED">Printer Misfeed / Misaligned Sheet</option>
+                                <option value="INK_SMUDGE">Ink Smudge / Illegible Printout</option>
+                                <option value="DAMAGED_LEAF">Torn / Damaged Booklet Leaf</option>
+                                <option value="ENCODING_ERROR">Encoding Error / Cancelled Serial</option>
+                            </select>
+                        </div>
+
+                        {/* Damaged Serial & Replacement Serial Inputs */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-wider text-rose-500">
+                                    Damaged Serial # (Spoiled)
+                                </Label>
+                                <Input
+                                    type="text"
+                                    value={damagedSerialInput}
+                                    onChange={(e) => setDamagedSerialInput(e.target.value)}
+                                    placeholder="e.g. 029293882"
+                                    className="h-11 rounded-xl border-rose-300 dark:border-rose-900/50 bg-rose-500/5 text-rose-700 dark:text-rose-400 font-mono font-black text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                    Replacement Serial # (Active)
+                                </Label>
+                                <Input
+                                    type="text"
+                                    value={replacementSerialInput}
+                                    onChange={(e) => setReplacementSerialInput(e.target.value)}
+                                    placeholder="e.g. 029293883"
+                                    className="h-11 rounded-xl border-emerald-300 dark:border-emerald-900/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 font-mono font-black text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Remarks / Reason Details */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                Notes / Cashier Remarks (Optional)
+                            </Label>
+                            <Input
+                                type="text"
+                                value={incidentReasonDetails}
+                                onChange={(e) => setIncidentReasonDetails(e.target.value)}
+                                placeholder="e.g. Paper folded in roller during printing"
+                                className="h-10 rounded-xl text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex items-center gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIncidentModalOpen(false)}
+                            disabled={incidentSubmitting}
+                            className="flex-1 rounded-xl font-bold py-2.5 text-slate-700 dark:text-slate-300"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={async () => {
+                                if (!damagedSerialInput.trim()) {
+                                    toast.error("Please specify the damaged / jammed serial number.");
+                                    return;
+                                }
+                                if (!replacementSerialInput.trim()) {
+                                    toast.error("Please enter the new replacement serial number.");
+                                    return;
+                                }
+                                if (damagedSerialInput.trim() === replacementSerialInput.trim()) {
+                                    toast.error("Replacement serial must be different from damaged serial.");
+                                    return;
+                                }
+
+                                setIncidentSubmitting(true);
+                                try {
+                                    const { reportAccountableFormIncidentAction } = await import("@/app/admin/transactions/treasury-incident-actions");
+                                    const res = await reportAccountableFormIncidentAction({
+                                        transactionId: transaction.id,
+                                        formType: incidentFormType,
+                                        incidentType,
+                                        damagedSeriesNumber: damagedSerialInput.trim(),
+                                        replacedSeriesNumber: replacementSerialInput.trim(),
+                                        reasonDetails: incidentReasonDetails.trim(),
+                                        counterName: transaction.additionalData?.counterName || undefined
+                                    });
+
+                                    if (res.success) {
+                                        toast.success(res.message || "Incident recorded successfully!");
+                                        
+                                        // Update active serial in UI
+                                        if (incidentFormType === "COMMUNITY_TAX_CERTIFICATE") {
+                                            setCtcNumber?.(replacementSerialInput.trim());
+                                        } else {
+                                            setOrSeriesNumber?.(replacementSerialInput.trim());
+                                        }
+                                        
+                                        setIncidentModalOpen(false);
+                                        props.fetchTransaction?.();
+                                    } else {
+                                        toast.error(res.error || "Failed to record incident.");
+                                    }
+                                } catch (err: any) {
+                                    console.error("Error logging form incident:", err);
+                                    toast.error(err?.message || "An unexpected error occurred.");
+                                } finally {
+                                    setIncidentSubmitting(false);
+                                }
+                            }}
+                            disabled={incidentSubmitting || !damagedSerialInput.trim() || !replacementSerialInput.trim()}
+                            className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 shadow-md shadow-amber-600/20"
+                        >
+                            {incidentSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Recording...
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-2">
+                                    <Check className="w-4 h-4" /> Apply & Record Incident
                                 </span>
                             )}
                         </Button>

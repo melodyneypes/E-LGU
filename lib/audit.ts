@@ -15,7 +15,8 @@ export interface LogActivityParams {
         | "DOWNLOAD"
         | "LOGIN"
         | "STATUS_CHANGE"
-        | "EVALUATION";
+        | "EVALUATION"
+        | "ACCOUNTABLE_FORM_INCIDENT";
     entityType:
         | "Transaction"
         | "RealPropertyTax"
