@@ -110,6 +110,29 @@ export function AddStallModal() {
         );
     };
 
+    const resetForm = () => {
+        setStallNumber("");
+        setStallTypeId(stallTypes[0]?.id || "");
+        setIsSectionOpen(false);
+        setSectionSearch("");
+        setVendorId("NONE");
+        setVendorSearch("");
+        setStatus("VACANT");
+        setLatitude("");
+        setLongitude("");
+        setAddress("");
+        setDailyRate("");
+        setMonthlyRate("");
+        setDailyRateOverdueFee("");
+        setMonthlyRateOverdueFee("");
+        setOtherFees([]);
+    };
+
+    const handleCloseModal = () => {
+        setIsAddOpen(false);
+        resetForm();
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!stallNumber.trim() || !stallTypeId) {
@@ -150,18 +173,7 @@ export function AddStallModal() {
             // Instant Optimistic Insertion: 0ms delay in table and grid
             setStalls((prev) => [res.data as any, ...prev]);
             toast.success(`Market Stall "${stallNumber}" created successfully!`);
-            setIsAddOpen(false);
-            setStallNumber("");
-            setVendorId("NONE");
-            setVendorSearch("");
-            setLatitude("");
-            setLongitude("");
-            setAddress("");
-            setDailyRate("");
-            setMonthlyRate("");
-            setDailyRateOverdueFee("");
-            setMonthlyRateOverdueFee("");
-            setOtherFees([]);
+            handleCloseModal();
             triggerRefresh();
         } else {
             toast.error(res.error || "Failed to create stall");
@@ -169,7 +181,13 @@ export function AddStallModal() {
     };
 
     return (
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isAddOpen} onOpenChange={(open) => {
+            if (!open) {
+                handleCloseModal();
+            } else {
+                setIsAddOpen(true);
+            }
+        }}>
             <DialogContent showCloseButton={false} className="sm:max-w-5xl w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
@@ -187,7 +205,7 @@ export function AddStallModal() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setIsAddOpen(false)}
+                        onClick={handleCloseModal}
                         className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
                         <X className="w-5 h-5" />
@@ -568,7 +586,7 @@ export function AddStallModal() {
                         <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => setIsAddOpen(false)}
+                            onClick={handleCloseModal}
                             className="rounded-xl text-xs font-bold"
                         >
                             Cancel
