@@ -9,6 +9,8 @@ export interface StallTypeItem {
     name: string;
     description?: string | null;
     isActive: boolean;
+    createdBy?: string | null;
+    updatedBy?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     _count?: {

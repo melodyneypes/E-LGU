@@ -56,6 +56,8 @@ export async function getStallTypes() {
                 name: true,
                 description: true,
                 isActive: true,
+                createdBy: true,
+                updatedBy: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -91,6 +93,8 @@ export async function getStallTypeById(id: string) {
                 name: true,
                 description: true,
                 isActive: true,
+                createdBy: true,
+                updatedBy: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -120,7 +124,8 @@ export async function createStallType(data: {
     isActive?: boolean;
 }) {
     try {
-        await verifyBploStallTypesAccess();
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
 
         const code = data.code.trim().toUpperCase();
         const name = data.name.trim();
@@ -149,6 +154,8 @@ export async function createStallType(data: {
                 name,
                 description,
                 isActive,
+                createdBy: userName,
+                updatedBy: userName,
             },
         });
 
@@ -198,7 +205,8 @@ export async function updateStallType(
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyBploStallTypesAccess();
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
 
         const existing = await (prisma as any).stallType.findUnique({
             where: { id },
@@ -230,6 +238,7 @@ export async function updateStallType(
                 name: newName,
                 description: newDescription,
                 isActive: newIsActive,
+                updatedBy: userName,
             },
         });
 
@@ -286,14 +295,15 @@ export async function toggleStallTypeStatus(id: string, currentStatus: boolean) 
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyBploStallTypesAccess();
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
 
         const newStatus = !currentStatus;
 
         // Lean, single-roundtrip direct DB update
         const updated = await (prisma as any).stallType.update({
             where: { id },
-            data: { isActive: newStatus },
+            data: { isActive: newStatus, updatedBy: userName },
             select: { id: true, name: true, code: true, isActive: true },
         });
 
