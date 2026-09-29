@@ -9,6 +9,7 @@ export interface VendorItem {
     email: string | null;
     role: string;
     isEmailVerified: boolean;
+    isActive?: boolean;
     createdAt: Date | string;
     vendorStalls?: {
         id: string;

@@ -10,7 +10,6 @@ import { VendorHeader } from "./components/VendorHeader";
 import { VendorTable } from "./components/VendorTable";
 import { AddVendorModal } from "./components/AddVendorModal";
 import { EditVendorModal } from "./components/EditVendorModal";
-import { DeleteVendorModal } from "./components/DeleteVendorModal";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +44,7 @@ export default async function VendorRegistryPage() {
                 email: true,
                 role: true,
                 isEmailVerified: true,
+                isActive: true,
                 createdAt: true,
                 vendorStalls: {
                     select: {
@@ -66,7 +66,6 @@ export default async function VendorRegistryPage() {
                 <VendorTable />
                 <AddVendorModal />
                 <EditVendorModal />
-                <DeleteVendorModal />
             </VendorProvider>
         </div>
     );

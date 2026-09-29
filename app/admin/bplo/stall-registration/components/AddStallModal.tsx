@@ -78,8 +78,9 @@ export function AddStallModal() {
         );
     });
 
-    // Filter vendor list by search input
+    // Filter vendor list: must be active (isActive !== false) and match search query
     const filteredVendors = vendors.filter((v) => {
+        if (v.isActive === false) return false;
         const query = vendorSearch.toLowerCase().trim();
         if (!query) return true;
         return (

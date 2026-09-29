@@ -1,17 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useVendors, VendorItem } from "./VendorProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Store, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Edit, Store, ChevronLeft, ChevronRight, User, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toggleVendorStatus } from "../actions";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 export function VendorTable() {
     const {
         vendors,
+        setVendors,
         debouncedSearch,
         stallFilter,
         isSearching,
@@ -22,9 +26,39 @@ export function VendorTable() {
         setPageSize,
         setIsEditOpen,
         setEditingVendor,
-        setIsDeleteOpen,
-        setDeletingVendor,
     } = useVendors();
+
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    const handleToggle = async (item: VendorItem) => {
+        const currentActive = item.isActive !== false;
+        const newActive = !currentActive;
+
+        // Instant Optimistic Update
+        setTogglingId(item.id);
+        setVendors((prev) =>
+            prev.map((v) => (v.id === item.id ? { ...v, isActive: newActive } : v))
+        );
+
+        try {
+            const res = await toggleVendorStatus(item.id, currentActive);
+            if (res.success) {
+                toast.success(`Vendor ${item.name || "account"} is now ${newActive ? "Active" : "Inactive"}`);
+            } else {
+                setVendors((prev) =>
+                    prev.map((v) => (v.id === item.id ? { ...v, isActive: currentActive } : v))
+                );
+                toast.error(res.error || "Failed to update vendor status");
+            }
+        } catch (err: any) {
+            setVendors((prev) =>
+                prev.map((v) => (v.id === item.id ? { ...v, isActive: currentActive } : v))
+            );
+            toast.error(err.message || "Failed to update vendor status");
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     const filtered = vendors.filter((item) => {
         const query = debouncedSearch.toLowerCase().trim();
@@ -58,6 +92,7 @@ export function VendorTable() {
                             <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-400 py-4">Email Address</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-400 py-4">Assigned Stall(s)</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-400 py-4">Date Registered</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-400 py-4">Status</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-400 pr-6 text-right py-4">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -70,6 +105,7 @@ export function VendorTable() {
                                     <TableCell><Skeleton className="h-4 w-48 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                                     <TableCell className="pr-6 text-right"><Skeleton className="h-8 w-16 rounded-xl ml-auto" /></TableCell>
                                 </TableRow>
                             ))
@@ -127,6 +163,36 @@ export function VendorTable() {
                                                 {format(new Date(item.createdAt), "MMM d, yyyy")}
                                             </span>
                                         </TableCell>
+                                        {/* Status Toggle Switch */}
+                                        <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center gap-2.5">
+                                                <Switch
+                                                    checked={item.isActive !== false}
+                                                    disabled={togglingId === item.id}
+                                                    onCheckedChange={() => handleToggle(item)}
+                                                    size="sm"
+                                                    className="data-[state=checked]:bg-emerald-600 dark:data-[state=checked]:bg-emerald-500 cursor-pointer"
+                                                />
+                                                <span
+                                                    className={`text-[11px] font-black tracking-wider uppercase inline-flex items-center gap-1.5 ${
+                                                        item.isActive !== false
+                                                            ? "text-emerald-600 dark:text-emerald-400"
+                                                            : "text-slate-400 dark:text-slate-500"
+                                                    }`}
+                                                >
+                                                    {togglingId === item.id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
+                                                    ) : (
+                                                        <span
+                                                            className={`w-1.5 h-1.5 rounded-full ${
+                                                                item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                                            }`}
+                                                        />
+                                                    )}
+                                                    {item.isActive !== false ? "Active" : "Inactive"}
+                                                </span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="pr-6 text-right py-4">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Button
@@ -140,18 +206,6 @@ export function VendorTable() {
                                                     title="Edit Vendor"
                                                 >
                                                     <Edit className="w-3.5 h-3.5" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        setDeletingVendor(item);
-                                                        setIsDeleteOpen(true);
-                                                    }}
-                                                    className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                                                    title="Delete Vendor"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </Button>
                                             </div>
                                         </TableCell>

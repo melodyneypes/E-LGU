@@ -273,3 +273,29 @@ export async function deleteVendor(id: string) {
     }
 }
 
+/**
+ * TOGGLE VENDOR ACTIVE/INACTIVE STATUS (ULTRA FAST DIRECT UPDATE)
+ */
+export async function toggleVendorStatus(id: string, currentStatus: boolean) {
+    try {
+        if (!id) {
+            return { success: false, error: "Vendor ID is required." };
+        }
+
+        await verifyBploVendorAccess();
+
+        const newStatus = !currentStatus;
+
+        const updated = await prisma.user.update({
+            where: { id },
+            data: { isActive: newStatus },
+            select: { id: true, name: true, email: true, isActive: true },
+        });
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("[toggleVendorStatus] Error:", error);
+        return { success: false, error: error?.message || "Failed to toggle vendor status." };
+    }
+}
+

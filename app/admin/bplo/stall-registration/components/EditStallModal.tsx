@@ -216,9 +216,13 @@ export function EditStallModal() {
                                         </SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#151b2b]">
                                             <SelectItem value="NONE">-- No Vendor --</SelectItem>
-                                            {vendors.map((v) => (
-                                                <SelectItem key={v.id} value={v.id}>{v.name || v.email}</SelectItem>
-                                            ))}
+                                            {vendors
+                                                .filter((v) => v.isActive !== false || v.id === vendorId)
+                                                .map((v) => (
+                                                    <SelectItem key={v.id} value={v.id}>
+                                                        {v.name || v.email} {v.isActive === false ? "(Inactive)" : ""}
+                                                    </SelectItem>
+                                                ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

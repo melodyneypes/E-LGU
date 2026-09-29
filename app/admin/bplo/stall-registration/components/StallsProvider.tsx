@@ -43,6 +43,7 @@ export interface VendorOption {
     id: string;
     name: string | null;
     email: string | null;
+    isActive?: boolean;
 }
 
 interface StallsContextType {

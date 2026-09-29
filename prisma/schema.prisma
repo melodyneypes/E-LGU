@@ -19,6 +19,7 @@ model User {
   updatedAt             DateTime                 @updatedAt
   isEmailVerified       Boolean                  @default(false)
   isPasswordChanged     Boolean                  @default(false)
+  isActive              Boolean                  @default(true)
   rejectionCount        Int                      @default(0)
   rejectionResetAt      DateTime?
   managedBarangay       String?
