@@ -9,7 +9,6 @@ import { getAssessorTransactionById, evaluateAssessorTransaction } from "@/app/a
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
@@ -17,7 +16,6 @@ import {
     ArrowLeft, 
     Building2, 
     CheckCircle2, 
-    XCircle, 
     Calendar, 
     FileText, 
     Eye, 
@@ -27,8 +25,6 @@ import {
     UserCheck,
     MapPin,
     ShieldAlert,
-    ZoomIn,
-    Download,
     ChevronUp,
     ChevronDown
 } from "lucide-react";
@@ -61,7 +57,7 @@ export default function AssessorTransactionDetailPage() {
 
     const [tx, setTx] = useState<any | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
+    const [rejectionRemarks, _setRejectionRemarks] = useState<string>("");
     const [actionPending, setActionPending] = useState<boolean>(false);
 
     const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState<boolean>(false);
@@ -128,7 +124,7 @@ export default function AssessorTransactionDetailPage() {
         }
     };
 
-    const handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
+    const _handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
         if (!tx) return;
         if (action === "REJECT" && !rejectionRemarks.trim()) {
             toast.error("Please enter a reason for rejection.");
@@ -172,10 +168,10 @@ export default function AssessorTransactionDetailPage() {
 
     const rpt = tx.realPropertyTax || {};
     const catCode = rpt.rptCategory || tx.type?.code || "";
-    const isCategory1 = catCode === "RPT_CAT1";
+    const _isCategory1 = catCode === "RPT_CAT1";
 
     const addData = (typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData) || {};
-    const isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
+    const _isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
 
     const validIdUrl = rpt.validIdUrl || addData.validIdUrl;
 
@@ -367,6 +363,7 @@ export default function AssessorTransactionDetailPage() {
                                                 >
                                                     {isImg ? (
                                                         <>
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                                             <img
                                                                 src={doc.url}
                                                                 alt={doc.label}
