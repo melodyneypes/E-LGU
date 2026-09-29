@@ -187,6 +187,7 @@ export async function fetchPropertyByTdnOrPin(query: string) {
                     propertyAddress: addData.propertyAddress || "",
                     barangay: addData.barangay || "",
                     propertyType: addData.propertyType || "RESIDENTIAL",
+                    taxYear: addData.taxYear || "",
                     assessedValue: addData.assessedValue || 0
                 };
             }
@@ -215,6 +216,7 @@ export async function submitRptAppointment(formData: FormData) {
         const propertyAddress = sanitizeString(formData.get("propertyAddress") as string);
         const barangay = sanitizeString(formData.get("barangay") as string);
         const propertyType = sanitizeString(formData.get("propertyType") as string) || "RESIDENTIAL";
+        const taxYear = sanitizeString(formData.get("taxYear") as string) || new Date().getFullYear().toString();
         const assessedValueStr = formData.get("assessedValue") as string;
         const assessedValue = parseFloat(assessedValueStr || "0");
 
@@ -337,6 +339,7 @@ export async function submitRptAppointment(formData: FormData) {
                     propertyAddress,
                     barangay,
                     propertyType,
+                    taxYear,
                     assessedValue,
                     basicTax,
                     sefTax,
