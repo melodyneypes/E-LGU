@@ -248,17 +248,9 @@ export default function AssessorTransactionDetailPage() {
                         </CardHeader>
                         <CardContent className="p-6 md:p-8 space-y-6">
                             {/* Summary Header */}
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-6 border-b border-white/5">
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Property Owner Name</span>
-                                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tight">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Total Amount Due</span>
-                                    <div className="text-2xl font-black text-rose-500 font-mono tracking-tight italic">
-                                        ₱{(rpt.totalTaxDue || rpt.assessedValue || tx.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                    </div>
-                                </div>
+                            <div className="pb-6 border-b border-white/5">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Property Owner Name</span>
+                                <h3 className="text-2xl font-black text-white italic uppercase tracking-tight">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
                             </div>
 
                             {/* Clean Property Metadata Grid (No nested cards) */}
@@ -477,24 +469,16 @@ export default function AssessorTransactionDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Action Controls / Evaluation Panel */}
-                    <Card className="bg-[#0c1017] border-white/5 rounded-3xl shadow-xl overflow-hidden text-slate-100">
-                        <CardHeader className="border-b border-white/5 bg-white/[0.01] p-6">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-rose-400 italic">
-                                <Building2 className="w-4 h-4 text-rose-400" /> Evaluation Action Panel
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-2">
-                                <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider">
-                                    <Info className="w-4 h-4 text-rose-400" /> FOR VIEWING ONLY (CATEGORY 1)
-                                </div>
-                                <p className="text-[11px] leading-relaxed font-medium">
-                                    Category 1 (Routine Annual Tax Payment & Tax Clearance) is for viewing only under the Municipal Assessor Office. Billing and collection are processed directly by the Treasury Department.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Category 1 Notice Card - Standalone */}
+                    <div className="p-6 rounded-3xl bg-rose-500/[0.06] border border-rose-500/20 text-rose-300 space-y-2.5 shadow-xl backdrop-blur-sm">
+                        <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-rose-400">
+                            <Info className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>FOR VIEWING ONLY (CATEGORY 1)</span>
+                        </div>
+                        <p className="text-xs leading-relaxed font-medium text-rose-200/90">
+                            Category 1 (Routine Annual Tax Payment & Tax Clearance) is for viewing only under the Municipal Assessor Office. Billing and collection are processed directly by the Treasury Department.
+                        </p>
+                    </div>
                 </div>
             </div>
 
