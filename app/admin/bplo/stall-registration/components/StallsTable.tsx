@@ -4,7 +4,7 @@ import React from "react";
 import { useStalls, StallItem } from "./StallsProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Store, User, Edit, Trash2, Tag, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Store, User, Edit, Tag, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -23,8 +23,6 @@ export function StallsTable() {
         setSelectedStall,
         setIsEditOpen,
         setEditingStall,
-        setIsDeleteOpen,
-        setDeletingStall,
     } = useStalls();
 
     // Filter stalls logic
@@ -188,19 +186,6 @@ export function StallsTable() {
                                                 title="Edit Stall"
                                             >
                                                 <Edit className="w-3.5 h-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDeletingStall(item);
-                                                    setIsDeleteOpen(true);
-                                                }}
-                                                className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                                                title="Delete Stall"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
                                             </Button>
                                         </div>
                                     </TableCell>

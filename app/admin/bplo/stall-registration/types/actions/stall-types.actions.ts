@@ -55,6 +55,9 @@ export async function getStallTypes() {
                 code: true,
                 name: true,
                 description: true,
+                isActive: true,
+                createdBy: true,
+                updatedBy: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -89,6 +92,9 @@ export async function getStallTypeById(id: string) {
                 code: true,
                 name: true,
                 description: true,
+                isActive: true,
+                createdBy: true,
+                updatedBy: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -115,13 +121,16 @@ export async function createStallType(data: {
     code: string;
     name: string;
     description?: string | null;
+    isActive?: boolean;
 }) {
     try {
-        await verifyBploStallTypesAccess();
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
 
         const code = data.code.trim().toUpperCase();
         const name = data.name.trim();
         const description = data.description?.trim() || null;
+        const isActive = data.isActive !== undefined ? data.isActive : true;
 
         if (!code) {
             return { success: false, error: "Section code is required (e.g. DRY-01)." };
@@ -144,6 +153,9 @@ export async function createStallType(data: {
                 code,
                 name,
                 description,
+                isActive,
+                createdBy: userName,
+                updatedBy: userName,
             },
         });
 
@@ -162,6 +174,7 @@ export async function createStallType(data: {
                     code,
                     name,
                     description,
+                    isActive,
                 },
             });
         } catch (auditErr) {
@@ -184,6 +197,7 @@ export async function updateStallType(
         code?: string;
         name?: string;
         description?: string | null;
+        isActive?: boolean;
     }
 ) {
     try {
@@ -191,7 +205,8 @@ export async function updateStallType(
             return { success: false, error: "Stall type ID is required." };
         }
 
-        await verifyBploStallTypesAccess();
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
 
         const existing = await (prisma as any).stallType.findUnique({
             where: { id },
@@ -204,6 +219,7 @@ export async function updateStallType(
         const newCode = data.code ? data.code.trim().toUpperCase() : existing.code;
         const newName = data.name ? data.name.trim() : existing.name;
         const newDescription = data.description !== undefined ? (data.description ? data.description.trim() : null) : existing.description;
+        const newIsActive = data.isActive !== undefined ? data.isActive : existing.isActive;
 
         // Check if updating code conflicts with another record
         if (data.code && newCode !== existing.code) {
@@ -221,6 +237,8 @@ export async function updateStallType(
                 code: newCode,
                 name: newName,
                 description: newDescription,
+                isActive: newIsActive,
+                updatedBy: userName,
             },
         });
 
@@ -238,6 +256,9 @@ export async function updateStallType(
             }
             if ((existing.description || "") !== (newDescription || "")) {
                 changes["description"] = { old: existing.description || "None", new: newDescription || "None" };
+            }
+            if (existing.isActive !== newIsActive) {
+                changes["isActive"] = { old: existing.isActive, new: newIsActive };
             }
 
             const modifiedFields = Object.keys(changes);
@@ -265,6 +286,47 @@ export async function updateStallType(
     } catch (error: any) {
         console.error("[updateStallType] Error:", error);
         return { success: false, error: error?.message || "Failed to update stall type." };
+    }
+}
+
+export async function toggleStallTypeStatus(id: string, currentStatus: boolean) {
+    try {
+        if (!id) {
+            return { success: false, error: "Stall type ID is required." };
+        }
+
+        const user = await verifyBploStallTypesAccess();
+        const userName = user.name || user.email || "System";
+
+        const newStatus = !currentStatus;
+
+        // Lean, single-roundtrip direct DB update
+        const updated = await (prisma as any).stallType.update({
+            where: { id },
+            data: { isActive: newStatus, updatedBy: userName },
+            select: { id: true, name: true, code: true, isActive: true },
+        });
+
+        // Non-blocking background audit log (doesn't stall client response)
+        logActivity({
+            action: "UPDATE",
+            entityType: "StallType",
+            entityId: id,
+            entityName: `${updated.name} (${updated.code})`,
+            description: `Toggled Market Section "${updated.name}" status to ${newStatus ? "Active" : "Inactive"}`,
+            metadata: {
+                code: updated.code,
+                name: updated.name,
+                changes: {
+                    isActive: { old: currentStatus, new: newStatus },
+                },
+            },
+        }).catch((err) => console.warn("[toggleStallTypeStatus] Non-critical audit warning:", err));
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("[toggleStallTypeStatus] Error:", error);
+        return { success: false, error: error?.message || "Failed to toggle status." };
     }
 }
 

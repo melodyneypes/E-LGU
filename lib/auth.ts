@@ -74,6 +74,11 @@ export const authOptions: NextAuthOptions = {
                 // Using deleteMany() instead of delete() — safe even if no record exists
                 await prisma.rateLimit.deleteMany({ where: { key: limitKey } });
 
+                // Block login if user is a VENDOR record
+                if (user.role === "VENDOR") {
+                    throw new Error("ROLE_RESTRICTED_VENDOR");
+                }
+
                 // Block login if user is deactivated or not verified (but allow ADMIN)
                 if (user.role === "USER") {
                     if ((user as any).rejectionCount >= 3) {

@@ -3,17 +3,33 @@
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
 
+export async function ensureStallTypeIsActiveColumn() {
+    try {
+        await prisma.$executeRawUnsafe(`
+            ALTER TABLE "StallType" 
+            ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true;
+        `);
+        return { success: true };
+    } catch (err: any) {
+        console.error("Error ensuring isActive column:", err);
+        return { success: false, error: err.message };
+    }
+}
+
 export async function createStallType(data: {
     code: string;
     name: string;
     description?: string | null;
+    isActive?: boolean;
 }) {
     try {
+        await ensureStallTypeIsActiveColumn();
         const newStallType = await (prisma as any).stallType.create({
             data: {
                 code: data.code.trim().toUpperCase(),
                 name: data.name.trim(),
                 description: data.description?.trim() || null,
+                isActive: data.isActive !== undefined ? data.isActive : true,
             },
         });
 
@@ -32,14 +48,17 @@ export async function updateStallType(
         code?: string;
         name?: string;
         description?: string | null;
+        isActive?: boolean;
     }
 ) {
     try {
+        await ensureStallTypeIsActiveColumn();
         const updated = await (prisma as any).stallType.update({
             where: { id },
             data: {
                 ...(data.code && { code: data.code.trim().toUpperCase() }),
                 ...(data.name && { name: data.name.trim() }),
+                ...(data.isActive !== undefined && { isActive: data.isActive }),
                 description: data.description !== undefined ? data.description?.trim() || null : undefined,
             },
         });
@@ -51,6 +70,10 @@ export async function updateStallType(
         console.error("Failed to update stall type:", error);
         return { success: false, error: error.message || "Failed to update stall type" };
     }
+}
+
+export async function toggleStallTypeStatus(id: string, currentStatus: boolean) {
+    return updateStallType(id, { isActive: !currentStatus });
 }
 
 export async function deleteStallType(id: string) {

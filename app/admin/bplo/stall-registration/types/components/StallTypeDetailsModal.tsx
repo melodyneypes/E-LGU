@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useStallTypes } from "./StallTypesProvider";
-import { X } from "lucide-react";
+import { X, User } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -76,18 +76,31 @@ export function StallTypeDetailsModal() {
 
 
 
-                    {/* Metadata Timestamps */}
-                    <div className="grid grid-cols-2 gap-4 text-xs font-medium text-slate-400 pt-2 border-t border-slate-100 dark:border-[#2a3040]">
-                        <div>
-                            <span className="block text-[9px] font-black uppercase tracking-wider">Created On</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {format(new Date(selectedStallType.createdAt), "MMMM d, yyyy")}
+                    {/* Audit Metadata (Created By / Updated By / Timestamps) */}
+                    <div className="grid grid-cols-2 gap-3 text-xs font-medium pt-3 border-t border-slate-100 dark:border-[#2a3040]">
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] space-y-1">
+                            <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                <User size={11} className="text-purple-500" />
+                                Created By
+                            </span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {selectedStallType.createdBy || <span className="text-slate-400 font-normal italic">System</span>}
+                            </p>
+                            <span className="text-[10px] text-slate-400 block font-medium">
+                                {format(new Date(selectedStallType.createdAt), "MMM d, yyyy h:mm a")}
                             </span>
                         </div>
-                        <div>
-                            <span className="block text-[9px] font-black uppercase tracking-wider">Last Updated</span>
-                            <span className="text-slate-700 dark:text-slate-300 font-bold">
-                                {format(new Date(selectedStallType.updatedAt), "MMMM d, yyyy")}
+
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1a202c] border border-slate-100 dark:border-[#2a3040] space-y-1">
+                            <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                <User size={11} className="text-blue-500" />
+                                Last Updated By
+                            </span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {selectedStallType.updatedBy || <span className="text-slate-400 font-normal italic">System</span>}
+                            </p>
+                            <span className="text-[10px] text-slate-400 block font-medium">
+                                {format(new Date(selectedStallType.updatedAt), "MMM d, yyyy h:mm a")}
                             </span>
                         </div>
                     </div>

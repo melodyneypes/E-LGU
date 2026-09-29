@@ -57,15 +57,18 @@ export default async function StallsPage() {
                 vendor: { select: { id: true, name: true, email: true } },
                 otherFees: { select: { id: true, name: true, amount: true, feeType: true, remarks: true } },
             },
-            orderBy: { stallNumber: "asc" },
+            orderBy: { createdAt: "asc" },
         }),
         (prisma as any).stallType.findMany({
-            select: { id: true, code: true, name: true },
+            select: { id: true, code: true, name: true, isActive: true },
             orderBy: { name: "asc" },
         }),
         prisma.user.findMany({
-            where: { role: "VENDOR" as any },
-            select: { id: true, name: true, email: true },
+            where: {
+                role: "VENDOR" as any,
+                isActive: true,
+            },
+            select: { id: true, name: true, email: true, isActive: true },
             orderBy: { name: "asc" },
             take: 300,
         }),

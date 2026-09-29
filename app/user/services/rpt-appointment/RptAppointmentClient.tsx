@@ -34,6 +34,7 @@ import {
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import SchedulePicker from "@/components/shared/SchedulePicker";
+import { SearchableFilterDropdown } from "@/components/shared/SearchableFilterDropdown";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,13 @@ const DEFAULT_BARANGAYS = [
     "Abalos", "Amis", "Amanperez", "Apaya", "Calaocan",
     "Coral", "Golden", "Jimenez", "Nilombot", "Poblacion",
     "Primicias", "Santa Barbara", "Torres", "Luyan"
+];
+
+const PROPERTY_CLASSIFICATIONS = [
+    { value: "RESIDENTIAL", label: "Residential Property" },
+    { value: "COMMERCIAL", label: "Commercial Property" },
+    { value: "INDUSTRIAL", label: "Industrial Property" },
+    { value: "AGRICULTURAL", label: "Agricultural Property" }
 ];
 
 interface RptAppointmentClientProps {
@@ -94,6 +102,7 @@ export function RptAppointmentClient({
     const [propertyAddress, setPropertyAddress] = useState<string>("");
     const [barangay, setBarangay] = useState<string>(resident?.barangay || "");
     const [propertyType, setPropertyType] = useState<string>("");
+    const [taxYear, setTaxYear] = useState<string>(new Date().getFullYear().toString());
     const [assessedValue, setAssessedValue] = useState<string>("");
 
     // Schedule state
@@ -158,6 +167,7 @@ export function RptAppointmentClient({
             setPropertyAddress(res.propertyAddress || "");
             setBarangay(res.barangay || "");
             setPropertyType(res.propertyType || "RESIDENTIAL");
+            if (res.taxYear) setTaxYear(res.taxYear);
             setAssessedValue(res.assessedValue ? res.assessedValue.toString() : "");
             toast.success("Property metadata fetched successfully!");
         } else {
@@ -167,7 +177,7 @@ export function RptAppointmentClient({
 
     // Pure validation helpers (no state mutation, safe for render phase)
     const isStep1Valid = () => !!categoryCode;
-    const isStep2Valid = () => !!(tdn.trim() && ownerName.trim() && barangay && propertyAddress.trim() && propertyType && assessedValue && parseFloat(assessedValue) > 0);
+    const isStep2Valid = () => !!(tdn.trim() && ownerName.trim() && barangay && propertyAddress.trim() && propertyType && taxYear && assessedValue && parseFloat(assessedValue) > 0);
     const isStep3Valid = () => !!(selectedDate && selectedSlot);
 
     // Error-setting validation functions for user actions
@@ -185,6 +195,7 @@ export function RptAppointmentClient({
         if (!barangay) errs.barangay = "Barangay location is required.";
         if (!propertyAddress.trim()) errs.propertyAddress = "Property Address is required.";
         if (!propertyType) errs.propertyType = "Property Classification is required.";
+        if (!taxYear) errs.taxYear = "Tax Year is required.";
         if (!assessedValue || parseFloat(assessedValue) <= 0) {
             errs.assessedValue = "A valid Assessed Value (AV) greater than 0 is required.";
         }
@@ -237,6 +248,7 @@ export function RptAppointmentClient({
             formData.append("propertyAddress", propertyAddress);
             formData.append("barangay", barangay);
             formData.append("propertyType", propertyType);
+            formData.append("taxYear", taxYear);
             formData.append("assessedValue", assessedValue);
             formData.append("appointmentDate", selectedDate);
             formData.append("appointmentSlot", selectedSlot);
@@ -374,8 +386,8 @@ export function RptAppointmentClient({
             )}
 
             {/* Main Form container */}
-            <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col print:border-none print:shadow-none print:bg-white print:text-black">
-                <div className="flex-1">
+            <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-visible group/container min-h-[400px] md:min-h-[500px] flex flex-col print:border-none print:shadow-none print:bg-white print:text-black">
+                <div className="flex-1 relative z-20">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStep}
@@ -471,7 +483,7 @@ export function RptAppointmentClient({
 
                             {/* STEP 2: PROPERTY INFO */}
                             {currentStep === "PROPERTY" && (
-                                <div className="space-y-8 md:space-y-10">
+                                <div className="space-y-8 md:space-y-10 pb-6 md:pb-12">
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">
                                         <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
                                             Property <span className="text-primary italic">& Tax Declaration Information</span>
@@ -570,22 +582,23 @@ export function RptAppointmentClient({
                                                     <Label className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">
                                                         Barangay Location <span className="text-red-500">*</span>
                                                     </Label>
-                                                    <select
+                                                    <SearchableFilterDropdown
                                                         value={barangay}
-                                                        onChange={(e) => {
-                                                            setBarangay(e.target.value);
+                                                        options={barangayList}
+                                                        onChange={(val) => {
+                                                            setBarangay(val);
                                                             if (errors.barangay) setErrors(prev => ({ ...prev, barangay: "" }));
                                                         }}
-                                                        className={cn(
-                                                            "w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl h-11 md:h-14 px-4 font-medium text-sm text-slate-800 dark:text-slate-200",
-                                                            errors.barangay && "border-red-500 focus-visible:ring-red-500"
+                                                        hideAllOption
+                                                        fullWidth
+                                                        placeholder="Search barangay..."
+                                                        triggerPlaceholder="Select Barangay"
+                                                        themeColor={themeColor}
+                                                        triggerClassName={cn(
+                                                            "h-11 md:h-14 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl px-4 font-bold text-sm text-slate-800 dark:text-slate-200",
+                                                            errors.barangay && "border-red-500 ring-1 ring-red-500"
                                                         )}
-                                                    >
-                                                        <option value="" disabled>Select Barangay</option>
-                                                        {barangayList.map((b) => (
-                                                            <option key={b} value={b} className="bg-slate-900 text-white">{b}</option>
-                                                        ))}
-                                                    </select>
+                                                    />
                                                     {errors.barangay && (
                                                         <p className="text-[10px] text-red-500 font-medium">{errors.barangay}</p>
                                                     )}
@@ -596,23 +609,23 @@ export function RptAppointmentClient({
                                                     <Label className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">
                                                         Classification <span className="text-red-500">*</span>
                                                     </Label>
-                                                    <select
+                                                    <SearchableFilterDropdown
                                                         value={propertyType}
-                                                        onChange={(e) => {
-                                                            setPropertyType(e.target.value);
+                                                        options={PROPERTY_CLASSIFICATIONS}
+                                                        onChange={(val) => {
+                                                            setPropertyType(val);
                                                             if (errors.propertyType) setErrors(prev => ({ ...prev, propertyType: "" }));
                                                         }}
-                                                        className={cn(
-                                                            "w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl h-11 md:h-14 px-4 font-medium text-sm text-slate-800 dark:text-slate-200",
-                                                            errors.propertyType && "border-red-500 focus-visible:ring-red-500"
+                                                        hideAllOption
+                                                        fullWidth
+                                                        placeholder="Search classification..."
+                                                        triggerPlaceholder="Select Classification"
+                                                        themeColor={themeColor}
+                                                        triggerClassName={cn(
+                                                            "h-11 md:h-14 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl px-4 font-bold text-sm text-slate-800 dark:text-slate-200",
+                                                            errors.propertyType && "border-red-500 ring-1 ring-red-500"
                                                         )}
-                                                    >
-                                                        <option value="" disabled>Select Classification</option>
-                                                        <option value="RESIDENTIAL" className="bg-slate-900 text-white">Residential Property</option>
-                                                        <option value="COMMERCIAL" className="bg-slate-900 text-white">Commercial Property</option>
-                                                        <option value="INDUSTRIAL" className="bg-slate-900 text-white">Industrial Property</option>
-                                                        <option value="AGRICULTURAL" className="bg-slate-900 text-white">Agricultural Property</option>
-                                                    </select>
+                                                    />
                                                     {errors.propertyType && (
                                                         <p className="text-[10px] text-red-500 font-medium">{errors.propertyType}</p>
                                                     )}
@@ -640,8 +653,34 @@ export function RptAppointmentClient({
                                                     )}
                                                 </div>
 
+                                                {/* Tax Year / Covered Year */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">
+                                                        Tax Year / Covered Year <span className="text-red-500">*</span>
+                                                    </Label>
+                                                    <SearchableFilterDropdown
+                                                        value={taxYear}
+                                                        options={Array.from({ length: 15 }, (_, i) => (new Date().getFullYear() + 1 - i).toString())}
+                                                        onChange={(val) => {
+                                                            setTaxYear(val);
+                                                            if (errors.taxYear) setErrors(prev => ({ ...prev, taxYear: "" }));
+                                                        }}
+                                                        hideAllOption
+                                                        fullWidth
+                                                        placeholder="Search year (e.g. 2026)..."
+                                                        themeColor={themeColor}
+                                                        triggerClassName={cn(
+                                                            "h-11 md:h-14 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl px-4 font-bold text-sm text-slate-800 dark:text-slate-200",
+                                                            errors.taxYear && "border-red-500 ring-1 ring-red-500"
+                                                        )}
+                                                    />
+                                                    {errors.taxYear && (
+                                                        <p className="text-[10px] text-red-500 font-medium">{errors.taxYear}</p>
+                                                    )}
+                                                </div>
+
                                                 {/* Assessed Value */}
-                                                <div className="space-y-1.5 md:col-span-2">
+                                                <div className="space-y-1.5">
                                                     <Label className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">
                                                         Assessed Value (AV) in Pesos (₱) <span className="text-red-500">*</span>
                                                     </Label>
@@ -673,8 +712,9 @@ export function RptAppointmentClient({
                                             </div>
 
                                             <div className="space-y-3 relative z-10 font-bold">
-                                                <h3 className="text-xs uppercase tracking-widest text-primary italic border-b border-white/10 pb-2">
-                                                    Estimated Tax Breakdown
+                                                <h3 className="text-xs uppercase tracking-widest text-primary italic border-b border-white/10 pb-2 flex justify-between items-center">
+                                                    <span>Estimated Tax Breakdown</span>
+                                                    <span className="text-[10px] text-white/90 bg-white/10 px-2 py-0.5 rounded-full not-italic">Year: {taxYear}</span>
                                                 </h3>
                                                 <div className="flex justify-between items-center text-[10px] md:text-xs uppercase tracking-widest italic opacity-80 gap-2">
                                                     <span className="truncate">Assessed Value (AV)</span>

@@ -9,14 +9,13 @@ import { getAssessorTransactionById, evaluateAssessorTransaction } from "@/app/a
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { 
     ArrowLeft, 
     Building2, 
     CheckCircle2, 
-    XCircle, 
     Calendar, 
     FileText, 
     Eye, 
@@ -25,8 +24,32 @@ import {
     DollarSign,
     UserCheck,
     MapPin,
-    ShieldAlert
+    ShieldAlert,
+    ChevronUp,
+    ChevronDown
 } from "lucide-react";
+
+const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
+const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg"];
+
+function getFileExtension(value: string) {
+    try {
+        const cleanPath = new URL(value).pathname;
+        return cleanPath.split(".").pop()?.toLowerCase() || "";
+    } catch {
+        return value.split("?")[0].split("#")[0].split(".").pop()?.toLowerCase() || "";
+    }
+}
+
+function isImageFile(url?: string | null) {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    if (lower.startsWith("data:image/") || lower.startsWith("blob:")) return true;
+    const ext = getFileExtension(lower);
+    if (imageExtensions.includes(ext)) return true;
+    if (documentExtensions.includes(ext)) return false;
+    return true;
+}
 
 export default function AssessorTransactionDetailPage() {
     const params = useParams();
@@ -34,13 +57,20 @@ export default function AssessorTransactionDetailPage() {
 
     const [tx, setTx] = useState<any | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
+    const [rejectionRemarks, _setRejectionRemarks] = useState<string>("");
     const [actionPending, setActionPending] = useState<boolean>(false);
 
     const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState<boolean>(false);
     const [inspectionDate, setInspectionDate] = useState<string>("");
     const [inspectionTime, setInspectionTime] = useState<string>("09:00");
     const [inspectionError, setInspectionError] = useState<string>("");
+
+    // Document Viewer Modal State
+    const [viewerOpen, setViewerOpen] = useState<boolean>(false);
+    const [activeDocUrl, setActiveDocUrl] = useState<string | null>(null);
+    const [activeDocTitle, setActiveDocTitle] = useState<string>("");
+    const [activeDocIndex, setActiveDocIndex] = useState<number>(0);
+    const [isRequirementsExpanded, setIsRequirementsExpanded] = useState<boolean>(true);
 
     const todayStr = new Date().toISOString().split("T")[0];
 
@@ -94,7 +124,7 @@ export default function AssessorTransactionDetailPage() {
         }
     };
 
-    const handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
+    const _handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
         if (!tx) return;
         if (action === "REJECT" && !rejectionRemarks.trim()) {
             toast.error("Please enter a reason for rejection.");
@@ -138,19 +168,26 @@ export default function AssessorTransactionDetailPage() {
 
     const rpt = tx.realPropertyTax || {};
     const catCode = rpt.rptCategory || tx.type?.code || "";
-    const isCategory1 = catCode === "RPT_CAT1";
+    const _isCategory1 = catCode === "RPT_CAT1";
 
     const addData = (typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData) || {};
-    const isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
+    const _isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
+
+    const validIdUrl = rpt.validIdUrl || addData.validIdUrl;
 
     const attachments = [
-        { label: "Valid Government ID", url: rpt.validIdUrl },
-        { label: "Previous O.R. / SOA", url: rpt.previousOrUrl },
-        { label: "Building / Occupancy Permit", url: rpt.buildingPermitUrl },
-        { label: "Deed of Sale", url: rpt.deedOfSaleUrl },
-        { label: "Land Title (TCT)", url: rpt.titleUrl },
-        { label: "BIR eCAR Certificate", url: rpt.birEcarUrl },
-    ].filter(d => d.url);
+        { label: "Previous O.R. / SOA", url: rpt.previousOrUrl || addData.previousOrUrl },
+        { label: "Building / Occupancy Permit", url: rpt.buildingPermitUrl || addData.buildingPermitUrl },
+        { label: "Deed of Sale", url: rpt.deedOfSaleUrl || addData.deedOfSaleUrl },
+        { label: "Land Title (TCT)", url: rpt.titleUrl || addData.titleUrl },
+        { label: "BIR eCAR Certificate", url: rpt.birEcarUrl || addData.birEcarUrl },
+    ].filter(d => Boolean(d.url));
+
+    // Combine all docs for seamless multi-document modal navigation
+    const allViewableDocs = [
+        ...(validIdUrl ? [{ label: "Valid Government ID", url: validIdUrl }] : []),
+        ...attachments
+    ];
 
     return (
         <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100 animate-in fade-in duration-500">
@@ -205,46 +242,46 @@ export default function AssessorTransactionDetailPage() {
                                 <UserCheck className="w-4 h-4 text-rose-400" /> Primary Applicant & Property Profile
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Property Owner Name</span>
-                                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</span>
-                                    <div className="text-2xl font-black text-rose-500 font-mono tracking-tighter italic">
-                                        ₱{(rpt.totalTaxDue || rpt.assessedValue || tx.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                    </div>
-                                </div>
+                        <CardContent className="p-6 md:p-8 space-y-6">
+                            {/* Summary Header */}
+                            <div className="pb-6 border-b border-white/5">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Property Owner Name</span>
+                                <h3 className="text-2xl font-black text-white italic uppercase tracking-tight">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Tax Declaration # (TDN)</span>
-                                    <span className="font-mono font-bold text-slate-200">{rpt.tdn || "N/A"}</span>
+                            {/* Clean Property Metadata Grid (No nested cards) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-xs">
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Tax Declaration # (TDN)</span>
+                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.tdn || "N/A"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Property Identification (PIN)</span>
-                                    <span className="font-mono font-bold text-slate-200">{rpt.pin || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Identification (PIN)</span>
+                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.pin || "N/A"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Barangay Location</span>
-                                    <span className="font-bold text-slate-200 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-rose-400" /> {rpt.barangay || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Barangay Location</span>
+                                    <p className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> {rpt.barangay || "N/A"}
+                                    </p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Property Classification</span>
-                                    <span className="font-bold text-slate-200 uppercase">{rpt.propertyType || "RESIDENTIAL"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Classification</span>
+                                    <p className="font-bold text-sm text-slate-100 uppercase">{rpt.propertyType || "RESIDENTIAL"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
-                                    <span className="font-bold text-slate-200">
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Covered Tax Year</span>
+                                    <p className="font-mono font-black text-sm text-amber-400">{rpt.taxYear || addData.taxYear || "N/A"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
+                                    <p className="font-bold text-sm text-slate-100">
                                         {tx.appointmentDate ? format(new Date(tx.appointmentDate), "MMM dd, yyyy") : "N/A"}
-                                    </span>
+                                    </p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Appointment Slot</span>
-                                    <span className="font-bold text-slate-200">{tx.appointmentSlot || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Slot</span>
+                                    <p className="font-bold text-sm text-slate-100">{tx.appointmentSlot || "N/A"}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -273,40 +310,102 @@ export default function AssessorTransactionDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Category Document Attachments */}
-                    <Card className="bg-[#0c1017] border-white/5 rounded-3xl shadow-xl overflow-hidden text-slate-100">
-                        <CardHeader className="border-b border-white/5 bg-white/[0.01] p-6">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-rose-400 italic">
-                                <FileText className="w-4 h-4 text-rose-400" /> Submitted Category Attachments ({attachments.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            {attachments.length === 0 ? (
-                                <div className="text-center py-8 text-slate-500 text-xs italic">
-                                    No document attachments submitted for this transaction.
+                    {/* ALL THE REQUIREMENTS — Accordion & Image Preview (Matching BPLO design) */}
+                    <Card className="rounded-[2.5rem] bg-[#0c1017] border border-white/5 shadow-2xl overflow-hidden text-slate-100 p-8 space-y-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsRequirementsExpanded(!isRequirementsExpanded)}
+                            className="flex items-center justify-between w-full text-left focus:outline-none group cursor-pointer"
+                        >
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-3 bg-rose-500/10 rounded-2xl border border-rose-500/20 text-rose-500 shrink-0">
+                                    <FileText className="w-5 h-5" />
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {attachments.map((doc, idx) => (
-                                        <a
-                                            key={idx}
-                                            href={doc.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-rose-500/40 transition-all flex items-center justify-between group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-                                                    <FileText className="w-4 h-4 text-rose-400" />
-                                                </div>
-                                                <span className="text-xs font-bold text-slate-200 group-hover:text-rose-400 transition-colors">{doc.label}</span>
-                                            </div>
-                                            <Eye className="w-4 h-4 text-slate-400 group-hover:text-rose-400 transition-colors" />
-                                        </a>
-                                    ))}
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                                        All the Requirements
+                                    </h3>
+                                    <span className="text-[10px] text-slate-400 italic font-semibold block mt-0.5">
+                                        {allViewableDocs.length} document{allViewableDocs.length !== 1 ? 's' : ''} submitted
+                                    </span>
                                 </div>
-                            )}
-                        </CardContent>
+                            </div>
+                            <div className="text-slate-400 group-hover:text-white transition-colors">
+                                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:border-white/30 transition-all bg-white/[0.02]">
+                                    {isRequirementsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </div>
+                            </div>
+                        </button>
+
+                        {isRequirementsExpanded && (
+                            <div className="pt-6 border-t border-white/5 animate-in fade-in duration-300">
+                                {allViewableDocs.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs italic">
+                                        No requirements or documents submitted for this application.
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        {allViewableDocs.map((doc, idx) => {
+                                            const isImg = isImageFile(doc.url);
+                                            const ext = getFileExtension(doc.url).toUpperCase();
+
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setActiveDocUrl(doc.url);
+                                                        setActiveDocTitle(doc.label);
+                                                        setActiveDocIndex(idx);
+                                                        setViewerOpen(true);
+                                                    }}
+                                                    className="group relative rounded-[1.75rem] overflow-hidden aspect-video border border-white/10 bg-black/40 hover:border-rose-500/50 transition-all select-none text-left w-full block cursor-pointer shadow-xl"
+                                                >
+                                                    {isImg ? (
+                                                        <>
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img
+                                                                src={doc.url}
+                                                                alt={doc.label}
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                                                            />
+                                                            {/* Exact Floating Bottom Pill Badge */}
+                                                            <div className="absolute bottom-3 left-3 right-3 sm:right-auto max-w-[90%] bg-black/75 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[10px] truncate shadow-lg">
+                                                                {doc.label}
+                                                            </div>
+                                                            {/* Center Hover Action */}
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                                <div className="px-5 py-2.5 rounded-full bg-rose-600 text-white font-black italic uppercase tracking-widest text-[10px] shadow-2xl border border-white/20 group-hover:scale-105 transition-transform flex items-center gap-1.5">
+                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                    <span>View</span>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="relative h-full w-full flex flex-col items-center justify-center gap-3 p-6 bg-gradient-to-br from-slate-900 to-[#0c1017]">
+                                                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                                                <FileText className="w-7 h-7 text-rose-500" />
+                                                            </div>
+                                                            <div className="text-center min-w-0">
+                                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                                                    {ext || "DOC"} Document
+                                                                </p>
+                                                                <p className="mt-1 text-sm font-black italic uppercase tracking-tight text-white truncate max-w-[220px]">
+                                                                    {doc.label}
+                                                                </p>
+                                                            </div>
+                                                            <div className="absolute bottom-3 left-3 right-3 sm:right-auto max-w-[90%] bg-black/75 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[10px] truncate">
+                                                                {doc.label}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </Card>
                 </div>
 
@@ -367,113 +466,16 @@ export default function AssessorTransactionDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Action Controls / Evaluation Panel */}
-                    <Card className="bg-[#0c1017] border-white/5 rounded-3xl shadow-xl overflow-hidden text-slate-100">
-                        <CardHeader className="border-b border-white/5 bg-white/[0.01] p-6">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-rose-400 italic">
-                                <Building2 className="w-4 h-4 text-rose-400" /> Evaluation Action Panel
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 space-y-4">
-                            {isCategory1 ? (
-                                <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-2">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider">
-                                        <Info className="w-4 h-4 text-rose-400" /> FOR VIEWING ONLY (CATEGORY 1)
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        Category 1 (Routine Annual Tax Payment & Tax Clearance) is for viewing only under the Municipal Assessor Office. Billing and collection are processed directly by the Treasury Department.
-                                    </p>
-                                </div>
-                            ) : tx.status === "REJECTED" || rpt.assessorStatus === "REJECTED" ? (
-                                <div className="p-5 rounded-2xl bg-red-950/40 border border-red-500/30 text-red-300 space-y-3">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-red-400">
-                                        <XCircle className="w-4 h-4 text-red-400" /> APPLICATION REJECTED
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        This application has been rejected by the Municipal Assessor Office. Further action buttons are disabled.
-                                    </p>
-                                    {tx.rejectionRemarks && (
-                                        <div className="pt-2 border-t border-red-500/20 text-xs font-semibold italic text-red-200">
-                                            Rejection Reason: &quot;{tx.rejectionRemarks}&quot;
-                                        </div>
-                                    )}
-                                </div>
-                            ) : rpt.assessorStatus === "APPROVED" || tx.status === "PAID" || tx.status === "RELEASED" ? (
-                                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-2">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-emerald-400">
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> APPROVED & SENT TO TREASURY
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        Tax declaration approved by Assessor. Application has been forwarded to Treasury for billing and official receipt issuance.
-                                    </p>
-                                </div>
-                            ) : tx.status === "CANCELLED" ? (
-                                <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700 text-slate-300 space-y-2">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-slate-400">
-                                        <ShieldAlert className="w-4 h-4 text-slate-400" /> APPLICATION CANCELLED
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        This transaction was cancelled by the user. Action buttons are disabled.
-                                    </p>
-                                </div>
-                            ) : !isCheckedIn ? (
-                                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
-                                        <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before the Assessor can evaluate or schedule field inspection.
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="space-y-2">
-                                        <label className="font-bold text-xs text-slate-300 uppercase tracking-wider block italic">
-                                            Rejection / Evaluation Remarks (Required for Rejection)
-                                        </label>
-                                        <Textarea
-                                            placeholder="Enter evaluation notes or reason for rejection..."
-                                            value={rejectionRemarks}
-                                            onChange={(e) => setRejectionRemarks(e.target.value)}
-                                            className="text-xs rounded-2xl bg-white/[0.02] border-white/10 text-slate-200 placeholder:text-slate-600 min-h-[100px]"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2.5 pt-2">
-                                        {tx.status === "FOR_INSPECTION" ? (
-                                            <Button
-                                                onClick={() => handleAction("APPROVE")}
-                                                disabled={actionPending}
-                                                className="w-full bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider italic shadow-lg shadow-rose-600/20"
-                                            >
-                                                <CheckCircle2 className="w-4 h-4 mr-2" /> Approve & Send to Treasury
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                onClick={() => {
-                                                    setInspectionError("");
-                                                    setIsInspectionDialogOpen(true);
-                                                }}
-                                                disabled={actionPending}
-                                                className="w-full bg-rose-600 hover:bg-rose-700 text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider italic shadow-lg shadow-rose-600/20"
-                                            >
-                                                <Calendar className="w-4 h-4 mr-2" /> Schedule Field Inspection
-                                            </Button>
-                                        )}
-
-                                        <Button
-                                            onClick={() => handleAction("REJECT")}
-                                            disabled={actionPending}
-                                            variant="destructive"
-                                            className="w-full rounded-xl h-11 text-xs font-bold uppercase tracking-wider italic bg-red-950/60 hover:bg-red-900 border border-red-500/30 text-red-400"
-                                        >
-                                            <XCircle className="w-4 h-4 mr-2" /> Reject Application
-                                        </Button>
-                                    </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
+                    {/* Category 1 Notice Card - Standalone */}
+                    <div className="p-6 rounded-3xl bg-rose-500/[0.06] border border-rose-500/20 text-rose-300 space-y-2.5 shadow-xl backdrop-blur-sm">
+                        <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-rose-400">
+                            <Info className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>FOR VIEWING ONLY (CATEGORY 1)</span>
+                        </div>
+                        <p className="text-xs leading-relaxed font-medium text-rose-200/90">
+                            Category 1 (Routine Annual Tax Payment & Tax Clearance) is for viewing only under the Municipal Assessor Office. Billing and collection are processed directly by the Treasury Department.
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -551,6 +553,17 @@ export default function AssessorTransactionDetailPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* In-App Document Viewer Modal */}
+            <DocumentViewerModal
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                fileUrl={activeDocUrl}
+                title={activeDocTitle || "Document Viewer"}
+                themeColor="#e11d48"
+                documents={allViewableDocs}
+                initialIndex={activeDocIndex}
+            />
         </div>
     );
 }

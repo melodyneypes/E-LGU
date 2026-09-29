@@ -112,16 +112,30 @@ export async function createStall(data: {
         remarks?: string | null;
     }[];
 }) {
+    const stallNumber = data.stallNumber?.trim() || "";
+
     try {
         const user = await verifyBploStallsAccess();
         const userName = user.name || user.email || "System";
 
-        const stallNumber = data.stallNumber.trim();
         if (!stallNumber) {
             return { success: false, error: "Stall unit number is required." };
         }
         if (!data.stallTypeId) {
             return { success: false, error: "Stall section/type is required." };
+        }
+
+        // Duplicate stall number pre-check
+        const existingStall = await (prisma as any).stall.findUnique({
+            where: { stallNumber },
+            select: { id: true, stallNumber: true },
+        });
+
+        if (existingStall) {
+            return {
+                success: false,
+                error: `Market Stall "${stallNumber}" already exists. Please choose a different stall number.`,
+            };
         }
 
         const newStall = await (prisma as any).stall.create({
@@ -185,6 +199,12 @@ export async function createStall(data: {
         return { success: true, data: newStall, stall: newStall };
     } catch (error: any) {
         console.error("[createStall] Error:", error);
+        if (error?.code === "P2002") {
+            return {
+                success: false,
+                error: `Market Stall "${stallNumber}" already exists. Please choose a different stall number.`,
+            };
+        }
         return { success: false, error: error?.message || "Failed to create stall." };
     }
 }
@@ -237,6 +257,20 @@ export async function updateStall(
         }
 
         const updatedStallNumber = data.stallNumber ? data.stallNumber.trim() : existing.stallNumber;
+
+        // Check if new stallNumber is taken by another stall
+        if (data.stallNumber && updatedStallNumber !== existing.stallNumber) {
+            const conflict = await (prisma as any).stall.findUnique({
+                where: { stallNumber: updatedStallNumber },
+                select: { id: true },
+            });
+            if (conflict && conflict.id !== id) {
+                return {
+                    success: false,
+                    error: `Market Stall "${updatedStallNumber}" is already in use by another unit.`,
+                };
+            }
+        }
 
         // Perform atomic update with prisma.$transaction for rollback safety
         const updated = await (prisma as any).$transaction(async (tx: any) => {

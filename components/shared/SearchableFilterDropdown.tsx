@@ -5,14 +5,20 @@ import { ChevronDown, Search, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+export type DropdownOption = string | { label: string; value: string };
+
 interface SearchableFilterDropdownProps {
-    label: string;
+    label?: string;
     value: string;
-    options: string[];
+    options: DropdownOption[];
     onChange: (value: string) => void;
     themeColor?: string;
     placeholder?: string;
+    triggerPlaceholder?: string;
     className?: string;
+    triggerClassName?: string;
+    hideAllOption?: boolean;
+    fullWidth?: boolean;
 }
 
 export function SearchableFilterDropdown({
@@ -22,26 +28,46 @@ export function SearchableFilterDropdown({
     onChange,
     themeColor = "var(--primary-theme, #2563eb)",
     placeholder = "Search...",
+    triggerPlaceholder,
     className,
+    triggerClassName,
+    hideAllOption = false,
+    fullWidth = false,
 }: SearchableFilterDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Ensure "All" is always at the top if present, and other options are clean & unique
-    const formattedOptions = useMemo(() => {
-        const hasAll = options.some(opt => opt.toLowerCase() === "all");
-        const rest = options.filter(opt => opt.toLowerCase() !== "all");
-        return hasAll ? ["All", ...rest] : options;
+    // Normalize options to { label: string, value: string }
+    const normalizedOptions = useMemo(() => {
+        return options.map(opt => typeof opt === "string" ? { label: opt, value: opt } : opt);
     }, [options]);
+
+    // Ensure "All" is at the top unless hideAllOption is true
+    const formattedOptions = useMemo(() => {
+        if (hideAllOption) {
+            return normalizedOptions.filter(opt => opt.value.toLowerCase() !== "all");
+        }
+        const hasAll = normalizedOptions.some(opt => opt.value.toLowerCase() === "all");
+        const rest = normalizedOptions.filter(opt => opt.value.toLowerCase() !== "all");
+        return hasAll ? [{ label: "All", value: "All" }, ...rest] : normalizedOptions;
+    }, [normalizedOptions, hideAllOption]);
 
     // Filtered options based on internal search query
     const filteredOptions = useMemo(() => {
         if (!searchQuery.trim()) return formattedOptions;
         const q = searchQuery.toLowerCase().trim();
-        return formattedOptions.filter(opt => opt.toLowerCase().includes(q));
+        return formattedOptions.filter(opt =>
+            opt.label.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q)
+        );
     }, [formattedOptions, searchQuery]);
+
+    // Find current display label for selected value
+    const selectedLabel = useMemo(() => {
+        const found = normalizedOptions.find(opt => opt.value.toLowerCase() === (value || "").toLowerCase());
+        return found ? found.label : value;
+    }, [normalizedOptions, value]);
 
     // Close on click outside
     useEffect(() => {
@@ -72,31 +98,36 @@ export function SearchableFilterDropdown({
     const isSelectedActive = value && value.toLowerCase() !== "all";
 
     return (
-        <div className={cn("relative", className)} ref={dropdownRef}>
+        <div className={cn("relative", fullWidth && "w-full", className)} ref={dropdownRef}>
             {/* Trigger Button */}
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
                 className={cn(
                     "flex items-center gap-2 h-9 px-3 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer select-none",
+                    fullWidth && "w-full justify-between",
                     isOpen
                         ? "bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700 shadow-sm"
                         : isSelectedActive
                             ? "bg-slate-100/90 dark:bg-slate-950/90 border-slate-300 dark:border-slate-700/80 hover:border-slate-400 dark:hover:border-slate-600"
-                            : "bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700"
+                            : "bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700",
+                    triggerClassName
                 )}
             >
-                <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
-                    {label}:
-                </span>
+                {label && (
+                    <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
+                        {label}:
+                    </span>
+                )}
                 <span 
                     className={cn(
-                        "text-xs truncate max-w-[150px] sm:max-w-[180px]",
+                        "text-xs truncate",
+                        !fullWidth && "max-w-[150px] sm:max-w-[180px]",
                         isSelectedActive ? "font-black" : "text-slate-800 dark:text-slate-300 font-bold"
                     )}
-                    style={isSelectedActive ? { color: themeColor } : undefined}
+                    style={isSelectedActive && !triggerClassName ? { color: themeColor } : undefined}
                 >
-                    {value || "All"}
+                    {selectedLabel || triggerPlaceholder || (hideAllOption ? "Select..." : "All")}
                 </span>
                 <ChevronDown
                     className={cn(
@@ -114,7 +145,10 @@ export function SearchableFilterDropdown({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.97 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute left-0 top-[calc(100%+6px)] z-[130] w-[260px] sm:w-[290px] rounded-2xl bg-white dark:bg-[#0d1222] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-2 flex flex-col backdrop-blur-xl"
+                        className={cn(
+                            "absolute left-0 top-[calc(100%+6px)] z-[130] rounded-2xl bg-white dark:bg-[#0d1222] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden p-2 flex flex-col backdrop-blur-xl",
+                            fullWidth ? "w-full" : "w-[260px] sm:w-[290px]"
+                        )}
                         style={{
                             boxShadow: "0 20px 50px -10px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)"
                         }}
@@ -145,17 +179,17 @@ export function SearchableFilterDropdown({
                         <div className="max-h-56 overflow-y-auto space-y-0.5 pr-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
                             {filteredOptions.length === 0 ? (
                                 <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-medium italic">
-                                    No matching {label.toLowerCase()}s
+                                    No matching {label ? `${label.toLowerCase()}s` : "results"}
                                 </div>
                             ) : (
                                 filteredOptions.map((option) => {
-                                    const isSelected = option.toLowerCase() === value.toLowerCase();
+                                    const isSelected = option.value.toLowerCase() === (value || "").toLowerCase();
                                     return (
                                         <button
-                                            key={option}
+                                            key={option.value}
                                             type="button"
                                             onClick={() => {
-                                                onChange(option);
+                                                onChange(option.value);
                                                 setIsOpen(false);
                                             }}
                                             className={cn(
@@ -169,7 +203,7 @@ export function SearchableFilterDropdown({
                                                 className="truncate pr-2"
                                                 style={isSelected ? { color: themeColor } : undefined}
                                             >
-                                                {option}
+                                                {option.label}
                                             </span>
                                             {isSelected && (
                                                 <Check 

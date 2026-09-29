@@ -62,6 +62,18 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         const hasError = params.has("error");
 
         if (status === "authenticated" && session && session.user) {
+            const user = session.user as any;
+
+            // Strict Vendor Gate: Sign out vendor and show restriction notice on Login Page
+            if (user.role === "VENDOR") {
+                toast.warning(
+                    "Notice: This account is registered as a Market Vendor record for LGU BPLO registry and cannot be used for citizen e-services. If you want to request certificates, clearances, or LGU services, please register a regular Citizen/Resident Account.",
+                    { duration: 8000 }
+                );
+                signOut({ redirect: false });
+                return;
+            }
+
             if (hasError) {
                 const errorVal = params.get("error") || "";
                 signOut({ callbackUrl: `/auth/login?error=${encodeURIComponent(errorVal)}` });
@@ -341,6 +353,17 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 if (typeof window !== "undefined") {
                     sessionStorage.removeItem("logging_in_otp");
                 }
+
+                // Check for Market Vendor role restriction
+                if (result.error === "ROLE_RESTRICTED_VENDOR" || result.error.includes("ROLE_RESTRICTED_VENDOR")) {
+                    toast.warning(
+                        "Notice: This account is registered as a Market Vendor record for LGU BPLO registry and cannot be used for citizen e-services. If you want to request certificates, clearances, or LGU services, please register a regular Citizen/Resident Account.",
+                        { duration: 8000 }
+                    );
+                    setIsLoggingIn(false);
+                    return;
+                }
+
                 const errorMessage = result.error.toLowerCase();
                 if (
                     errorMessage.includes("approved") ||

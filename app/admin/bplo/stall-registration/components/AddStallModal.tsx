@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useStalls } from "./StallsProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Store, Plus, Trash2, Search, X, MapPin } from "lucide-react";
+import { Store, Plus, Trash2, Search, X, MapPin, ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createStall } from "../actions/stalls.actions";
 
@@ -33,7 +34,11 @@ export function AddStallModal() {
     const { isAddOpen, setIsAddOpen, stallTypes, vendors, themeColor, triggerRefresh, setStalls } = useStalls();
 
     const [stallNumber, setStallNumber] = useState("");
-    const [stallTypeId, setStallTypeId] = useState(stallTypes[0]?.id || "");
+    const [stallTypeId, setStallTypeId] = useState<string>("");
+    const [isSectionOpen, setIsSectionOpen] = useState(false);
+    const [sectionSearch, setSectionSearch] = useState("");
+    const sectionDropdownRef = useRef<HTMLDivElement>(null);
+
     const [vendorId, setVendorId] = useState<string>("NONE");
     const [vendorSearch, setVendorSearch] = useState("");
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
@@ -47,8 +52,35 @@ export function AddStallModal() {
     const [otherFees, setOtherFees] = useState<OtherFeeInput[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Filter vendor list by search input
+    // Close section dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target as Node)) {
+                setIsSectionOpen(false);
+            }
+        };
+        if (isSectionOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isSectionOpen]);
+
+    // Filter section list: must be active (isActive !== false) and match search query
+    const filteredStallTypes = stallTypes.filter((t) => {
+        if (t.isActive === false) return false;
+        const query = sectionSearch.toLowerCase().trim();
+        if (!query) return true;
+        return (
+            (t.name && t.name.toLowerCase().includes(query)) ||
+            (t.code && t.code.toLowerCase().includes(query))
+        );
+    });
+
+    // Filter vendor list: must be active (isActive !== false) and match search query
     const filteredVendors = vendors.filter((v) => {
+        if (v.isActive === false) return false;
         const query = vendorSearch.toLowerCase().trim();
         if (!query) return true;
         return (
@@ -80,10 +112,37 @@ export function AddStallModal() {
         );
     };
 
+    const resetForm = () => {
+        setStallNumber("");
+        setStallTypeId("");
+        setIsSectionOpen(false);
+        setSectionSearch("");
+        setVendorId("NONE");
+        setVendorSearch("");
+        setStatus("VACANT");
+        setLatitude("");
+        setLongitude("");
+        setAddress("");
+        setDailyRate("");
+        setMonthlyRate("");
+        setDailyRateOverdueFee("");
+        setMonthlyRateOverdueFee("");
+        setOtherFees([]);
+    };
+
+    const handleCloseModal = () => {
+        setIsAddOpen(false);
+        resetForm();
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!stallNumber.trim() || !stallTypeId) {
-            alert("Please fill in the stall number and section");
+        if (!stallNumber.trim()) {
+            toast.error("Please enter a stall number");
+            return;
+        }
+        if (!stallTypeId) {
+            toast.error("Please select a market section for this stall");
             return;
         }
 
@@ -117,21 +176,10 @@ export function AddStallModal() {
 
         setLoading(false);
         if (res.success && res.data) {
-            // Instant Optimistic Insertion: 0ms delay in table and grid
-            setStalls((prev) => [res.data as any, ...prev]);
+            // Instant Optimistic Insertion at the bottom (consistent with createdAt: asc)
+            setStalls((prev) => [...prev, res.data as any]);
             toast.success(`Market Stall "${stallNumber}" created successfully!`);
-            setIsAddOpen(false);
-            setStallNumber("");
-            setVendorId("NONE");
-            setVendorSearch("");
-            setLatitude("");
-            setLongitude("");
-            setAddress("");
-            setDailyRate("");
-            setMonthlyRate("");
-            setDailyRateOverdueFee("");
-            setMonthlyRateOverdueFee("");
-            setOtherFees([]);
+            handleCloseModal();
             triggerRefresh();
         } else {
             toast.error(res.error || "Failed to create stall");
@@ -139,7 +187,13 @@ export function AddStallModal() {
     };
 
     return (
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isAddOpen} onOpenChange={(open) => {
+            if (!open) {
+                handleCloseModal();
+            } else {
+                setIsAddOpen(true);
+            }
+        }}>
             <DialogContent showCloseButton={false} className="sm:max-w-5xl w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader className="p-6 pb-4 border-b border-slate-100 dark:border-[#2a3040] flex flex-row items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
@@ -157,7 +211,7 @@ export function AddStallModal() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setIsAddOpen(false)}
+                        onClick={handleCloseModal}
                         className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
                         <X className="w-5 h-5" />
@@ -181,19 +235,94 @@ export function AddStallModal() {
                                     />
                                 </div>
 
-                                {/* Section / Stall Type */}
-                                <div className="space-y-1">
+                                {/* Section / Stall Type - Plan A Custom Searchable Combobox */}
+                                <div className="space-y-1 relative" ref={sectionDropdownRef}>
                                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Section *</label>
-                                    <Select value={stallTypeId} onValueChange={setStallTypeId}>
-                                        <SelectTrigger className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
-                                            <SelectValue placeholder="Select Section" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            {stallTypes.map((t) => (
-                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsSectionOpen((prev) => !prev)}
+                                        className={cn(
+                                            "w-full h-10 px-3 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer text-left",
+                                            isSectionOpen && "ring-2 ring-emerald-500/30 border-emerald-500"
+                                        )}
+                                    >
+                                        <span className={cn("truncate", !stallTypeId && "text-slate-400 font-normal italic")}>
+                                            {stallTypes.find((t) => t.id === stallTypeId)?.name || "Select Section (No section assigned)"}
+                                        </span>
+                                        <ChevronDown className={cn("w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200", isSectionOpen && "rotate-180")} />
+                                    </button>
+
+                                    {/* Inline Absolute Dropdown Menu */}
+                                    {isSectionOpen && (
+                                        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl z-[100] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                                            {/* Search Header */}
+                                            <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#121622]">
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search section..."
+                                                        value={sectionSearch}
+                                                        onChange={(e) => setSectionSearch(e.target.value)}
+                                                        autoFocus
+                                                        className="w-full pl-8 pr-3 h-8 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Options List */}
+                                            <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                                {/* Default unassigned option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setStallTypeId("");
+                                                        setIsSectionOpen(false);
+                                                        setSectionSearch("");
+                                                    }}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                        !stallTypeId
+                                                            ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold"
+                                                            : "text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                    )}
+                                                >
+                                                    <span className="truncate italic">-- No section assigned --</span>
+                                                    {!stallTypeId && <Check className="w-4 h-4 text-slate-500 shrink-0 ml-2" />}
+                                                </button>
+
+                                                {filteredStallTypes.length === 0 ? (
+                                                    <div className="py-4 text-center text-xs text-slate-400 italic">
+                                                        No sections matching &quot;{sectionSearch}&quot;
+                                                    </div>
+                                                ) : (
+                                                    filteredStallTypes.map((t) => {
+                                                        const isSelected = stallTypeId === t.id;
+                                                        return (
+                                                            <button
+                                                                key={t.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setStallTypeId(t.id);
+                                                                    setIsSectionOpen(false);
+                                                                    setSectionSearch("");
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                                    isSelected
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                                )}
+                                                            >
+                                                                <span className="truncate">{t.name}</span>
+                                                                {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -257,8 +386,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRate}
-                                        onChange={(e) => setDailyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRate(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 50"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -268,8 +406,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRate}
-                                        onChange={(e) => setMonthlyRate(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRate(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 1500"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -282,8 +429,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={dailyRateOverdueFee}
-                                        onChange={(e) => setDailyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setDailyRateOverdueFee(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 10"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -293,8 +449,17 @@ export function AddStallModal() {
                                     <Input
                                         type="number"
                                         step="any"
+                                        min="0"
                                         value={monthlyRateOverdueFee}
-                                        onChange={(e) => setMonthlyRateOverdueFee(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || parseFloat(val) >= 0) {
+                                                setMonthlyRateOverdueFee(val);
+                                            }
+                                        }}
                                         placeholder="e.g. 100"
                                         className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                                     />
@@ -353,9 +518,18 @@ export function AddStallModal() {
                                                     <Input
                                                         type="number"
                                                         step="any"
+                                                        min="0"
                                                         placeholder="Amount"
                                                         value={fee.amount}
-                                                        onChange={(e) => handleUpdateOtherFee(fee.id, "amount", e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "-" || e.key === "e") e.preventDefault();
+                                                        }}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === "" || parseFloat(val) >= 0) {
+                                                                handleUpdateOtherFee(fee.id, "amount", val);
+                                                            }
+                                                        }}
                                                         className="h-8 bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs"
                                                     />
                                                 </div>
@@ -437,7 +611,7 @@ export function AddStallModal() {
                         <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => setIsAddOpen(false)}
+                            onClick={handleCloseModal}
                             className="rounded-xl text-xs font-bold"
                         >
                             Cancel
