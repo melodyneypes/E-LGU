@@ -180,9 +180,13 @@ export function EditStallModal() {
                                             <SelectValue placeholder="Select Section" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            {stallTypes.map((t) => (
-                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
+                                            {stallTypes
+                                                .filter((t) => t.isActive !== false || t.id === stallTypeId)
+                                                .map((t) => (
+                                                    <SelectItem key={t.id} value={t.id}>
+                                                        {t.name} {t.isActive === false ? "(Inactive)" : ""}
+                                                    </SelectItem>
+                                                ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

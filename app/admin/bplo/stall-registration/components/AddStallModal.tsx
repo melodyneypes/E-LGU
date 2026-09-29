@@ -67,8 +67,9 @@ export function AddStallModal() {
         };
     }, [isSectionOpen]);
 
-    // Filter section list by search query
+    // Filter section list: must be active (isActive !== false) and match search query
     const filteredStallTypes = stallTypes.filter((t) => {
+        if (t.isActive === false) return false;
         const query = sectionSearch.toLowerCase().trim();
         if (!query) return true;
         return (

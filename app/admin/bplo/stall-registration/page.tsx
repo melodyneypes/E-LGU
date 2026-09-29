@@ -60,7 +60,7 @@ export default async function StallsPage() {
             orderBy: { stallNumber: "asc" },
         }),
         (prisma as any).stallType.findMany({
-            select: { id: true, code: true, name: true },
+            select: { id: true, code: true, name: true, isActive: true },
             orderBy: { name: "asc" },
         }),
         prisma.user.findMany({

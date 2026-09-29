@@ -36,6 +36,7 @@ export interface StallTypeOption {
     id: string;
     code: string;
     name: string;
+    isActive?: boolean;
 }
 
 export interface VendorOption {
