@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ShieldAlert, Store, AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -48,6 +48,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
     const { triggerLeave } = React.useContext(AuthTransitionContext);
     const [showPassword, setShowPassword] = React.useState(false);
     const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+    const [vendorRestrictedAlert, setVendorRestrictedAlert] = React.useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get("callbackUrl");
@@ -62,6 +63,15 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         const hasError = params.has("error");
 
         if (status === "authenticated" && session && session.user) {
+            const user = session.user as any;
+
+            // Strict Vendor Gate: Sign out vendor and show restriction notice on Login Page
+            if (user.role === "VENDOR") {
+                setVendorRestrictedAlert(true);
+                signOut({ redirect: false });
+                return;
+            }
+
             if (hasError) {
                 const errorVal = params.get("error") || "";
                 signOut({ callbackUrl: `/auth/login?error=${encodeURIComponent(errorVal)}` });
@@ -341,6 +351,15 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 if (typeof window !== "undefined") {
                     sessionStorage.removeItem("logging_in_otp");
                 }
+
+                // Check for Market Vendor role restriction
+                if (result.error === "ROLE_RESTRICTED_VENDOR" || result.error.includes("ROLE_RESTRICTED_VENDOR")) {
+                    setVendorRestrictedAlert(true);
+                    toast.warning("Market Vendor Account Restriction: Please register a regular Citizen account to access public services.");
+                    setIsLoggingIn(false);
+                    return;
+                }
+
                 const errorMessage = result.error.toLowerCase();
                 if (
                     errorMessage.includes("approved") ||
