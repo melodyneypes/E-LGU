@@ -16,6 +16,7 @@ export function EditStallTypeModal() {
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
+    const [isActive, setIsActive] = useState(true);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -23,6 +24,7 @@ export function EditStallTypeModal() {
         setCode(editingStallType.code);
         setName(editingStallType.name);
         setDescription(editingStallType.description || "");
+        setIsActive(editingStallType.isActive !== false);
     }, [editingStallType]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -35,6 +37,7 @@ export function EditStallTypeModal() {
                 code,
                 name,
                 description,
+                isActive,
             });
 
             if (res.success) {
@@ -66,7 +69,7 @@ export function EditStallTypeModal() {
                                 Edit Section ({editingStallType.code})
                             </DialogTitle>
                             <DialogDescription className="text-xs text-slate-500 font-medium italic">
-                                Update category name, code, or description.
+                                Update category name, code, status, or description.
                             </DialogDescription>
                         </div>
                     </div>
@@ -98,6 +101,25 @@ export function EditStallTypeModal() {
                             onChange={(e) => setName(e.target.value)}
                             className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold"
                         />
+                    </div>
+
+                    {/* Section Active Status Toggle */}
+                    <div className="p-3 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-2xl flex items-center justify-between">
+                        <div>
+                            <div className="text-xs font-bold text-slate-900 dark:text-white">Active Status</div>
+                            <div className="text-[10px] text-slate-400 font-medium">Inactive sections cannot be assigned to new stalls.</div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsActive((prev) => !prev)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer border ${
+                                isActive
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                    : "bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                        >
+                            {isActive ? "Active" : "Inactive"}
+                        </button>
                     </div>
 
                     <div className="space-y-1">

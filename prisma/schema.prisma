@@ -1057,6 +1057,7 @@ model RHUInventoryItem {
 
   @@index([category])
   @@index([name])
+  @@index([healthCenterId], map: "idx_rhu_item_center")
 }
 
 model RHUInventoryBatch {
@@ -1077,6 +1078,8 @@ model RHUInventoryBatch {
   @@index([batchNumber])
   @@index([expirationDate])
   @@index([healthCenterId])
+  @@index([healthCenterId], map: "idx_rhu_batch_center")
+  @@index([itemId], map: "idx_rhu_batch_itemid")
 }
 
 model RHUHealthCenter {
@@ -1710,6 +1713,69 @@ model FollowUpAppointment {
   @@index([patientId])
   @@index([scheduledDate])
   @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RHUBed {
+  id                 String    @id
+  bedNumber          String
+  bedType            String    @default("Medical")
+  department         String    @default("Internal Medicine")
+  status             String    @default("AVAILABLE")
+  patientName        String?
+  caseDetails        String?
+  patientAge         Int?
+  patientGender      String?
+  patientContact     String?
+  admissionDate      DateTime?
+  dischargeDate      DateTime?
+  attendingPhysician String?
+  facilityType       String    @default("RHU")
+  healthCenterId     String?
+  healthCenterName   String?   @default("RHU Mapandan")
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now())
+
+  @@index([department], map: "idx_rhubed_department")
+  @@index([facilityType, healthCenterId], map: "idx_rhubed_facility")
+  @@index([bedNumber], map: "idx_rhubed_number")
+  @@index([status], map: "idx_rhubed_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RHUBedHistory {
+  id                 String   @id
+  bedId              String
+  bedNumber          String
+  action             String
+  patientName        String?
+  caseDetails        String?
+  attendingPhysician String?
+  notes              String?
+  timestamp          DateTime @default(now())
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RHUInventoryMovement {
+  id              String   @id
+  timestamp       DateTime @default(now())
+  transactionType String   @default("Stock In")
+  medicineName    String
+  genericName     String?
+  category        String?
+  quantity        Int      @default(0)
+  unit            String   @default("pcs")
+  batchNumber     String?
+  balanceAfter    Int      @default(0)
+  personRemarks   String?
+  healthCenterId  String?
+  facilityName    String?
+  referenceNo     String?
+  createdAt       DateTime @default(now())
+
+  @@index([healthCenterId], map: "idx_rhu_movement_center")
+  @@index([timestamp(sort: Desc)], map: "idx_rhu_movement_timestamp")
 }
 
 enum InventoryCategory {

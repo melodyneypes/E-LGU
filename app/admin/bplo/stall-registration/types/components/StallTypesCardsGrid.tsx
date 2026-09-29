@@ -47,10 +47,24 @@ export function StallTypesCardsGrid() {
                     className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-5 shadow-lg flex flex-col justify-between hover:border-purple-500/50 transition-all duration-300 group cursor-pointer"
                 >
                     <div>
-                        {/* Section Code Badge */}
+                        {/* Section Code Badge & Status */}
                         <div className="flex items-center justify-between gap-2 mb-3">
                             <span className="px-3 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 font-black text-xs uppercase tracking-wider border border-purple-500/20">
                                 {item.code}
+                            </span>
+                            <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border ${
+                                    item.isActive !== false
+                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
+                                        : "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                }`}
+                            >
+                                <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                        item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                    }`}
+                                />
+                                {item.isActive !== false ? "Active" : "Inactive"}
                             </span>
                         </div>
 

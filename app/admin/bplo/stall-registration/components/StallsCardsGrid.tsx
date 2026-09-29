@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useStalls } from "./StallsProvider";
-import { Store, User, Edit, Trash2, Eye, Tag, MapPin } from "lucide-react";
+import { Store, User, Edit, Eye, Tag, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,8 +17,6 @@ export function StallsCardsGrid() {
         setSelectedStall,
         setIsEditOpen,
         setEditingStall,
-        setIsDeleteOpen,
-        setDeletingStall,
     } = useStalls();
 
     // Filter stalls logic

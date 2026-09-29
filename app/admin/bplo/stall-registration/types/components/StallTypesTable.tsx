@@ -54,6 +54,9 @@ export function StallTypesTable() {
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Description
                             </TableHead>
+                            <TableHead className="w-[120px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                Status
+                            </TableHead>
                             <TableHead className="w-[100px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-right pr-8">
                                 Actions
                             </TableHead>
@@ -67,12 +70,13 @@ export function StallTypesTable() {
                                     <TableCell><Skeleton className="h-4 w-16 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-48 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-20 rounded-md" /></TableCell>
                                     <TableCell className="pr-8 text-right"><Skeleton className="h-8 w-16 rounded-xl ml-auto" /></TableCell>
                                 </TableRow>
                             ))
                         ) : paginatedItems.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-16">
+                                <TableCell colSpan={6} className="text-center py-16">
                                     <Tag className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <h3 className="text-lg font-black text-slate-800 dark:text-slate-200 uppercase italic">No Sections Found</h3>
                                     <p className="text-xs text-slate-400 font-medium italic mt-1">Try searching with a different section code or name.</p>
@@ -105,6 +109,23 @@ export function StallTypesTable() {
                                     <TableCell>
                                         <span className="text-xs text-slate-500 font-medium italic line-clamp-1">
                                             {item.description || "N/A"}
+                                        </span>
+                                    </TableCell>
+                                    {/* Status Badge */}
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border ${
+                                                item.isActive !== false
+                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
+                                                    : "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                            }`}
+                                        >
+                                            <span
+                                                className={`w-1.5 h-1.5 rounded-full ${
+                                                    item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                                }`}
+                                            />
+                                            {item.isActive !== false ? "Active" : "Inactive"}
                                         </span>
                                     </TableCell>
                                     {/* Actions */}

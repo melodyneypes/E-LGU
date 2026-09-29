@@ -8,6 +8,7 @@ export interface StallTypeItem {
     code: string;
     name: string;
     description?: string | null;
+    isActive: boolean;
     createdAt: Date | string;
     updatedAt: Date | string;
     _count?: {

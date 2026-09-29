@@ -55,6 +55,7 @@ export async function getStallTypes() {
                 code: true,
                 name: true,
                 description: true,
+                isActive: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -89,6 +90,7 @@ export async function getStallTypeById(id: string) {
                 code: true,
                 name: true,
                 description: true,
+                isActive: true,
                 createdAt: true,
                 updatedAt: true,
                 _count: {
@@ -115,6 +117,7 @@ export async function createStallType(data: {
     code: string;
     name: string;
     description?: string | null;
+    isActive?: boolean;
 }) {
     try {
         await verifyBploStallTypesAccess();
@@ -122,6 +125,7 @@ export async function createStallType(data: {
         const code = data.code.trim().toUpperCase();
         const name = data.name.trim();
         const description = data.description?.trim() || null;
+        const isActive = data.isActive !== undefined ? data.isActive : true;
 
         if (!code) {
             return { success: false, error: "Section code is required (e.g. DRY-01)." };
@@ -144,6 +148,7 @@ export async function createStallType(data: {
                 code,
                 name,
                 description,
+                isActive,
             },
         });
 
@@ -162,6 +167,7 @@ export async function createStallType(data: {
                     code,
                     name,
                     description,
+                    isActive,
                 },
             });
         } catch (auditErr) {
@@ -184,6 +190,7 @@ export async function updateStallType(
         code?: string;
         name?: string;
         description?: string | null;
+        isActive?: boolean;
     }
 ) {
     try {
@@ -204,6 +211,7 @@ export async function updateStallType(
         const newCode = data.code ? data.code.trim().toUpperCase() : existing.code;
         const newName = data.name ? data.name.trim() : existing.name;
         const newDescription = data.description !== undefined ? (data.description ? data.description.trim() : null) : existing.description;
+        const newIsActive = data.isActive !== undefined ? data.isActive : existing.isActive;
 
         // Check if updating code conflicts with another record
         if (data.code && newCode !== existing.code) {
@@ -221,6 +229,7 @@ export async function updateStallType(
                 code: newCode,
                 name: newName,
                 description: newDescription,
+                isActive: newIsActive,
             },
         });
 
@@ -238,6 +247,9 @@ export async function updateStallType(
             }
             if ((existing.description || "") !== (newDescription || "")) {
                 changes["description"] = { old: existing.description || "None", new: newDescription || "None" };
+            }
+            if (existing.isActive !== newIsActive) {
+                changes["isActive"] = { old: existing.isActive, new: newIsActive };
             }
 
             const modifiedFields = Object.keys(changes);
@@ -266,6 +278,10 @@ export async function updateStallType(
         console.error("[updateStallType] Error:", error);
         return { success: false, error: error?.message || "Failed to update stall type." };
     }
+}
+
+export async function toggleStallTypeStatus(id: string, currentStatus: boolean) {
+    return updateStallType(id, { isActive: !currentStatus });
 }
 
 /**

@@ -4,7 +4,7 @@ import React from "react";
 import { useStalls, StallItem } from "./StallsProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Store, User, Edit, Trash2, Tag, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Store, User, Edit, Tag, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -23,8 +23,6 @@ export function StallsTable() {
         setSelectedStall,
         setIsEditOpen,
         setEditingStall,
-        setIsDeleteOpen,
-        setDeletingStall,
     } = useStalls();
 
     // Filter stalls logic
