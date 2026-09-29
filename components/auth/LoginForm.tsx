@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Eye, EyeOff, Mail, Lock, ShieldAlert, Store, AlertTriangle, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -48,7 +48,6 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
     const { triggerLeave } = React.useContext(AuthTransitionContext);
     const [showPassword, setShowPassword] = React.useState(false);
     const [isLoggingIn, setIsLoggingIn] = React.useState(false);
-    const [vendorRestrictedAlert, setVendorRestrictedAlert] = React.useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get("callbackUrl");
@@ -67,7 +66,10 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
             // Strict Vendor Gate: Sign out vendor and show restriction notice on Login Page
             if (user.role === "VENDOR") {
-                setVendorRestrictedAlert(true);
+                toast.warning(
+                    "Notice: This account is registered as a Market Vendor record for LGU BPLO registry and cannot be used for citizen e-services. If you want to request certificates, clearances, or LGU services, please register a regular Citizen/Resident Account.",
+                    { duration: 8000 }
+                );
                 signOut({ redirect: false });
                 return;
             }
@@ -354,8 +356,10 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
                 // Check for Market Vendor role restriction
                 if (result.error === "ROLE_RESTRICTED_VENDOR" || result.error.includes("ROLE_RESTRICTED_VENDOR")) {
-                    setVendorRestrictedAlert(true);
-                    toast.warning("Market Vendor Account Restriction: Please register a regular Citizen account to access public services.");
+                    toast.warning(
+                        "Notice: This account is registered as a Market Vendor record for LGU BPLO registry and cannot be used for citizen e-services. If you want to request certificates, clearances, or LGU services, please register a regular Citizen/Resident Account.",
+                        { duration: 8000 }
+                    );
                     setIsLoggingIn(false);
                     return;
                 }
