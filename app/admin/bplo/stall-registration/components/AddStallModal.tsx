@@ -34,7 +34,7 @@ export function AddStallModal() {
     const { isAddOpen, setIsAddOpen, stallTypes, vendors, themeColor, triggerRefresh, setStalls } = useStalls();
 
     const [stallNumber, setStallNumber] = useState("");
-    const [stallTypeId, setStallTypeId] = useState(stallTypes[0]?.id || "");
+    const [stallTypeId, setStallTypeId] = useState<string>("");
     const [isSectionOpen, setIsSectionOpen] = useState(false);
     const [sectionSearch, setSectionSearch] = useState("");
     const sectionDropdownRef = useRef<HTMLDivElement>(null);
@@ -113,7 +113,7 @@ export function AddStallModal() {
 
     const resetForm = () => {
         setStallNumber("");
-        setStallTypeId(stallTypes[0]?.id || "");
+        setStallTypeId("");
         setIsSectionOpen(false);
         setSectionSearch("");
         setVendorId("NONE");
@@ -136,8 +136,12 @@ export function AddStallModal() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!stallNumber.trim() || !stallTypeId) {
-            alert("Please fill in the stall number and section");
+        if (!stallNumber.trim()) {
+            toast.error("Please enter a stall number");
+            return;
+        }
+        if (!stallTypeId) {
+            toast.error("Please select a market section for this stall");
             return;
         }
 
@@ -171,8 +175,8 @@ export function AddStallModal() {
 
         setLoading(false);
         if (res.success && res.data) {
-            // Instant Optimistic Insertion: 0ms delay in table and grid
-            setStalls((prev) => [res.data as any, ...prev]);
+            // Instant Optimistic Insertion at the bottom (consistent with createdAt: asc)
+            setStalls((prev) => [...prev, res.data as any]);
             toast.success(`Market Stall "${stallNumber}" created successfully!`);
             handleCloseModal();
             triggerRefresh();
@@ -241,8 +245,8 @@ export function AddStallModal() {
                                             isSectionOpen && "ring-2 ring-emerald-500/30 border-emerald-500"
                                         )}
                                     >
-                                        <span className={cn("truncate", !stallTypeId && "text-slate-400 font-normal")}>
-                                            {stallTypes.find((t) => t.id === stallTypeId)?.name || "Select Section"}
+                                        <span className={cn("truncate", !stallTypeId && "text-slate-400 font-normal italic")}>
+                                            {stallTypes.find((t) => t.id === stallTypeId)?.name || "Select Section (No section assigned)"}
                                         </span>
                                         <ChevronDown className={cn("w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200", isSectionOpen && "rotate-180")} />
                                     </button>
@@ -267,6 +271,25 @@ export function AddStallModal() {
 
                                             {/* Options List */}
                                             <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                                {/* Default unassigned option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setStallTypeId("");
+                                                        setIsSectionOpen(false);
+                                                        setSectionSearch("");
+                                                    }}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                        !stallTypeId
+                                                            ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold"
+                                                            : "text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                    )}
+                                                >
+                                                    <span className="truncate italic">-- No section assigned --</span>
+                                                    {!stallTypeId && <Check className="w-4 h-4 text-slate-500 shrink-0 ml-2" />}
+                                                </button>
+
                                                 {filteredStallTypes.length === 0 ? (
                                                     <div className="py-4 text-center text-xs text-slate-400 italic">
                                                         No sections matching &quot;{sectionSearch}&quot;
