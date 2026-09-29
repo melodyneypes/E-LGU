@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus, Trash2, X, MapPin } from "lucide-react";
+import { Edit, Plus, Trash2, X, MapPin, Search } from "lucide-react";
 import { toast } from "sonner";
 import { updateStall } from "../actions/stalls.actions";
 
@@ -35,6 +35,7 @@ export function EditStallModal() {
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState("");
     const [vendorId, setVendorId] = useState<string>("NONE");
+    const [vendorSearch, setVendorSearch] = useState<string>("");
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
     const [latitude, setLatitude] = useState<string>("");
     const [longitude, setLongitude] = useState<string>("");
@@ -68,7 +69,19 @@ export function EditStallModal() {
                 remarks: f.remarks || "",
             }))
         );
+        setVendorSearch("");
     }, [editingStall]);
+
+    // Filter vendor list: must be active (isActive !== false) and match search query
+    const filteredVendors = vendors.filter((v) => {
+        if (v.isActive === false) return false;
+        const query = vendorSearch.toLowerCase().trim();
+        if (!query) return true;
+        return (
+            (v.name && v.name.toLowerCase().includes(query)) ||
+            (v.email && v.email.toLowerCase().includes(query))
+        );
+    });
 
     const handleAddFee = () => {
         setOtherFees((prev) => [
@@ -217,10 +230,10 @@ export function EditStallModal() {
                                         <SelectContent className="bg-white dark:bg-[#151b2b]">
                                             <SelectItem value="NONE">-- No Vendor --</SelectItem>
                                             {vendors
-                                                .filter((v) => v.isActive !== false || v.id === vendorId)
+                                                .filter((v) => v.isActive !== false)
                                                 .map((v) => (
                                                     <SelectItem key={v.id} value={v.id}>
-                                                        {v.name || v.email} {v.isActive === false ? "(Inactive)" : ""}
+                                                        {v.name || v.email}
                                                     </SelectItem>
                                                 ))}
                                         </SelectContent>

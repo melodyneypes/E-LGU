@@ -64,7 +64,10 @@ export default async function StallsPage() {
             orderBy: { name: "asc" },
         }),
         prisma.user.findMany({
-            where: { role: "VENDOR" as any },
+            where: {
+                role: "VENDOR" as any,
+                isActive: true,
+            },
             select: { id: true, name: true, email: true, isActive: true },
             orderBy: { name: "asc" },
             take: 300,
