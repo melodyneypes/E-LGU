@@ -205,50 +205,54 @@ export default function AssessorTransactionDetailPage() {
                                 <UserCheck className="w-4 h-4 text-rose-400" /> Primary Applicant & Property Profile
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <CardContent className="p-6 md:p-8 space-y-6">
+                            {/* Summary Header */}
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-6 border-b border-white/5">
                                 <div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Property Owner Name</span>
-                                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Property Owner Name</span>
+                                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tight">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
                                 </div>
                                 <div className="text-left sm:text-right">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</span>
-                                    <div className="text-2xl font-black text-rose-500 font-mono tracking-tighter italic">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Total Amount Due</span>
+                                    <div className="text-2xl font-black text-rose-500 font-mono tracking-tight italic">
                                         ₱{(rpt.totalTaxDue || rpt.assessedValue || tx.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Tax Declaration # (TDN)</span>
-                                    <span className="font-mono font-bold text-slate-200">{rpt.tdn || "N/A"}</span>
+                            {/* Clean Property Metadata Grid (No nested cards) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-xs">
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Tax Declaration # (TDN)</span>
+                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.tdn || "N/A"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Property Identification (PIN)</span>
-                                    <span className="font-mono font-bold text-slate-200">{rpt.pin || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Identification (PIN)</span>
+                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.pin || "N/A"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Barangay Location</span>
-                                    <span className="font-bold text-slate-200 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-rose-400" /> {rpt.barangay || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Barangay Location</span>
+                                    <p className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> {rpt.barangay || "N/A"}
+                                    </p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Property Classification</span>
-                                    <span className="font-bold text-slate-200 uppercase">{rpt.propertyType || "RESIDENTIAL"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Classification</span>
+                                    <p className="font-bold text-sm text-slate-100 uppercase">{rpt.propertyType || "RESIDENTIAL"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Covered Tax Year</span>
-                                    <span className="font-mono font-bold text-amber-400">{rpt.taxYear || addData.taxYear || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Covered Tax Year</span>
+                                    <p className="font-mono font-black text-sm text-amber-400">{rpt.taxYear || addData.taxYear || "N/A"}</p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
-                                    <span className="font-bold text-slate-200">
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
+                                    <p className="font-bold text-sm text-slate-100">
                                         {tx.appointmentDate ? format(new Date(tx.appointmentDate), "MMM dd, yyyy") : "N/A"}
-                                    </span>
+                                    </p>
                                 </div>
-                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
-                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Appointment Slot</span>
-                                    <span className="font-bold text-slate-200">{tx.appointmentSlot || "N/A"}</span>
+                                <div className="space-y-1">
+                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Slot</span>
+                                    <p className="font-bold text-sm text-slate-100">{tx.appointmentSlot || "N/A"}</p>
                                 </div>
                             </div>
                         </CardContent>
