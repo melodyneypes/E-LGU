@@ -37,7 +37,6 @@ export function StallTypesCardsGrid() {
             const res = await toggleStallTypeStatus(item.id, currentActive);
             if (res.success) {
                 toast.success(`Market section is now ${newActive ? "Active" : "Inactive"}`);
-                triggerRefresh();
             } else {
                 setStallTypes((prev) =>
                     prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))

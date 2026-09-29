@@ -34,7 +34,7 @@ export function StallTypesTable() {
         const currentActive = item.isActive !== false;
         const newActive = !currentActive;
 
-        // Instant Optimistic Update
+        // Instant 0ms Optimistic Update in UI
         setTogglingId(item.id);
         setStallTypes((prev) =>
             prev.map((t) => (t.id === item.id ? { ...t, isActive: newActive } : t))
@@ -44,16 +44,15 @@ export function StallTypesTable() {
             const res = await toggleStallTypeStatus(item.id, currentActive);
             if (res.success) {
                 toast.success(`Market section is now ${newActive ? "Active" : "Inactive"}`);
-                triggerRefresh();
             } else {
-                // Revert on failure
+                // Revert on server error
                 setStallTypes((prev) =>
                     prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
                 );
                 toast.error(res.error || "Failed to update status");
             }
         } catch (err: any) {
-            // Revert on exception
+            // Revert on network exception
             setStallTypes((prev) =>
                 prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
             );

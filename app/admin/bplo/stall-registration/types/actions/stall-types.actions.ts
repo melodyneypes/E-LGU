@@ -281,7 +281,43 @@ export async function updateStallType(
 }
 
 export async function toggleStallTypeStatus(id: string, currentStatus: boolean) {
-    return updateStallType(id, { isActive: !currentStatus });
+    try {
+        if (!id) {
+            return { success: false, error: "Stall type ID is required." };
+        }
+
+        await verifyBploStallTypesAccess();
+
+        const newStatus = !currentStatus;
+
+        // Lean, single-roundtrip direct DB update
+        const updated = await (prisma as any).stallType.update({
+            where: { id },
+            data: { isActive: newStatus },
+            select: { id: true, name: true, code: true, isActive: true },
+        });
+
+        // Non-blocking background audit log (doesn't stall client response)
+        logActivity({
+            action: "UPDATE",
+            entityType: "StallType",
+            entityId: id,
+            entityName: `${updated.name} (${updated.code})`,
+            description: `Toggled Market Section "${updated.name}" status to ${newStatus ? "Active" : "Inactive"}`,
+            metadata: {
+                code: updated.code,
+                name: updated.name,
+                changes: {
+                    isActive: { old: currentStatus, new: newStatus },
+                },
+            },
+        }).catch((err) => console.warn("[toggleStallTypeStatus] Non-critical audit warning:", err));
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("[toggleStallTypeStatus] Error:", error);
+        return { success: false, error: error?.message || "Failed to toggle status." };
+    }
 }
 
 /**
