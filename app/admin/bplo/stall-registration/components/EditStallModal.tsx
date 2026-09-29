@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useStalls } from "./StallsProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus, Trash2, X, MapPin, Search } from "lucide-react";
+import { Edit, Plus, Trash2, X, MapPin, Search, ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { updateStall } from "../actions/stalls.actions";
 
@@ -34,8 +35,14 @@ export function EditStallModal() {
 
     const [stallNumber, setStallNumber] = useState("");
     const [stallTypeId, setStallTypeId] = useState("");
+    const [isSectionOpen, setIsSectionOpen] = useState(false);
+    const [sectionSearch, setSectionSearch] = useState<string>("");
+    const sectionDropdownRef = useRef<HTMLDivElement>(null);
+
     const [vendorId, setVendorId] = useState<string>("NONE");
+    const [isVendorOpen, setIsVendorOpen] = useState(false);
     const [vendorSearch, setVendorSearch] = useState<string>("");
+    const vendorDropdownRef = useRef<HTMLDivElement>(null);
     const [status, setStatus] = useState<"VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED">("VACANT");
     const [latitude, setLatitude] = useState<string>("");
     const [longitude, setLongitude] = useState<string>("");
@@ -70,7 +77,36 @@ export function EditStallModal() {
             }))
         );
         setVendorSearch("");
+        setSectionSearch("");
+        setIsSectionOpen(false);
+        setIsVendorOpen(false);
     }, [editingStall]);
+
+    // Close custom dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target as Node)) {
+                setIsSectionOpen(false);
+            }
+            if (vendorDropdownRef.current && !vendorDropdownRef.current.contains(event.target as Node)) {
+                setIsVendorOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Filter section list: must be active (isActive !== false or currently assigned) and match search query
+    const filteredStallTypes = stallTypes.filter((t) => {
+        if (t.isActive === false && t.id !== stallTypeId) return false;
+        const query = sectionSearch.toLowerCase().trim();
+        if (!query) return true;
+        return (
+            (t.name && t.name.toLowerCase().includes(query)) ||
+            (t.code && t.code.toLowerCase().includes(query))
+        );
+    });
 
     // Filter vendor list: must be active (isActive !== false) and match search query
     const filteredVendors = vendors.filter((v) => {
@@ -186,22 +222,80 @@ export function EditStallModal() {
                                     />
                                 </div>
 
-                                <div className="space-y-1">
+                                {/* Section / Stall Type Custom Searchable Combobox */}
+                                <div className="space-y-1 relative" ref={sectionDropdownRef}>
                                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Section *</label>
-                                    <Select value={stallTypeId} onValueChange={setStallTypeId}>
-                                        <SelectTrigger className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
-                                            <SelectValue placeholder="Select Section" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            {stallTypes
-                                                .filter((t) => t.isActive !== false || t.id === stallTypeId)
-                                                .map((t) => (
-                                                    <SelectItem key={t.id} value={t.id}>
-                                                        {t.name} {t.isActive === false ? "(Inactive)" : ""}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsSectionOpen((prev) => !prev);
+                                            setIsVendorOpen(false);
+                                        }}
+                                        className={cn(
+                                            "w-full h-10 px-3 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer text-left",
+                                            isSectionOpen && "ring-2 ring-emerald-500/30 border-emerald-500"
+                                        )}
+                                    >
+                                        <span className={cn("truncate", !stallTypeId && "text-slate-400 font-normal italic")}>
+                                            {stallTypes.find((t) => t.id === stallTypeId)?.name || "Select Section"}
+                                        </span>
+                                        <ChevronDown className={cn("w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200", isSectionOpen && "rotate-180")} />
+                                    </button>
+
+                                    {/* Inline Absolute Dropdown Menu */}
+                                    {isSectionOpen && (
+                                        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl z-[100] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                                            {/* Search Header */}
+                                            <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#121622]">
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search section..."
+                                                        value={sectionSearch}
+                                                        onChange={(e) => setSectionSearch(e.target.value)}
+                                                        autoFocus
+                                                        className="w-full pl-8 pr-3 h-8 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Options List */}
+                                            <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                                {filteredStallTypes.length === 0 ? (
+                                                    <div className="py-4 text-center text-xs text-slate-400 italic">
+                                                        No sections matching &quot;{sectionSearch}&quot;
+                                                    </div>
+                                                ) : (
+                                                    filteredStallTypes.map((t) => {
+                                                        const isSelected = stallTypeId === t.id;
+                                                        return (
+                                                            <button
+                                                                key={t.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setStallTypeId(t.id);
+                                                                    setIsSectionOpen(false);
+                                                                    setSectionSearch("");
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                                    isSelected
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                                )}
+                                                            >
+                                                                <span className="truncate">
+                                                                    {t.name} {t.isActive === false ? "(Inactive)" : ""}
+                                                                </span>
+                                                                {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -221,23 +315,99 @@ export function EditStallModal() {
                                     </Select>
                                 </div>
 
-                                <div className="space-y-1">
+                                {/* Vendor Assignment Custom Searchable Combobox */}
+                                <div className="space-y-1 relative" ref={vendorDropdownRef}>
                                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Assign Vendor</label>
-                                    <Select value={vendorId} onValueChange={setVendorId}>
-                                        <SelectTrigger className="h-10 bg-slate-50 dark:bg-[#1a202c] border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold">
-                                            <SelectValue placeholder="Select Vendor" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            <SelectItem value="NONE">-- No Vendor --</SelectItem>
-                                            {vendors
-                                                .filter((v) => v.isActive !== false)
-                                                .map((v) => (
-                                                    <SelectItem key={v.id} value={v.id}>
-                                                        {v.name || v.email}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsVendorOpen((prev) => !prev);
+                                            setIsSectionOpen(false);
+                                        }}
+                                        className={cn(
+                                            "w-full h-10 px-3 bg-slate-50 dark:bg-[#1a202c] border border-slate-200 dark:border-[#2a3040] rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer text-left",
+                                            isVendorOpen && "ring-2 ring-emerald-500/30 border-emerald-500"
+                                        )}
+                                    >
+                                        <span className={cn("truncate", (!vendorId || vendorId === "NONE") && "text-slate-400 font-normal italic")}>
+                                            {!vendorId || vendorId === "NONE"
+                                                ? "-- No Vendor --"
+                                                : vendors.find((v) => v.id === vendorId)?.name || vendors.find((v) => v.id === vendorId)?.email || "Selected Vendor"}
+                                        </span>
+                                        <ChevronDown className={cn("w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200", isVendorOpen && "rotate-180")} />
+                                    </button>
+
+                                    {/* Inline Absolute Dropdown Menu */}
+                                    {isVendorOpen && (
+                                        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl z-[100] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                                            {/* Search Header */}
+                                            <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#121622]">
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search vendor..."
+                                                        value={vendorSearch}
+                                                        onChange={(e) => setVendorSearch(e.target.value)}
+                                                        autoFocus
+                                                        className="w-full pl-8 pr-3 h-8 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Options List */}
+                                            <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                                {/* No Vendor Option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setVendorId("NONE");
+                                                        setIsVendorOpen(false);
+                                                        setVendorSearch("");
+                                                    }}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                        vendorId === "NONE" || !vendorId
+                                                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                    )}
+                                                >
+                                                    <span className="truncate italic">-- No Vendor --</span>
+                                                    {(vendorId === "NONE" || !vendorId) && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                                </button>
+
+                                                {filteredVendors.length === 0 ? (
+                                                    <div className="py-4 text-center text-xs text-slate-400 italic">
+                                                        No vendors matching &quot;{vendorSearch}&quot;
+                                                    </div>
+                                                ) : (
+                                                    filteredVendors.map((v) => {
+                                                        const isSelected = vendorId === v.id;
+                                                        return (
+                                                            <button
+                                                                key={v.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setVendorId(v.id);
+                                                                    setIsVendorOpen(false);
+                                                                    setVendorSearch("");
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer",
+                                                                    isSelected
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2638]"
+                                                                )}
+                                                            >
+                                                                <span className="truncate">{v.name || v.email}</span>
+                                                                {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
