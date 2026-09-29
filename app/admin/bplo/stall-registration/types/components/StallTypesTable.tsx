@@ -25,7 +25,6 @@ export function StallTypesTable() {
         setSelectedStallType,
         setIsEditOpen,
         setEditingStallType,
-        triggerRefresh,
     } = useStallTypes();
 
     const [togglingId, setTogglingId] = useState<string | null>(null);
