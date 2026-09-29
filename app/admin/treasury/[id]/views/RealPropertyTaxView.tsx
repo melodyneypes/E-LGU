@@ -63,6 +63,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const basicTax = Number(rpt.basicTax || additional.basicTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
     const sefTax = Number(rpt.sefTax || additional.sefTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
     const assessedValue = Number(rpt.assessedValue || additional.assessedValue || (basicTax > 0 ? basicTax / 0.01 : 0));
+    const taxYear = rpt.taxYear || additional.taxYear || new Date().getFullYear().toString();
 
     const attachments = [
         { label: "Valid Government ID", url: rpt.validIdUrl || additional.validIdUrl },
@@ -196,6 +197,13 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                         </div>
 
                                         <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Covered Tax Year</span>
+                                            <p className="text-xs font-mono font-bold text-amber-400 truncate">
+                                                {taxYear}
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Barangay Location</span>
                                             <p className="text-xs font-bold text-slate-200 truncate">
                                                 {barangay}
@@ -205,10 +213,15 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
 
                                     {/* Tax Computation Breakdown Table */}
                                     <div className="space-y-4 pt-4 border-t border-white/5">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic flex items-center gap-2">
-                                            <Receipt className="w-4 h-4 text-rose-500" />
-                                            Tax Computation Breakdown
-                                        </h3>
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic flex items-center gap-2">
+                                                <Receipt className="w-4 h-4 text-rose-500" />
+                                                Tax Computation Breakdown
+                                            </h3>
+                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 italic">
+                                                Tax Year: {taxYear}
+                                            </span>
+                                        </div>
 
                                         <div className="space-y-3 bg-white/[0.01] border border-white/5 p-5 rounded-2xl">
                                             <div className="flex justify-between items-center text-xs font-bold text-slate-400 italic">

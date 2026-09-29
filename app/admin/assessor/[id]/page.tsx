@@ -237,6 +237,10 @@ export default function AssessorTransactionDetailPage() {
                                     <span className="font-bold text-slate-200 uppercase">{rpt.propertyType || "RESIDENTIAL"}</span>
                                 </div>
                                 <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
+                                    <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Covered Tax Year</span>
+                                    <span className="font-mono font-bold text-amber-400">{rpt.taxYear || addData.taxYear || "N/A"}</span>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
                                     <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
                                     <span className="font-bold text-slate-200">
                                         {tx.appointmentDate ? format(new Date(tx.appointmentDate), "MMM dd, yyyy") : "N/A"}
