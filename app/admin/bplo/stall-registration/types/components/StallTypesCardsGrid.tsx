@@ -1,22 +1,58 @@
 "use client";
 
-import React from "react";
-import { useStallTypes } from "./StallTypesProvider";
-import { Tag, Edit, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+import { useStallTypes, StallTypeItem } from "./StallTypesProvider";
+import { Tag, Edit, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { toggleStallTypeStatus } from "../actions/stall-types.actions";
+import { toast } from "sonner";
 
 export function StallTypesCardsGrid() {
     const {
         stallTypes,
+        setStallTypes,
         debouncedSearch,
         currentPage,
         pageSize,
         setSelectedStallType,
         setIsEditOpen,
         setEditingStallType,
-        setIsDeleteOpen,
-        setDeletingStallType,
+        triggerRefresh,
     } = useStallTypes();
+
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    const handleToggle = async (item: StallTypeItem) => {
+        const currentActive = item.isActive !== false;
+        const newActive = !currentActive;
+
+        // Instant Optimistic Update
+        setTogglingId(item.id);
+        setStallTypes((prev) =>
+            prev.map((t) => (t.id === item.id ? { ...t, isActive: newActive } : t))
+        );
+
+        try {
+            const res = await toggleStallTypeStatus(item.id, currentActive);
+            if (res.success) {
+                toast.success(`Market section is now ${newActive ? "Active" : "Inactive"}`);
+                triggerRefresh();
+            } else {
+                setStallTypes((prev) =>
+                    prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
+                );
+                toast.error(res.error || "Failed to update status");
+            }
+        } catch (err: any) {
+            setStallTypes((prev) =>
+                prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
+            );
+            toast.error(err.message || "Failed to update status");
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     const filtered = stallTypes.filter(
         (item) =>
@@ -52,20 +88,33 @@ export function StallTypesCardsGrid() {
                             <span className="px-3 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 font-black text-xs uppercase tracking-wider border border-purple-500/20">
                                 {item.code}
                             </span>
-                            <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border ${
-                                    item.isActive !== false
-                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
-                                        : "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-                                }`}
-                            >
-                                <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                        item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
-                                    }`}
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Switch
+                                    checked={item.isActive !== false}
+                                    disabled={togglingId === item.id}
+                                    onCheckedChange={() => handleToggle(item)}
+                                    size="sm"
+                                    className="data-[state=checked]:bg-emerald-600 dark:data-[state=checked]:bg-emerald-500 cursor-pointer"
                                 />
-                                {item.isActive !== false ? "Active" : "Inactive"}
-                            </span>
+                                <span
+                                    className={`inline-flex items-center gap-1 text-[10px] font-black tracking-wider uppercase ${
+                                        item.isActive !== false
+                                            ? "text-emerald-600 dark:text-emerald-400"
+                                            : "text-slate-400 dark:text-slate-500"
+                                    }`}
+                                >
+                                    {togglingId === item.id ? (
+                                        <Loader2 className="w-2.5 h-2.5 animate-spin text-purple-500" />
+                                    ) : (
+                                        <span
+                                            className={`w-1.5 h-1.5 rounded-full ${
+                                                item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                            }`}
+                                        />
+                                    )}
+                                    {item.isActive !== false ? "Active" : "Inactive"}
+                                </span>
+                            </div>
                         </div>
 
                         {/* Title Name */}
@@ -94,19 +143,6 @@ export function StallTypesCardsGrid() {
                                 title="Edit Section"
                             >
                                 <Edit className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeletingStallType(item);
-                                    setIsDeleteOpen(true);
-                                }}
-                                className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                                title="Delete Section"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                         </div>
                     </div>

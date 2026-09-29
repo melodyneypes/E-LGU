@@ -1,16 +1,20 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useStallTypes, StallTypeItem } from "./StallTypesProvider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Tag, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Tag, Edit, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toggleStallTypeStatus } from "../actions/stall-types.actions";
+import { toast } from "sonner";
 
 export function StallTypesTable() {
     const {
         stallTypes,
+        setStallTypes,
         debouncedSearch,
         isSearching,
         isRefreshing,
@@ -21,9 +25,43 @@ export function StallTypesTable() {
         setSelectedStallType,
         setIsEditOpen,
         setEditingStallType,
-        setIsDeleteOpen,
-        setDeletingStallType,
+        triggerRefresh,
     } = useStallTypes();
+
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    const handleToggle = async (item: StallTypeItem) => {
+        const currentActive = item.isActive !== false;
+        const newActive = !currentActive;
+
+        // Instant Optimistic Update
+        setTogglingId(item.id);
+        setStallTypes((prev) =>
+            prev.map((t) => (t.id === item.id ? { ...t, isActive: newActive } : t))
+        );
+
+        try {
+            const res = await toggleStallTypeStatus(item.id, currentActive);
+            if (res.success) {
+                toast.success(`Market section is now ${newActive ? "Active" : "Inactive"}`);
+                triggerRefresh();
+            } else {
+                // Revert on failure
+                setStallTypes((prev) =>
+                    prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
+                );
+                toast.error(res.error || "Failed to update status");
+            }
+        } catch (err: any) {
+            // Revert on exception
+            setStallTypes((prev) =>
+                prev.map((t) => (t.id === item.id ? { ...t, isActive: currentActive } : t))
+            );
+            toast.error(err.message || "Failed to update status");
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     const filtered = stallTypes.filter(
         (item) =>
@@ -111,22 +149,34 @@ export function StallTypesTable() {
                                             {item.description || "N/A"}
                                         </span>
                                     </TableCell>
-                                    {/* Status Badge */}
+                                    {/* Status Toggle Switch */}
                                     <TableCell onClick={(e) => e.stopPropagation()}>
-                                        <span
-                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border ${
-                                                item.isActive !== false
-                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
-                                                    : "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-                                            }`}
-                                        >
-                                            <span
-                                                className={`w-1.5 h-1.5 rounded-full ${
-                                                    item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
-                                                }`}
+                                        <div className="flex items-center gap-2.5">
+                                            <Switch
+                                                checked={item.isActive !== false}
+                                                disabled={togglingId === item.id}
+                                                onCheckedChange={() => handleToggle(item)}
+                                                className="data-[state=checked]:bg-emerald-600 dark:data-[state=checked]:bg-emerald-500 cursor-pointer"
                                             />
-                                            {item.isActive !== false ? "Active" : "Inactive"}
-                                        </span>
+                                            <span
+                                                className={`text-[11px] font-black tracking-wider uppercase inline-flex items-center gap-1.5 ${
+                                                    item.isActive !== false
+                                                        ? "text-emerald-600 dark:text-emerald-400"
+                                                        : "text-slate-400 dark:text-slate-500"
+                                                }`}
+                                            >
+                                                {togglingId === item.id ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
+                                                ) : (
+                                                    <span
+                                                        className={`w-1.5 h-1.5 rounded-full ${
+                                                            item.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                                        }`}
+                                                    />
+                                                )}
+                                                {item.isActive !== false ? "Active" : "Inactive"}
+                                            </span>
+                                        </div>
                                     </TableCell>
                                     {/* Actions */}
                                     <TableCell className="pr-8 text-right" onClick={(e) => e.stopPropagation()}>
@@ -143,19 +193,6 @@ export function StallTypesTable() {
                                                 title="Edit Section"
                                             >
                                                 <Edit className="w-3.5 h-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDeletingStallType(item);
-                                                    setIsDeleteOpen(true);
-                                                }}
-                                                className="h-8 w-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                                                title="Delete Section"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
                                             </Button>
                                         </div>
                                     </TableCell>
