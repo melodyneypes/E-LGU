@@ -7,7 +7,7 @@ interface RptViewProps {
     additionalData: any;
 }
 
-export default function RptView({ request, additionalData }: RptViewProps) {
+export default function RptView({ request: _request, additionalData }: RptViewProps) {
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
             {/* Property Overview Grid */}
