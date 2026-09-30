@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { TreasuryViewProps } from "./types";
 import { releaseRptTransaction } from "@/app/admin/transactions/rpt-actions";
 import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
+import ResidentIdentityProfile from "../components/ResidentIdentityProfile";
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
 const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg"];
@@ -70,7 +71,10 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const additional = (typeof transaction.additionalData === "string"
         ? JSON.parse(transaction.additionalData || "{}")
         : transaction.additionalData) || {};
-    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
+    const rawSnapshot = typeof transaction.residentSnapshot === "string"
+        ? (() => { try { return JSON.parse(transaction.residentSnapshot); } catch { return {}; } })()
+        : (transaction.residentSnapshot || {});
+    const baseResident = transaction.user?.residentProfile || rawSnapshot || {};
 
     const categoryCode = rpt.rptCategory || additional.categoryCode || transaction.type?.code || "RPT_CAT1";
     const categoryTitle =
@@ -82,7 +86,34 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                     ? "CATEGORY 3: TRANSFER OF PROPERTY OWNERSHIP"
                     : transaction.type?.name || "REAL PROPERTY TAX SERVICE";
 
-    const ownerName = rpt.ownerName || additional.ownerName || resident.fullName || `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || "PROPERTY OWNER";
+    // Prioritize name from snapshot (e.g. {"name": "JHON EMIL NILO"}) or user object
+    const applicantFullName = (
+        rawSnapshot.name ||
+        baseResident.fullName ||
+        `${baseResident.firstName || ""} ${baseResident.lastName || ""}`.trim() ||
+        transaction.user?.name ||
+        "Transacting Citizen"
+    ).trim();
+
+    // Parse applicant name parts if firstName/lastName are missing in snapshot
+    const nameParts = applicantFullName.split(" ").filter(Boolean);
+    const parsedFirstName = baseResident.firstName || (nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0] || "");
+    const parsedLastName = baseResident.lastName || (nameParts.length > 1 ? nameParts[nameParts.length - 1] : "");
+
+    const normalizedResident = {
+        ...baseResident,
+        ...rawSnapshot,
+        firstName: parsedFirstName,
+        lastName: parsedLastName,
+        fullName: applicantFullName,
+        name: applicantFullName,
+        email: rawSnapshot.email || baseResident.email || transaction.user?.email || ""
+    };
+
+    const resident = normalizedResident;
+    const applicantName = applicantFullName;
+    const ownerName = rpt.ownerName || additional.ownerName || "PROPERTY OWNER";
+    const isApplicantTheOwner = applicantName.toLowerCase().replace(/\s+/g, "") === ownerName.toLowerCase().replace(/\s+/g, "");
     const tdn = rpt.tdn || additional.tdn || "N/A";
     const pin = rpt.pin || additional.pin || "N/A";
     const barangay = rpt.barangay || additional.barangay || "Mapandan";
@@ -198,7 +229,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                         </div>
                     </div>
 
-                    {/* Applicant & Property Profile */}
+                    {/* Property Assessment Profile & Tax Computation */}
                     <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
                         <CardContent className="p-6 md:p-8 space-y-6">
                             <div
@@ -207,10 +238,10 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                             >
                                 <div className="space-y-1">
                                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 italic block">
-                                        Primary Applicant & Property Profile
+                                        Property Assessment & Tax Record
                                     </span>
                                     <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">
-                                        {ownerName}
+                                        {applicantName}
                                     </h2>
                                 </div>
                                 <Button variant="ghost" size="icon" className="rounded-full text-slate-400 hover:text-white">
@@ -222,6 +253,15 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                 <div className="space-y-6 animate-in fade-in duration-300">
                                     {/* Flattened Property Specs Grid (No Nested Cards) */}
                                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-xs">
+                                        <div className="space-y-1 col-span-2">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px] flex items-center gap-1.5">
+                                                <BadgeCheck className="w-3.5 h-3.5 text-rose-500" /> Registered Property Owner
+                                            </span>
+                                            <p className="font-black text-sm tracking-wide text-white uppercase break-words">
+                                                {ownerName}
+                                            </p>
+                                        </div>
+
                                         <div className="space-y-1">
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tax Declaration No. (TDN)</span>
                                             <p className="font-mono font-black text-sm tracking-wide text-white truncate">
@@ -308,6 +348,21 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* RESIDENT IDENTITY PROFILE (Applicant / Transacting Citizen) */}
+                    <ResidentIdentityProfile
+                        resident={resident}
+                        safeFormatDate={props.safeFormatDate || ((d: any) => String(d))}
+                        themeColor="#e11d48"
+                        titleColorText="Applicant:"
+                        titleWhiteText={applicantName}
+                        subtitleText={isApplicantTheOwner ? "Applicant is the Registered Property Owner" : `Transacting Citizen • Representative of ${ownerName}`}
+                        relationship={isApplicantTheOwner ? "Registered Owner" : "Authorized Representative / Applicant"}
+                        relationshipLabel="Applicant Role"
+                        transactionId={transaction.id}
+                        canEdit={!props.isReadOnlyAide}
+                        onProfileUpdated={props.fetchTransaction}
+                    />
 
                     {/* Core Requirements (100% Matched with BusinessPermitView) */}
                     <div className="bg-white dark:bg-[#151b28] p-10 rounded-[2.5rem] border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
