@@ -12,7 +12,9 @@ import {
     Receipt,
     Info,
     Eye,
-    Clock
+    Clock,
+    BadgeCheck,
+    Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +23,32 @@ import { toast } from "sonner";
 import { TreasuryViewProps } from "./types";
 import { releaseRptTransaction } from "@/app/admin/transactions/rpt-actions";
 import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
+
+const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
+const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg"];
+
+function getFileExtension(url: string) {
+    try {
+        const cleanPath = new URL(url).pathname;
+        return cleanPath.split(".").pop()?.toLowerCase() || "";
+    } catch {
+        return url.split("?")[0].split("#")[0].split(".").pop()?.toLowerCase() || "";
+    }
+}
+
+function isDocumentFile(url: string) {
+    const lower = url.toLowerCase();
+    if (lower.startsWith("data:application/pdf")) return true;
+    return documentExtensions.includes(getFileExtension(url));
+}
+
+function isImageFile(url: string) {
+    const lower = url.toLowerCase();
+    if (lower.startsWith("data:image/") || lower.startsWith("blob:")) return true;
+    const extension = getFileExtension(url);
+    if (imageExtensions.includes(extension)) return true;
+    return !isDocumentFile(url);
+}
 
 export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const {
@@ -173,73 +201,84 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
 
                             {isProfileOpen && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    {/* Top Property Cards */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Assessed Property Value</span>
-                                            <p className="text-base font-black italic tracking-tighter text-rose-400">
-                                                ₱{assessedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-
-                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Tax Declaration # (TDN)</span>
-                                            <p className="text-xs font-mono font-bold text-slate-200 truncate">
+                                    {/* Flattened Property Specs Grid (No Nested Cards) */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-xs">
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tax Declaration No. (TDN)</span>
+                                            <p className="font-mono font-black text-sm tracking-wide text-white truncate">
                                                 {tdn}
                                             </p>
                                         </div>
 
-                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">PIN Number</span>
-                                            <p className="text-xs font-mono font-bold text-slate-200 truncate">
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Property Index No. (PIN)</span>
+                                            <p className="font-mono font-black text-sm tracking-wide text-white truncate">
                                                 {pin}
                                             </p>
                                         </div>
 
-                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Covered Tax Year</span>
-                                            <p className="text-xs font-mono font-bold text-amber-400 truncate">
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Property Classification</span>
+                                            <p className="font-black uppercase text-slate-200 truncate">
+                                                {additional.propertyType || rpt.propertyType || "RESIDENTIAL"}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tax Assessment Year</span>
+                                            <p className="font-mono font-black text-amber-400">
                                                 {taxYear}
                                             </p>
                                         </div>
 
-                                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Barangay Location</span>
-                                            <p className="text-xs font-bold text-slate-200 truncate">
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Barangay Location</span>
+                                            <p className="font-black uppercase text-slate-200 truncate">
                                                 {barangay}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Assessed Value (AV)</span>
+                                            <p className="font-mono font-black text-rose-400 text-sm">
+                                                ₱{assessedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1 col-span-2">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Complete Property Address</span>
+                                            <p className="font-bold text-slate-200">
+                                                {additional.propertyAddress || rpt.propertyAddress || `${barangay}, Mapandan, Pangasinan`}
                                             </p>
                                         </div>
                                     </div>
 
-                                    {/* Tax Computation Breakdown Table */}
-                                    <div className="space-y-4 pt-4 border-t border-white/5">
+                                    {/* Flattened Tax Computation Breakdown (No Nested Card) */}
+                                    <div className="pt-6 border-t border-white/5 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic flex items-center gap-2">
                                                 <Receipt className="w-4 h-4 text-rose-500" />
                                                 Tax Computation Breakdown
                                             </h3>
-                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 italic">
-                                                Tax Year: {taxYear}
-                                            </span>
                                         </div>
 
-                                        <div className="space-y-3 bg-white/[0.01] border border-white/5 p-5 rounded-2xl">
-                                            <div className="flex justify-between items-center text-xs font-bold text-slate-400 italic">
+                                        <div className="space-y-2.5 pt-1 text-xs font-semibold">
+                                            <div className="flex justify-between items-center text-slate-400">
                                                 <span>Basic Real Property Tax (1% of Assessed Value)</span>
-                                                <span className="font-mono text-slate-200">
+                                                <span className="font-mono font-bold text-slate-200">
                                                     ₱{basicTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
 
-                                            <div className="flex justify-between items-center text-xs font-bold text-slate-400 italic">
+                                            <div className="flex justify-between items-center text-slate-400">
                                                 <span>Special Education Fund / SEF Tax (1% of Assessed Value)</span>
-                                                <span className="font-mono text-slate-200">
+                                                <span className="font-mono font-bold text-slate-200">
                                                     ₱{sefTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
 
-                                            <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                                                <span className="text-sm font-black uppercase italic tracking-wider text-white">Total Amount</span>
+                                            <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+                                                <span className="text-sm font-black uppercase italic tracking-wider text-white">Total Amount Due</span>
                                                 <span className="text-2xl font-black italic tracking-tighter text-rose-500 font-mono">
                                                     ₱{totalTaxDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
@@ -251,54 +290,77 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                         </CardContent>
                     </Card>
 
-                    {/* Requirements & Documents */}
-                    {attachments.length > 0 && (
-                        <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
-                            <CardContent className="p-6 md:p-8 space-y-6">
-                                <div
-                                    onClick={() => setIsRequirementsOpen(!isRequirementsOpen)}
-                                    className="flex items-center justify-between cursor-pointer select-none border-b border-white/5 pb-4"
-                                >
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 italic block">
-                                            Submitted Document Checklist
-                                        </span>
-                                        <h3 className="text-xl font-black uppercase italic tracking-tight text-white">
-                                            All Requirements ({attachments.length})
-                                        </h3>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="rounded-full text-slate-400 hover:text-white">
-                                        {isRequirementsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                    </Button>
-                                </div>
+                    {/* Core Requirements (100% Matched with BusinessPermitView) */}
+                    <div className="bg-white dark:bg-[#151b28] p-10 rounded-[2.5rem] border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
+                        <div
+                            className="flex justify-between items-center cursor-pointer select-none"
+                            onClick={() => setIsRequirementsOpen(!isRequirementsOpen)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <BadgeCheck className="w-5 h-5 text-rose-500" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">All Requirements</span>
+                            </div>
+                            <div className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-white transition-all focus:outline-none shrink-0">
+                                {isRequirementsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </div>
+                        </div>
 
-                                {isRequirementsOpen && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
-                                        {attachments.map((att, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => handleViewFile?.(att.url, att.label)}
-                                                className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-rose-500/30 flex items-center justify-between group cursor-pointer transition-all"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
-                                                        <FileText className="w-4 h-4" />
+                        {isRequirementsOpen && (
+                            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {attachments.map((doc, idx, arr) => (
+                                    <div
+                                        key={idx}
+                                        onClick={() => doc.url && handleViewFile?.(doc.url, doc.label, arr, idx)}
+                                        className="relative aspect-[4/3] rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 overflow-hidden group cursor-pointer hover:border-rose-500/50 transition-all select-none"
+                                    >
+                                        {doc.url ? (
+                                            isImageFile(doc.url) ? (
+                                                <>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={doc.url} alt={doc.label} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                                                    <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate">
+                                                        {doc.label}
                                                     </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-200 group-hover:text-rose-400 transition-colors">
-                                                            {att.label}
-                                                        </p>
-                                                        <span className="text-[9px] text-slate-500 font-semibold uppercase">Click to preview document</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-[#111827] dark:to-[#0b1220]" />
+                                                    <div className="relative h-full w-full flex flex-col items-center justify-center gap-3 p-6">
+                                                        <div className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-center">
+                                                            <FileText className="w-7 h-7 text-rose-500" />
+                                                        </div>
+                                                        <div className="text-center min-w-0">
+                                                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                                                                {getFileExtension(doc.url).toUpperCase() || "DOC"} File
+                                                            </p>
+                                                            <p className="mt-1 text-sm font-black italic uppercase tracking-tight text-slate-800 dark:text-white truncate max-w-[220px]">
+                                                                {doc.label}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <Eye className="w-4 h-4 text-slate-500 group-hover:text-rose-400 transition-colors" />
+                                                    <div className="absolute inset-x-3 bottom-3 rounded-xl bg-slate-950/75 backdrop-blur-md px-3 py-2 text-center text-white font-black italic uppercase tracking-widest text-[9px] opacity-90 group-hover:opacity-100 transition-opacity">
+                                                        Open Document
+                                                    </div>
+                                                </>
+                                            )
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-1.5 p-4">
+                                                <Camera className="w-6 h-6 mx-auto" />
+                                                <span className="text-[8px] font-black uppercase text-center tracking-widest leading-none">{doc.label}</span>
                                             </div>
-                                        ))}
+                                        )}
+                                        {doc.url && isImageFile(doc.url) && (
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                <div className="bg-rose-600 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]">
+                                                    <span>View</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* RIGHT COLUMN: Status Tracking & Payment Form */}
