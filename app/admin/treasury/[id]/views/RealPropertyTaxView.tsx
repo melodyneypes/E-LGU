@@ -103,18 +103,37 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     ].filter(att => Boolean(att.url));
 
     const isCheckedIn = Boolean(additional.checkedIn === true || additional.checkedInAt || transaction.checkedIn === true);
+    const isReleased = transaction.status === "RELEASED";
 
     const steps = [
-        { label: "FOR EVALUATION", status: "COMPLETED" },
         {
-            label: "TO PROCESS",
-            status: isCheckedIn || transaction.status === "FOR_PROCESSING" || transaction.status === "RELEASED" ? "COMPLETED" : "ACTIVE"
+            label: "ASSESSMENT COMPLETED",
+            desc: "Property assessed & billing computed",
+            status: "COMPLETED" as const
         },
         {
-            label: "FOR PROCESSING",
-            status: transaction.status === "RELEASED" ? "COMPLETED" : (transaction.status === "FOR_PROCESSING" ? "ACTIVE" : "PENDING")
+            label: "CITIZEN CHECK-IN",
+            desc: isCheckedIn || isReleased
+                ? "Applicant checked in at kiosk"
+                : "Awaiting physical check-in at lobby kiosk",
+            status: isCheckedIn || isReleased ? ("COMPLETED" as const) : ("ACTIVE" as const)
         },
-        { label: "RELEASED", status: transaction.status === "RELEASED" ? "COMPLETED" : "PENDING" }
+        {
+            label: "PAYMENT PROCESSING",
+            desc: isReleased
+                ? "Official Receipt & Payment encoded"
+                : isCheckedIn
+                    ? "Ready to collect payment & issue O.R."
+                    : "Waiting for applicant check-in",
+            status: isReleased ? ("COMPLETED" as const) : isCheckedIn ? ("ACTIVE" as const) : ("PENDING" as const)
+        },
+        {
+            label: "TAX CLEARANCE RELEASED",
+            desc: isReleased
+                ? "Official Clearance & O.R. released"
+                : "Pending final payment and clearance release",
+            status: isReleased ? ("COMPLETED" as const) : ("PENDING" as const)
+        }
     ];
 
     const handleReleasePayment = async () => {
@@ -367,30 +386,40 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                 <div className="col-span-12 lg:col-span-4 space-y-6">
                     {/* Status Tracking Panel */}
                     <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
-                        <CardContent className="p-6 space-y-5">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 italic">
-                                Status Tracking
-                            </h3>
+                        <CardContent className="p-6 md:p-8 space-y-6">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 block italic leading-none">
+                                    Workflow Progress
+                                </span>
+                                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mt-1.5 leading-none">
+                                    Status Timeline
+                                </h3>
+                            </div>
 
-                            <div className="space-y-4">
+                            <div className="relative pl-6 border-l-2 border-white/5 space-y-6">
                                 {steps.map((st, i) => (
-                                    <div key={i} className="flex items-center gap-3">
-                                        {st.status === "COMPLETED" ? (
-                                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-xs">
-                                                <Check className="w-3.5 h-3.5" />
-                                            </div>
-                                        ) : st.status === "ACTIVE" ? (
-                                            <div className="w-6 h-6 rounded-full bg-rose-500 text-white font-bold text-xs flex items-center justify-center italic shadow-lg shadow-rose-500/30">
-                                                {i + 1}
-                                            </div>
-                                        ) : (
-                                            <div className="w-6 h-6 rounded-full bg-slate-800 text-slate-500 font-bold text-xs flex items-center justify-center">
-                                                {i + 1}
-                                            </div>
-                                        )}
-                                        <span className={`text-xs font-black uppercase tracking-wider italic ${st.status === "COMPLETED" ? "text-emerald-400" : st.status === "ACTIVE" ? "text-rose-400" : "text-slate-500"}`}>
-                                            {st.label}
-                                        </span>
+                                    <div key={i} className="relative">
+                                        <div className={`absolute w-4 h-4 rounded-full -left-[33px] border-4 transition-all duration-500 flex items-center justify-center text-[7px] ${
+                                            st.status === "COMPLETED"
+                                                ? "bg-emerald-500 border-[#0f1420] scale-100"
+                                                : st.status === "ACTIVE"
+                                                    ? "bg-rose-500 border-[#0f1420] ring-4 ring-rose-500/20 scale-110"
+                                                    : "bg-slate-800 border-[#0f1420] scale-95"
+                                        }`} />
+                                        <div className="space-y-0.5">
+                                            <span className={`text-[10px] font-black uppercase tracking-widest block ${
+                                                st.status === "COMPLETED"
+                                                    ? "text-emerald-400"
+                                                    : st.status === "ACTIVE"
+                                                        ? "text-rose-400"
+                                                        : "text-slate-500"
+                                            }`}>
+                                                {st.label}
+                                            </span>
+                                            <p className="text-[10px] font-medium text-slate-400 leading-snug">
+                                                {st.desc}
+                                            </p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -398,7 +427,11 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                     </Card>
 
                     {/* Payment Form */}
-                    <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
+                    <Card className={`rounded-3xl shadow-2xl text-white transition-all ${
+                        !isCheckedIn && transaction.status !== "RELEASED"
+                            ? "border border-amber-500/30 bg-amber-500/[0.04]"
+                            : "border border-white/5 bg-[#0f1420]"
+                    }`}>
                         <CardContent className="p-6 space-y-6">
                             {transaction.status === "RELEASED" ? (
                                 <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-3">
@@ -415,11 +448,11 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                     )}
                                 </div>
                             ) : !isCheckedIn ? (
-                                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
+                                <div className="space-y-2 py-1">
                                     <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
                                         <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
                                     </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
+                                    <p className="text-[11px] leading-relaxed font-medium text-slate-400">
                                         The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before Treasury can process payment and issue an Official Receipt.
                                     </p>
                                 </div>
