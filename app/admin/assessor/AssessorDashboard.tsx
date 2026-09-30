@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -230,11 +231,13 @@ export default function AssessorDashboard() {
 
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
-                                        Loading Assessor records...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({ length: Math.min(rowsPerPage, 6) }).map((_, i) => (
+                                    <TableRow key={`skeleton-row-${i}`} className="animate-pulse border-b border-slate-100 dark:border-slate-800/60">
+                                        <TableCell colSpan={8} className="h-14 px-4 py-3">
+                                            <Skeleton className="h-5 w-full rounded-xl bg-slate-100 dark:bg-slate-800" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
                             ) : transactions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
