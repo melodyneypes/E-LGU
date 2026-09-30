@@ -219,6 +219,7 @@ export default function AssessorDashboard() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-900/50">
+                                <TableHead className="w-12 font-bold text-xs uppercase text-slate-500">#</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Queue Ticket</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Owner Name</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">TDN & Category</TableHead>
@@ -232,18 +233,18 @@ export default function AssessorDashboard() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-xs italic">
+                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
                                         Loading Assessor records...
                                     </TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-xs italic">
+                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
                                         No RPT applications found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                paginatedTransactions.map((tx) => {
+                                paginatedTransactions.map((tx, index) => {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
@@ -252,6 +253,9 @@ export default function AssessorDashboard() {
                                             onClick={() => router.push(`/admin/assessor/${tx.id}`)}
                                             className="hover:bg-blue-50/60 dark:hover:bg-blue-950/20 cursor-pointer transition-colors duration-150 group"
                                         >
+                                            <TableCell className="w-12 py-3 font-mono text-xs font-bold text-slate-400 dark:text-slate-500">
+                                                {startIndex + index + 1}
+                                            </TableCell>
                                             <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 group-hover:underline">
                                                 {tx.queueNumber || "N/A"}
                                             </TableCell>
