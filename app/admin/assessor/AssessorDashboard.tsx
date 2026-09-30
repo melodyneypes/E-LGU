@@ -231,10 +231,31 @@ export default function AssessorDashboard() {
 
                         <TableBody>
                             {loading ? (
-                                Array.from({ length: Math.min(rowsPerPage, 6) }).map((_, i) => (
-                                    <TableRow key={`skeleton-row-${i}`} className="animate-pulse border-b border-slate-100 dark:border-slate-800/60">
-                                        <TableCell colSpan={8} className="h-14 px-4 py-3">
-                                            <Skeleton className="h-5 w-full rounded-xl bg-slate-100 dark:bg-slate-800" />
+                                Array.from({ length: Math.min(rowsPerPage, 8) }).map((_, i) => (
+                                    <TableRow key={`skeleton-row-${i}`} className="border-b border-slate-100 dark:border-slate-800/60 animate-pulse">
+                                        <TableCell className="w-12 py-4">
+                                            <div className="h-4 w-4 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-28 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700/80 rounded" />
                                         </TableCell>
                                     </TableRow>
                                 ))
