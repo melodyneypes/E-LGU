@@ -23,13 +23,9 @@ import {
     Info, 
     Clock, 
     DollarSign,
-    UserCheck,
-    MapPin,
     ShieldAlert,
     ChevronUp,
-    ChevronDown,
-    BadgeCheck,
-    Receipt
+    ChevronDown
 } from "lucide-react";
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];

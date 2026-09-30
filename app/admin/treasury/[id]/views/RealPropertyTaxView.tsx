@@ -8,7 +8,6 @@ import {
     ChevronDown,
     CheckCircle2,
     FileText,
-    Receipt,
     Info,
     Clock,
     BadgeCheck,
@@ -344,8 +343,6 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                         titleColorText="Applicant"
                         titleWhiteText="Profile"
                         subtitleText={isApplicantTheOwner ? "Applicant is the Registered Property Owner" : `Transacting Citizen • Representative of ${ownerName}`}
-                        relationship={isApplicantTheOwner ? "Registered Owner" : "Authorized Representative / Applicant"}
-                        relationshipLabel="Applicant Role"
                         transactionId={transaction.id}
                         canEdit={!props.isReadOnlyAide}
                         onProfileUpdated={props.fetchTransaction}
