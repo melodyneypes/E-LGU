@@ -299,14 +299,12 @@ export default function AssessorDashboard() {
                                             <TableCell>
                                                 <Badge className={
                                                     tx.status === "REJECTED" ? "bg-red-500 text-white text-[10px]" :
-                                                    rpt.assessorStatus === "APPROVED" ? "bg-emerald-500 text-white text-[10px]" :
+                                                    tx.status === "RELEASED" || tx.status === "PAID" || rpt.assessorStatus === "APPROVED" ? "bg-emerald-500 text-white text-[10px]" :
                                                     tx.status === "FOR_INSPECTION" ? "bg-blue-600 text-white text-[10px]" :
+                                                    tx.status === "UNPAID" ? "bg-rose-500 text-white text-[10px]" :
                                                     "bg-amber-500 text-white text-[10px]"
                                                 }>
-                                                    {rpt.assessorStatus === "APPROVED" ? "APPROVED" :
-                                                     tx.status === "FOR_INSPECTION" ? "FOR_INSPECTION" :
-                                                     tx.status === "REJECTED" ? "REJECTED" :
-                                                     "SUBMITTED"}
+                                                    {tx.status || (rpt.assessorStatus === "APPROVED" ? "APPROVED" : "PENDING")}
                                                 </Badge>
                                             </TableCell>
                                         </TableRow>

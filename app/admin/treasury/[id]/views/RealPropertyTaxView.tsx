@@ -139,30 +139,18 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const steps = [
         {
             label: "ASSESSMENT COMPLETED",
-            desc: "Property assessed & billing computed",
             status: "COMPLETED" as const
         },
         {
             label: "CITIZEN CHECK-IN",
-            desc: isCheckedIn || isReleased
-                ? "Applicant checked in at kiosk"
-                : "Awaiting physical check-in at lobby kiosk",
             status: isCheckedIn || isReleased ? ("COMPLETED" as const) : ("ACTIVE" as const)
         },
         {
             label: "PAYMENT PROCESSING",
-            desc: isReleased
-                ? "Official Receipt & Payment encoded"
-                : isCheckedIn
-                    ? "Ready to collect payment & issue O.R."
-                    : "Waiting for applicant check-in",
             status: isReleased ? ("COMPLETED" as const) : isCheckedIn ? ("ACTIVE" as const) : ("PENDING" as const)
         },
         {
             label: "TAX CLEARANCE RELEASED",
-            desc: isReleased
-                ? "Official Clearance & O.R. released"
-                : "Pending final payment and clearance release",
             status: isReleased ? ("COMPLETED" as const) : ("PENDING" as const)
         }
     ];
@@ -230,11 +218,11 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                     </div>
 
                     {/* Property Assessment Profile & Tax Computation */}
-                    <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
-                        <CardContent className="p-6 md:p-8 space-y-6">
+                    <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white py-0 gap-0">
+                        <CardContent className="px-6 md:px-8 py-4 space-y-4">
                             <div
                                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                className="flex items-center justify-between cursor-pointer select-none border-b border-white/5 pb-4"
+                                className="flex items-center justify-between cursor-pointer select-none border-b border-white/5 pb-3"
                             >
                                 <div className="space-y-1">
                                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 italic block">
@@ -254,8 +242,8 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                     {/* Flattened Property Specs Grid (No Nested Cards) */}
                                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-xs">
                                         <div className="space-y-1 col-span-2">
-                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px] flex items-center gap-1.5">
-                                                <BadgeCheck className="w-3.5 h-3.5 text-rose-500" /> Registered Property Owner
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px] block">
+                                                Registered Property Owner
                                             </span>
                                             <p className="font-black text-sm tracking-wide text-white uppercase break-words">
                                                 {ownerName}
@@ -313,10 +301,9 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                     </div>
 
                                     {/* Flattened Tax Computation Breakdown (No Nested Card) */}
-                                    <div className="pt-6 border-t border-white/5 space-y-4">
+                                    <div className="pt-4 border-t border-white/5 space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic flex items-center gap-2">
-                                                <Receipt className="w-4 h-4 text-rose-500" />
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic">
                                                 Tax Computation Breakdown
                                             </h3>
                                         </div>
@@ -354,8 +341,8 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                         resident={resident}
                         safeFormatDate={props.safeFormatDate || ((d: any) => String(d))}
                         themeColor="#e11d48"
-                        titleColorText="Applicant:"
-                        titleWhiteText={applicantName}
+                        titleColorText="Applicant"
+                        titleWhiteText="Profile"
                         subtitleText={isApplicantTheOwner ? "Applicant is the Registered Property Owner" : `Transacting Citizen • Representative of ${ownerName}`}
                         relationship={isApplicantTheOwner ? "Registered Owner" : "Authorized Representative / Applicant"}
                         relationshipLabel="Applicant Role"
@@ -466,7 +453,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                                 <span className="text-[8px] font-black">{idx + 1}</span>
                                             )}
                                         </div>
-                                        <div className="space-y-1 pl-2">
+                                        <div className="pl-2">
                                             <span className={`text-[9px] font-black uppercase tracking-widest block ${
                                                 isActive
                                                     ? "text-rose-500"
@@ -476,11 +463,6 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
                                             }`}>
                                                 {st.label}
                                             </span>
-                                            {st.desc && (
-                                                <p className="text-[10px] text-slate-400 font-medium leading-tight">
-                                                    {st.desc}
-                                                </p>
-                                            )}
                                         </div>
                                     </div>
                                 );
