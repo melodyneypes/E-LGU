@@ -200,7 +200,13 @@ export async function getAssessorTransactionById(id: string) {
         const tx = await prisma.transaction.findUnique({
             where: { id },
             include: {
-                user: { select: { name: true, email: true } },
+                user: { 
+                    select: { 
+                        name: true, 
+                        email: true,
+                        residentProfile: true
+                    } 
+                },
                 type: true
             }
         });
