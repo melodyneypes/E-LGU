@@ -12,7 +12,8 @@ import {
     Info,
     Clock,
     BadgeCheck,
-    Camera
+    Camera,
+    Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,8 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         setActionLoading,
         handleViewFile,
         orSeriesNumber,
-        setOrSeriesNumber
+        setOrSeriesNumber,
+        handleConfirmPayment
     } = props;
 
     const [isProfileOpen, setIsProfileOpen] = useState(true);
@@ -382,107 +384,99 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
 
                 {/* RIGHT COLUMN: Status Tracking & Payment Form */}
                 <div className="col-span-12 lg:col-span-4 space-y-6">
-                    {/* Status Tracking Panel */}
-                    <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white">
-                        <CardContent className="p-6 md:p-8 space-y-6">
-                            <div>
-                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 block italic leading-none">
-                                    Workflow Progress
-                                </span>
-                                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mt-1.5 leading-none">
-                                    Status Timeline
-                                </h3>
-                            </div>
+                    {/* Status Tracking Panel (100% Identical to Cedula style) */}
+                    <div className="bg-[#0f1420] rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl space-y-8">
+                        <div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">
+                                Status Tracking
+                            </span>
+                        </div>
 
-                            <div className="relative pl-6 border-l-2 border-white/5 space-y-6">
-                                {steps.map((st, i) => (
-                                    <div key={i} className="relative">
-                                        <div className={`absolute w-4 h-4 rounded-full -left-[33px] border-4 transition-all duration-500 flex items-center justify-center text-[7px] ${
-                                            st.status === "COMPLETED"
-                                                ? "bg-emerald-500 border-[#0f1420] scale-100"
-                                                : st.status === "ACTIVE"
-                                                    ? "bg-rose-500 border-[#0f1420] ring-4 ring-rose-500/20 scale-110"
-                                                    : "bg-slate-800 border-[#0f1420] scale-95"
-                                        }`} />
-                                        <div className="space-y-0.5">
-                                            <span className={`text-[10px] font-black uppercase tracking-widest block ${
-                                                st.status === "COMPLETED"
-                                                    ? "text-emerald-400"
-                                                    : st.status === "ACTIVE"
-                                                        ? "text-rose-400"
+                        <div className="relative pl-6 border-l-2 border-white/5 space-y-8">
+                            {steps.map((st, idx) => {
+                                const isCompleted = st.status === "COMPLETED";
+                                const isActive = st.status === "ACTIVE";
+                                return (
+                                    <div key={idx} className="relative">
+                                        <div className={`absolute w-5 h-5 rounded-full -left-[35px] border-2 transition-all duration-500 flex items-center justify-center text-white ${
+                                            isActive
+                                                ? "bg-rose-500 border-rose-500 ring-4 ring-rose-500/20 scale-110 shadow-lg shadow-rose-500/30"
+                                                : isCompleted
+                                                    ? "bg-emerald-500 border-emerald-500 scale-100"
+                                                    : "bg-slate-800 border-white/10 scale-95 text-slate-500"
+                                        }`}>
+                                            {isCompleted ? (
+                                                <Check className="w-2.5 h-2.5 stroke-[3.5]" />
+                                            ) : (
+                                                <span className="text-[8px] font-black">{idx + 1}</span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-1 pl-2">
+                                            <span className={`text-[9px] font-black uppercase tracking-widest block ${
+                                                isActive
+                                                    ? "text-rose-500"
+                                                    : isCompleted
+                                                        ? "text-emerald-500"
                                                         : "text-slate-500"
                                             }`}>
                                                 {st.label}
                                             </span>
-                                            <p className="text-[10px] font-medium text-slate-400 leading-snug">
-                                                {st.desc}
-                                            </p>
+                                            {st.desc && (
+                                                <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                                                    {st.desc}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* EXECUTIVE ACTIONS / TREASURY COLLECTION */}
+                    <div className="space-y-4">
+                        {transaction.status === "RELEASED" ? (
+                            <div className="bg-[#0f1420] border border-emerald-500/30 rounded-3xl p-6 text-emerald-300 space-y-3 shadow-2xl">
+                                <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-emerald-400">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> PAYMENT COMPLETED & RELEASED
+                                </div>
+                                <p className="text-[11px] leading-relaxed font-medium text-slate-300">
+                                    This transaction has been successfully processed, paid, and released by Treasury. Official Receipt and Tax Clearance Certificate have been issued.
+                                </p>
+                                {orSeriesNumber && (
+                                    <div className="pt-2.5 border-t border-emerald-500/20 text-xs font-mono font-bold text-white">
+                                        O.R. Series Number: <span className="text-emerald-400">{orSeriesNumber}</span>
+                                    </div>
+                                )}
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Payment Form */}
-                    <Card className={`rounded-3xl shadow-2xl text-white transition-all ${
-                        !isCheckedIn && transaction.status !== "RELEASED"
-                            ? "border border-amber-500/30 bg-amber-500/[0.04]"
-                            : "border border-white/5 bg-[#0f1420]"
-                    }`}>
-                        <CardContent className="p-6 space-y-6">
-                            {transaction.status === "RELEASED" ? (
-                                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-3">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-emerald-400">
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> PAYMENT COMPLETED & RELEASED
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium">
-                                        This transaction has been successfully processed, paid, and released by Treasury. Official Receipt and Tax Clearance Certificate have been issued.
-                                    </p>
-                                    {orSeriesNumber && (
-                                        <div className="pt-2.5 border-t border-emerald-500/20 text-xs font-mono font-bold text-white">
-                                            O.R. Series Number: <span className="text-emerald-400">{orSeriesNumber}</span>
-                                        </div>
-                                    )}
+                        ) : !isCheckedIn ? (
+                            <div className="bg-amber-500/[0.04] border border-amber-500/30 rounded-3xl p-6 space-y-2 shadow-2xl">
+                                <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
+                                    <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
                                 </div>
-                            ) : !isCheckedIn ? (
-                                <div className="space-y-2 py-1">
-                                    <div className="flex items-center gap-2 font-black uppercase text-xs italic tracking-wider text-amber-400">
-                                        <Clock className="w-4 h-4 text-amber-400" /> AWAITING CITIZEN CHECK-IN
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed font-medium text-slate-400">
-                                        The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before Treasury can process payment and issue an Official Receipt.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <TreasuryPaymentCollectionPanel
-                                        transaction={transaction}
-                                        additional={additional}
-                                        actionLoading={actionLoading}
-                                        orSeriesNumber={orSeriesNumber}
-                                        setOrSeriesNumber={setOrSeriesNumber}
-                                        orFile={props.orFile || null}
-                                        setOrFile={props.setOrFile}
-                                        orPreview={props.orPreview || null}
-                                        setOrPreview={props.setOrPreview}
-                                        themeColor="#e11d48"
-                                        handleConfirmPayment={handleReleasePayment}
-                                        handleViewFile={handleViewFile}
-                                    />
-
-                                    <Button
-                                        variant="outline"
-                                        onClick={props.handleReject}
-                                        disabled={actionLoading}
-                                        className="w-full h-11 border-red-500/30 text-red-400 bg-red-950/40 hover:bg-red-900/60 rounded-xl font-bold uppercase tracking-wider text-xs italic"
-                                    >
-                                        Reject Application
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                <p className="text-[11px] leading-relaxed font-medium text-slate-400">
+                                    The applicant must check in at the Municipal Hall Lobby Kiosk on their scheduled appointment date before Treasury can process payment and issue an Official Receipt.
+                                </p>
+                            </div>
+                        ) : (
+                                <TreasuryPaymentCollectionPanel
+                                    transaction={transaction}
+                                    additional={additional}
+                                    actionLoading={actionLoading}
+                                    orSeriesNumber={orSeriesNumber}
+                                    setOrSeriesNumber={setOrSeriesNumber}
+                                    orFile={props.orFile || null}
+                                    setOrFile={props.setOrFile}
+                                    orPreview={props.orPreview || null}
+                                    setOrPreview={props.setOrPreview}
+                                    themeColor="#e11d48"
+                                    handleConfirmPayment={handleConfirmPayment || handleReleasePayment}
+                                    handleViewFile={handleViewFile}
+                                    hideOrUpload={true}
+                                    isRpt={true}
+                                />
+                        )}
+                    </div>
                 </div>
             </main>
         </div>
