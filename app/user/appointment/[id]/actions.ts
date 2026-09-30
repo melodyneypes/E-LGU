@@ -11,7 +11,7 @@ export async function getAppointmentDetailsAction(id: string) {
             return { success: false, error: "Unauthorized" };
         }
 
-        const [transaction, themeSetting] = await Promise.all([
+        const [transaction, themeSetting, followUpAppointment] = await Promise.all([
             prisma.transaction.findUnique({
                 where: { id },
                 include: {
@@ -55,7 +55,10 @@ export async function getAppointmentDetailsAction(id: string) {
             prisma.systemSetting.findUnique({
                 where: { key: "theme_color" },
                 select: { value: true }
-            })
+            }),
+            prisma.followUpAppointment.findFirst({
+                where: { sourceTransactionId: id }
+            }).catch(() => null)
         ]);
 
         if (!transaction) {
@@ -64,15 +67,6 @@ export async function getAppointmentDetailsAction(id: string) {
 
         if (transaction.userId !== session.user.id) {
             return { success: false, error: "Forbidden: You do not have access to view this appointment." };
-        }
-
-        let followUpAppointment: any = null;
-        try {
-            followUpAppointment = await prisma.followUpAppointment.findFirst({
-                where: { sourceTransactionId: id }
-            });
-        } catch (fuErr) {
-            console.warn("Could not query followUpAppointment:", fuErr);
         }
 
         return {

@@ -51,6 +51,7 @@ import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaView from "./views/CedulaView";
 import BusinessPermitView from "./views/BusinessPermitView";
 import CivilRegistry from "./views/CivilRegistry";
+import RptView from "./views/RptView";
 import TransactionFeedbackCard from "@/components/shared/TransactionFeedbackCard";
 
 const HealthCenterMap = dynamic(() => import("@/components/shared/HealthCenterMap"), {
@@ -300,6 +301,7 @@ export default function AppointmentDetailsPage() {
     const isBuildingPermit = isEngineeringPermitCode(request.type?.code) && !isFencingPermit;
     const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
     const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
+    const isRpt = request.type?.category === "RPT" || request.type?.code?.startsWith("RPT_");
     const isAppointmentPsa = request.type?.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
         request.type?.code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
         request.type?.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
@@ -614,6 +616,14 @@ export default function AppointmentDetailsPage() {
                             {/* CUSTOM BUSINESS PERMIT VIEW */}
                             {isBusinessPermit && (
                                 <BusinessPermitView
+                                    request={request}
+                                    additionalData={additionalData}
+                                />
+                            )}
+
+                            {/* CUSTOM REAL PROPERTY TAX (RPT) VIEW */}
+                            {isRpt && (
+                                <RptView
                                     request={request}
                                     additionalData={additionalData}
                                 />
