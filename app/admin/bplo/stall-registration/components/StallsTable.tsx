@@ -67,7 +67,10 @@ export function StallsTable() {
                 <Table>
                     <TableHeader className="bg-slate-50/50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
                         <TableRow>
-                            <TableHead className="w-[110px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
+                            <TableHead className="w-[60px] font-black text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 h-14 pl-8">
+                                #
+                            </TableHead>
+                            <TableHead className="w-[110px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Stall #
                             </TableHead>
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
@@ -94,7 +97,8 @@ export function StallsTable() {
                         {isSearching || isRefreshing ? (
                             Array.from({ length: 5 }).map((_, idx) => (
                                 <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040]">
-                                    <TableCell className="pl-8 py-4"><Skeleton className="h-4 w-16 rounded-md" /></TableCell>
+                                    <TableCell className="pl-8 py-4"><Skeleton className="h-4 w-6 rounded-md" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32 rounded-md" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
@@ -105,7 +109,7 @@ export function StallsTable() {
                             ))
                         ) : paginatedStalls.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-48 text-center">
+                                <TableCell colSpan={8} className="h-48 text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-400">
                                         <Store className="w-10 h-10 mb-2 stroke-1 opacity-50" />
                                         <p className="text-sm font-bold uppercase tracking-wider">No Stalls Found</p>
@@ -114,14 +118,21 @@ export function StallsTable() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            paginatedStalls.map((item: StallItem) => (
+                            paginatedStalls.map((item: StallItem, idx: number) => (
                                 <TableRow
                                     key={item.id}
                                     onClick={() => setSelectedStall(item)}
                                     className="group hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors border-b border-slate-100 dark:border-[#2a3040] cursor-pointer"
                                 >
-                                    {/* Stall # */}
+                                    {/* Row # */}
                                     <TableCell className="pl-8 py-4">
+                                        <span className="font-mono text-xs font-bold text-slate-400 dark:text-slate-500">
+                                            {startIndex + idx + 1}
+                                        </span>
+                                    </TableCell>
+
+                                    {/* Stall # */}
+                                    <TableCell className="py-4">
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-black text-slate-900 dark:text-white text-xs uppercase italic tracking-wider">
                                                 {item.stallNumber}

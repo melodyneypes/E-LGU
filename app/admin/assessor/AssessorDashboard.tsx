@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAssessorTransactions, evaluateAssessorTransaction } from "@/app/admin/transactions/rpt-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, RefreshCcw, Building2, CheckCircle2, XCircle, Eye, Calendar, FileText } from "lucide-react";
+import { Search, RefreshCcw, Building2, CheckCircle2, XCircle, Eye, Calendar, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -22,22 +22,56 @@ export default function AssessorDashboard() {
     const categoryParam = searchParams.get("category");
 
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [totalCount, setTotalCount] = useState<number>(0);
+    const [stats, setStats] = useState<{ total: number; pending: number; approved: number }>({
+        total: 0,
+        pending: 0,
+        approved: 0
+    });
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
+    const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [rowsPerPage, setRowsPerPage] = useState<number>(10);
     const [selectedTx, setSelectedTx] = useState<any | null>(null);
     const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
     const [isActionPending, setIsActionPending] = useState<boolean>(false);
 
+    // 400ms Debounce for Search input
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 400);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [search]);
+
+    // Reset pagination to page 1 when search or category changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearch, categoryParam]);
+
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
-        const res = await getAssessorTransactions();
+        const res = await getAssessorTransactions({
+            page: currentPage,
+            limit: rowsPerPage,
+            search: debouncedSearch,
+            category: categoryParam
+        });
         if (res.success && res.data) {
             setTransactions(res.data);
+            setTotalCount(res.totalCount || 0);
+            if (res.stats) {
+                setStats(res.stats);
+            }
         } else if (!silent) {
             toast.error(res.error || "Failed to load transactions.");
         }
         if (!silent) setLoading(false);
-    }, []);
+    }, [currentPage, rowsPerPage, debouncedSearch, categoryParam]);
 
     useEffect(() => {
         fetchTransactions();
@@ -73,24 +107,9 @@ export default function AssessorDashboard() {
         };
     }, [fetchTransactions]);
 
-    const filtered = transactions.filter((tx) => {
-        const query = search.toLowerCase();
-        const rpt = tx.realPropertyTax || {};
-        const name = (rpt.ownerName || tx.user?.name || "").toLowerCase();
-        const tdn = (rpt.tdn || "").toLowerCase();
-        const queueNum = (tx.queueNumber || "").toLowerCase();
-
-        const matchesCategory = !categoryParam || categoryParam === "ALL" || rpt.rptCategory === categoryParam;
-
-        return matchesCategory && (name.includes(query) || tdn.includes(query) || queueNum.includes(query));
-    });
-
-    const pendingReviewCount = transactions.filter(t =>
-        t.realPropertyTax?.assessorStatus === "PENDING" ||
-        t.status === "FOR_INSPECTION" ||
-        (t.status === "FOR_REQUESTING" && t.realPropertyTax?.assessorStatus !== "APPROVED")
-    ).length;
-    const approvedCount = transactions.filter(t => t.realPropertyTax?.assessorStatus === "APPROVED" || t.status === "FOR_REQUESTING" || t.status === "PAID").length;
+    const totalPages = Math.ceil(totalCount / rowsPerPage) || 1;
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + transactions.length;
 
     const handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
         if (!selectedTx) return;
@@ -117,32 +136,36 @@ export default function AssessorDashboard() {
         <div className="space-y-6">
             {/* Stats Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Applications</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-slate-900 dark:text-white">{transactions.length}</div>
-                    </CardContent>
-                </Card>
+                {/* Compact Stats Cards */}
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Applications</p>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">{stats.total}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <FileText className="w-5 h-5" />
+                    </div>
+                </div>
 
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm bg-amber-50/50 dark:bg-amber-950/20">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Assessor Reviews</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-amber-600 dark:text-amber-400">{pendingReviewCount}</div>
-                    </CardContent>
-                </Card>
+                <div className="p-3.5 rounded-2xl border border-amber-200/60 dark:border-amber-900/30 bg-amber-50/40 dark:bg-amber-950/15 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Reviews</p>
+                        <p className="text-2xl font-black text-amber-600 dark:text-amber-400 leading-tight mt-0.5">{stats.pending}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-100/60 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <Building2 className="w-5 h-5" />
+                    </div>
+                </div>
 
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Tax Declarations</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{approvedCount}</div>
-                    </CardContent>
-                </Card>
+                <div className="p-3.5 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/30 bg-emerald-50/40 dark:bg-emerald-950/15 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Declarations</p>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-tight mt-0.5">{stats.approved}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100/60 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                </div>
             </div>
 
             {/* Controls & Search */}
@@ -193,6 +216,7 @@ export default function AssessorDashboard() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-900/50">
+                                <TableHead className="w-12 font-bold text-xs uppercase text-slate-500">#</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Queue Ticket</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Owner Name</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">TDN & Category</TableHead>
@@ -200,34 +224,59 @@ export default function AssessorDashboard() {
                                 <TableHead className="font-bold text-xs uppercase">Assessed Value</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Appt Date</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Status</TableHead>
-                                <TableHead className="font-bold text-xs uppercase text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
 
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
-                                        Loading Assessor records...
-                                    </TableCell>
-                                </TableRow>
-                            ) : filtered.length === 0 ? (
+                                Array.from({ length: Math.min(rowsPerPage, 8) }).map((_, i) => (
+                                    <TableRow key={`skeleton-row-${i}`} className="border-b border-slate-100 dark:border-slate-800/60 animate-pulse">
+                                        <TableCell className="w-12 py-4">
+                                            <div className="h-4 w-4 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-28 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700/80 rounded" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : transactions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
                                         No RPT applications found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filtered.map((tx) => {
+                                transactions.map((tx, index) => {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
-<TableRow
+                                        <TableRow
                                             key={tx.id}
                                             onClick={() => router.push(`/admin/assessor/${tx.id}`)}
-                                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 cursor-pointer"
+                                            className="hover:bg-blue-50/60 dark:hover:bg-blue-950/20 cursor-pointer transition-colors duration-150 group"
                                         >
-                                            <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
+                                            <TableCell className="w-12 py-3 font-mono text-xs font-bold text-slate-400 dark:text-slate-500">
+                                                {startIndex + index + 1}
+                                            </TableCell>
+                                            <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 group-hover:underline">
                                                 {tx.queueNumber || "N/A"}
                                             </TableCell>
                                             <TableCell className="font-bold text-xs">
@@ -250,25 +299,13 @@ export default function AssessorDashboard() {
                                             <TableCell>
                                                 <Badge className={
                                                     tx.status === "REJECTED" ? "bg-red-500 text-white text-[10px]" :
-                                                    rpt.assessorStatus === "APPROVED" ? "bg-emerald-500 text-white text-[10px]" :
+                                                    tx.status === "RELEASED" || tx.status === "PAID" || rpt.assessorStatus === "APPROVED" ? "bg-emerald-500 text-white text-[10px]" :
                                                     tx.status === "FOR_INSPECTION" ? "bg-blue-600 text-white text-[10px]" :
+                                                    tx.status === "UNPAID" ? "bg-rose-500 text-white text-[10px]" :
                                                     "bg-amber-500 text-white text-[10px]"
                                                 }>
-                                                    {rpt.assessorStatus === "APPROVED" ? "APPROVED" :
-                                                     tx.status === "FOR_INSPECTION" ? "FOR_INSPECTION" :
-                                                     tx.status === "REJECTED" ? "REJECTED" :
-                                                     "SUBMITTED"}
+                                                    {tx.status || (rpt.assessorStatus === "APPROVED" ? "APPROVED" : "PENDING")}
                                                 </Badge>
-                                            </TableCell>
-<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => router.push(`/admin/assessor/${tx.id}`)}
-                                                    className="h-8 text-xs font-bold rounded-lg"
-                                                >
-                                                    <Eye className="w-3.5 h-3.5 mr-1" /> Review
-                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -276,6 +313,56 @@ export default function AssessorDashboard() {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Pagination Controls — matching Treasury & Resident standard */}
+                <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        <span>Rows per page:</span>
+                        <Select value={rowsPerPage.toString()} onValueChange={(value) => {
+                            setRowsPerPage(Number(value));
+                            setCurrentPage(1);
+                        }}>
+                            <SelectTrigger className="h-8 w-[72px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg text-xs font-bold">
+                                <SelectValue placeholder={rowsPerPage.toString()} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#1e293b]">
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="30">30</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                            Showing {totalCount === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, totalCount)} of {totalCount}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || loading}
+                                className="h-8 px-3 rounded-lg border-slate-200 dark:border-slate-800 text-xs font-bold"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Prev
+                            </Button>
+                            <div className="text-xs font-bold px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                {currentPage} / {totalPages}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages || totalPages === 0 || loading}
+                                className="h-8 px-3 rounded-lg border-slate-200 dark:border-slate-800 text-xs font-bold"
+                            >
+                                Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
             {/* Review Dialog */}

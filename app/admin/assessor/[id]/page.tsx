@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/ResidentIdentityProfile";
 import { 
     ArrowLeft, 
     Building2, 
@@ -22,8 +23,6 @@ import {
     Info, 
     Clock, 
     DollarSign,
-    UserCheck,
-    MapPin,
     ShieldAlert,
     ChevronUp,
     ChevronDown
@@ -65,6 +64,7 @@ export default function AssessorTransactionDetailPage() {
     const [inspectionTime, setInspectionTime] = useState<string>("09:00");
     const [inspectionError, setInspectionError] = useState<string>("");
 
+    const [isProfileOpen, setIsProfileOpen] = useState<boolean>(true);
     // Document Viewer Modal State
     const [viewerOpen, setViewerOpen] = useState<boolean>(false);
     const [activeDocUrl, setActiveDocUrl] = useState<string | null>(null);
@@ -171,7 +171,47 @@ export default function AssessorTransactionDetailPage() {
     const _isCategory1 = catCode === "RPT_CAT1";
 
     const addData = (typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData) || {};
-    const _isCheckedIn = Boolean(addData.checkedIn === true || addData.checkedInAt || tx.checkedIn === true);
+    const rawSnapshot = typeof tx.residentSnapshot === "string"
+        ? (() => { try { return JSON.parse(tx.residentSnapshot); } catch { return {}; } })()
+        : (tx.residentSnapshot || {});
+    const baseResident = tx.user?.residentProfile || rawSnapshot || {};
+
+    // Prioritize name from snapshot (e.g. {"name": "JHON EMIL NILO"}) or user object
+    const applicantFullName = (
+        rawSnapshot.name ||
+        baseResident.fullName ||
+        `${baseResident.firstName || ""} ${baseResident.lastName || ""}`.trim() ||
+        tx.user?.name ||
+        "Transacting Citizen"
+    ).trim();
+
+    const nameParts = applicantFullName.split(" ").filter(Boolean);
+    const parsedFirstName = baseResident.firstName || (nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0] || "");
+    const parsedLastName = baseResident.lastName || (nameParts.length > 1 ? nameParts[nameParts.length - 1] : "");
+
+    const normalizedResident = {
+        ...baseResident,
+        ...rawSnapshot,
+        firstName: parsedFirstName,
+        lastName: parsedLastName,
+        fullName: applicantFullName,
+        name: applicantFullName,
+        email: rawSnapshot.email || baseResident.email || tx.user?.email || ""
+    };
+
+    const resident = normalizedResident;
+    const applicantName = applicantFullName;
+    const ownerName = rpt.ownerName || addData.ownerName || "PROPERTY OWNER";
+    const isApplicantTheOwner = applicantName.toLowerCase().replace(/\s+/g, "") === ownerName.toLowerCase().replace(/\s+/g, "");
+    const tdn = rpt.tdn || addData.tdn || "N/A";
+    const pin = rpt.pin || addData.pin || "N/A";
+    const barangay = rpt.barangay || addData.barangay || "Mapandan";
+
+    const totalTaxDue = Number(rpt.totalTaxDue || addData.totalTaxDue || tx.totalAmount || 0);
+    const basicTax = Number(rpt.basicTax || addData.basicTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
+    const sefTax = Number(rpt.sefTax || addData.sefTax || (totalTaxDue > 0 ? totalTaxDue / 2 : 0));
+    const assessedValue = Number(rpt.assessedValue || addData.assessedValue || (basicTax > 0 ? basicTax / 0.01 : 0));
+    const taxYear = rpt.taxYear || addData.taxYear || new Date().getFullYear().toString();
 
     const validIdUrl = rpt.validIdUrl || addData.validIdUrl;
 
@@ -188,6 +228,17 @@ export default function AssessorTransactionDetailPage() {
         ...(validIdUrl ? [{ label: "Valid Government ID", url: validIdUrl }] : []),
         ...attachments
     ];
+
+    const safeFormatDate = (dateStr: any) => {
+        try {
+            if (!dateStr) return "N/A";
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return String(dateStr);
+            return format(d, "MMM dd, yyyy");
+        } catch {
+            return String(dateStr);
+        }
+    };
 
     return (
         <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100 animate-in fade-in duration-500">
@@ -235,80 +286,137 @@ export default function AssessorTransactionDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left 2 Columns: Applicant & Property Details */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Applicant Profile Card */}
-                    <Card className="bg-[#0c1017] border-white/5 rounded-3xl shadow-xl overflow-hidden text-slate-100">
-                        <CardHeader className="border-b border-white/5 bg-white/[0.01] p-6">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-rose-400 italic">
-                                <UserCheck className="w-4 h-4 text-rose-400" /> Primary Applicant & Property Profile
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 md:p-8 space-y-6">
-                            {/* Summary Header */}
-                            <div className="pb-6 border-b border-white/5">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block mb-1">Property Owner Name</span>
-                                <h3 className="text-2xl font-black text-white italic uppercase tracking-tight">{rpt.ownerName || tx.user?.name || "N/A"}</h3>
+                    {/* Property Assessment Profile & Tax Computation (Matching Treasury layout) */}
+                    <Card className="rounded-3xl border border-white/5 bg-[#0f1420] shadow-2xl text-white py-0 gap-0">
+                        <CardContent className="px-6 md:px-8 py-4 space-y-4">
+                            <div
+                                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                className="flex items-center justify-between cursor-pointer select-none border-b border-white/5 pb-3"
+                            >
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-400 italic block">
+                                        Property Assessment & Tax Record
+                                    </span>
+                                    <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">
+                                        {applicantName}
+                                    </h2>
+                                </div>
+                                <Button variant="ghost" size="icon" className="rounded-full text-slate-400 hover:text-white">
+                                    {isProfileOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                </Button>
                             </div>
 
-                            {/* Clean Property Metadata Grid (No nested cards) */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-xs">
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Tax Declaration # (TDN)</span>
-                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.tdn || "N/A"}</p>
+                            {isProfileOpen && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                    {/* Flattened Property Specs Grid (No Nested Cards) */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-xs">
+                                        <div className="space-y-1 col-span-2">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px] block">
+                                                Registered Property Owner
+                                            </span>
+                                            <p className="font-black text-sm tracking-wide text-white uppercase break-words">
+                                                {ownerName}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tax Declaration No. (TDN)</span>
+                                            <p className="font-mono font-black text-sm tracking-wide text-white truncate">
+                                                {tdn}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Property Index No. (PIN)</span>
+                                            <p className="font-mono font-black text-sm tracking-wide text-white truncate">
+                                                {pin}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Property Classification</span>
+                                            <p className="font-black uppercase text-slate-200 truncate">
+                                                {addData.propertyType || rpt.propertyType || "RESIDENTIAL"}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tax Assessment Year</span>
+                                            <p className="font-mono font-black text-amber-400">
+                                                {taxYear}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Barangay Location</span>
+                                            <p className="font-black uppercase text-slate-200 truncate">
+                                                {barangay}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Assessed Value (AV)</span>
+                                            <p className="font-mono font-black text-rose-400 text-sm">
+                                                ₱{assessedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1 col-span-2">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Complete Property Address</span>
+                                            <p className="font-bold text-slate-200">
+                                                {addData.propertyAddress || rpt.propertyAddress || `${barangay}, Mapandan, Pangasinan`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Flattened Tax Computation Breakdown (No Nested Card) */}
+                                    <div className="pt-4 border-t border-white/5 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 italic">
+                                                Tax Computation Breakdown
+                                            </h3>
+                                        </div>
+
+                                        <div className="space-y-2.5 pt-1 text-xs font-semibold">
+                                            <div className="flex justify-between items-center text-slate-400">
+                                                <span>Basic Real Property Tax (1% of Assessed Value)</span>
+                                                <span className="font-mono font-bold text-slate-200">
+                                                    ₱{basicTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex justify-between items-center text-slate-400">
+                                                <span>Special Education Fund / SEF Tax (1% of Assessed Value)</span>
+                                                <span className="font-mono font-bold text-slate-200">
+                                                    ₱{sefTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+
+                                            <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+                                                <span className="text-sm font-black uppercase italic tracking-wider text-white">Total Amount Due</span>
+                                                <span className="text-2xl font-black italic tracking-tighter text-rose-500 font-mono">
+                                                    ₱{totalTaxDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Identification (PIN)</span>
-                                    <p className="font-mono font-bold text-sm text-slate-100">{rpt.pin || "N/A"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Barangay Location</span>
-                                    <p className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
-                                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> {rpt.barangay || "N/A"}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Property Classification</span>
-                                    <p className="font-bold text-sm text-slate-100 uppercase">{rpt.propertyType || "RESIDENTIAL"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Covered Tax Year</span>
-                                    <p className="font-mono font-black text-sm text-amber-400">{rpt.taxYear || addData.taxYear || "N/A"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Schedule</span>
-                                    <p className="font-bold text-sm text-slate-100">
-                                        {tx.appointmentDate ? format(new Date(tx.appointmentDate), "MMM dd, yyyy") : "N/A"}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic block">Appointment Slot</span>
-                                    <p className="font-bold text-sm text-slate-100">{tx.appointmentSlot || "N/A"}</p>
-                                </div>
-                            </div>
+                            )}
                         </CardContent>
                     </Card>
 
-                    {/* Tax Computation Breakdown */}
-                    <Card className="bg-[#0c1017] border-white/5 rounded-3xl shadow-xl overflow-hidden text-slate-100">
-                        <CardHeader className="border-b border-white/5 bg-white/[0.01] p-6">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-rose-400 italic">
-                                <DollarSign className="w-4 h-4 text-rose-400" /> Tax Assessment Computation Breakdown
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 space-y-3 text-xs">
-                            <div className="flex justify-between items-center py-2.5 border-b border-white/5">
-                                <span className="text-slate-400 font-semibold italic">Basic Real Property Tax (1%)</span>
-                                <span className="font-mono font-bold text-slate-200">₱{(rpt.basicTax || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2.5 border-b border-white/5">
-                                <span className="text-slate-400 font-semibold italic">Special Education Fund / SEF Tax (1%)</span>
-                                <span className="font-mono font-bold text-slate-200">₱{(rpt.sefTax || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between items-center pt-4 text-sm font-black">
-                                <span className="text-slate-300 uppercase italic">Total Tax Amount Due</span>
-                                <span className="font-mono text-rose-500 text-xl italic tracking-tighter">₱{(rpt.totalTaxDue || tx.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* RESIDENT IDENTITY PROFILE (Applicant / Transacting Citizen) */}
+                    <ResidentIdentityProfile
+                        resident={resident}
+                        safeFormatDate={safeFormatDate}
+                        themeColor="#e11d48"
+                        titleColorText="Applicant"
+                        titleWhiteText="Profile"
+                        subtitleText={isApplicantTheOwner ? "Applicant is the Registered Property Owner" : `Transacting Citizen • Representative of ${ownerName}`}
+                        transactionId={tx.id}
+                        canEdit={false}
+                        onProfileUpdated={loadTransaction}
+                    />
 
                     {/* ALL THE REQUIREMENTS — Accordion & Image Preview (Matching BPLO design) */}
                     <Card className="rounded-[2.5rem] bg-[#0c1017] border border-white/5 shadow-2xl overflow-hidden text-slate-100 p-8 space-y-6">

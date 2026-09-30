@@ -233,19 +233,23 @@ export async function submitRptAppointment(formData: FormData) {
 
         // Handle File Uploads
         const validIdFile = formData.get("validIdFile") as File;
+        const existingValidIdUrl = formData.get("existingValidIdUrl") as string | null;
         const previousOrFile = formData.get("previousOrFile") as File;
         const buildingPermitFile = formData.get("buildingPermitFile") as File;
         const deedOfSaleFile = formData.get("deedOfSaleFile") as File;
         const titleFile = formData.get("titleFile") as File;
         const birEcarFile = formData.get("birEcarFile") as File;
 
-        if (!validIdFile || validIdFile.size === 0) {
+        let validIdUrl: string | null = null;
+        if (validIdFile && validIdFile.size > 0) {
+            validIdUrl = await processFileUpload(validIdFile);
+            if (!validIdUrl) {
+                return { success: false, error: "Failed to upload Valid ID. Ensure file is a valid image or PDF." };
+            }
+        } else if (existingValidIdUrl) {
+            validIdUrl = existingValidIdUrl;
+        } else {
             return { success: false, error: "Valid Government-Issued ID is required." };
-        }
-
-        const validIdUrl = await processFileUpload(validIdFile);
-        if (!validIdUrl) {
-            return { success: false, error: "Failed to upload Valid ID. Ensure file is a valid image or PDF." };
         }
 
         let previousOrUrl: string | null = null;

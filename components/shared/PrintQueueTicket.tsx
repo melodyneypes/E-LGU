@@ -168,7 +168,17 @@ export default function PrintQueueTicket({
                 `);
                 iframeDoc.close();
 
+                let hasFinished = false;
+                let fallbackTimerId: NodeJS.Timeout | null = null;
+
                 const finish = () => {
+                    if (hasFinished) return;
+                    hasFinished = true;
+                    if (fallbackTimerId) {
+                        clearTimeout(fallbackTimerId);
+                        fallbackTimerId = null;
+                    }
+
                     setTimeout(() => {
                         try {
                             iframe.contentWindow?.focus();
@@ -183,9 +193,9 @@ export default function PrintQueueTicket({
                                 observer.disconnect();
                                 window.removeEventListener("afterprint", restoreTheme);
                                 try { iframe.remove(); } catch {}
-                            }, 1000);
+                            }, 500);
                         }
-                    }, 150);
+                    }, 100);
                 };
 
                 // Wait for iframe image (e.g. QR code) to load
@@ -211,7 +221,7 @@ export default function PrintQueueTicket({
                         }
                     }
                     // Fallback timeout in case image never fires
-                    setTimeout(finish, 1200);
+                    fallbackTimerId = setTimeout(finish, 800);
                 }
             } catch (err) {
                 console.error("Iframe print error:", err);
@@ -225,7 +235,7 @@ export default function PrintQueueTicket({
         if (qrLoaded) {
             runPrint();
         } else {
-            const fallbackTimer = setTimeout(runPrint, 400);
+            const fallbackTimer = setTimeout(runPrint, 300);
             return () => {
                 clearTimeout(fallbackTimer);
                 observer.disconnect();
