@@ -6,31 +6,150 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/audit";
 
-export async function getAssessorTransactions() {
+export interface GetAssessorTransactionsParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category?: string | null;
+}
+
+export async function getAssessorTransactions(params?: GetAssessorTransactionsParams) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
-            return { success: false, error: "Unauthorized", data: [] };
+            return { success: false, error: "Unauthorized", data: [], totalCount: 0, stats: { total: 0, pending: 0, approved: 0 } };
         }
 
-        const transactions = await prisma.transaction.findMany({
-            where: {
-                isCancelled: false,
-                type: {
-                    category: "RPT"
+        const page = params?.page || 1;
+        const limit = params?.limit || 10;
+        const search = params?.search?.trim() || "";
+        const category = params?.category || null;
+
+        const skip = (page - 1) * limit;
+
+        const where: any = {
+            isCancelled: false,
+            type: {
+                category: "RPT"
+            }
+        };
+
+        if (category && category !== "ALL") {
+            where.OR = [
+                { type: { code: category } },
+                {
+                    additionalData: {
+                        path: ["categoryCode"],
+                        equals: category
+                    }
                 }
-            },
-            include: {
-                user: { select: { name: true, email: true } },
-                type: true
-            },
-            orderBy: { createdAt: "desc" }
-        });
+            ];
+        }
+
+        if (search) {
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { queueNumber: { contains: search, mode: "insensitive" } },
+                        {
+                            user: {
+                                name: { contains: search, mode: "insensitive" }
+                            }
+                        },
+                        {
+                            additionalData: {
+                                path: ["ownerName"],
+                                string_contains: search
+                            }
+                        },
+                        {
+                            additionalData: {
+                                path: ["tdn"],
+                                string_contains: search
+                            }
+                        },
+                        {
+                            additionalData: {
+                                path: ["barangay"],
+                                string_contains: search
+                            }
+                        }
+                    ]
+                }
+            ];
+        }
+
+        // Fetch paginated transactions with explicit SELECT (no SELECT * over-fetching)
+        const [transactions, totalCount, allRptTransactionsForStats] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                select: {
+                    id: true,
+                    queueNumber: true,
+                    status: true,
+                    appointmentDate: true,
+                    appointmentSlot: true,
+                    totalAmount: true,
+                    createdAt: true,
+                    additionalData: true,
+                    user: {
+                        select: {
+                            name: true,
+                            email: true
+                        }
+                    },
+                    type: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit
+            }),
+            prisma.transaction.count({ where }),
+            // Light aggregation for total stats across all RPT (only status and assessorStatus)
+            prisma.transaction.findMany({
+                where: {
+                    isCancelled: false,
+                    type: { category: "RPT" }
+                },
+                select: {
+                    status: true,
+                    additionalData: true
+                }
+            })
+        ]);
+
+        let pendingCount = 0;
+        let approvedCount = 0;
+
+        for (const t of allRptTransactionsForStats) {
+            const addData = (t.additionalData as any) || {};
+            const assessorStatus = addData.assessorStatus || (addData.categoryCode === "RPT_CAT1" ? "NOT_REQUIRED" : "PENDING");
+            if (assessorStatus === "APPROVED" || t.status === "FOR_REQUESTING" || t.status === "PAID") {
+                approvedCount++;
+            } else if (assessorStatus === "PENDING" || t.status === "FOR_INSPECTION") {
+                pendingCount++;
+            }
+        }
 
         const combined = transactions.map(t => {
             const addData = (t.additionalData as any) || {};
             return {
-                ...t,
+                id: t.id,
+                queueNumber: t.queueNumber,
+                status: t.status,
+                appointmentDate: t.appointmentDate,
+                appointmentSlot: t.appointmentSlot,
+                totalAmount: t.totalAmount,
+                createdAt: t.createdAt,
+                user: t.user,
+                type: t.type,
                 realPropertyTax: {
                     rptCategory: addData.categoryCode || t.type?.code,
                     tdn: addData.tdn,
@@ -43,22 +162,31 @@ export async function getAssessorTransactions() {
                     basicTax: addData.basicTax,
                     sefTax: addData.sefTax,
                     totalTaxDue: addData.totalTaxDue,
-                    validIdUrl: addData.validIdUrl,
-                    previousOrUrl: addData.previousOrUrl,
-                    buildingPermitUrl: addData.buildingPermitUrl,
-                    deedOfSaleUrl: addData.deedOfSaleUrl,
-                    titleUrl: addData.titleUrl,
-                    birEcarUrl: addData.birEcarUrl,
                     assessorStatus: addData.assessorStatus || (addData.categoryCode === "RPT_CAT1" ? "NOT_REQUIRED" : "PENDING"),
                     treasuryStatus: addData.treasuryStatus || "PENDING"
                 }
             };
         });
 
-        return { success: true, data: JSON.parse(JSON.stringify(combined)) };
+        return {
+            success: true,
+            data: JSON.parse(JSON.stringify(combined)),
+            totalCount,
+            stats: {
+                total: allRptTransactionsForStats.length,
+                pending: pendingCount,
+                approved: approvedCount
+            }
+        };
     } catch (err: any) {
         console.error("Error fetching Assessor RPT transactions:", err);
-        return { success: false, error: err?.message || "Failed to fetch transactions", data: [] };
+        return {
+            success: false,
+            error: err?.message || "Failed to fetch transactions",
+            data: [],
+            totalCount: 0,
+            stats: { total: 0, pending: 0, approved: 0 }
+        };
     }
 }
 

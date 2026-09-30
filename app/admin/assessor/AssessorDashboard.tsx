@@ -23,6 +23,12 @@ export default function AssessorDashboard() {
     const categoryParam = searchParams.get("category");
 
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [totalCount, setTotalCount] = useState<number>(0);
+    const [stats, setStats] = useState<{ total: number; pending: number; approved: number }>({
+        total: 0,
+        pending: 0,
+        approved: 0
+    });
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
     const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -50,14 +56,23 @@ export default function AssessorDashboard() {
 
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
-        const res = await getAssessorTransactions();
+        const res = await getAssessorTransactions({
+            page: currentPage,
+            limit: rowsPerPage,
+            search: debouncedSearch,
+            category: categoryParam
+        });
         if (res.success && res.data) {
             setTransactions(res.data);
+            setTotalCount(res.totalCount || 0);
+            if (res.stats) {
+                setStats(res.stats);
+            }
         } else if (!silent) {
             toast.error(res.error || "Failed to load transactions.");
         }
         if (!silent) setLoading(false);
-    }, []);
+    }, [currentPage, rowsPerPage, debouncedSearch, categoryParam]);
 
     useEffect(() => {
         fetchTransactions();
@@ -93,30 +108,9 @@ export default function AssessorDashboard() {
         };
     }, [fetchTransactions]);
 
-    const filtered = transactions.filter((tx) => {
-        const query = debouncedSearch.trim().toLowerCase();
-        const rpt = tx.realPropertyTax || {};
-        const name = (rpt.ownerName || tx.user?.name || "").toLowerCase();
-        const tdn = (rpt.tdn || "").toLowerCase();
-        const queueNum = (tx.queueNumber || "").toLowerCase();
-
-        const matchesCategory = !categoryParam || categoryParam === "ALL" || rpt.rptCategory === categoryParam;
-
-        return matchesCategory && (name.includes(query) || tdn.includes(query) || queueNum.includes(query));
-    });
-
-    const totalFiltered = filtered.length;
-    const totalPages = Math.ceil(totalFiltered / rowsPerPage) || 1;
+    const totalPages = Math.ceil(totalCount / rowsPerPage) || 1;
     const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedTransactions = filtered.slice(startIndex, endIndex);
-
-    const pendingReviewCount = transactions.filter(t =>
-        t.realPropertyTax?.assessorStatus === "PENDING" ||
-        t.status === "FOR_INSPECTION" ||
-        (t.status === "FOR_REQUESTING" && t.realPropertyTax?.assessorStatus !== "APPROVED")
-    ).length;
-    const approvedCount = transactions.filter(t => t.realPropertyTax?.assessorStatus === "APPROVED" || t.status === "FOR_REQUESTING" || t.status === "PAID").length;
+    const endIndex = startIndex + transactions.length;
 
     const handleAction = async (action: "APPROVE" | "REJECT" | "SCHEDULE_INSPECTION") => {
         if (!selectedTx) return;
@@ -143,32 +137,36 @@ export default function AssessorDashboard() {
         <div className="space-y-6">
             {/* Stats Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Applications</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-slate-900 dark:text-white">{transactions.length}</div>
-                    </CardContent>
-                </Card>
+                {/* Compact Stats Cards */}
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Applications</p>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">{stats.total}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <FileText className="w-5 h-5" />
+                    </div>
+                </div>
 
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm bg-amber-50/50 dark:bg-amber-950/20">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Assessor Reviews</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-amber-600 dark:text-amber-400">{pendingReviewCount}</div>
-                    </CardContent>
-                </Card>
+                <div className="p-3.5 rounded-2xl border border-amber-200/60 dark:border-amber-900/30 bg-amber-50/40 dark:bg-amber-950/15 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Reviews</p>
+                        <p className="text-2xl font-black text-amber-600 dark:text-amber-400 leading-tight mt-0.5">{stats.pending}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-100/60 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <Building2 className="w-5 h-5" />
+                    </div>
+                </div>
 
-                <Card className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20">
-                    <CardHeader className="p-4 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Tax Declarations</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{approvedCount}</div>
-                    </CardContent>
-                </Card>
+                <div className="p-3.5 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/30 bg-emerald-50/40 dark:bg-emerald-950/15 backdrop-blur-sm flex items-center justify-between shadow-xs">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Declarations</p>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-tight mt-0.5">{stats.approved}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100/60 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                </div>
             </div>
 
             {/* Controls & Search */}
@@ -237,14 +235,14 @@ export default function AssessorDashboard() {
                                         Loading Assessor records...
                                     </TableCell>
                                 </TableRow>
-                            ) : filtered.length === 0 ? (
+                            ) : transactions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
                                         No RPT applications found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                paginatedTransactions.map((tx, index) => {
+                                transactions.map((tx, index) => {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
@@ -319,7 +317,7 @@ export default function AssessorDashboard() {
 
                     <div className="flex items-center space-x-4">
                         <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                            Showing {totalFiltered === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, totalFiltered)} of {totalFiltered}
+                            Showing {totalCount === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, totalCount)} of {totalCount}
                         </span>
                         <div className="flex items-center gap-1.5">
                             <Button
