@@ -24,9 +24,21 @@ export default function AssessorDashboard() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
+    const [debouncedSearch, setDebouncedSearch] = useState<string>("");
     const [selectedTx, setSelectedTx] = useState<any | null>(null);
     const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
     const [isActionPending, setIsActionPending] = useState<boolean>(false);
+
+    // 400ms Debounce for Search input
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 400);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [search]);
 
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -74,7 +86,7 @@ export default function AssessorDashboard() {
     }, [fetchTransactions]);
 
     const filtered = transactions.filter((tx) => {
-        const query = search.toLowerCase();
+        const query = debouncedSearch.trim().toLowerCase();
         const rpt = tx.realPropertyTax || {};
         const name = (rpt.ownerName || tx.user?.name || "").toLowerCase();
         const tdn = (rpt.tdn || "").toLowerCase();
@@ -200,20 +212,19 @@ export default function AssessorDashboard() {
                                 <TableHead className="font-bold text-xs uppercase">Assessed Value</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Appt Date</TableHead>
                                 <TableHead className="font-bold text-xs uppercase">Status</TableHead>
-                                <TableHead className="font-bold text-xs uppercase text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
 
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
+                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-xs italic">
                                         Loading Assessor records...
                                     </TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-xs italic">
+                                    <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-xs italic">
                                         No RPT applications found.
                                     </TableCell>
                                 </TableRow>
@@ -222,12 +233,12 @@ export default function AssessorDashboard() {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
-<TableRow
+                                        <TableRow
                                             key={tx.id}
                                             onClick={() => router.push(`/admin/assessor/${tx.id}`)}
-                                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 cursor-pointer"
+                                            className="hover:bg-blue-50/60 dark:hover:bg-blue-950/20 cursor-pointer transition-colors duration-150 group"
                                         >
-                                            <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
+                                            <TableCell className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 group-hover:underline">
                                                 {tx.queueNumber || "N/A"}
                                             </TableCell>
                                             <TableCell className="font-bold text-xs">
@@ -259,16 +270,6 @@ export default function AssessorDashboard() {
                                                      tx.status === "REJECTED" ? "REJECTED" :
                                                      "SUBMITTED"}
                                                 </Badge>
-                                            </TableCell>
-<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => router.push(`/admin/assessor/${tx.id}`)}
-                                                    className="h-8 text-xs font-bold rounded-lg"
-                                                >
-                                                    <Eye className="w-3.5 h-3.5 mr-1" /> Review
-                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     );
