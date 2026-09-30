@@ -435,7 +435,12 @@ export default function AppointmentDetailsPage() {
 
                             {(() => {
                                 const rhuStatus = additionalData?.rhuStatus || null;
-                                const isBookedState = (request.status === "BOOKED" || request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION") &&
+                                const isBookedState = (
+                                    request.status === "BOOKED" ||
+                                    request.status === "FOR_REQUESTING" ||
+                                    request.status === "FOR_INSPECTION" ||
+                                    request.status === "UNPAID"
+                                ) &&
                                     (!rhuStatus || rhuStatus === "APPOINTMENT_BOOKED") &&
                                     !additionalData?.checkedIn;
 
