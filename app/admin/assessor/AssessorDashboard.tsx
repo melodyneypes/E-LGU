@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, RefreshCcw, Building2, CheckCircle2, XCircle, Eye, Calendar, FileText } from "lucide-react";
+import { Search, RefreshCcw, Building2, CheckCircle2, XCircle, Eye, Calendar, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -25,6 +26,8 @@ export default function AssessorDashboard() {
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
     const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [rowsPerPage, setRowsPerPage] = useState<number>(10);
     const [selectedTx, setSelectedTx] = useState<any | null>(null);
     const [rejectionRemarks, setRejectionRemarks] = useState<string>("");
     const [isActionPending, setIsActionPending] = useState<boolean>(false);
@@ -39,6 +42,11 @@ export default function AssessorDashboard() {
             clearTimeout(handler);
         };
     }, [search]);
+
+    // Reset pagination to page 1 when search or category changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearch, categoryParam]);
 
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -96,6 +104,12 @@ export default function AssessorDashboard() {
 
         return matchesCategory && (name.includes(query) || tdn.includes(query) || queueNum.includes(query));
     });
+
+    const totalFiltered = filtered.length;
+    const totalPages = Math.ceil(totalFiltered / rowsPerPage) || 1;
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const paginatedTransactions = filtered.slice(startIndex, endIndex);
 
     const pendingReviewCount = transactions.filter(t =>
         t.realPropertyTax?.assessorStatus === "PENDING" ||
@@ -229,7 +243,7 @@ export default function AssessorDashboard() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filtered.map((tx) => {
+                                paginatedTransactions.map((tx) => {
                                     const rpt = tx.realPropertyTax || {};
                                     const catName = tx.type?.name || rpt.rptCategory || "RPT";
                                     return (
@@ -277,6 +291,56 @@ export default function AssessorDashboard() {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Pagination Controls — matching Treasury & Resident standard */}
+                <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        <span>Rows per page:</span>
+                        <Select value={rowsPerPage.toString()} onValueChange={(value) => {
+                            setRowsPerPage(Number(value));
+                            setCurrentPage(1);
+                        }}>
+                            <SelectTrigger className="h-8 w-[72px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg text-xs font-bold">
+                                <SelectValue placeholder={rowsPerPage.toString()} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#1e293b]">
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="30">30</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                            Showing {totalFiltered === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, totalFiltered)} of {totalFiltered}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || loading}
+                                className="h-8 px-3 rounded-lg border-slate-200 dark:border-slate-800 text-xs font-bold"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Prev
+                            </Button>
+                            <div className="text-xs font-bold px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                {currentPage} / {totalPages}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages || totalPages === 0 || loading}
+                                className="h-8 px-3 rounded-lg border-slate-200 dark:border-slate-800 text-xs font-bold"
+                            >
+                                Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
             {/* Review Dialog */}
