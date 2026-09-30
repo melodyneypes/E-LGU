@@ -38,6 +38,7 @@ import { SearchableFilterDropdown } from "@/components/shared/SearchableFilterDr
 import { toast } from "sonner";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { submitRptAppointment, fetchPropertyByTdnOrPin } from "./actions";
 
@@ -87,6 +88,7 @@ export function RptAppointmentClient({
     treasuryBookedSlots = [],
     assessorBookedSlots = []
 }: RptAppointmentClientProps) {
+    const router = useRouter();
     const barangayList = barangays.length > 0 ? barangays : DEFAULT_BARANGAYS;
     const [currentStep, setCurrentStep] = useState<Step>("CATEGORY");
     const [submitting, setSubmitting] = useState(false);
@@ -268,7 +270,10 @@ export function RptAppointmentClient({
 
             const res = await submitRptAppointment(formData);
 
-            if (res.success && res.queueNumber) {
+            if (res.success && res.transactionId) {
+                toast.success("RPT Appointment submitted successfully!");
+                router.push(`/user/appointment/${res.transactionId}`);
+            } else if (res.success && res.queueNumber) {
                 setSubmissionResult({
                     queueNumber: res.queueNumber,
                     soaReferenceCode: res.soaReferenceCode || "",
@@ -783,10 +788,10 @@ export function RptAppointmentClient({
                                         </p>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
                                         {/* Mandatory Valid ID Upload */}
                                         <div className={cn(
-                                            "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
+                                            "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit",
                                             errors.validIdFile ? "border-destructive ring-2 ring-destructive/30 bg-destructive/5" : "border-dashed border-slate-200 dark:border-white/10"
                                         )}>
                                             <div className="flex items-center gap-3 md:gap-4 w-full text-left">
@@ -873,121 +878,329 @@ export function RptAppointmentClient({
 
                                         {/* Category 1 Specific File */}
                                         {categoryCode === "RPT_CAT1" && (
-                                            <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
-                                                        <FileText className="w-6 h-6" />
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit">
+                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                        <FileText className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                     </div>
-                                                    <div>
-                                                        <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">Previous O.R. / SOA</h4>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase italic">Previous Official Receipt or Statement of Account</p>
+                                                    <div className="space-y-0.5">
+                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                            Previous O.R. / SOA
+                                                        </h4>
+                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                            Previous Official Receipt / SOA (Max 5MB)
+                                                        </p>
                                                     </div>
                                                 </div>
+
                                                 {previousOrFile && (
-                                                    <div onClick={() => handleViewFile(previousOrFile, null, "Previous O.R.")} className="w-full p-3 bg-primary/10 rounded-xl flex items-center justify-between cursor-pointer text-xs font-bold text-primary">
-                                                        <span className="truncate">{previousOrFile.name}</span>
-                                                        <span>🔍 View</span>
-                                                    </div>
+                                                    previousOrFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(previousOrFile, null, "Previous O.R.")}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(previousOrFile)}
+                                                                alt="O.R. Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(previousOrFile, null, "Previous O.R.")}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{previousOrFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
                                                 )}
-                                                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setPreviousOrFile(e.target.files?.[0] || null)} className="hidden" id="previous-or-file" />
-                                                <Button asChild variant="outline" className="rounded-xl font-black text-xs uppercase tracking-widest">
-                                                    <label htmlFor="previous-or-file" className="cursor-pointer">{previousOrFile ? "Change File" : "Upload Previous O.R."}</label>
-                                                </Button>
+
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setPreviousOrFile(e.target.files?.[0] || null)} className="hidden" id="previous-or-file" />
+                                                    {previousOrFile && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(previousOrFile, null, "Previous O.R.")}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={previousOrFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="previous-or-file" className="cursor-pointer">
+                                                            {previousOrFile ? "Change" : "Upload Previous O.R."}
+                                                        </label>
+                                                    </Button>
+                                                </div>
                                             </div>
                                         )}
 
                                         {/* Category 2 Specific File */}
                                         {categoryCode === "RPT_CAT2" && (
-                                            <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
-                                                        <Building2 className="w-6 h-6" />
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit">
+                                                <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                        <Building2 className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                     </div>
-                                                    <div>
-                                                        <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">Building / Occupancy Permit</h4>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase italic">For new property declaration assessment</p>
+                                                    <div className="space-y-0.5">
+                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                            Building / Occupancy Permit
+                                                        </h4>
+                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                            For new declaration assessment (Max 5MB)
+                                                        </p>
                                                     </div>
                                                 </div>
+
                                                 {buildingPermitFile && (
-                                                    <div onClick={() => handleViewFile(buildingPermitFile, null, "Building Permit")} className="w-full p-3 bg-primary/10 rounded-xl flex items-center justify-between cursor-pointer text-xs font-bold text-primary">
-                                                        <span className="truncate">{buildingPermitFile.name}</span>
-                                                        <span>🔍 View</span>
-                                                    </div>
+                                                    buildingPermitFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(buildingPermitFile, null, "Building Permit")}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(buildingPermitFile)}
+                                                                alt="Building Permit Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(buildingPermitFile, null, "Building Permit")}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{buildingPermitFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
                                                 )}
-                                                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setBuildingPermitFile(e.target.files?.[0] || null)} className="hidden" id="building-permit-file" />
-                                                <Button asChild variant="outline" className="rounded-xl font-black text-xs uppercase tracking-widest">
-                                                    <label htmlFor="building-permit-file" className="cursor-pointer">{buildingPermitFile ? "Change File" : "Upload Building Permit"}</label>
-                                                </Button>
+
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setBuildingPermitFile(e.target.files?.[0] || null)} className="hidden" id="building-permit-file" />
+                                                    {buildingPermitFile && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(buildingPermitFile, null, "Building Permit")}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={buildingPermitFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="building-permit-file" className="cursor-pointer">
+                                                            {buildingPermitFile ? "Change" : "Upload Building Permit"}
+                                                        </label>
+                                                    </Button>
+                                                </div>
                                             </div>
                                         )}
 
                                         {/* Category 3 Specific Files */}
                                         {categoryCode === "RPT_CAT3" && (
                                             <>
-                                                <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col justify-between gap-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
-                                                            <FileText className="w-6 h-6" />
+                                                {/* Deed of Absolute Sale */}
+                                                <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit">
+                                                    <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                            <FileText className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                         </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">Deed of Absolute Sale</h4>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase italic">For property title transfer</p>
+                                                        <div className="space-y-0.5">
+                                                            <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                Deed of Absolute Sale
+                                                            </h4>
+                                                            <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                For property title transfer (Max 5MB)
+                                                            </p>
                                                         </div>
                                                     </div>
+
                                                     {deedOfSaleFile && (
-                                                        <div onClick={() => handleViewFile(deedOfSaleFile, null, "Deed of Sale")} className="w-full p-3 bg-primary/10 rounded-xl flex items-center justify-between cursor-pointer text-xs font-bold text-primary">
-                                                            <span className="truncate">{deedOfSaleFile.name}</span>
-                                                            <span>🔍 View</span>
-                                                        </div>
+                                                        deedOfSaleFile.type.startsWith("image/") ? (
+                                                            <div
+                                                                onClick={() => handleViewFile(deedOfSaleFile, null, "Deed of Sale")}
+                                                                className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                            >
+                                                                <Image
+                                                                    src={URL.createObjectURL(deedOfSaleFile)}
+                                                                    alt="Deed of Sale Preview"
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                />
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                onClick={() => handleViewFile(deedOfSaleFile, null, "Deed of Sale")}
+                                                                className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                            >
+                                                                <span className="text-xs font-bold text-primary truncate max-w-[200px]">{deedOfSaleFile.name}</span>
+                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                            </div>
+                                                        )
                                                     )}
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setDeedOfSaleFile(e.target.files?.[0] || null)} className="hidden" id="deed-file" />
-                                                    <Button asChild variant="outline" className="rounded-xl font-black text-xs uppercase tracking-widest">
-                                                        <label htmlFor="deed-file" className="cursor-pointer">{deedOfSaleFile ? "Change File" : "Upload Deed of Sale"}</label>
-                                                    </Button>
+
+                                                    <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setDeedOfSaleFile(e.target.files?.[0] || null)} className="hidden" id="deed-file" />
+                                                        {deedOfSaleFile && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => handleViewFile(deedOfSaleFile, null, "Deed of Sale")}
+                                                                className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                            >
+                                                                View Document
+                                                            </Button>
+                                                        )}
+                                                        <Button asChild variant={deedOfSaleFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                            <label htmlFor="deed-file" className="cursor-pointer">
+                                                                {deedOfSaleFile ? "Change" : "Upload Deed of Sale"}
+                                                            </label>
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col justify-between gap-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
-                                                            <FileText className="w-6 h-6" />
+                                                {/* TCT / Land Title */}
+                                                <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit">
+                                                    <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                            <FileText className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                         </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">TCT / Land Title</h4>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase italic">Transfer Certificate of Title</p>
+                                                        <div className="space-y-0.5">
+                                                            <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                TCT / Land Title
+                                                            </h4>
+                                                            <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
+                                                                Transfer Certificate of Title (Max 5MB)
+                                                            </p>
                                                         </div>
                                                     </div>
+
                                                     {titleFile && (
-                                                        <div onClick={() => handleViewFile(titleFile, null, "Land Title")} className="w-full p-3 bg-primary/10 rounded-xl flex items-center justify-between cursor-pointer text-xs font-bold text-primary">
-                                                            <span className="truncate">{titleFile.name}</span>
-                                                            <span>🔍 View Title</span>
-                                                        </div>
+                                                        titleFile.type.startsWith("image/") ? (
+                                                            <div
+                                                                onClick={() => handleViewFile(titleFile, null, "Land Title")}
+                                                                className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                            >
+                                                                <Image
+                                                                    src={URL.createObjectURL(titleFile)}
+                                                                    alt="Land Title Preview"
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                />
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                onClick={() => handleViewFile(titleFile, null, "Land Title")}
+                                                                className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                            >
+                                                                <span className="text-xs font-bold text-primary truncate max-w-[200px]">{titleFile.name}</span>
+                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                            </div>
+                                                        )
                                                     )}
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setTitleFile(e.target.files?.[0] || null)} className="hidden" id="title-file" />
-                                                    <Button asChild variant="outline" className="rounded-xl font-black text-xs uppercase tracking-widest">
-                                                        <label htmlFor="title-file" className="cursor-pointer">{titleFile ? "Change Title" : "Upload Land Title"}</label>
-                                                    </Button>
+
+                                                    <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setTitleFile(e.target.files?.[0] || null)} className="hidden" id="title-file" />
+                                                        {titleFile && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => handleViewFile(titleFile, null, "Land Title")}
+                                                                className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                            >
+                                                                View Document
+                                                            </Button>
+                                                        )}
+                                                        <Button asChild variant={titleFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                            <label htmlFor="title-file" className="cursor-pointer">
+                                                                {titleFile ? "Change" : "Upload Land Title"}
+                                                            </label>
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col justify-between gap-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
-                                                            <Receipt className="w-6 h-6" />
+                                                {/* BIR eCAR Certificate */}
+                                                <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary h-fit">
+                                                    <div className="flex items-center gap-3 md:gap-4 w-full text-left">
+                                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                                                            <Receipt className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                         </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-black uppercase italic tracking-wider text-slate-900 dark:text-white">BIR eCAR Certificate</h4>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase italic">Electronic Certificate Authorizing Registration</p>
+                                                        <div className="space-y-0.5">
+                                                            <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1.5">
+                                                                BIR eCAR Certificate
+                                                            </h4>
+                                                            <p className="text-[8px] md:text-[9px] text-slate-400 font-bold uppercase italic tracking-tighter line-clamp-1">
+                                                                Electronic Certificate Authorizing Registration (Max 5MB)
+                                                            </p>
                                                         </div>
                                                     </div>
+
                                                     {birEcarFile && (
-                                                        <div onClick={() => handleViewFile(birEcarFile, null, "BIR eCAR")} className="w-full p-3 bg-primary/10 rounded-xl flex items-center justify-between cursor-pointer text-xs font-bold text-primary">
-                                                            <span className="truncate">{birEcarFile.name}</span>
-                                                            <span>🔍 View eCAR</span>
-                                                        </div>
+                                                        birEcarFile.type.startsWith("image/") ? (
+                                                            <div
+                                                                onClick={() => handleViewFile(birEcarFile, null, "BIR eCAR")}
+                                                                className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                            >
+                                                                <Image
+                                                                    src={URL.createObjectURL(birEcarFile)}
+                                                                    alt="BIR eCAR Preview"
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                                />
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                onClick={() => handleViewFile(birEcarFile, null, "BIR eCAR")}
+                                                                className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                            >
+                                                                <span className="text-xs font-bold text-primary truncate max-w-[200px]">{birEcarFile.name}</span>
+                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                            </div>
+                                                        )
                                                     )}
-                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setBirEcarFile(e.target.files?.[0] || null)} className="hidden" id="bir-ecar-file" />
-                                                    <Button asChild variant="outline" className="rounded-xl font-black text-xs uppercase tracking-widest">
-                                                        <label htmlFor="bir-ecar-file" className="cursor-pointer">{birEcarFile ? "Change eCAR" : "Upload BIR eCAR"}</label>
-                                                    </Button>
+
+                                                    <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setBirEcarFile(e.target.files?.[0] || null)} className="hidden" id="bir-ecar-file" />
+                                                        {birEcarFile && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => handleViewFile(birEcarFile, null, "BIR eCAR")}
+                                                                className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                            >
+                                                                View Document
+                                                            </Button>
+                                                        )}
+                                                        <Button asChild variant={birEcarFile ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                            <label htmlFor="bir-ecar-file" className="cursor-pointer">
+                                                                {birEcarFile ? "Change" : "Upload BIR eCAR"}
+                                                            </label>
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </>
                                         )}
