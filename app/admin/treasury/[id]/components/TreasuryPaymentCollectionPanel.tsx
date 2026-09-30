@@ -267,6 +267,28 @@ export default function TreasuryPaymentCollectionPanel({
             {/* O.R. Upload and Confirmation Section */}
             {["PAID", "PENDING_PAYMENT_VERIFICATION", "EVALUATED", "UNPAID"].includes(transaction.status) && (
                 <div className="space-y-4">
+                    {/* SIBLING SAME-DAY APPOINTMENTS SELECTION PANEL (OUTSIDE THE CARD) */}
+                    {!isPaid && isLoadingSiblings && siblingAppointments.length === 0 && (
+                        <div className="flex items-center gap-2 p-3.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs font-bold animate-pulse">
+                            <RotateCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                            <span>Checking same-day appointments for this citizen...</span>
+                        </div>
+                    )}
+
+                    {!isPaid && !isLoadingSiblings && siblingAppointments.length === 0 && (
+                        <button
+                            type="button"
+                            onClick={handleRefreshSiblings}
+                            className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 text-[11px] font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Layers className="w-4 h-4 text-slate-400" />
+                                Check Same-Day Mergeable Appointments
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 font-black">Scan</span>
+                        </button>
+                    )}
+
                     <div className={isRpt ? "space-y-5 bg-[#0f1420] dark:bg-[#151b28] rounded-[2rem] p-7 border border-white/5 shadow-2xl" : "space-y-6 bg-white dark:bg-[#151b28] rounded-[2rem] p-8 border border-slate-50 dark:border-white/5 shadow-2xl"}>
                         {!isRpt && (
                             <div className="space-y-1 pb-4 border-b border-slate-100 dark:border-white/5">
@@ -310,14 +332,6 @@ export default function TreasuryPaymentCollectionPanel({
                                         </p>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* SIBLING SAME-DAY APPOINTMENTS SELECTION PANEL (WHEN UNPAID) */}
-                        {!isPaid && isLoadingSiblings && siblingAppointments.length === 0 && (
-                            <div className="flex items-center gap-2 p-3.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs font-bold animate-pulse">
-                                <RotateCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
-                                <span>Checking same-day appointments for this citizen...</span>
                             </div>
                         )}
 
@@ -514,20 +528,6 @@ export default function TreasuryPaymentCollectionPanel({
                                 </div>
                             );
                         })()}
-
-                        {!isPaid && !isLoadingSiblings && siblingAppointments.length === 0 && (
-                            <button
-                                type="button"
-                                onClick={handleRefreshSiblings}
-                                className="w-full flex items-center justify-between p-3 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 text-[11px] font-bold transition-all"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <Layers className="w-3.5 h-3.5 text-slate-400" />
-                                    Check Same-Day Mergeable Appointments
-                                </span>
-                                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-black">Scan</span>
-                            </button>
-                        )}
 
                         <div className="space-y-4 pt-1">
                             {/* Payment Method Selector (When Unpaid) */}
