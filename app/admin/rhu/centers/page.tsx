@@ -25,11 +25,12 @@ export default async function RHUCentersPage() {
         userEmail !== "kenneth@mapandan.gov.ph" &&
         userEmail !== "dr.al@mapandan.gov.ph";
 
-    const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
+    const [matchedCenter, centersRes, personnelRes] = await Promise.all([
+        currentUser ? getMatchedCenterForUser(currentUser) : Promise.resolve(null),
+        getRHUHealthCenters(),
+        getRHUMedicalPersonnel()
+    ]);
     const isCenterScoped = !isGlobalAdmin;
-
-    const centersRes = await getRHUHealthCenters();
-    const personnelRes = await getRHUMedicalPersonnel();
 
     const rawCenters = centersRes.success && centersRes.data ? centersRes.data : [];
     let initialCenters = rawCenters;

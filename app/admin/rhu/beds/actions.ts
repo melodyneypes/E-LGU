@@ -31,7 +31,7 @@ export interface RHUBedData {
     updatedAt?: Date | string;
 }
 
-let bedTablesInitialized = false;
+let bedTablesInitialized = true;
 
 export async function ensureBedTablesExist() {
     if (bedTablesInitialized) return;

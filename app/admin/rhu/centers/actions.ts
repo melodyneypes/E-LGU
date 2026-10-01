@@ -226,7 +226,7 @@ export async function createOrUpdateLinkedUserAccount(params: {
     }
 }
 
-let tablesInitialized = false;
+let tablesInitialized = true;
 
 export async function ensureHealthCenterTableExists() {
     if (tablesInitialized) return;
@@ -295,8 +295,16 @@ export async function ensureMedicalPersonnelTableExists() {
     return ensureHealthCenterTableExists();
 }
 
+let cachedHealthCenters: any[] | null = null;
+let cachedHealthCentersTimestamp = 0;
+
 export async function getRHUHealthCenters(params?: RHUHealthCenterFilterParams) {
     try {
+        const hasCustomFilter = !!(params?.search || params?.barangay || params?.status);
+        if (!hasCustomFilter && cachedHealthCenters && (Date.now() - cachedHealthCentersTimestamp < 60000)) {
+            return { success: true, data: cachedHealthCenters };
+        }
+
         await ensureHealthCenterTableExists();
         await ensureMedicalPersonnelTableExists();
 
@@ -379,6 +387,11 @@ export async function getRHUHealthCenters(params?: RHUHealthCenterFilterParams) 
             }
             return copy;
         });
+
+        if (!hasCustomFilter) {
+            cachedHealthCenters = sanitizedCenters;
+            cachedHealthCentersTimestamp = Date.now();
+        }
 
         return { success: true, data: sanitizedCenters };
     } catch (error: any) {
