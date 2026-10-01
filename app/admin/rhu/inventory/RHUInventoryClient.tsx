@@ -18,13 +18,11 @@ import {
     ChevronDown,
     ChevronUp,
     ChevronLeft,
-    ChevronRight,
     Truck,
     Boxes,
     CheckCircle2,
     Hospital,
     ShieldAlert,
-    LayoutDashboard,
     X,
     RotateCcw
 } from "lucide-react";
@@ -323,7 +321,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             clearInterval(intervalId);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, [centerFilter]);
+    }, [centerFilter, currentUser, userMatchedCenter]);
 
     const handleOpenCreateModal = () => {
         setEditingItem(null);

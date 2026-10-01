@@ -9,8 +9,6 @@ import {
     RotateCcw,
     Wrench,
     FileSpreadsheet,
-    ChevronLeft,
-    ChevronRight,
     Search,
     Plus,
     Building2,
