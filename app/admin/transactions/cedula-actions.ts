@@ -1041,6 +1041,7 @@ export async function getTreasuryTransactions(params?: string | {
                 where,
                 select: {
                     id: true,
+                    userId: true,
                     status: true,
                     fulfillmentType: true,
                     paymentType: true,
@@ -1068,7 +1069,8 @@ export async function getTreasuryTransactions(params?: string | {
                             id: true,
                             name: true,
                             email: true,
-                            rejectionCount: true
+                            rejectionCount: true,
+                            consecutiveRejections: true
                         }
                     },
                     cedula: {
@@ -1092,17 +1094,22 @@ export async function getTreasuryTransactions(params?: string | {
         ]);
 
         const normalized = (transactions as any[]).map(tx => {
-            const rejection_count = tx.user?.rejectionCount ?? tx.revisionCount ?? 0;
+            const cat = tx.type?.category || tx.type?.code || "General";
+            const catStrikes = (tx.user?.consecutiveRejections as any)?.[cat] ?? 0;
+            const isFinished = ["RELEASED", "PAID", "COMPLETED", "DELIVERED", "CANCELLED", "REJECTED"].includes(tx.status);
+            const isFinalAttempt = !isFinished && !tx.isCancelled && (catStrikes === 2 || (tx.revisionCount ?? 0) === 2);
+            const rejection_count = catStrikes;
+
             try {
                 const additional = tx.additionalData || {};
                 const code = tx.type?.code || "";
                 if (code.startsWith("LCR_") && code.includes("MARRIAGE")) {
                     const eventDate = additional.dateOfMarriage || additional.eventDate || (additional.event && additional.event.date) || null;
-                    return { ...tx, eventDate, rejection_count };
+                    return { ...tx, eventDate, rejection_count, isFinalAttempt };
                 }
-                return { ...tx, rejection_count };
+                return { ...tx, rejection_count, isFinalAttempt };
             } catch {
-                return { ...tx, rejection_count };
+                return { ...tx, rejection_count, isFinalAttempt };
             }
         });
 

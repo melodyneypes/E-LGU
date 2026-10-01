@@ -308,11 +308,23 @@ export default function BFPDashboard() {
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-sm text-slate-900 dark:text-white">{rs?.firstName || 'Unknown'} {rs?.lastName || 'Applicant'}</span>
                                                     <span className="text-xs text-slate-500 font-medium">{tx.user?.email || "No email provided"}</span>
-                                                    {(tx.user?.rejectionCount === 2 || tx.revisionCount === 2 || (tx as any).rejection_count === 2) && (
-                                                        <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
-                                                            FINAL ATTEMPT
-                                                        </span>
-                                                    )}
+                                                    {(() => {
+                                                        const isFinished = ["RELEASED", "PAID", "COMPLETED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status);
+                                                        if (isFinished || tx.isCancelled) return null;
+
+                                                        const isFinal = Boolean(
+                                                            (tx as any).isFinalAttempt ||
+                                                            tx.revisionCount === 2 ||
+                                                            (tx as any).rejection_count === 2
+                                                        );
+                                                        if (!isFinal) return null;
+
+                                                        return (
+                                                            <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
+                                                                FINAL ATTEMPT
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4 px-6">

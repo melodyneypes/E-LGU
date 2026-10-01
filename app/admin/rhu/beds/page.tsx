@@ -1,37 +1,38 @@
 import React from "react";
-import RHUInventoryClient from "./RHUInventoryClient";
-import { getRHUInventoryItems } from "./actions";
+import { Metadata } from "next";
+import BedMonitoringClient from "./BedMonitoringClient";
+import { getRHUBeds } from "./actions";
 import { getRHUHealthCenters } from "../centers/actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getMatchedCenterForUser } from "../actions";
 
-export const metadata = {
-    title: "RHU Inventory & Pharmacy | EMapandan Admin",
-    description: "Manage medicine catalog, center allocations, multi-batch delivery shipments, stock levels, and FEFO expiration dates.",
+export const metadata: Metadata = {
+    title: "RHU – Hospital Bed Monitoring | EMapandan Admin",
+    description: "Monitor real-time bed availability and occupancy across RHU and all health centers in Mapandan. Ensure efficient patient flow and better resource management.",
 };
 
-export default async function RHUInventoryPage() {
+export default async function RHUBedsPage() {
     const session = await getServerSession(authOptions);
     const currentUser = session?.user as any;
     const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
 
-    const [itemsRes, centersRes] = await Promise.all([
-        getRHUInventoryItems({
-            healthCenterId: matchedCenter ? matchedCenter.id : undefined,
+    const [bedsRes, centersRes] = await Promise.all([
+        getRHUBeds({
+            facilityType: "ALL",
             sessionUser: currentUser,
             matchedCenter: matchedCenter
         }),
         getRHUHealthCenters()
     ]);
 
-    const initialItems = itemsRes.success && itemsRes.data ? itemsRes.data : [];
+    const initialBeds = bedsRes.success && bedsRes.data ? bedsRes.data : [];
     const initialCenters = centersRes.success && centersRes.data ? centersRes.data : [];
 
     return (
-        <RHUInventoryClient
-            initialItems={initialItems as any}
-            initialCenters={initialCenters as any}
+        <BedMonitoringClient
+            initialBeds={initialBeds}
+            initialCenters={initialCenters}
             currentUser={currentUser}
             matchedCenter={matchedCenter}
         />

@@ -340,10 +340,44 @@ export async function evaluateAssessorTransaction(
     }
 }
 
+export interface RptPaymentDetails {
+    paymentMethod?: string;
+    paymentReference?: string;
+    taxYear?: string | number;
+    periodCovered?: string;
+    paymentDate?: string;
+    discountType?: string;
+    discountRate?: number;
+    discountAmount?: number;
+    penaltyType?: string;
+    penaltyRate?: number;
+    penaltyMonths?: number;
+    penaltyAmount?: number;
+    assessedValue?: number;
+    basicTax?: number;
+    basicDiscount?: number;
+    basicPenalty?: number;
+    basicTotal?: number;
+    sefTax?: number;
+    sefDiscount?: number;
+    sefPenalty?: number;
+    sefTotal?: number;
+    totalAmountDue?: number;
+    allocMunicipality?: number;
+    allocProvince?: number;
+    allocBarangay?: number;
+    allocMunicipalSchoolBoard?: number;
+    allocProvincialSchoolBoard?: number;
+    treasuryRemarks?: string;
+    overrideReason?: string;
+    verifiedAt?: string;
+}
+
 export async function releaseRptTransaction(
     id: string,
     orSeriesNumber?: string,
-    orUrl?: string
+    orUrl?: string,
+    paymentDetails?: RptPaymentDetails
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -362,21 +396,129 @@ export async function releaseRptTransaction(
 
         const currentAddData = (tx.additionalData as any) || {};
 
+        let mappedPaymentType: any = tx.paymentType;
+        if (paymentDetails?.paymentMethod === "CASH") {
+            mappedPaymentType = "CASH";
+        } else if (paymentDetails?.paymentMethod === "GCASH") {
+            mappedPaymentType = "E_PAYMENT";
+        } else if (paymentDetails?.paymentMethod === "LANDBANK") {
+            mappedPaymentType = "BANK_TRANSFER";
+        }
+
+        const finalAmount = paymentDetails?.totalAmountDue !== undefined ? paymentDetails.totalAmountDue : tx.totalAmount;
+        const finalPaymentRef = paymentDetails?.paymentReference || tx.paymentReference || (orSeriesNumber ? `OR-${orSeriesNumber}` : `TX-${id}`);
+
+        const updatedAdditionalData = {
+            ...currentAddData,
+            orSeriesNumber: orSeriesNumber || currentAddData.orSeriesNumber,
+            orUrl: orUrl || currentAddData.orUrl,
+            treasuryStatus: "COMPLETED",
+            releasedAt: new Date().toISOString(),
+            rptComputation: paymentDetails ? {
+                ...paymentDetails,
+                computedAt: new Date().toISOString()
+            } : currentAddData.rptComputation,
+            paymentMethod: paymentDetails?.paymentMethod || currentAddData.paymentMethod,
+            paymentReference: paymentDetails?.paymentReference || currentAddData.paymentReference,
+            treasuryRemarks: paymentDetails?.treasuryRemarks || currentAddData.treasuryRemarks,
+            overrideReason: paymentDetails?.overrideReason || currentAddData.overrideReason,
+            // Flatten breakdown fields directly onto additionalData for global report compatibility
+            ...(paymentDetails && {
+                taxYear: paymentDetails.taxYear,
+                periodCovered: paymentDetails.periodCovered,
+                paymentDate: paymentDetails.paymentDate,
+                discountType: paymentDetails.discountType,
+                discountRate: paymentDetails.discountRate,
+                discountAmount: paymentDetails.discountAmount,
+                discount: paymentDetails.discountAmount,
+                penaltyType: paymentDetails.penaltyType,
+                penaltyRate: paymentDetails.penaltyRate,
+                penaltyMonths: paymentDetails.penaltyMonths,
+                penaltyAmount: paymentDetails.penaltyAmount,
+                penalties: paymentDetails.penaltyAmount,
+                penalty: paymentDetails.penaltyAmount,
+                assessedValue: paymentDetails.assessedValue,
+                basicTax: paymentDetails.basicTax,
+                basicCurrent: paymentDetails.basicTax,
+                basicDiscount: paymentDetails.basicDiscount,
+                basicPenalty: paymentDetails.basicPenalty,
+                basicTotal: paymentDetails.basicTotal,
+                sefTax: paymentDetails.sefTax,
+                sefCurrent: paymentDetails.sefTax,
+                sefDiscount: paymentDetails.sefDiscount,
+                sefPenalty: paymentDetails.sefPenalty,
+                sefTotal: paymentDetails.sefTotal,
+                totalAmountDue: paymentDetails.totalAmountDue,
+                allocMunicipality: paymentDetails.allocMunicipality,
+                allocProvince: paymentDetails.allocProvince,
+                allocBarangay: paymentDetails.allocBarangay,
+                allocMunicipalSchoolBoard: paymentDetails.allocMunicipalSchoolBoard,
+                allocProvincialSchoolBoard: paymentDetails.allocProvincialSchoolBoard
+            })
+        };
+
         await prisma.transaction.update({
             where: { id },
             data: {
                 status: "RELEASED",
                 isPaid: true,
+                totalAmount: finalAmount,
+                paymentType: mappedPaymentType,
+                paymentReference: paymentDetails?.paymentReference || tx.paymentReference,
                 processedBy: session.user.name || session.user.email || "Treasury Staff",
-                additionalData: {
-                    ...currentAddData,
-                    orSeriesNumber: orSeriesNumber || currentAddData.orSeriesNumber,
-                    orUrl: orUrl || currentAddData.orUrl,
-                    treasuryStatus: "COMPLETED",
-                    releasedAt: new Date().toISOString()
-                }
+                additionalData: updatedAdditionalData
             }
         });
+
+        // Upsert Payment ledger record immediately so that RPT collections, Form 10A, and monthly reports immediately reflect it
+        try {
+            await prisma.payment.upsert({
+                where: { transactionId: id },
+                update: {
+                    amount: finalAmount,
+                    method: mappedPaymentType || "CASH",
+                    status: "PAID",
+                    reference: finalPaymentRef,
+                    orNumber: orSeriesNumber ? String(orSeriesNumber) : undefined,
+                    userId: tx.userId || undefined,
+                    meta: {
+                        source: "rpt_treasury_release",
+                        releasedBy: session.user.name || session.user.email || "Treasury Staff",
+                        releasedAt: new Date().toISOString(),
+                        taxYear: paymentDetails?.taxYear,
+                        periodCovered: paymentDetails?.periodCovered,
+                        paymentDate: paymentDetails?.paymentDate,
+                        basicTotal: paymentDetails?.basicTotal,
+                        sefTotal: paymentDetails?.sefTotal,
+                        totalAmountDue: paymentDetails?.totalAmountDue,
+                        ...(orUrl && { orDocumentUrl: orUrl })
+                    }
+                },
+                create: {
+                    transactionId: id,
+                    amount: finalAmount,
+                    method: mappedPaymentType || "CASH",
+                    status: "PAID",
+                    reference: finalPaymentRef,
+                    orNumber: orSeriesNumber ? String(orSeriesNumber) : undefined,
+                    userId: tx.userId || undefined,
+                    meta: {
+                        source: "rpt_treasury_release",
+                        releasedBy: session.user.name || session.user.email || "Treasury Staff",
+                        releasedAt: new Date().toISOString(),
+                        taxYear: paymentDetails?.taxYear,
+                        periodCovered: paymentDetails?.periodCovered,
+                        paymentDate: paymentDetails?.paymentDate,
+                        basicTotal: paymentDetails?.basicTotal,
+                        sefTotal: paymentDetails?.sefTotal,
+                        totalAmountDue: paymentDetails?.totalAmountDue,
+                        ...(orUrl && { orDocumentUrl: orUrl })
+                    }
+                }
+            });
+        } catch (paymentErr) {
+            console.error("Warning: Failed to upsert payment ledger entry for RPT transaction:", paymentErr);
+        }
 
         // Log Treasury release event
         await logActivity({
@@ -388,7 +530,8 @@ export async function releaseRptTransaction(
             metadata: {
                 orSeriesNumber,
                 orUrl,
-                totalAmount: tx.totalAmount
+                totalAmount: finalAmount,
+                paymentMethod: paymentDetails?.paymentMethod
             }
         });
 
@@ -396,6 +539,8 @@ export async function releaseRptTransaction(
         revalidatePath("/admin/treasury/queue");
         revalidatePath(`/admin/treasury/${id}`);
         revalidatePath("/admin/assessor");
+        revalidatePath("/admin/treasury/rpt-collections");
+        revalidatePath("/admin/treasury/payments");
 
         return { success: true, data: { status: "RELEASED" } };
     } catch (err: any) {
