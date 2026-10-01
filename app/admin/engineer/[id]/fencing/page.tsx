@@ -637,15 +637,6 @@ export default function FencingEngineerEvaluationPage({ params }: PageProps) {
                             {isEndorsedToZoning ? "ENDORSED TO ZONING" : "PROCEED TO ZONING"}
                         </Button>
 
-                        {/* Primary Button: SCHEDULE INSPECTION */}
-                        <Button
-                            className="w-full h-16 rounded-2xl bg-[#006A2E] hover:bg-[#005224] text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
-                            onClick={() => setScheduleModalOpen(true)}
-                            disabled={actionLoading}
-                        >
-                            SCHEDULE INSPECTION
-                        </Button>
-
                         {/* Split Action Buttons: REQUEST REVISION & DECLINE */}
                         <div className="flex gap-2.5 w-full">
                             <Button

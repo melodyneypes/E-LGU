@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
-import { getEngineeringPermitCitizenRoute, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -374,9 +374,21 @@ export default function UserAppointmentsPage() {
                             <div
                                 key={req.id}
                                 onClick={() => {
-                                    const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
-                                    if (engineeringPermitRoute) {
-                                        router.push(`${engineeringPermitRoute}?id=${req.id}`);
+                                    const typeCode = req.type?.code || "";
+                                    const category = (req.type?.category || "").toLowerCase();
+                                    const typeName = (req.type?.name || "").toLowerCase();
+                                    const isEngineeringPermit = 
+                                        isEngineeringPermitCode(typeCode) ||
+                                        typeCode.startsWith("FENCING_PERMIT") ||
+                                        typeCode.startsWith("OCCUPANCY_PERMIT") ||
+                                        typeCode.startsWith("BUILDING_PERMIT") ||
+                                        category.includes("engineering") ||
+                                        typeName.includes("fencing permit") ||
+                                        typeName.includes("occupancy permit") ||
+                                        typeName.includes("building permit");
+
+                                    if (isEngineeringPermit) {
+                                        router.push(`/user/services/requests/${req.id}`);
                                     } else {
                                         router.push(`/user/appointment/${req.id}`);
                                     }

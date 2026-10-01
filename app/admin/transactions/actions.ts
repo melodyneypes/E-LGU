@@ -3536,15 +3536,17 @@ export async function getEngineerTransactions(params?: string | {
                                 { type: { code: { startsWith: "FENCING_PERMIT" } } },
                                 {
                                     OR: [
-                                        { status: { in: ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
-                                        { additionalData: { path: ['feeAssessment', 'engineerEndorsedToZoning'], equals: true } }
+                                        { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
+                                        { additionalData: { path: ['feeAssessment', 'engineerEndorsedToZoning'], equals: true } },
+                                        { additionalData: { path: ['zoningStatus'], equals: 'FOR_INSPECTION' } }
                                     ]
                                 }
                             ]
                         },
                         { additionalData: { path: ['feeAssessment', 'engineerEndorsedToZoning'], equals: true } },
                         { additionalData: { path: ['feeAssessment', 'engineeringApproved'], equals: true } },
-                        { status: { in: ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
+                        { additionalData: { path: ['zoningStatus'], equals: 'FOR_INSPECTION' } },
+                        { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] } },
                         ...(status === "CANCELLED" || status === "REJECTED" ? [{ isCancelled: true }, { status: "REJECTED" as any }] : [])
                     ]
                 }
