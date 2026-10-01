@@ -21,7 +21,10 @@ import {
     Boxes,
     CheckCircle2,
     Hospital,
-    ShieldAlert
+    ShieldAlert,
+    LayoutDashboard,
+    X,
+    RotateCcw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,24 +68,8 @@ import {
     type RHUBatchData
 } from "./actions";
 import { cn } from "@/lib/utils";
+import { RHUInventorySidebar } from "./components/RHUInventorySidebar";
 
-interface RHUInventoryItemData {
-    id: string;
-    name: string;
-    genericName?: string | null;
-    brandName?: string | null;
-    category: "MEDICINE" | "MEDICAL_SUPPLY";
-    dosage?: string | null;
-    unit: string;
-    quantity: number;
-    reorderLevel: number;
-    expirationDate?: string | Date | null;
-    batchNumber?: string | null;
-    remarks?: string | null;
-    createdAt?: string | Date;
-    updatedAt?: string | Date;
-    batches?: RHUBatchData[];
-}
 
 interface RHUInventoryItemData {
     id: string;
@@ -158,6 +145,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const [searchQuery, setSearchQuery] = useState("");
     const [categoryTab, setCategoryTab] = useState<"ALL" | "MEDICINE" | "MEDICAL_SUPPLY">("ALL");
     const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "EXPIRING_SOON" | "EXPIRED">("ALL");
+    const [showSidebar, setShowSidebar] = useState(true);
 
     const role = currentUser?.role || "";
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -278,42 +266,43 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const refreshData = async () => {
         startTransition(async () => {
             const res = await getRHUInventoryItems({
-                category: categoryTab,
-                search: searchQuery,
-                stockStatus: stockFilter,
-                healthCenterId: centerFilter
+                healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined
             });
             if (res.success && res.data) {
                 setItems(res.data as any);
+                toast.success("Inventory updated");
             }
         });
     };
 
     const [isSyncing, setIsSyncing] = useState(false);
 
-    // Realtime background auto-update polling (every 5 seconds)
+    // Background auto-sync (every 30 seconds, only when tab is visible)
     useEffect(() => {
+        let isMounted = true;
         const performSilentSync = async () => {
-            if (document.visibilityState === "hidden") return;
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
             setIsSyncing(true);
             try {
                 const res = await getRHUInventoryItems({
-                    category: categoryTab,
-                    search: searchQuery,
-                    stockStatus: stockFilter,
-                    healthCenterId: centerFilter
+                    healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined
                 });
-                if (res.success && res.data) {
-                    setItems(res.data as any);
+                if (isMounted && res.success && res.data) {
+                    setItems(prev => {
+                        if (prev.length === res.data!.length && JSON.stringify(prev) === JSON.stringify(res.data)) {
+                            return prev;
+                        }
+                        return res.data as any;
+                    });
                 }
             } catch (err) {
                 console.warn("[Realtime Inventory Sync Warning]:", err);
             } finally {
-                setIsSyncing(false);
+                if (isMounted) setIsSyncing(false);
             }
         };
 
-        const intervalId = setInterval(performSilentSync, 5000);
+        const intervalId = setInterval(performSilentSync, 30000);
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible") {
@@ -324,10 +313,11 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
+            isMounted = false;
             clearInterval(intervalId);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, [categoryTab, searchQuery, stockFilter, centerFilter]);
+    }, [centerFilter]);
 
     const handleOpenCreateModal = () => {
         setEditingItem(null);
@@ -580,45 +570,78 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     }, [items, centerFilter]);
 
     // Filtered items in memory based on category, stock status, search, and scoped center
-    const filteredItems = centerScopedItems.filter(item => {
-        if (categoryTab !== "ALL" && item.category !== categoryTab) return false;
+    const filteredItems = React.useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        return centerScopedItems.filter(item => {
+            if (categoryTab !== "ALL" && item.category !== categoryTab) return false;
 
-        if (centerFilter !== "ALL") {
-            const matchesItemCenter = (item as any).healthCenterId === centerFilter;
-            const hasBatchesForCenter = item.batches && item.batches.length > 0;
-            if (!matchesItemCenter && !hasBatchesForCenter) return false;
+            if (centerFilter !== "ALL") {
+                const matchesItemCenter = (item as any).healthCenterId === centerFilter;
+                const hasBatchesForCenter = item.batches && item.batches.length > 0;
+                if (!matchesItemCenter && !hasBatchesForCenter) return false;
+            }
+
+            const expInfo = getExpirationStatus(item.expirationDate);
+
+            if (stockFilter === "OUT_OF_STOCK" && item.quantity > 0) return false;
+            if (stockFilter === "LOW_STOCK" && (item.quantity <= 0 || item.quantity > item.reorderLevel)) return false;
+            if (stockFilter === "IN_STOCK" && item.quantity <= item.reorderLevel) return false;
+            if (stockFilter === "EXPIRING_SOON" && expInfo.status !== "EXPIRING_SOON") return false;
+            if (stockFilter === "EXPIRED" && expInfo.status !== "EXPIRED") return false;
+
+            if (q) {
+                const nameMatch = item.name.toLowerCase().includes(q);
+                const genericMatch = item.genericName?.toLowerCase().includes(q);
+                const brandMatch = item.brandName?.toLowerCase().includes(q);
+                const batchMatch = item.batchNumber?.toLowerCase().includes(q);
+                const hasMatchingBatch = item.batches?.some(b => b.batchNumber.toLowerCase().includes(q));
+                const centerMatch = (item as any).healthCenterName?.toLowerCase().includes(q);
+                return nameMatch || genericMatch || brandMatch || batchMatch || hasMatchingBatch || centerMatch;
+            }
+
+            return true;
+        });
+    }, [centerScopedItems, categoryTab, centerFilter, stockFilter, searchQuery]);
+
+    // Overview Stats calculated per center scope in a single pass
+    const {
+        totalItems,
+        totalMedicines,
+        totalSupplies,
+        lowStockCount,
+        outOfStockCount,
+        expiringSoonCount,
+        expiredCount
+    } = React.useMemo(() => {
+        let meds = 0;
+        let supps = 0;
+        let low = 0;
+        let oos = 0;
+        let expSoon = 0;
+        let exp = 0;
+
+        for (const i of centerScopedItems) {
+            if (i.category === "MEDICINE") meds++;
+            else if (i.category === "MEDICAL_SUPPLY") supps++;
+
+            if (i.quantity <= 0) oos++;
+            else if (i.quantity <= i.reorderLevel) low++;
+
+            const st = getExpirationStatus(i.expirationDate).status;
+            if (st === "EXPIRING_SOON") expSoon++;
+            else if (st === "EXPIRED") exp++;
         }
 
-        const expInfo = getExpirationStatus(item.expirationDate);
-
-        if (stockFilter === "OUT_OF_STOCK" && item.quantity > 0) return false;
-        if (stockFilter === "LOW_STOCK" && (item.quantity <= 0 || item.quantity > item.reorderLevel)) return false;
-        if (stockFilter === "IN_STOCK" && item.quantity <= item.reorderLevel) return false;
-        if (stockFilter === "EXPIRING_SOON" && expInfo.status !== "EXPIRING_SOON") return false;
-        if (stockFilter === "EXPIRED" && expInfo.status !== "EXPIRED") return false;
-
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            const nameMatch = item.name.toLowerCase().includes(q);
-            const genericMatch = item.genericName?.toLowerCase().includes(q);
-            const brandMatch = item.brandName?.toLowerCase().includes(q);
-            const batchMatch = item.batchNumber?.toLowerCase().includes(q);
-            const hasMatchingBatch = item.batches?.some(b => b.batchNumber.toLowerCase().includes(q));
-            const centerMatch = (item as any).healthCenterName?.toLowerCase().includes(q);
-            return nameMatch || genericMatch || brandMatch || batchMatch || hasMatchingBatch || centerMatch;
-        }
-
-        return true;
-    });
-
-    // Overview Stats calculated per center scope
-    const totalItems = centerScopedItems.length;
-    const totalMedicines = centerScopedItems.filter(i => i.category === "MEDICINE").length;
-    const totalSupplies = centerScopedItems.filter(i => i.category === "MEDICAL_SUPPLY").length;
-    const lowStockCount = centerScopedItems.filter(i => i.quantity > 0 && i.quantity <= i.reorderLevel).length;
-    const outOfStockCount = centerScopedItems.filter(i => i.quantity <= 0).length;
-    const expiringSoonCount = centerScopedItems.filter(i => getExpirationStatus(i.expirationDate).status === "EXPIRING_SOON").length;
-    const expiredCount = centerScopedItems.filter(i => getExpirationStatus(i.expirationDate).status === "EXPIRED").length;
+        return {
+            totalItems: centerScopedItems.length,
+            totalMedicines: meds,
+            totalSupplies: supps,
+            lowStockCount: low,
+            outOfStockCount: oos,
+            expiringSoonCount: expSoon,
+            expiredCount: exp
+        };
+    }, [centerScopedItems]);
 
     return (
         <div className="p-2 md:p-4 max-w-full mx-auto space-y-6 pb-20">
@@ -645,6 +668,21 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     >
                         <RefreshCw className={`w-4 h-4 mr-2 ${isPending || isSyncing ? "animate-spin" : ""}`} />
                         Refresh
+                    </Button>
+                    <Button
+                        onClick={() => setShowSidebar(prev => !prev)}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                            "rounded-xl border-slate-200 dark:border-slate-800 font-semibold h-10 px-3.5 flex items-center gap-2 transition-all",
+                            showSidebar
+                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-sm"
+                                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        )}
+                        title={showSidebar ? "Hide Overview Sidebar" : "Show Overview Sidebar"}
+                    >
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="hidden sm:inline">{showSidebar ? "Hide Overview" : "Overview Sidebar"}</span>
                     </Button>
                     {!canManageInventory && (
                         <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs h-10">
@@ -676,8 +714,8 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 </div>
             </div>
 
-            {/* Top Inventory Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* Top Inventory Metrics (Full Width) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-4 sm:mb-5">
                 <Card className="border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                         <CardTitle className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Items</CardTitle>
@@ -746,56 +784,45 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                 </Card>
             </div>
 
-            {/* Filter and Search Bar */}
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm py-0">
-                <CardContent className="p-2 sm:p-2.5 px-3 md:px-4 flex flex-col md:flex-row gap-2.5 justify-between items-center">
-                    {/* Category Tabs */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl w-full md:w-auto">
-                        <button
-                            onClick={() => setCategoryTab("ALL")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${categoryTab === "ALL"
-                                    ? "bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                                }`}
+            {/* Main Content + Insights Sidebar Grid */}
+            <div className="flex flex-col xl:flex-row items-start gap-6">
+                {/* Main Content Area */}
+                <div className="flex-1 min-w-0 w-full space-y-4 sm:space-y-5 transition-all duration-300">
+                    {/* Filter and Search Bar */}
+            <Card className="border-slate-200 dark:border-slate-800 shadow-sm p-2.5 sm:p-3 sm:px-4">
+                <CardContent className="p-0 flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    {/* Category Filter Dropdown */}
+                    <div className="w-full sm:w-[160px] shrink-0">
+                        <Select
+                            value={categoryTab}
+                            onValueChange={(val: any) => setCategoryTab(val)}
                         >
-                            All Items ({items.length})
-                        </button>
-                        <button
-                            onClick={() => setCategoryTab("MEDICINE")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${categoryTab === "MEDICINE"
-                                    ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                                }`}
-                        >
-                            <Pill className="w-3.5 h-3.5" />
-                            Medicines ({totalMedicines})
-                        </button>
-                        <button
-                            onClick={() => setCategoryTab("MEDICAL_SUPPLY")}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${categoryTab === "MEDICAL_SUPPLY"
-                                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                                }`}
-                        >
-                            <Stethoscope className="w-3.5 h-3.5" />
-                            Medical Supplies ({totalSupplies})
-                        </button>
+                            <SelectTrigger className="w-full h-9 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                <Pill className="w-3.5 h-3.5 mr-1.5 text-rose-500 shrink-0" />
+                                <SelectValue placeholder="All Categories" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Items ({totalItems})</SelectItem>
+                                <SelectItem value="MEDICINE">Medicines ({totalMedicines})</SelectItem>
+                                <SelectItem value="MEDICAL_SUPPLY">Medical Supplies ({totalSupplies})</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
-                        {/* Health Center Filter Dropdown or Locked Badge */}
-                        {isCenterScopedUser ? (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/20 rounded-lg text-xs font-bold text-rose-500 shrink-0 h-9">
-                                <Hospital className="w-3.5 h-3.5" />
-                                <span>{userMatchedCenter.name}</span>
-                            </div>
-                        ) : (
+                    {/* Health Center Filter Dropdown or Locked Badge */}
+                    {isCenterScopedUser ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/20 rounded-xl text-xs font-bold text-rose-500 shrink-0 h-9">
+                            <Hospital className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate max-w-[140px]">{userMatchedCenter.name}</span>
+                        </div>
+                    ) : (
+                        <div className="w-full sm:w-[175px] shrink-0">
                             <Select
                                 value={centerFilter}
                                 onValueChange={(val: string) => setCenterFilter(val)}
                             >
-                                <SelectTrigger className="w-full sm:w-[200px] h-9 rounded-lg text-xs font-semibold">
-                                    <Hospital className="w-3.5 h-3.5 mr-2 text-rose-500" />
+                                <SelectTrigger className="w-full h-9 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                    <Hospital className="w-3.5 h-3.5 mr-1.5 text-rose-500 shrink-0" />
                                     <SelectValue placeholder="Health Center" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -805,16 +832,18 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                     ))}
                                 </SelectContent>
                             </Select>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Stock & Expiration Filter Dropdown */}
+                    {/* Stock & Expiration Filter Dropdown */}
+                    <div className="w-full sm:w-[160px] shrink-0">
                         <Select
                             value={stockFilter}
                             onValueChange={(val: any) => setStockFilter(val)}
                         >
-                            <SelectTrigger className="w-full sm:w-[170px] h-9 rounded-lg text-xs">
-                                <Filter className="w-3.5 h-3.5 mr-2 text-slate-400" />
-                                <SelectValue placeholder="Stock / Expiration" />
+                            <SelectTrigger className="w-full h-9 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                <Filter className="w-3.5 h-3.5 mr-1.5 text-slate-400 shrink-0" />
+                                <SelectValue placeholder="Stock Status" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Stock Status</SelectItem>
@@ -825,18 +854,48 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                 <SelectItem value="EXPIRED">Already Expired</SelectItem>
                             </SelectContent>
                         </Select>
-
-                        {/* Search Input */}
-                        <div className="relative w-full sm:w-[220px]">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                            <Input
-                                placeholder="Search by name, brand, center..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 h-9 text-xs rounded-lg"
-                            />
-                        </div>
                     </div>
+
+                    {/* Search Input (Flexibly takes all remaining width with clean non-truncated placeholder) */}
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <Input
+                            placeholder="Search inventory, brand, batch..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-8 h-9 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus-visible:ring-1 focus-visible:ring-rose-500"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                                title="Clear search"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Reset Button */}
+                    {(categoryTab !== "ALL" || (centerFilter !== defaultCenterId && !isCenterScopedUser) || stockFilter !== "ALL" || searchQuery.trim() !== "") && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setCategoryTab("ALL");
+                                if (!isCenterScopedUser) setCenterFilter(defaultCenterId);
+                                setStockFilter("ALL");
+                                setSearchQuery("");
+                            }}
+                            className="h-9 px-2.5 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 font-semibold gap-1.5 rounded-xl cursor-pointer transition-all shrink-0"
+                            title="Reset all filters"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Reset</span>
+                        </Button>
+                    )}
                 </CardContent>
             </Card>
 
@@ -874,7 +933,7 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
 
                                     return (
                                         <React.Fragment key={item.id}>
-                                            <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                            <TableRow id={`inventory-row-${item.id}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                 <TableCell className="pr-0">
                                                     <Button
                                                         onClick={() => toggleExpandRow(item.id)}
@@ -1165,6 +1224,29 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     </Table>
                 </div>
             </Card>
+        </div>
+
+                {/* Right Sidebar: Stock Overview, Critical Shortages, Reminder */}
+                {showSidebar && (
+                    <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4">
+                        <RHUInventorySidebar
+                            items={centerScopedItems}
+                            activeStockFilter={stockFilter}
+                            onFilterChange={(filter) => setStockFilter(filter as any)}
+                            onItemSelect={(item) => {
+                                setSearchQuery(item.name);
+                                setTimeout(() => {
+                                    const el = document.getElementById(`inventory-row-${item.id}`);
+                                    if (el) {
+                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    }
+                                }, 100);
+                            }}
+                            healthCenterName={userMatchedCenter?.name || "RHU Mapandan"}
+                        />
+                    </div>
+                )}
+            </div>
 
             {/* Master Item Dialog (Catalog Only) */}
             <Dialog open={isItemModalOpen} onOpenChange={setIsItemModalOpen}>

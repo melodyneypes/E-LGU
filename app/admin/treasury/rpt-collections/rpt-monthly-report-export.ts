@@ -34,7 +34,11 @@ function classifyProperty(p: any): string {
         ? (() => { try { return JSON.parse(p.transaction.additionalData); } catch { return {}; } })()
         : (p.transaction?.additionalData || {});
 
+    const comp = (additional.rptComputation as any) || {};
+
     const raw = String(
+        comp.classification ||
+        comp.propertyType ||
         additional.classification ||
         additional.propertyClassification ||
         additional.propertyType ||
@@ -144,10 +148,15 @@ export function buildBlgfReportData(payments: any[]) {
             ? (() => { try { return JSON.parse(p.transaction.additionalData); } catch { return {}; } })()
             : (p.transaction?.additionalData || {});
 
-        const totalCollected = Number(p.amount || 0);
+        const comp = (additional.rptComputation as any) || {};
+
+        const totalCollected = Number(p.amount || comp.totalAmountDue || additional.totalAmountDue || 0);
         if (totalCollected <= 0) return;
 
         const hasCustomBreakdown = (
+            comp.basicTax !== undefined ||
+            comp.basicTotal !== undefined ||
+            comp.totalAmountDue !== undefined ||
             additional.basicTax !== undefined ||
             additional.basicCurrent !== undefined ||
             additional.priorYear !== undefined ||
@@ -169,25 +178,30 @@ export function buildBlgfReportData(payments: any[]) {
         let sTotal = 0;
 
         if (hasCustomBreakdown) {
-            bCurrentNet = Number(additional.basicCurrent ?? additional.basicTax ?? (totalCollected / 2));
-            sCurrentNet = Number(additional.sefCurrent ?? additional.sefTax ?? (totalCollected / 2));
+            bCurrentNet = Number(comp.basicTax ?? additional.basicCurrent ?? additional.basicTax ?? (totalCollected / 2));
+            sCurrentNet = Number(comp.sefTax ?? additional.sefCurrent ?? additional.sefTax ?? (totalCollected / 2));
 
-            const discTotal = Number(additional.discount || 0);
-            bDiscount = Number(additional.basicDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
-            sDiscount = Number(additional.sefDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
+            const discTotal = Number(comp.discountAmount ?? additional.discount ?? 0);
+            bDiscount = Number(comp.basicDiscount ?? additional.basicDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
+            sDiscount = Number(comp.sefDiscount ?? additional.sefDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
 
-            const penTotal = Number(additional.penalties || additional.penalty || 0);
-            bPenaltyCurr = Number(additional.basicPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
-            sPenaltyCurr = Number(additional.sefPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
+            const penTotal = Number(comp.penaltyAmount ?? additional.penalties ?? additional.penalty ?? 0);
+            bPenaltyCurr = Number(comp.basicPenalty ?? additional.basicPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
+            sPenaltyCurr = Number(comp.sefPenalty ?? additional.sefPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
 
-            bPrevYears = Number(additional.basicPriorYear ?? (Number(additional.priorYear || 0) / 2));
-            sPrevYears = Number(additional.sefPriorYear ?? (Number(additional.priorYear || 0) / 2));
+            bPrevYears = Number(comp.basicPriorYear ?? additional.basicPriorYear ?? (Number(additional.priorYear || 0) / 2));
+            sPrevYears = Number(comp.sefPriorYear ?? additional.sefPriorYear ?? (Number(additional.priorYear || 0) / 2));
 
-            bPenaltyPrev = Number(additional.basicPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
-            sPenaltyPrev = Number(additional.sefPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
+            bPenaltyPrev = Number(comp.basicPriorPenalty ?? additional.basicPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
+            sPenaltyPrev = Number(comp.sefPriorPenalty ?? additional.sefPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
 
-            bTotal = bCurrentNet - bDiscount + bPenaltyCurr + bPrevYears + bPenaltyPrev;
-            sTotal = sCurrentNet - sDiscount + sPenaltyCurr + sPrevYears + sPenaltyPrev;
+            bTotal = comp.basicTotal !== undefined
+                ? Number(comp.basicTotal)
+                : (bCurrentNet - bDiscount + bPenaltyCurr + bPrevYears + bPenaltyPrev);
+
+            sTotal = comp.sefTotal !== undefined
+                ? Number(comp.sefTotal)
+                : (sCurrentNet - sDiscount + sPenaltyCurr + sPrevYears + sPenaltyPrev);
         } else {
             const half = totalCollected / 2;
             const isDiscounted = Boolean(additional.isDiscounted || additional.hasDiscount);

@@ -646,13 +646,26 @@ export default function TreasuryDashboard() {
                                                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
                                                                     {tx.type?.requiresBusinessName
                                                                         ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
-                                                                        : tx.userId ? "Registered Resident" : "Walk-in / Citation Record"}
+                                                                        : (tx.userId || tx.user?.id) ? "Registered Resident" : "Walk-in / Citation Record"}
                                                                 </span>
-                                                                {(tx.user?.rejectionCount === 2 || tx.revisionCount === 3 || (tx as any).rejection_count === 3) && (
-                                                                    <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
-                                                                        FINAL ATTEMPT
-                                                                    </span>
-                                                                )}
+                                                                {(() => {
+                                                                    // Only show Final Attempt for active, non-finalized transactions
+                                                                    const isFinished = ["RELEASED", "PAID", "COMPLETED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status);
+                                                                    if (isFinished || tx.isCancelled) return null;
+
+                                                                    const isFinal = Boolean(
+                                                                        (tx as any).isFinalAttempt ||
+                                                                        tx.revisionCount === 2 ||
+                                                                        (tx as any).rejection_count === 2
+                                                                    );
+                                                                    if (!isFinal) return null;
+
+                                                                    return (
+                                                                        <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
+                                                                            FINAL ATTEMPT
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
