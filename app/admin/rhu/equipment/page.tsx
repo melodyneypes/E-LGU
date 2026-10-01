@@ -3,13 +3,17 @@ import { Metadata } from "next";
 import EquipmentClient from "./EquipmentClient";
 import { getRHUEquipmentData } from "./actions";
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 export const metadata: Metadata = {
     title: "RHU Medical Equipment & Stockroom Monitoring | EMapandan",
     description: "RHU & BHS Medical Equipment, Room & Stockroom Monitoring System with PO, SO, RO, Discrepancy Returns, and COA Reports.",
 };
 
 export default async function RHUEquipmentPage() {
-    const data = await getRHUEquipmentData("ALL");
+    const session = await getServerSession(authOptions);
+    const data = await getRHUEquipmentData("ALL", session?.user);
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6 w-full max-w-full">

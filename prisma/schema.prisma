@@ -1213,6 +1213,9 @@ model TicketDetail {
   createdAt      DateTime          @default(now())
   header         TicketHeader      @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
   violation      TrafficViolation? @relation(fields: [violationId], references: [id])
+
+  @@index([ticketHeaderId], map: "idx_ticket_detail_header")
+  @@index([violationId], map: "idx_ticket_detail_violation")
 }
 
 model VehicleClassification {
@@ -1251,6 +1254,8 @@ model StallOtherFee {
   updatedAt DateTime          @updatedAt
   updatedBy String?
   stall     Stall             @relation(fields: [stallId], references: [id], onDelete: Cascade)
+
+  @@index([stallId], map: "idx_stall_other_fee_stall")
 }
 
 model Stall {
@@ -1338,6 +1343,8 @@ model AmbulanceDocument {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now()) @updatedAt
   ambulance      RHUAmbulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+
+  @@index([ambulanceId], map: "idx_ambulance_doc_ambulance")
 }
 
 model AmbulanceDriver {
@@ -1356,6 +1363,8 @@ model AmbulanceDriver {
   updatedAt           DateTime                    @default(now()) @updatedAt
   trips               AmbulanceDispatchSchedule[]
   assignedAmbulance   RHUAmbulance?               @relation(fields: [assignedAmbulanceId], references: [id])
+
+  @@index([assignedAmbulanceId], map: "idx_ambulance_driver_assigned")
 }
 
 model AmbulanceDispatchSchedule {
@@ -1381,6 +1390,11 @@ model AmbulanceDispatchSchedule {
   updatedAt           DateTime         @default(now()) @updatedAt
   ambulance           RHUAmbulance?    @relation(fields: [ambulanceId], references: [id])
   driver              AmbulanceDriver? @relation(fields: [driverId], references: [id])
+
+  @@index([ambulanceId], map: "idx_ambulance_dispatch_ambulance")
+  @@index([driverId], map: "idx_ambulance_dispatch_driver")
+  @@index([scheduledDate], map: "idx_ambulance_dispatch_date")
+  @@index([status], map: "idx_ambulance_dispatch_status")
 }
 
 model RHUAmbulanceHotline {
@@ -1756,6 +1770,9 @@ model RHUBedHistory {
   attendingPhysician String?
   notes              String?
   timestamp          DateTime @default(now())
+
+  @@index([bedId], map: "idx_rhu_bed_history_bed")
+  @@index([timestamp(sort: Desc)], map: "idx_rhu_bed_history_timestamp")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

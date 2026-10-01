@@ -17,6 +17,8 @@ import {
     Clock,
     ChevronDown,
     ChevronUp,
+    ChevronLeft,
+    ChevronRight,
     Truck,
     Boxes,
     CheckCircle2,
@@ -266,7 +268,9 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
     const refreshData = async () => {
         startTransition(async () => {
             const res = await getRHUInventoryItems({
-                healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined
+                healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined,
+                sessionUser: currentUser,
+                matchedCenter: userMatchedCenter
             });
             if (res.success && res.data) {
                 setItems(res.data as any);
@@ -285,7 +289,9 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
             setIsSyncing(true);
             try {
                 const res = await getRHUInventoryItems({
-                    healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined
+                    healthCenterId: centerFilter !== "ALL" ? centerFilter : undefined,
+                    sessionUser: currentUser,
+                    matchedCenter: userMatchedCenter
                 });
                 if (isMounted && res.success && res.data) {
                     setItems(prev => {
@@ -668,21 +674,6 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                     >
                         <RefreshCw className={`w-4 h-4 mr-2 ${isPending || isSyncing ? "animate-spin" : ""}`} />
                         Refresh
-                    </Button>
-                    <Button
-                        onClick={() => setShowSidebar(prev => !prev)}
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                            "rounded-xl border-slate-200 dark:border-slate-800 font-semibold h-10 px-3.5 flex items-center gap-2 transition-all",
-                            showSidebar
-                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-sm"
-                                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                        )}
-                        title={showSidebar ? "Hide Overview Sidebar" : "Show Overview Sidebar"}
-                    >
-                        <LayoutDashboard className="w-4 h-4" />
-                        <span className="hidden sm:inline">{showSidebar ? "Hide Overview" : "Overview Sidebar"}</span>
                     </Button>
                     {!canManageInventory && (
                         <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs h-10">
@@ -1227,8 +1218,8 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
         </div>
 
                 {/* Right Sidebar: Stock Overview, Critical Shortages, Reminder */}
-                {showSidebar && (
-                    <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4">
+                {showSidebar ? (
+                    <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4 transition-all duration-300 animate-in fade-in slide-in-from-right-2">
                         <RHUInventorySidebar
                             items={centerScopedItems}
                             activeStockFilter={stockFilter}
@@ -1243,7 +1234,48 @@ export default function RHUInventoryClient({ initialItems, initialCenters = [], 
                                 }, 100);
                             }}
                             healthCenterName={userMatchedCenter?.name || "RHU Mapandan"}
+                            onCollapse={() => setShowSidebar(false)}
                         />
+                    </div>
+                ) : (
+                    <div className="hidden xl:flex flex-col items-center gap-3 w-14 shrink-0 xl:sticky xl:top-4 p-2 rounded-2xl bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-xl text-slate-900 dark:text-white transition-all duration-300 animate-in fade-in slide-in-from-right-2">
+                        {/* Expand Button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowSidebar(true)}
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-all cursor-pointer shadow-sm"
+                            title="Expand Overview Sidebar"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-6 h-px bg-slate-200 dark:bg-[#162340] my-0.5" />
+
+                        {/* Quick Stock Count Indicator */}
+                        <button
+                            type="button"
+                            onClick={() => setShowSidebar(true)}
+                            className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex flex-col items-center justify-center text-blue-600 dark:text-slate-100 hover:scale-105 transition-transform cursor-pointer shadow-inner"
+                            title={`Total Medicines: ${totalMedicines} (${centerScopedItems.length} total items)`}
+                        >
+                            <Pill className="w-4 h-4 -rotate-45" />
+                            <span className="text-[9px] font-black leading-none mt-0.5">{totalMedicines}</span>
+                        </button>
+
+                        {/* Critical Shortages Warning Indicator */}
+                        {(lowStockCount + outOfStockCount) > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setShowSidebar(true)}
+                                className="relative w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col items-center justify-center text-[#ff0055] hover:scale-105 transition-transform cursor-pointer shadow-sm"
+                                title={`${outOfStockCount} Out of Stock, ${lowStockCount} Low Stock`}
+                            >
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ff0055] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                                    {lowStockCount + outOfStockCount}
+                                </span>
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

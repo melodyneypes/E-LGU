@@ -33,11 +33,13 @@ export default async function RHUAppointmentSettingsPage() {
 
     const themeColor = "#f43f5e";
 
-    // Fetch all health centers
-    const centersRes = await getRHUHealthCenters();
+    // Fetch all health centers and user matched center concurrently
+    const [centersRes, matchedCenter] = await Promise.all([
+        getRHUHealthCenters(),
+        session.user ? getMatchedCenterForUser(session.user) : Promise.resolve(null)
+    ]);
     const healthCenters = centersRes.success && centersRes.data ? centersRes.data : [];
 
-    const matchedCenter = session.user ? await getMatchedCenterForUser(session.user) : null;
     const userRole = (role || "").toUpperCase();
     const canManageSchedule = userRole === "ADMIN" || userRole === "RHU_ADMIN" || userRole === "RHU_CENTER_ADMIN" || userRole === "ASST_SEC";
     const isCenterAdmin = !!matchedCenter || role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF" || role === "ASST_SEC";

@@ -10,6 +10,8 @@ export const metadata: Metadata = {
     description: "Manage, track, and export RHU prescription medicine dispense summaries.",
 };
 
+import { getRHUPurchaseOrders } from "../actions";
+
 export default async function RHUPurchaseOrdersPage() {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -28,9 +30,17 @@ export default async function RHUPurchaseOrdersPage() {
         redirect("/admin/rhu/centers");
     }
 
+    const initialData = await getRHUPurchaseOrders({
+        page: 1,
+        limit: 10,
+        search: "",
+        status: "ALL",
+        sessionUser: session.user
+    });
+
     return (
         <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <PurchaseOrdersClient />
+            <PurchaseOrdersClient initialData={initialData} />
         </div>
     );
 }

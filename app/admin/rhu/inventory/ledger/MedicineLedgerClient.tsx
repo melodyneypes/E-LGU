@@ -8,6 +8,10 @@ import {
     Plus,
     RotateCcw,
     FileText,
+    FileSpreadsheet,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     SlidersHorizontal,
     Boxes,
     PackageMinus,
@@ -41,6 +45,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -69,6 +79,7 @@ export default function MedicineLedgerClient({
     const [centerFilter, setCenterFilter] = useState("ALL");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Quick Action Modals
     const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
@@ -141,33 +152,189 @@ export default function MedicineLedgerClient({
         return filteredMovements.slice(start, start + itemsPerPage);
     }, [filteredMovements, currentPage]);
 
-    const handleExportCSV = () => {
+    const [isExporting, setIsExporting] = useState<"excel" | "pdf" | null>(null);
+
+    const handleExportExcel = async () => {
         if (filteredMovements.length === 0) {
             toast.error("No transactions to export.");
             return;
         }
 
-        const headers = ["Date & Time", "Transaction Type", "Medicine Name", "Category", "Quantity", "Unit", "Person / Remarks", "Facility"];
-        const rows = filteredMovements.map(m => [
-            new Date(m.timestamp).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
-            m.transactionType,
-            `"${m.medicineName.replace(/"/g, '""')}"`,
-            m.category || "N/A",
-            m.quantity,
-            m.unit,
-            `"${(m.personRemarks || "").replace(/"/g, '""')}"`,
-            `"${(m.facilityName || "RHU Mapandan").replace(/"/g, '""')}"`
-        ]);
+        setIsExporting("excel");
+        const toastId = toast.loading("Generating Excel workbook...");
+        try {
+            const XLSX = await import("xlsx");
 
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `RHU_Medicine_Ledger_${new Date().toISOString().split("T")[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("Medicine ledger exported successfully!");
+            const rows = filteredMovements.map((m, idx) => {
+                const dateObj = new Date(m.timestamp);
+                const formattedDate = dateObj.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                });
+                const formattedTime = dateObj.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+                const dateTimeStr = `${formattedDate} ${formattedTime}`;
+
+                return {
+                    "No.": idx + 1,
+                    "Date & Time": dateTimeStr,
+                    "Transaction Type": m.transactionType,
+                    "Medicine Name": m.medicineName,
+                    "Generic Name": m.genericName || "—",
+                    "Batch Number": m.batchNumber ? `#${m.batchNumber}` : "—",
+                    "Category": m.category || "General",
+                    "Quantity": m.quantity > 0 ? `+${m.quantity}` : `${m.quantity}`,
+                    "Unit": m.unit || "pcs",
+                    "Balance After": m.balanceAfter !== undefined && m.balanceAfter !== null ? m.balanceAfter : "—",
+                    "Person / Remarks": m.personRemarks || "—",
+                    "Facility": m.facilityName || matchedCenter?.name || "RHU Mapandan",
+                    "Reference No.": m.referenceNo || "—"
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = [
+                { wch: 6 },
+                { wch: 22 },
+                { wch: 18 },
+                { wch: 26 },
+                { wch: 22 },
+                { wch: 18 },
+                { wch: 16 },
+                { wch: 12 },
+                { wch: 10 },
+                { wch: 14 },
+                { wch: 32 },
+                { wch: 24 },
+                { wch: 18 }
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Medicine Ledger");
+
+            XLSX.writeFile(wb, `RHU_Medicine_Ledger_${new Date().toISOString().split("T")[0]}.xlsx`);
+            toast.success("Medicine ledger exported to Excel successfully!", { id: toastId });
+        } catch (err: any) {
+            console.error("Excel Export error:", err);
+            toast.error("Failed to export Excel workbook.", { id: toastId });
+        } finally {
+            setIsExporting(null);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (filteredMovements.length === 0) {
+            toast.error("No transactions to export.");
+            return;
+        }
+
+        setIsExporting("pdf");
+        const toastId = toast.loading("Generating PDF document...");
+        try {
+            const { default: jsPDF } = await import("jspdf");
+            const { default: autoTable } = await import("jspdf-autotable");
+
+            const doc = new jsPDF({ orientation: "landscape" });
+
+            // Header Section
+            doc.setFontSize(13);
+            doc.setFont("helvetica", "bold");
+            doc.text("MUNICIPALITY OF MAPANDAN — RURAL HEALTH UNIT (RHU)", 14, 14);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text("RHU MEDICINE TRANSACTION LEDGER & STOCK MOVEMENT REPORT", 14, 20);
+
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            const facilityLabel = matchedCenter?.name || "RHU Mapandan (Main & Sub-Centers)";
+            const summaryText = `Generated: ${new Date().toLocaleString("en-PH")} | Facility: ${facilityLabel} | Total Records: ${filteredMovements.length}`;
+            doc.text(summaryText, 14, 26);
+
+            const tableRows = filteredMovements.map((m, idx) => {
+                const dateObj = new Date(m.timestamp);
+                const formattedDate = dateObj.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                });
+                const formattedTime = dateObj.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+                const dateTimeStr = `${formattedDate}\n${formattedTime}`;
+                const medicineWithBatch = m.batchNumber ? `${m.medicineName}\nBatch: #${m.batchNumber}` : m.medicineName;
+                const qtyStr = m.quantity > 0 ? `+${m.quantity} ${m.unit || "pcs"}` : `${m.quantity} ${m.unit || "pcs"}`;
+                const balStr = m.balanceAfter !== undefined && m.balanceAfter !== null ? `${m.balanceAfter} ${m.unit || "pcs"}` : "—";
+
+                return [
+                    (idx + 1).toString(),
+                    dateTimeStr,
+                    m.transactionType,
+                    medicineWithBatch,
+                    m.category || "General",
+                    qtyStr,
+                    balStr,
+                    m.personRemarks || "—",
+                    m.facilityName || matchedCenter?.name || "RHU Mapandan"
+                ];
+            });
+
+            autoTable(doc, {
+                startY: 30,
+                head: [["#", "Date & Time", "Type", "Medicine & Batch", "Category", "Quantity", "Balance", "Person / Remarks", "Facility"]],
+                body: tableRows,
+                theme: "grid",
+                headStyles: {
+                    fillColor: [15, 27, 52],
+                    textColor: [255, 255, 255],
+                    fontStyle: "bold",
+                    fontSize: 8,
+                    halign: "center"
+                },
+                bodyStyles: {
+                    fontSize: 7.5,
+                    textColor: [30, 41, 59]
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 250, 252]
+                },
+                columnStyles: {
+                    0: { cellWidth: 8, halign: "center" },
+                    1: { cellWidth: 26 },
+                    2: { cellWidth: 22, halign: "center", fontStyle: "bold" },
+                    3: { cellWidth: 42, fontStyle: "bold" },
+                    4: { cellWidth: 24 },
+                    5: { cellWidth: 24, halign: "right", fontStyle: "bold" },
+                    6: { cellWidth: 20, halign: "right" },
+                    7: { cellWidth: 55 },
+                    8: { cellWidth: 35 }
+                },
+                margin: { top: 30, bottom: 18, left: 14, right: 14 },
+                didDrawPage: (data: any) => {
+                    const pageSize = doc.internal.pageSize;
+                    const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                    doc.setFontSize(8);
+                    doc.setTextColor(120);
+                    doc.text(
+                        `Page ${data.pageNumber} — Official RHU EMapandan Electronic Medicine Ledger Report`,
+                        14,
+                        pageHeight - 8
+                    );
+                }
+            });
+
+            doc.save(`RHU_Medicine_Ledger_${new Date().toISOString().split("T")[0]}.pdf`);
+            toast.success("Medicine ledger exported to PDF successfully!", { id: toastId });
+        } catch (err: any) {
+            console.error("PDF Export error:", err);
+            toast.error("Failed to export PDF document.", { id: toastId });
+        } finally {
+            setIsExporting(null);
+        }
     };
 
     const handleSaveMovement = async (type: "Stock In" | "Issuance" | "Adjustment") => {
@@ -255,14 +422,48 @@ export default function MedicineLedgerClient({
 
                         {/* Export Action in Banner */}
                         <div className="shrink-0 flex items-center gap-2 self-start sm:self-center">
-                            <Button
-                                onClick={handleExportCSV}
-                                variant="outline"
-                                className="h-10 px-4 text-xs font-semibold rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white shadow-sm gap-2 backdrop-blur-sm transition-all cursor-pointer hover:border-blue-500/40 hover:text-white"
-                            >
-                                <Download className="w-4 h-4 text-blue-400" />
-                                <span>Export Ledger</span>
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        disabled={isExporting !== null}
+                                        className="h-10 px-4 text-xs font-semibold rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white shadow-sm gap-2 backdrop-blur-sm transition-all cursor-pointer hover:border-blue-500/40 hover:text-white"
+                                    >
+                                        <Download className="w-4 h-4 text-blue-400" />
+                                        <span>{isExporting ? `Exporting ${isExporting.toUpperCase()}...` : "Export Ledger"}</span>
+                                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-52 bg-[#091122] border-[#162340] text-slate-200 rounded-2xl p-1.5 shadow-2xl backdrop-blur-md"
+                                >
+                                    <DropdownMenuItem
+                                        onClick={handleExportExcel}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl hover:bg-white/10 hover:text-white text-slate-200 cursor-pointer focus:bg-white/10 focus:text-white transition-colors"
+                                    >
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                                            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                                        </div>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-bold text-white">Export as Excel</span>
+                                            <span className="text-[10px] text-slate-400 font-normal">Spreadsheet (.xlsx)</span>
+                                        </div>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleExportPDF}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl hover:bg-white/10 hover:text-white text-slate-200 cursor-pointer focus:bg-white/10 focus:text-white transition-colors"
+                                    >
+                                        <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                                            <FileText className="w-4 h-4 text-rose-400" />
+                                        </div>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-bold text-white">Export as PDF</span>
+                                            <span className="text-[10px] text-slate-400 font-normal">Document (.pdf)</span>
+                                        </div>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
 
@@ -390,6 +591,9 @@ export default function MedicineLedgerClient({
                                         <TableHead className="font-bold text-xs text-slate-600 dark:text-slate-300">
                                             Quantity
                                         </TableHead>
+                                        <TableHead className="font-bold text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                            Stock Balance
+                                        </TableHead>
                                         <TableHead className="font-bold text-xs text-slate-600 dark:text-slate-300">
                                             Unit
                                         </TableHead>
@@ -404,7 +608,7 @@ export default function MedicineLedgerClient({
                                 <TableBody className="divide-y divide-slate-100 dark:divide-[#162340]">
                                     {paginatedMovements.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                                            <TableCell colSpan={9} className="text-center py-12 text-slate-400">
                                                 <Boxes className="w-10 h-10 mx-auto mb-2 opacity-30" />
                                                 <p className="font-semibold text-sm">No transaction records found</p>
                                                 <p className="text-xs opacity-70 mt-0.5">Try adjusting your filters or record an issuance/stock in.</p>
@@ -461,7 +665,7 @@ export default function MedicineLedgerClient({
                                                     <TableCell className="text-xs text-slate-600 dark:text-slate-400">
                                                         {m.category || "General"}
                                                     </TableCell>
-                                                    <TableCell className="font-bold text-xs">
+                                                    <TableCell className="font-bold text-xs whitespace-nowrap">
                                                         <span className={cn(
                                                             isStockIn && "text-emerald-500",
                                                             isIssuance && "text-[#ff0055]",
@@ -469,6 +673,30 @@ export default function MedicineLedgerClient({
                                                         )}>
                                                             {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                                                         </span>
+                                                    </TableCell>
+                                                    <TableCell className="py-3.5 whitespace-nowrap">
+                                                        <div className="flex items-center gap-1.5 font-mono">
+                                                            <span className={cn(
+                                                                "font-bold text-xs",
+                                                                (m.balanceAfter ?? 0) <= 0
+                                                                    ? "text-rose-500 dark:text-rose-400"
+                                                                    : (m.balanceAfter ?? 0) <= 10
+                                                                    ? "text-amber-500 dark:text-amber-400"
+                                                                    : "text-slate-800 dark:text-slate-100"
+                                                            )}>
+                                                                {m.balanceAfter !== undefined && m.balanceAfter !== null ? m.balanceAfter.toLocaleString() : "—"}
+                                                            </span>
+                                                            {(m.balanceAfter ?? 0) <= 0 && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/25">
+                                                                    Out
+                                                                </span>
+                                                            )}
+                                                            {(m.balanceAfter ?? 0) > 0 && (m.balanceAfter ?? 0) <= 10 && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                                                    Low
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell className="text-xs text-slate-500 dark:text-slate-400">
                                                         {m.unit}
@@ -540,18 +768,94 @@ export default function MedicineLedgerClient({
                     </div>
                 </div>
 
-                {/* Right Sidebar (Fixed Width) */}
-                <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-5 xl:sticky xl:top-4">
-                    {/* Card 1: Stock Summary */}
-                    <div className="rounded-2xl p-5 bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-sm dark:shadow-xl text-slate-900 dark:text-white">
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-slate-100 shadow-inner">
-                                <Pill className="w-5 h-5 -rotate-45" />
+                {/* Right Sidebar (Collapsible) */}
+                {isSidebarCollapsed ? (
+                    <div className="hidden xl:flex flex-col items-center gap-3 w-14 shrink-0 xl:sticky xl:top-4 p-2 rounded-2xl bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-xl text-slate-900 dark:text-white transition-all duration-300">
+                        {/* Expand Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-all cursor-pointer shadow-sm"
+                            title="Expand Summary & Actions"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-6 h-px bg-slate-200 dark:bg-[#162340] my-0.5" />
+
+                        {/* Quick Stock Summary Indicator */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex flex-col items-center justify-center text-blue-600 dark:text-slate-100 hover:scale-105 transition-transform cursor-pointer shadow-inner"
+                            title={`Stock Summary: ${totalMedicines} Items (${inStockCount} In Stock, ${lowStockCount} Low, ${outOfStockCount} Out)`}
+                        >
+                            <Pill className="w-4 h-4 -rotate-45" />
+                            <span className="text-[9px] font-black leading-none mt-0.5">{totalMedicines}</span>
+                        </button>
+
+                        {/* Quick Low Stock Alert Indicator */}
+                        {lowStockItems.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsSidebarCollapsed(false)}
+                                className="relative w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col items-center justify-center text-[#ff0055] hover:scale-105 transition-transform cursor-pointer shadow-sm"
+                                title={`${lowStockItems.length} Low / Out of Stock Items`}
+                            >
+                                <Boxes className="w-4 h-4" />
+                                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ff0055] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                                    {lowStockItems.length}
+                                </span>
+                            </button>
+                        )}
+
+                        {/* Quick Actions Shortcuts */}
+                        <div className="w-6 h-px bg-slate-200 dark:bg-[#162340] my-0.5" />
+
+                        {/* Add Stock shortcut */}
+                        <button
+                            type="button"
+                            onClick={() => setIsStockInModalOpen(true)}
+                            className="w-10 h-10 rounded-xl bg-[#ff0055] hover:bg-rose-600 text-white flex items-center justify-center shadow-md shadow-[#ff0055]/30 hover:scale-105 transition-transform cursor-pointer"
+                            title="Add Stock (Stock In)"
+                        >
+                            <Plus className="w-5 h-5" />
+                        </button>
+
+                        {/* Record Issuance shortcut */}
+                        <button
+                            type="button"
+                            onClick={() => setIsIssuanceModalOpen(true)}
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-rose-500 hover:scale-105 transition-transform cursor-pointer"
+                            title="Record Issuance (Out)"
+                        >
+                            <PackageMinus className="w-4 h-4" />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-5 xl:sticky xl:top-4 transition-all duration-300">
+                        {/* Card 1: Stock Summary */}
+                        <div className="rounded-2xl p-5 bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-sm dark:shadow-xl text-slate-900 dark:text-white">
+                            <div className="flex items-center justify-between gap-3 mb-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-slate-100 shadow-inner">
+                                        <Pill className="w-5 h-5 -rotate-45" />
+                                    </div>
+                                    <h3 className="text-base font-bold tracking-tight">
+                                        Stock Summary
+                                    </h3>
+                                </div>
+
+                                {/* Collapse Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSidebarCollapsed(true)}
+                                    className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
+                                    title="Collapse side panel"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
                             </div>
-                            <h3 className="text-base font-bold tracking-tight">
-                                Stock Summary
-                            </h3>
-                        </div>
 
                         <div className="flex items-center justify-between gap-4">
                             <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
@@ -683,17 +987,51 @@ export default function MedicineLedgerClient({
                                 <span className="text-[10px] text-slate-400 font-normal">(Adjustment)</span>
                             </button>
 
-                            <button
-                                onClick={handleExportCSV}
-                                className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] text-slate-800 dark:text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer"
-                            >
-                                <FileText className="w-5 h-5 text-blue-500" />
-                                <span>Generate Report</span>
-                                <span className="text-[10px] text-slate-400 font-normal">(Ledger)</span>
-                            </button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        disabled={isExporting !== null}
+                                        className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] text-slate-800 dark:text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                    >
+                                        <FileText className="w-5 h-5 text-blue-500" />
+                                        <span>Generate Report</span>
+                                        <span className="text-[10px] text-slate-400 font-normal">(Ledger)</span>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-52 bg-[#091122] border-[#162340] text-slate-200 rounded-2xl p-1.5 shadow-2xl backdrop-blur-md"
+                                >
+                                    <DropdownMenuItem
+                                        onClick={handleExportExcel}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl hover:bg-white/10 hover:text-white text-slate-200 cursor-pointer focus:bg-white/10 focus:text-white transition-colors"
+                                    >
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                                            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                                        </div>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-bold text-white">Export as Excel</span>
+                                            <span className="text-[10px] text-slate-400 font-normal">Spreadsheet (.xlsx)</span>
+                                        </div>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleExportPDF}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl hover:bg-white/10 hover:text-white text-slate-200 cursor-pointer focus:bg-white/10 focus:text-white transition-colors"
+                                    >
+                                        <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                                            <FileText className="w-4 h-4 text-rose-400" />
+                                        </div>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-bold text-white">Export as PDF</span>
+                                            <span className="text-[10px] text-slate-400 font-normal">Document (.pdf)</span>
+                                        </div>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </div>
+                )}
             </div>
 
             {/* Quick Action Dialog (Stock In / Issuance / Adjustment) */}

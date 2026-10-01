@@ -199,10 +199,12 @@ export async function getRHUAdminTransactions(params?: {
     allCenters?: boolean;
     dateFrom?: string;
     dateTo?: string;
+    forcePharmacy?: boolean;
+    sessionUser?: any;
 }) {
     try {
-        const session = await getSession();
-        if (!session?.user) {
+        const sessionUser = params?.sessionUser || (await getSession())?.user;
+        if (!sessionUser) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -217,10 +219,10 @@ export async function getRHUAdminTransactions(params?: {
 
         const skip = (page - 1) * limit;
 
-        const isPharmacy = session.user.role === "RHU_PHARMACY" ||
-            ((session.user as any).department || "").toUpperCase().includes("PHARMACY");
+        const isPharmacy = params?.forcePharmacy || sessionUser.role === "RHU_PHARMACY" ||
+            ((sessionUser as any).department || "").toUpperCase().includes("PHARMACY");
 
-        const matchedCenter = showAllCenters ? null : await getMatchedCenterForUser(session.user);
+        const matchedCenter = showAllCenters ? null : await getMatchedCenterForUser(sessionUser);
 
         const conditions: Prisma.Sql[] = [];
 
@@ -319,15 +321,17 @@ export async function getRHUAdminTransactions(params?: {
         // Effective Status Expression
         const effectiveStatusSql = Prisma.sql`
             CASE 
-                WHEN t."additionalData"->>'rhuStatus' IS NOT NULL THEN t."additionalData"->>'rhuStatus'
                 WHEN t."isCancelled" = TRUE THEN 'CANCELLED'
                 WHEN t.status::text IN ('CANCELLED', 'REJECTED') THEN 'CANCELLED'
+                WHEN t."additionalData"->>'rhuStatus' = 'CANCELLED' THEN 'CANCELLED'
+                WHEN t."additionalData"->>'rhuStatus' IN ('COMPLETED', 'DISPENSED', 'RELEASED') THEN 'COMPLETED'
+                WHEN t.status::text IN ('COMPLETED', 'RELEASED', 'DELIVERED') THEN 'COMPLETED'
+                WHEN t."additionalData"->>'rhuStatus' IS NOT NULL THEN t."additionalData"->>'rhuStatus'
                 WHEN t.status::text IN ('BOOKED', 'FOR_INSPECTION', 'FOR_REQUESTING') THEN 'APPOINTMENT_BOOKED'
                 WHEN t.status::text IN ('CHECK_IN', 'EVALUATED') THEN 'CHECK_IN'
                 WHEN t.status::text IN ('IN_CONSULTATION', 'FOR_PROCESSING') THEN 'IN_CONSULTATION'
                 WHEN t.status::text IN ('PRESCRIBED', 'FOR_CLAIM') THEN 'PRESCRIBED'
                 WHEN t.status::text IN ('REFERRED') THEN 'REFERRED'
-                WHEN t.status::text IN ('COMPLETED', 'RELEASED', 'DELIVERED') THEN 'COMPLETED'
                 ELSE t.status::text
             END
         `;
@@ -645,10 +649,10 @@ export async function updateRHUAppointmentStatus(
     }
 }
 
-export async function getRHUDashboardStats() {
+export async function getRHUDashboardStats(sessionUser?: any) {
     try {
-        const session = await getSession();
-        if (!session?.user) {
+        const currentUser = sessionUser || (await getSession())?.user;
+        if (!currentUser) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -671,7 +675,7 @@ export async function getRHUDashboardStats() {
         `);
 
         // Center matching
-        const matchedCenter = await getMatchedCenterForUser(session.user);
+        const matchedCenter = await getMatchedCenterForUser(currentUser);
         if (matchedCenter) {
             const centerId = matchedCenter.id;
             const centerNameLower = (matchedCenter.name || "").toLowerCase();
@@ -747,24 +751,28 @@ export async function getRHUPurchaseOrders({
     page = 1,
     limit = 10,
     search = "",
-    status = "ALL"
+    status = "ALL",
+    sessionUser
 }: {
     page?: number;
     limit?: number;
     search?: string;
     status?: string;
+    sessionUser?: any;
 } = {}) {
     try {
-        const session = await getSession();
-        if (!session?.user) {
+        const currentUser = sessionUser || (await getSession())?.user;
+        if (!currentUser) {
             return { success: false, error: "Unauthorized" };
         }
 
         const res = await getRHUAdminTransactions({
             page: 1,
-            limit: 1000,
+            limit: 300,
             search,
-            status: "ALL_WITH_COMPLETED"
+            status: "ALL_WITH_COMPLETED",
+            forcePharmacy: true,
+            sessionUser: currentUser
         });
 
         if (!res.success || !res.data) {
@@ -813,8 +821,8 @@ export async function getRHUPurchaseOrders({
         return {
             success: true,
             centerName: res.centerName,
-            staffName: session?.user?.name || "RHU Pharmacy Staff",
-            staffEmail: session?.user?.email || null,
+            staffName: currentUser?.name || "RHU Pharmacy Staff",
+            staffEmail: currentUser?.email || null,
             data: paginated,
             allData: poList,
             pagination: {
