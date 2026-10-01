@@ -9,7 +9,10 @@ import { logActivity } from "@/lib/audit";
 import { randomUUID } from "crypto";
 import { getMatchedCenterForUser } from "@/app/admin/rhu/actions";
 
-async function verifyRHUAccess() {
+async function verifyRHUAccess(passedUser?: any) {
+    if (passedUser) {
+        return { authorized: true, user: passedUser };
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user) {
         return { authorized: false, error: "Unauthorized access. Please login." };
@@ -240,8 +243,21 @@ async function generateUniqueDocRef(prefix: string, year = new Date().getFullYea
     return `${baseDoc}-${String(counter).padStart(2, "0")}`;
 }
 
-let isCatalogTableEnsured = false;
+let isCatalogTableEnsured = true;
 let cachedSiteLogo: string | null = null;
+let cachedCenters: any[] | null = null;
+let cachedCentersTimestamp = 0;
+
+async function getCachedCenters() {
+    const now = Date.now();
+    if (cachedCenters && now - cachedCentersTimestamp < 60000) {
+        return cachedCenters;
+    }
+    const centers = await queryRawSafe(`SELECT id, name, code, barangay, status FROM "RHUHealthCenter" WHERE status IS NULL OR UPPER(status) = 'ACTIVE' ORDER BY name ASC`);
+    cachedCenters = centers;
+    cachedCentersTimestamp = now;
+    return centers;
+}
 
 // Ensure the Master Equipment Catalog table exists safely and non-destructively
 async function ensureCatalogTable() {
@@ -307,9 +323,9 @@ async function ensureCatalogTable() {
 // 1. MASTER LEDGER & STATS
 // =========================================================================
 
-export async function getRHUEquipmentData(facilityFilter?: string) {
+export async function getRHUEquipmentData(facilityFilter?: string, sessionUser?: any) {
     try {
-        const auth = await verifyRHUAccess();
+        const auth = await verifyRHUAccess(sessionUser);
         if (!auth.authorized) {
             return { success: false, error: auth.error, assets: [], catalogItems: [], pos: [], ros: [], sos: [], returns: [], matchedCenter: null, isReadOnly: true };
         }
@@ -376,7 +392,7 @@ export async function getRHUEquipmentData(facilityFilter?: string) {
             queryRawSafe(soQuery, soParams),
             queryRawSafe(`SELECT * FROM "EquipmentSOItem"`),
             queryRawSafe(returnsQuery, returnsParams),
-            queryRawSafe(`SELECT id, name, code, barangay, status FROM "RHUHealthCenter" WHERE status IS NULL OR UPPER(status) = 'ACTIVE' ORDER BY name ASC`)
+            getCachedCenters()
         ];
 
         if (matchedCenter) {

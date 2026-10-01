@@ -13,6 +13,23 @@ export const metadata: Metadata = {
     description: "Official Rural Health Unit health advisories and public announcements.",
 };
 
+let cachedBarangays: string[] | null = null;
+let cachedBarangaysTimestamp = 0;
+
+async function getCachedBarangays(): Promise<string[]> {
+    const now = Date.now();
+    if (cachedBarangays && now - cachedBarangaysTimestamp < 300000) {
+        return cachedBarangays;
+    }
+    const barangays = await prisma.barangayInfo.findMany({
+        orderBy: { name: "asc" },
+        select: { name: true },
+    });
+    cachedBarangays = barangays.map((b) => b.name);
+    cachedBarangaysTimestamp = now;
+    return cachedBarangays;
+}
+
 export default async function RHUAnnouncementsPage({
     searchParams,
 }: {
@@ -88,10 +105,7 @@ export default async function RHUAnnouncementsPage({
             take: pageSize,
         }),
         announcementDelegate.count({ where }),
-        prisma.barangayInfo.findMany({
-            orderBy: { name: "asc" },
-            select: { name: true },
-        }),
+        getCachedBarangays(),
     ]);
 
     return (
@@ -104,7 +118,7 @@ export default async function RHUAnnouncementsPage({
             category={category}
             priority={priority}
             currentBarangay={isBarangayAdmin ? user.managedBarangay : barangayParam || undefined}
-            activeBarangays={activeBarangays.map((b) => b.name)}
+            activeBarangays={activeBarangays}
             hideCategory={true}
             currentUser={{
                 id: user?.id,

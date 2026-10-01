@@ -107,7 +107,7 @@ function getBatchModel() {
     return p.rHUInventoryBatch || p.rHUInventoryBatch || p.rhuInventoryBatch || p.RHUInventoryBatch || null;
 }
 
-let inventoryTablesInitialized = false;
+let inventoryTablesInitialized = true;
 
 export async function ensureInventoryTablesExist() {
     if (inventoryTablesInitialized) return;
@@ -717,13 +717,32 @@ export async function deleteRHUInventoryItem(id: string) {
     }
 }
 
-export async function dispenseRHUMedicines(dispensedItems: { itemId: string; quantity: number }[]) {
+export async function dispenseRHUMedicines(
+    dispensedItems: { itemId: string; quantity: number }[],
+    options?: {
+        patientName?: string;
+        referenceNo?: string;
+        remarks?: string;
+        facilityName?: string;
+        healthCenterId?: string | null;
+    }
+) {
     try {
         await checkPharmacyAuth();
         await ensureInventoryTablesExist();
+        await ensureInventoryMovementTableExist();
 
         for (const item of dispensedItems) {
             if (!item.itemId || item.quantity <= 0) continue;
+
+            // Fetch master item details for ledger record
+            let itemRecord: any = null;
+            try {
+                const itemRows: any[] = await prisma.$queryRaw`
+                    SELECT * FROM "RHUInventoryItem" WHERE id = ${item.itemId} LIMIT 1
+                `;
+                itemRecord = itemRows[0] || null;
+            } catch {}
 
             // Deduct from batches using FEFO (First Expired, First Out) for non-expired stock only
             let itemBatches: any[] = [];
@@ -745,6 +764,9 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
             }
 
             let remainingToDeduct = item.quantity;
+            let finalTotalQty = 0;
+            const deductedBatches: { batchNumber: string | null; quantity: number }[] = [];
+
             if (itemBatches && itemBatches.length > 0) {
                 for (const batch of itemBatches) {
                     if (remainingToDeduct <= 0) break;
@@ -756,6 +778,7 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
                             SET "quantity" = ${newBatchQty}, "updatedAt" = NOW() 
                             WHERE "id" = ${batch.id}
                         `;
+                        deductedBatches.push({ batchNumber: batch.batchNumber, quantity: deduct });
                     } catch {}
                     remainingToDeduct -= deduct;
                 }
@@ -765,10 +788,10 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
                     const sumResult: any[] = await prisma.$queryRaw`
                         SELECT COALESCE(SUM(quantity), 0) as total FROM "RHUInventoryBatch" WHERE "itemId" = ${item.itemId}
                     `;
-                    const newTotalQty = Number(sumResult[0]?.total || 0);
+                    finalTotalQty = Number(sumResult[0]?.total || 0);
                     await prisma.$executeRaw`
                         UPDATE "RHUInventoryItem" 
-                        SET "quantity" = ${newTotalQty}, "updatedAt" = NOW() 
+                        SET "quantity" = ${finalTotalQty}, "updatedAt" = NOW() 
                         WHERE "id" = ${item.itemId}
                     `;
                 } catch {}
@@ -780,11 +803,39 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
                         SET "quantity" = GREATEST(0, "quantity" - ${item.quantity}), "updatedAt" = NOW() 
                         WHERE "id" = ${item.itemId}
                     `;
+                    const updatedRows: any[] = await prisma.$queryRaw`
+                        SELECT "quantity" FROM "RHUInventoryItem" WHERE "id" = ${item.itemId} LIMIT 1
+                    `;
+                    finalTotalQty = Number(updatedRows[0]?.quantity || 0);
                 } catch {}
+            }
+
+            // Automatically record the Issuance in the Medicine Ledger
+            if (itemRecord) {
+                const batchNum = deductedBatches.length > 0
+                    ? deductedBatches.map(b => b.batchNumber).filter(Boolean).join(", ")
+                    : itemRecord.batchNumber;
+                const remarks = options?.remarks || (options?.patientName ? `Prescription Dispensed to ${options.patientName}` : "Prescription Dispense");
+
+                await recordRHUInventoryMovement({
+                    transactionType: "Issuance",
+                    medicineName: itemRecord.name,
+                    genericName: itemRecord.genericName,
+                    category: itemRecord.genericName || (itemRecord.category === "MEDICINE" ? "Pharmaceutical" : "Medical Supply"),
+                    quantity: -item.quantity,
+                    unit: itemRecord.unit || "pcs",
+                    batchNumber: batchNum || null,
+                    balanceAfter: finalTotalQty,
+                    personRemarks: remarks,
+                    facilityName: options?.facilityName || "RHU Mapandan",
+                    healthCenterId: options?.healthCenterId || itemRecord.healthCenterId || null,
+                    referenceNo: options?.referenceNo || `DISP-${Date.now().toString().slice(-6)}`
+                });
             }
         }
 
         revalidatePath("/admin/rhu/inventory");
+        revalidatePath("/admin/rhu/inventory/ledger");
         revalidatePath("/admin/rhu/consultations");
         revalidatePath("/admin/rhu");
         return { success: true };
@@ -812,7 +863,7 @@ export interface RHUInventoryMovementData {
     createdAt?: Date | string;
 }
 
-let movementTableInitialized = false;
+let movementTableInitialized = true;
 
 export async function ensureInventoryMovementTableExist() {
     if (movementTableInitialized) return;
@@ -900,107 +951,141 @@ export async function getRHUInventoryMovements(params?: {
         }
         await ensureInventoryMovementTableExist();
 
-        // Check if movement table has rows; if empty, seed initial movements from batches
-        const countRes: any[] = await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "RHUInventoryMovement"`;
-        const count = Number(countRes[0]?.count || 0);
+        // Query movements directly using indexed SQL
+        let rows: any[] = [];
+        if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+            rows = await prisma.$queryRaw`
+                SELECT * FROM "RHUInventoryMovement"
+                WHERE "healthCenterId" = ${params.healthCenterId}
+                ORDER BY "timestamp" DESC, "createdAt" DESC
+            `;
+        } else {
+            rows = await prisma.$queryRaw`
+                SELECT * FROM "RHUInventoryMovement"
+                ORDER BY "timestamp" DESC, "createdAt" DESC
+            `;
+        }
 
-        if (count === 0) {
-            // Seed sample initial transactions from existing catalog and batches
-            const itemsRes = await getRHUInventoryItems();
-            const items = itemsRes.success && itemsRes.data ? itemsRes.data : [];
+        // If table is completely empty, lazily seed initial movements
+        if (rows.length === 0 && (!params?.healthCenterId || params.healthCenterId === "ALL")) {
+            const countRes: any[] = await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "RHUInventoryMovement"`;
+            const count = Number(countRes[0]?.count || 0);
 
-            const sampleMovements: any[] = [];
-            const now = new Date();
+            if (count === 0) {
+                const itemsRes = await getRHUInventoryItems();
+                const items = itemsRes.success && itemsRes.data ? itemsRes.data : [];
+                const sampleMovements: any[] = [];
+                const now = new Date();
 
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                const itemBatches = item.batches || [];
-                const cat = item.genericName || (item.category === "MEDICINE" ? "Antibiotic" : "Consumable");
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const itemBatches = item.batches || [];
+                    const cat = item.genericName || (item.category === "MEDICINE" ? "Antibiotic" : "Consumable");
 
-                // Log a Stock In movement for each batch
-                if (itemBatches.length > 0) {
-                    for (const b of itemBatches) {
+                    if (itemBatches.length > 0) {
+                        for (const b of itemBatches) {
+                            const initQty = b.initialQuantity || b.quantity || 100;
+                            const inTimestamp = b.receivedDate ? new Date(b.receivedDate) : new Date(now.getTime() - (i + 1) * 86400000 * 2);
+                            sampleMovements.push({
+                                id: `mov_init_in_${b.id}`,
+                                timestamp: inTimestamp,
+                                transactionType: "Stock In",
+                                medicineName: item.name,
+                                genericName: item.genericName,
+                                category: cat,
+                                quantity: initQty,
+                                unit: item.unit || "pcs",
+                                batchNumber: b.batchNumber,
+                                balanceAfter: initQty,
+                                personRemarks: `Municipal Purchase Order #2026-${String(i + 10).padStart(3, "0")}`,
+                                healthCenterId: b.healthCenterId || item.healthCenterId,
+                                facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
+                                referenceNo: `PO-2026-${String(i + 10).padStart(3, "0")}`
+                            });
+
+                            if (typeof b.quantity === "number" && b.quantity < initQty) {
+                                const issuedQty = initQty - b.quantity;
+                                const issTimestamp = new Date(inTimestamp.getTime() + 38 * 60000);
+                                sampleMovements.push({
+                                    id: `mov_init_iss_${b.id}`,
+                                    timestamp: issTimestamp,
+                                    transactionType: "Issuance",
+                                    medicineName: item.name,
+                                    genericName: item.genericName,
+                                    category: cat,
+                                    quantity: -issuedQty,
+                                    unit: item.unit || "pcs",
+                                    batchNumber: b.batchNumber,
+                                    balanceAfter: b.quantity,
+                                    personRemarks: `Prescription Dispense - RHU Central Clinic`,
+                                    healthCenterId: b.healthCenterId || item.healthCenterId,
+                                    facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
+                                    referenceNo: `RX-2026-${String(i + 10).padStart(3, "0")}`
+                                });
+                            }
+                        }
+                    } else if (item.quantity > 0) {
                         sampleMovements.push({
-                            id: `mov_init_in_${b.id}`,
-                            timestamp: b.receivedDate ? new Date(b.receivedDate) : new Date(now.getTime() - (i + 1) * 86400000 * 2),
+                            id: `mov_init_cat_${item.id}`,
+                            timestamp: new Date(now.getTime() - (i + 1) * 86400000 * 3),
                             transactionType: "Stock In",
                             medicineName: item.name,
                             genericName: item.genericName,
                             category: cat,
-                            quantity: b.initialQuantity || b.quantity || 100,
+                            quantity: item.quantity,
                             unit: item.unit || "pcs",
-                            batchNumber: b.batchNumber,
-                            balanceAfter: b.quantity || 100,
-                            personRemarks: `Municipal Purchase Order #2026-${String(i + 10).padStart(3, "0")}`,
-                            healthCenterId: b.healthCenterId || item.healthCenterId,
-                            facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
-                            referenceNo: `PO-2026-${String(i + 10).padStart(3, "0")}`
+                            batchNumber: item.batchNumber || `BAT-2026-${100 + i}`,
+                            balanceAfter: item.quantity,
+                            personRemarks: `Initial Warehouse Stock Intake`,
+                            healthCenterId: item.healthCenterId,
+                            facilityName: item.healthCenterName || "RHU Mapandan",
+                            referenceNo: `INIT-${100 + i}`
                         });
                     }
-                } else if (item.quantity > 0) {
-                    sampleMovements.push({
-                        id: `mov_init_cat_${item.id}`,
-                        timestamp: new Date(now.getTime() - (i + 1) * 86400000 * 3),
-                        transactionType: "Stock In",
-                        medicineName: item.name,
-                        genericName: item.genericName,
-                        category: cat,
-                        quantity: item.quantity,
-                        unit: item.unit || "pcs",
-                        batchNumber: item.batchNumber || `BAT-2026-${100 + i}`,
-                        balanceAfter: item.quantity,
-                        personRemarks: `Initial Warehouse Stock Intake`,
-                        healthCenterId: item.healthCenterId,
-                        facilityName: item.healthCenterName || "RHU Mapandan",
-                        referenceNo: `INIT-${100 + i}`
-                    });
+
+                    if (item.quantity > 10) {
+                        sampleMovements.push({
+                            id: `mov_init_iss_${item.id}`,
+                            timestamp: new Date(now.getTime() - (i + 1) * 86400000),
+                            transactionType: "Issuance",
+                            medicineName: item.name,
+                            genericName: item.genericName,
+                            category: cat,
+                            quantity: -Math.min(20, Math.floor(item.quantity * 0.2)),
+                            unit: item.unit || "pcs",
+                            batchNumber: item.batchNumber || null,
+                            balanceAfter: item.quantity,
+                            personRemarks: `Prescription Dispense - RHU Central Clinic`,
+                            healthCenterId: item.healthCenterId,
+                            facilityName: item.healthCenterName || "RHU Mapandan",
+                            referenceNo: `RX-2026-${200 + i}`
+                        });
+                    }
                 }
 
-                // Add sample issuance if item has quantity
-                if (item.quantity > 10) {
-                    sampleMovements.push({
-                        id: `mov_init_iss_${item.id}`,
-                        timestamp: new Date(now.getTime() - (i + 1) * 86400000),
-                        transactionType: "Issuance",
-                        medicineName: item.name,
-                        genericName: item.genericName,
-                        category: cat,
-                        quantity: -Math.min(20, Math.floor(item.quantity * 0.2)),
-                        unit: item.unit || "pcs",
-                        batchNumber: item.batchNumber || null,
-                        balanceAfter: item.quantity,
-                        personRemarks: `Prescription Dispense - RHU Central Clinic`,
-                        healthCenterId: item.healthCenterId,
-                        facilityName: item.healthCenterName || "RHU Mapandan",
-                        referenceNo: `RX-2026-${200 + i}`
-                    });
+                for (const m of sampleMovements) {
+                    try {
+                        await prisma.$executeRaw`
+                            INSERT INTO "RHUInventoryMovement" (
+                                "id", "timestamp", "transactionType", "medicineName", "genericName", "category",
+                                "quantity", "unit", "batchNumber", "balanceAfter", "personRemarks", "healthCenterId",
+                                "facilityName", "referenceNo", "createdAt"
+                            ) VALUES (
+                                ${m.id}, ${m.timestamp}, ${m.transactionType}, ${m.medicineName}, ${m.genericName || null},
+                                ${m.category || null}, ${m.quantity}, ${m.unit}, ${m.batchNumber || null},
+                                ${m.balanceAfter || 0}, ${m.personRemarks || null}, ${m.healthCenterId || null},
+                                ${m.facilityName || null}, ${m.referenceNo || null}, NOW()
+                            ) ON CONFLICT ("id") DO NOTHING;
+                        `;
+                    } catch {}
                 }
-            }
 
-            // Insert seeded records
-            for (const m of sampleMovements) {
-                try {
-                    await prisma.$executeRaw`
-                        INSERT INTO "RHUInventoryMovement" (
-                            "id", "timestamp", "transactionType", "medicineName", "genericName", "category",
-                            "quantity", "unit", "batchNumber", "balanceAfter", "personRemarks", "healthCenterId",
-                            "facilityName", "referenceNo", "createdAt"
-                        ) VALUES (
-                            ${m.id}, ${m.timestamp}, ${m.transactionType}, ${m.medicineName}, ${m.genericName || null},
-                            ${m.category || null}, ${m.quantity}, ${m.unit}, ${m.batchNumber || null},
-                            ${m.balanceAfter || 0}, ${m.personRemarks || null}, ${m.healthCenterId || null},
-                            ${m.facilityName || null}, ${m.referenceNo || null}, NOW()
-                        ) ON CONFLICT ("id") DO NOTHING;
-                    `;
-                } catch {}
+                rows = await prisma.$queryRaw`
+                    SELECT * FROM "RHUInventoryMovement"
+                    ORDER BY "timestamp" DESC, "createdAt" DESC
+                `;
             }
         }
-
-        // Query movements with filters
-        let rows: any[] = await prisma.$queryRaw`
-            SELECT * FROM "RHUInventoryMovement"
-            ORDER BY "timestamp" DESC, "createdAt" DESC
-        `;
 
         if (params?.search && params.search.trim()) {
             const q = params.search.trim().toLowerCase();
