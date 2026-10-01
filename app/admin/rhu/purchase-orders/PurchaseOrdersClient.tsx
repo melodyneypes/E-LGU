@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Table,
     TableBody,
@@ -89,7 +89,11 @@ function getPOOrdersDisplay(tx: any): string {
         .join("\n");
 }
 
-export default function PurchaseOrdersClient() {
+interface PurchaseOrdersClientProps {
+    initialData?: any;
+}
+
+export default function PurchaseOrdersClient({ initialData }: PurchaseOrdersClientProps = {}) {
     let themeColor = "var(--primary-theme, #2563eb)";
     try {
         const sys = useSystemTheme();
@@ -99,16 +103,18 @@ export default function PurchaseOrdersClient() {
     }
 
     const router = useRouter();
-    const [transactions, setTransactions] = useState<any[]>([]);
-    const [allTransactions, setAllTransactions] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [transactions, setTransactions] = useState<any[]>(initialData?.data || []);
+    const [allTransactions, setAllTransactions] = useState<any[]>(initialData?.allData || initialData?.data || []);
+    const [loading, setLoading] = useState(initialData?.data ? false : true);
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [centerName, setCenterName] = useState<string | null>(null);
-    const [staffName, setStaffName] = useState<string | null>(null);
+    const [totalPages, setTotalPages] = useState(initialData?.pagination?.totalPages || 1);
+    const [centerName, setCenterName] = useState<string | null>(initialData?.centerName || null);
+    const [staffName, setStaffName] = useState<string | null>(initialData?.staffName || null);
+
+    const isFirstMount = useRef(true);
 
     const [exportPreviewType, setExportPreviewType] = useState<"pdf" | "excel" | null>(null);
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -146,8 +152,14 @@ export default function PurchaseOrdersClient() {
     }, [statusFilter, page, search]);
 
     useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            if (initialData?.data) {
+                return;
+            }
+        }
         loadData();
-    }, [loadData]);
+    }, [loadData, initialData]);
 
     const getPOStatusInfo = useCallback((tx: any) => {
         const addData = getAdditionalData(tx);

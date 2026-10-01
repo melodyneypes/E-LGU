@@ -13,7 +13,9 @@ import {
     AlertCircle,
     X,
     Layers,
-    Lock
+    Lock,
+    ChevronRight,
+    ChevronLeft
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,7 @@ export default function BedMonitoringClient({
 }: BedMonitoringClientProps) {
     const [beds, setBeds] = useState<RHUBedData[]>(initialBeds);
     const [selectedCenterId, setSelectedCenterId] = useState<string>(matchedCenter ? matchedCenter.id : "ALL");
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Filters
     const [departmentFilter, setDepartmentFilter] = useState("ALL");
@@ -900,150 +903,203 @@ export default function BedMonitoringClient({
                     </div>
                 </div>
 
-                {/* Right Column: Bed Summary, Availability by Dept, Notice Card */}
-                <div className="w-full xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4">
-                    {/* Bed Summary Card */}
-                    <Card className="rounded-3xl border-slate-200 dark:border-[#162340] bg-white dark:bg-[#091122] shadow-sm dark:shadow-xl p-5 sm:p-6">
-                        <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-[#162340]">
-                            <Bed className="w-5 h-5 text-slate-500" />
-                            <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                                Bed Summary ({selectedCenterId === "RHU"
-                                    ? "RHU Main"
-                                    : (selectedCenterId !== "ALL"
-                                        ? (initialCenters.find((c) => c.id === selectedCenterId)?.name || "Health Center")
-                                        : "All Facilities")})
-                            </h3>
-                        </div>
+                {/* Right Column: Bed Summary, Availability by Dept, Notice Card OR Collapsed Mini Dock */}
+                {isSidebarCollapsed ? (
+                    /* Collapsed Mini-Dock */
+                    <div className="w-14 shrink-0 flex flex-col items-center gap-3 p-2 rounded-2xl bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-sm dark:shadow-xl xl:sticky xl:top-4 transition-all duration-300">
+                        {/* Expand Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shadow-sm"
+                            title="Expand Bed Summary Panel"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
 
-                        {/* Donut Chart and Legend */}
-                        <div className="py-6 flex flex-col items-center justify-center">
-                            <div className="relative w-40 h-40 flex items-center justify-center">
-                                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
-                                    {/* Background Track */}
-                                    <circle
-                                        cx="50"
-                                        cy="50"
-                                        r="45"
-                                        fill="transparent"
-                                        stroke="currentColor"
-                                        strokeWidth="9"
-                                        className="text-slate-100 dark:text-slate-800"
-                                    />
-                                    {/* Occupied Stroke (#ff0055) */}
-                                    {stats.total > 0 && strokeDashOccupied > 0 && (
-                                        <circle
-                                            cx="50"
-                                            cy="50"
-                                            r="45"
-                                            fill="transparent"
-                                            stroke="#ff0055"
-                                            strokeWidth="9"
-                                            strokeDasharray={`${strokeDashOccupied} ${circumference}`}
-                                            strokeDashoffset="0"
-                                            strokeLinecap="round"
-                                            className="transition-all duration-700 ease-out"
-                                        />
-                                    )}
-                                    {/* Available Stroke (#00d084) */}
-                                    {stats.total > 0 && strokeDashAvailable > 0 && (
-                                        <circle
-                                            cx="50"
-                                            cy="50"
-                                            r="45"
-                                            fill="transparent"
-                                            stroke="#00d084"
-                                            strokeWidth="9"
-                                            strokeDasharray={`${strokeDashAvailable} ${circumference}`}
-                                            strokeDashoffset={strokeDashOffsetAvailable}
-                                            strokeLinecap="round"
-                                            className="transition-all duration-700 ease-out"
-                                        />
-                                    )}
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                    <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                        {stats.total}
-                                    </span>
-                                    <span className="text-[11px] font-bold text-slate-400">Total Beds</span>
-                                </div>
-                            </div>
+                        {/* Bed Summary Icon Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="relative w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/25 flex flex-col items-center justify-center text-blue-600 dark:text-blue-400 hover:scale-105 transition-transform cursor-pointer shadow-sm"
+                            title={`${stats.total} Total Beds (${stats.available} Available, ${stats.occupied} Occupied)`}
+                        >
+                            <Bed className="w-4 h-4" />
+                            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#00d084] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                                {stats.available}
+                            </span>
+                        </button>
 
-                            {/* Legend Breakdown */}
-                            <div className="w-full space-y-2.5 mt-5 text-xs font-semibold">
-                                <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-[#ff0055]" />
-                                        <span className="text-slate-600 dark:text-slate-300">Occupied</span>
-                                    </div>
-                                    <span className="font-bold text-slate-900 dark:text-white">{stats.occupied}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-[#00d084]" />
-                                        <span className="text-slate-600 dark:text-slate-300">Available</span>
-                                    </div>
-                                    <span className="font-bold text-slate-900 dark:text-white">{stats.available}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                                        <span className="text-slate-600 dark:text-slate-300">Out of Service</span>
-                                    </div>
-                                    <span className="font-bold text-slate-900 dark:text-white">{stats.outOfService}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-
-                    {/* Bed Availability by Department */}
-                    <Card className="rounded-3xl border-slate-200 dark:border-[#162340] bg-white dark:bg-[#091122] shadow-sm dark:shadow-xl p-5 sm:p-6">
-                        <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-[#162340]">
-                            <Layers className="w-5 h-5 text-slate-500" />
-                            <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                                Bed Availability by Department
-                            </h3>
-                        </div>
-
-                        <div className="space-y-4 mt-5">
-                            {Object.entries(stats.departments).map(([deptName, d]) => {
-                                const pct = d.total > 0 ? Math.round((d.occupied / d.total) * 100) : 0;
-                                return (
-                                    <div key={deptName} className="space-y-1.5">
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="font-semibold text-slate-700 dark:text-slate-300">{deptName}</span>
-                                            <span className="font-mono text-slate-400 font-bold">
-                                                {d.occupied} / {d.total}
-                                            </span>
-                                        </div>
-                                        <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-[#162340] overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full bg-[#ff0055] transition-all duration-500"
-                                                style={{ width: `${pct}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Card>
-
-                    {/* Estimated Only Notice */}
-                    <Card className="rounded-2xl border-rose-500/25 bg-gradient-to-br from-rose-950/20 via-transparent to-transparent p-4 sm:p-5 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <div className="w-7 h-7 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0 mt-0.5">
-                                <AlertCircle className="w-4 h-4" />
-                            </div>
-                            <div className="space-y-1">
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                                    ESTIMATED ONLY
+                        {stats.occupied > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsSidebarCollapsed(false)}
+                                className="relative w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col items-center justify-center text-[#ff0055] hover:scale-105 transition-transform cursor-pointer shadow-sm"
+                                title={`${stats.occupied} Occupied Beds`}
+                            >
+                                <Layers className="w-4 h-4" />
+                                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ff0055] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                                    {stats.occupied}
                                 </span>
-                                <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                                    Bed availability may change in real-time as patients are admitted or discharged.
-                                </p>
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    /* Expanded Right Sidebar */
+                    <div className="w-full xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4 transition-all duration-300">
+                        {/* Bed Summary Card */}
+                        <Card className="rounded-3xl border-slate-200 dark:border-[#162340] bg-white dark:bg-[#091122] shadow-sm dark:shadow-xl p-5 sm:p-6">
+                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#162340]">
+                                <div className="flex items-center gap-2.5">
+                                    <Bed className="w-5 h-5 text-slate-500" />
+                                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                                        Bed Summary ({selectedCenterId === "RHU"
+                                            ? "RHU Main"
+                                            : (selectedCenterId !== "ALL"
+                                                ? (initialCenters.find((c) => c.id === selectedCenterId)?.name || "Health Center")
+                                                : "All Facilities")})
+                                    </h3>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSidebarCollapsed(true)}
+                                    className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
+                                    title="Collapse side panel"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
                             </div>
-                        </div>
-                    </Card>
-                </div>
+
+                            {/* Donut Chart and Legend */}
+                            <div className="py-6 flex flex-col items-center justify-center">
+                                <div className="relative w-40 h-40 flex items-center justify-center">
+                                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
+                                        {/* Background Track */}
+                                        <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="45"
+                                            fill="transparent"
+                                            stroke="currentColor"
+                                            strokeWidth="9"
+                                            className="text-slate-100 dark:text-slate-800"
+                                        />
+                                        {/* Occupied Stroke (#ff0055) */}
+                                        {stats.total > 0 && strokeDashOccupied > 0 && (
+                                            <circle
+                                                cx="50"
+                                                cy="50"
+                                                r="45"
+                                                fill="transparent"
+                                                stroke="#ff0055"
+                                                strokeWidth="9"
+                                                strokeDasharray={`${strokeDashOccupied} ${circumference}`}
+                                                strokeDashoffset="0"
+                                                strokeLinecap="round"
+                                                className="transition-all duration-700 ease-out"
+                                            />
+                                        )}
+                                        {/* Available Stroke (#00d084) */}
+                                        {stats.total > 0 && strokeDashAvailable > 0 && (
+                                            <circle
+                                                cx="50"
+                                                cy="50"
+                                                r="45"
+                                                fill="transparent"
+                                                stroke="#00d084"
+                                                strokeWidth="9"
+                                                strokeDasharray={`${strokeDashAvailable} ${circumference}`}
+                                                strokeDashoffset={strokeDashOffsetAvailable}
+                                                strokeLinecap="round"
+                                                className="transition-all duration-700 ease-out"
+                                            />
+                                        )}
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                                            {stats.total}
+                                        </span>
+                                        <span className="text-[11px] font-bold text-slate-400">Total Beds</span>
+                                    </div>
+                                </div>
+
+                                {/* Legend Breakdown */}
+                                <div className="w-full space-y-2.5 mt-5 text-xs font-semibold">
+                                    <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#ff0055]" />
+                                            <span className="text-slate-600 dark:text-slate-300">Occupied</span>
+                                        </div>
+                                        <span className="font-bold text-slate-900 dark:text-white">{stats.occupied}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#00d084]" />
+                                            <span className="text-slate-600 dark:text-slate-300">Available</span>
+                                        </div>
+                                        <span className="font-bold text-slate-900 dark:text-white">{stats.available}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                                            <span className="text-slate-600 dark:text-slate-300">Out of Service</span>
+                                        </div>
+                                        <span className="font-bold text-slate-900 dark:text-white">{stats.outOfService}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Bed Availability by Department */}
+                        <Card className="rounded-3xl border-slate-200 dark:border-[#162340] bg-white dark:bg-[#091122] shadow-sm dark:shadow-xl p-5 sm:p-6">
+                            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-[#162340]">
+                                <Layers className="w-5 h-5 text-slate-500" />
+                                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                                    Bed Availability by Department
+                                </h3>
+                            </div>
+
+                            <div className="space-y-4 mt-5">
+                                {Object.entries(stats.departments).map(([deptName, d]) => {
+                                    const pct = d.total > 0 ? Math.round((d.occupied / d.total) * 100) : 0;
+                                    return (
+                                        <div key={deptName} className="space-y-1.5">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{deptName}</span>
+                                                <span className="font-mono text-slate-400 font-bold">
+                                                    {d.occupied} / {d.total}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-[#162340] overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full bg-[#ff0055] transition-all duration-500"
+                                                    style={{ width: `${pct}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+
+                        {/* Estimated Only Notice */}
+                        <Card className="rounded-2xl border-rose-500/25 bg-gradient-to-br from-rose-950/20 via-transparent to-transparent p-4 sm:p-5 shadow-sm">
+                            <div className="flex items-start gap-3">
+                                <div className="w-7 h-7 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0 mt-0.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                        ESTIMATED ONLY
+                                    </span>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                                        Bed availability may change in real-time as patients are admitted or discharged.
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
             </div>
 
             {/* Bed Details Modal */}

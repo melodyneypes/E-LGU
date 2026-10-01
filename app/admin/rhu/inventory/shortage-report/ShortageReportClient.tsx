@@ -12,6 +12,8 @@ import {
     X,
     RotateCcw,
     ChevronDown,
+    ChevronLeft,
+    AlertTriangle,
     CalendarDays,
     Clock
 } from "lucide-react";
@@ -79,6 +81,7 @@ export default function ShortageReportClient({
     const [selectedItemDetail, setSelectedItemDetail] = useState<any | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Filter shortage items: quantity <= reorderLevel or out of stock
     const shortageItems = useMemo(() => {
@@ -1001,18 +1004,61 @@ export default function ShortageReportClient({
                 </div>
 
                 {/* Right Sidebar: Stock Overview, Critical Shortages, Reminder */}
-                <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4">
-                    <RHUInventorySidebar
-                        items={items}
-                        activeStockFilter={statusFilter === "ALL" ? "" : statusFilter}
-                        onFilterChange={(filter) => {
-                            if (filter === "ALL") setStatusFilter("ALL");
-                            else if (filter === "OUT_OF_STOCK") setStatusFilter("Out of Stock");
-                            else if (filter === "LOW_STOCK") setStatusFilter("Low Stock");
-                        }}
-                        healthCenterName={matchedCenter?.name || "RHU Mapandan"}
-                    />
-                </div>
+                {isSidebarCollapsed ? (
+                    <div className="hidden xl:flex flex-col items-center gap-3 w-14 shrink-0 xl:sticky xl:top-4 p-2 rounded-2xl bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-xl text-slate-900 dark:text-white transition-all duration-300 animate-in fade-in slide-in-from-right-2">
+                        {/* Expand Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-all cursor-pointer shadow-sm"
+                            title="Expand Summary Sidebar"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-6 h-px bg-slate-200 dark:bg-[#162340] my-0.5" />
+
+                        {/* Quick Stock Count Indicator */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex flex-col items-center justify-center text-blue-600 dark:text-slate-100 hover:scale-105 transition-transform cursor-pointer shadow-inner"
+                            title={`Total Medicines: ${items.filter(i => i.category === 'MEDICINE').length}`}
+                        >
+                            <Pill className="w-4 h-4 -rotate-45" />
+                            <span className="text-[9px] font-black leading-none mt-0.5">{items.filter(i => i.category === 'MEDICINE').length}</span>
+                        </button>
+
+                        {/* Critical Shortages Warning Indicator */}
+                        {shortageItems.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsSidebarCollapsed(false)}
+                                className="relative w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col items-center justify-center text-[#ff0055] hover:scale-105 transition-transform cursor-pointer shadow-sm"
+                                title={`${shortageItems.length} Shortage / Critical Items`}
+                            >
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ff0055] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                                    {shortageItems.length}
+                                </span>
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="w-full xl:w-[340px] 2xl:w-[350px] shrink-0 space-y-4 xl:sticky xl:top-4 transition-all duration-300 animate-in fade-in slide-in-from-right-2">
+                        <RHUInventorySidebar
+                            items={items}
+                            activeStockFilter={statusFilter === "ALL" ? "" : statusFilter}
+                            onFilterChange={(filter) => {
+                                if (filter === "ALL") setStatusFilter("ALL");
+                                else if (filter === "OUT_OF_STOCK") setStatusFilter("Out of Stock");
+                                else if (filter === "LOW_STOCK") setStatusFilter("Low Stock");
+                            }}
+                            healthCenterName={matchedCenter?.name || "RHU Mapandan"}
+                            onCollapse={() => setIsSidebarCollapsed(true)}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Item Batch Details Modal */}

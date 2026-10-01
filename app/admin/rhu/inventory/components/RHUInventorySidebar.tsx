@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Pill, AlertTriangle, Bell, CheckCircle2 } from "lucide-react";
+import { Pill, AlertTriangle, Bell, CheckCircle2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface RHUInventorySidebarItem {
@@ -27,6 +27,7 @@ interface RHUInventorySidebarProps {
     onFilterChange: (filter: string) => void;
     onItemSelect?: (item: RHUInventorySidebarItem) => void;
     healthCenterName?: string | null;
+    onCollapse?: () => void;
 }
 
 export function RHUInventorySidebar({
@@ -34,7 +35,8 @@ export function RHUInventorySidebar({
     activeStockFilter,
     onFilterChange,
     onItemSelect,
-    healthCenterName
+    healthCenterName,
+    onCollapse
 }: RHUInventorySidebarProps) {
     const [showAllCritical, setShowAllCritical] = useState(false);
 
@@ -89,13 +91,26 @@ export function RHUInventorySidebar({
             {/* Card 1: Stock Overview */}
             <div className="rounded-2xl p-5 bg-white dark:bg-[#091122] border border-slate-200 dark:border-[#162340] shadow-sm dark:shadow-xl transition-colors">
                 {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-slate-100 shadow-inner">
-                        <Pill className="w-5 h-5 -rotate-45" />
+                <div className="flex items-center justify-between gap-3 mb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#0f1b34] border border-blue-200 dark:border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-slate-100 shadow-inner">
+                            <Pill className="w-5 h-5 -rotate-45" />
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                            Stock Overview
+                        </h3>
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                        Stock Overview
-                    </h3>
+
+                    {onCollapse && (
+                        <button
+                            type="button"
+                            onClick={onCollapse}
+                            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#0d1629] hover:bg-slate-200 dark:hover:bg-[#162340] border border-slate-200 dark:border-[#1c2c4d] flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
+                            title="Collapse side panel"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Donut Chart & Legend */}

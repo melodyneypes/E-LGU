@@ -899,7 +899,13 @@ export default function RHUTransactionDetailClient({ transaction, currentUser }:
                 .map(i => ({ itemId: i.id, quantity: Number(i.qtyToDispense) }));
 
             if (itemsToDeduct.length > 0) {
-                const dispRes = await dispenseRHUMedicines(itemsToDeduct);
+                const dispRes = await dispenseRHUMedicines(itemsToDeduct, {
+                    patientName: patientName !== "N/A" ? patientName : undefined,
+                    referenceNo: transaction.controlNumber || `RX-${transaction.id.slice(0, 8).toUpperCase()}`,
+                    remarks: `Prescription Dispense • Patient: ${patientName} • Dispensed by: ${currentUser?.name || "RHU Pharmacy"}`,
+                    healthCenterId: transaction.healthCenterId || null,
+                    facilityName: addData.healthCenterName || "RHU Mapandan"
+                });
                 if (!dispRes.success) {
                     toast.error(dispRes.error || "Failed to deduct inventory stock.");
                 }

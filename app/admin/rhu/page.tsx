@@ -30,8 +30,8 @@ export default async function RHUAdminPage() {
     }
 
     const [statsRes, recentRes] = await Promise.all([
-        getRHUDashboardStats(),
-        getRHUAdminTransactions({ page: 1, limit: 5 })
+        getRHUDashboardStats(session.user),
+        getRHUAdminTransactions({ page: 1, limit: 5, sessionUser: session.user })
     ]);
 
     const initialStats = statsRes.success && statsRes.stats ? statsRes.stats : { total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
