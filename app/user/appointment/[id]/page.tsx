@@ -86,7 +86,27 @@ export default function AppointmentDetailsPage() {
         try {
             const res = await getAppointmentDetailsAction(id);
             if (res.success && res.data) {
-                setRequest(res.data);
+                const txData = res.data;
+                const typeCode = txData.type?.code || "";
+                const category = (txData.type?.category || "").toLowerCase();
+                const typeName = (txData.type?.name || "").toLowerCase();
+
+                const isEngineering = 
+                    isEngineeringPermitCode(typeCode) ||
+                    typeCode.startsWith("FENCING_PERMIT") ||
+                    typeCode.startsWith("OCCUPANCY_PERMIT") ||
+                    typeCode.startsWith("BUILDING_PERMIT") ||
+                    category.includes("engineering") ||
+                    typeName.includes("fencing permit") ||
+                    typeName.includes("occupancy permit") ||
+                    typeName.includes("building permit");
+
+                if (isEngineering) {
+                    router.replace(`/user/services/requests/${id}`);
+                    return;
+                }
+
+                setRequest(txData);
                 if (res.themeColor) {
                     setThemeColor(res.themeColor);
                 }
@@ -297,8 +317,7 @@ export default function AppointmentDetailsPage() {
     }
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
-    const isFencingPermit = request.type?.code?.startsWith("FENCING_PERMIT");
-    const isBuildingPermit = isEngineeringPermitCode(request.type?.code) && !isFencingPermit;
+    const isBuildingPermit = isEngineeringPermitCode(request.type?.code);
     const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
     const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
     const isRpt = request.type?.category === "RPT" || request.type?.code?.startsWith("RPT_");
@@ -348,28 +367,20 @@ export default function AppointmentDetailsPage() {
                     <div className="md:col-span-1 space-y-6">
                         <Card className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 dark:from-[#0d1017] dark:to-[#05070a] border border-slate-800 rounded-3xl p-6 shadow-2xl text-white">
 
-                            {/* Watermark Logo (Hidden for Fencing Permit) */}
-                            {!isFencingPermit && (
-                                <div className="absolute right-[-20%] bottom-[-10%] opacity-[0.03] select-none pointer-events-none transform rotate-12">
-                                    <QrCode className="w-64 h-64" />
-                                </div>
-                            )}
+                            {/* Watermark Logo */}
+                            <div className="absolute right-[-20%] bottom-[-10%] opacity-[0.03] select-none pointer-events-none transform rotate-12">
+                                <QrCode className="w-64 h-64" />
+                            </div>
 
                             {/* Ticket Header */}
                             <div className="text-center space-y-2 pb-6 border-b border-dashed border-slate-800">
-                                {!isFencingPermit ? (
-                                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
-                                        <QrCode className="w-5 h-5 text-white" />
-                                    </div>
-                                ) : (
-                                    <div className="w-10 h-10 bg-primary/20 border border-primary/30 rounded-2xl flex items-center justify-center mx-auto text-primary">
-                                        <FileText className="w-5 h-5 text-white" />
-                                    </div>
-                                )}
+                                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto">
+                                    <QrCode className="w-5 h-5 text-white" />
+                                </div>
                                 <div className="space-y-0.5">
                                     <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Mapandan Municipal Hall</p>
                                     <h4 className="text-[10px] font-black tracking-widest text-slate-300 uppercase leading-none">
-                                        {isFencingPermit ? "ENGINEERING OFFICE" : "MUNICIPALITY PORTAL"}
+                                        MUNICIPALITY PORTAL
                                     </h4>
                                 </div>
                             </div>
@@ -378,10 +389,10 @@ export default function AppointmentDetailsPage() {
                             <div className="py-6 text-center space-y-6">
                                 <div className="space-y-1">
                                     <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">
-                                        {isFencingPermit ? "Tracking Reference No." : "Your Queue Number"}
+                                        Your Queue Number
                                     </p>
                                     <h2 className="text-xl md:text-2xl font-black font-mono tracking-tight text-white select-all">
-                                        {request.queueNumber || (isFencingPermit ? `FP-${request.id.slice(-6).toUpperCase()}` : "AWAITING")}
+                                        {request.queueNumber || "AWAITING"}
                                     </h2>
                                 </div>
                             </div>
@@ -484,12 +495,10 @@ export default function AppointmentDetailsPage() {
                                 </div>
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none text-blue-400">
-                                        {isFencingPermit ? "Engineering Field Inspection Scheduled" : "Field Inspection Scheduled"}
+                                        Field Inspection Scheduled
                                     </h4>
                                     <p className="text-xs leading-relaxed font-medium text-slate-200">
-                                        {isFencingPermit
-                                            ? `The Municipal Engineering Office has queued your fencing application for an ocular field inspection. Site verification will be conducted for your property on `
-                                            : `The Municipal Assessor Office has scheduled an ocular field inspection for your property on `}
+                                        The Municipal Assessor Office has scheduled an ocular field inspection for your property on{" "}
                                         <span className="font-bold text-white font-mono">{additionalData.inspectionDate ? formatPHDate(additionalData.inspectionDate) : "TBD"}</span>
                                         {additionalData.inspectionTime ? ` at ${additionalData.inspectionTime}` : ""}. Please ensure an authorized representative is present during the visit.
                                     </p>
@@ -545,7 +554,7 @@ export default function AppointmentDetailsPage() {
                                         <div className="flex items-center gap-3">
                                             <FileText className="w-5 h-5 text-primary" />
                                             <h3 className="text-sm font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">
-                                                {isFencingPermit ? "Application Information" : "Booking Information"}
+                                                Booking Information
                                             </h3>
                                         </div>
                                         <Separator />
@@ -851,7 +860,7 @@ export default function AppointmentDetailsPage() {
                         )}
 
                         {/* Reminders Panel */}
-                        {["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(request.status) && !isFencingPermit && (
+                        {["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(request.status) && (
                             <Card className="border border-amber-200 dark:border-amber-500/20 bg-amber-50/10 dark:bg-amber-500/5 rounded-2xl p-5 md:p-6 space-y-2.5">
                                 <div className="space-y-1.5">
                                     <div className="flex items-center gap-2.5 text-amber-700 dark:text-amber-500">

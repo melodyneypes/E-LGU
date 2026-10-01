@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     CheckCircle2,
@@ -246,6 +246,13 @@ export function CedulaAppointmentClient({
     // Appointment Schedule State
     const [selectedDate, setSelectedDate] = useState<string>("");
     const [selectedSlot, setSelectedSlot] = useState<string>("");
+
+    // Maximum allowed birth date (at least 5 years ago)
+    const maxBirthDate = useMemo(() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 5);
+        return d.toISOString().split("T")[0];
+    }, []);
 
 
     const incomeInputRef = useRef<HTMLInputElement>(null);
@@ -590,6 +597,13 @@ export function CedulaAppointmentClient({
                         dateOfBirthRef.current?.focus();
                         dateOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         toast.error("Please enter the birth date of the relative.");
+                        return;
+                    }
+                    if (formState.dateOfBirth > maxBirthDate) {
+                        setRelativeErrors(prev => ({ ...prev, dateOfBirth: true }));
+                        dateOfBirthRef.current?.focus();
+                        dateOfBirthRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        toast.error("Invalid Date of Birth. Applicant must be at least 5 years of age to apply for a Cedula.");
                         return;
                     }
                     if (!formState.placeOfBirth.trim()) {
@@ -1474,6 +1488,7 @@ export function CedulaAppointmentClient({
                                                             ref={dateOfBirthRef}
                                                             type="date"
                                                             name="dateOfBirth"
+                                                            max={maxBirthDate}
                                                             value={formState.dateOfBirth}
                                                             onChange={(e) => {
                                                                 handleInputChange(e);

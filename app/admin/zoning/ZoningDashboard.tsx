@@ -71,12 +71,17 @@ function getResidentSnapshot(tx: any): any {
 function isPendingEngineeringTransaction(tx: any): boolean {
     if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
         const isEndorsed = tx.additionalData?.feeAssessment?.engineerEndorsedToZoning === true;
+        const zStatus = tx.additionalData?.zoningStatus;
+        // If it's already in FOR_INSPECTION, or endorsed, or zoning active, it is NOT pending engineering
+        if (tx.status === "FOR_INSPECTION" || zStatus === "FOR_INSPECTION" || isEndorsed) {
+            return false;
+        }
         // If it's still in FOR_REQUESTING and not endorsed by Engineer, it is still pending Engineering review
         if (tx.status === "FOR_REQUESTING" && !isEndorsed) {
             return true;
         }
     }
-    return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
+    return !["FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 
 function getZoningTransactionUrl(tx: any): string {
@@ -402,23 +407,6 @@ export default function ZoningDashboard() {
                                                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
                                                         Registered Resident
                                                     </span>
-                                                    {(() => {
-                                                        const isFinished = ["RELEASED", "PAID", "COMPLETED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status);
-                                                        if (isFinished || tx.isCancelled) return null;
-
-                                                        const isFinal = Boolean(
-                                                            (tx as any).isFinalAttempt ||
-                                                            tx.revisionCount === 2 ||
-                                                            (tx as any).rejection_count === 2
-                                                        );
-                                                        if (!isFinal) return null;
-
-                                                        return (
-                                                            <span className="mt-1 w-max px-2.5 py-0.5 rounded text-[9px] font-black italic tracking-widest uppercase bg-red-600 text-white shadow-sm shadow-red-500/30 animate-pulse">
-                                                                FINAL ATTEMPT
-                                                            </span>
-                                                        );
-                                                    })()}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -438,6 +426,8 @@ export default function ZoningDashboard() {
                                                      tx.isCancelled ? "text-red-600" : ({
                                                          "FOR_REQUESTING": "text-amber-600",
                                                          "FOR_REVISION": "text-amber-600",
+                                                         "FOR_INSPECTION": "text-purple-600",
+                                                         "FOR_REINSPECTION": "text-violet-600",
                                                          "EVALUATED": tx.additionalData?.zoningStatus ? "text-purple-600" : "text-blue-600",
                                                          "FOR_CLAIM": "text-indigo-600",
                                                          "FOR_PROCESSING": "text-sky-600",
@@ -447,7 +437,7 @@ export default function ZoningDashboard() {
                                                      } as Record<string, string>)[tx.status] || "text-slate-500"
                                                  )}>
                                                      {tx.isCancelled ? "CANCELLED" : (() => {
-                                                         if (tx.status === "EVALUATED" && tx.additionalData?.zoningStatus) {
+                                                         if (tx.additionalData?.zoningStatus && tx.additionalData?.zoningStatus !== tx.status) {
                                                              return `ZONING: ${tx.additionalData.zoningStatus.replace(/_/g, " ")}`;
                                                          }
                                                          return tx.status?.replace(/_/g, " ");

@@ -8,7 +8,6 @@ import {
     Truck,
     Building2,
     CreditCard,
-    MapPin,
     FileText,
     Wallet,
     Info,
@@ -750,8 +749,38 @@ export default function RequestHubPage() {
         }
     };
 
-    const additionalData = useMemo(() => request?.additionalData || {}, [request?.additionalData]);
-    const residentData = request?.user?.residentProfile || request?.residentSnapshot || {};
+    const additionalData = useMemo(() => {
+        if (!request?.additionalData) return {};
+        if (typeof request.additionalData === "string") {
+            try { return JSON.parse(request.additionalData); } catch { return {}; }
+        }
+        return request.additionalData;
+    }, [request?.additionalData]);
+
+    const residentData = useMemo(() => {
+        let liveProfile = request?.user?.residentProfile;
+        if (typeof liveProfile === "string") {
+            try { liveProfile = JSON.parse(liveProfile); } catch { liveProfile = {}; }
+        }
+        liveProfile = liveProfile || {};
+
+        let snapshot = request?.residentSnapshot;
+        if (typeof snapshot === "string") {
+            try { snapshot = JSON.parse(snapshot); } catch { snapshot = {}; }
+        }
+        snapshot = snapshot || {};
+
+        // Merge: use snapshot as base, override with liveProfile for valid/non-empty fields (or vice versa)
+        const merged = { ...liveProfile, ...snapshot };
+
+        // Specifically check dateOfBirth: if snapshot has {} or invalid, use liveProfile's dateOfBirth
+        const isInvalidDateVal = (val: any) => !val || (typeof val === "object" && !(val instanceof Date) && Object.keys(val).length === 0);
+        if (isInvalidDateVal(merged.dateOfBirth) && !isInvalidDateVal(liveProfile.dateOfBirth)) {
+            merged.dateOfBirth = liveProfile.dateOfBirth;
+        }
+
+        return merged;
+    }, [request?.user?.residentProfile, request?.residentSnapshot]);
     const residentIdFront = residentData.idFrontUrl;
     const residentIdBack = residentData.idBackUrl;
     const statusConfig = request ? getStatusConfig(request.status) : null;
@@ -1355,15 +1384,6 @@ export default function RequestHubPage() {
                                         >
                                             {statusConfig?.label}
                                         </Badge>
-                                        {engineeringPermitRoute && (
-                                            <Link
-                                                href={`${engineeringPermitRoute}?id=${request.id}`}
-                                                className="px-3 py-1 text-[7px] md:text-[9px] font-black uppercase tracking-widest italic rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 w-fit shadow-sm"
-                                            >
-                                                <FileText className="w-3 h-3" />
-                                                View Application Status & Walk-In
-                                            </Link>
-                                        )}
                                         {isPermitNewReleasedOrDelivered && (
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[8px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest opacity-80">
                                                 <div className="flex items-center gap-1.5">
@@ -2320,13 +2340,17 @@ export default function RequestHubPage() {
                                             </div>
                                         </div>
                                     )}
-                                    <div className={cn("grid grid-cols-1 gap-10 md:gap-16", !isFencingPermit && "lg:grid-cols-2")}>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16">
                                         <div className="space-y-10">
                                             <div className="space-y-6">
                                                 <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Personal Identity</h4>
-                                                <div className={cn("grid grid-cols-2 gap-6 md:gap-8", isFencingPermit && "md:grid-cols-3")}>
+                                                <div className="grid grid-cols-2 gap-6 md:gap-8">
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Name</p><p className="text-xs md:text-lg font-bold italic truncate">{residentData.firstName} {residentData.lastName}</p></div>
-                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{residentData.dateOfBirth && !isNaN(new Date(residentData.dateOfBirth).getTime()) ? format(new Date(residentData.dateOfBirth), "MMM d, yyyy") : "N/A"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{(() => {
+                                                        if (!residentData.dateOfBirth) return "N/A";
+                                                        const parsedDate = new Date(residentData.dateOfBirth);
+                                                        return !isNaN(parsedDate.getTime()) ? format(parsedDate, "MMM d, yyyy") : "N/A";
+                                                    })()}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Civil Status</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.civilStatus || "Single"}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Citizenship</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.citizenship || "Filipino"}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Contact Number</p><p className="text-xs md:text-lg font-bold italic">{residentData.contactNumber || additionalData.contactNumber || "N/A"}</p></div>
@@ -2396,30 +2420,36 @@ export default function RequestHubPage() {
                                                 </div>
                                             )}
                                         </div>
-                                        {!isFencingPermit && (
-                                            <div className="space-y-6">
-                                                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
-                                                <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
-                                                    <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
-                                                    <div className="relative z-10 space-y-6">
-                                                        {residentData.houseNumber || residentData.street || residentData.sitio || residentData.purok || residentData.barangay ? (
-                                                            <>
-                                                                <div className="grid grid-cols-2 gap-4">
-                                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
-                                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
-                                                                </div>
-                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
-                                                            </>
-                                                        ) : (
-                                                            <div className="space-y-1">
-                                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant Address</p>
-                                                                <p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{additionalData.informantAddress || "N/A"}</p>
-                                                            </div>
-                                                        )}
+                                        <div className="space-y-6">
+                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
+                                            <div className="grid grid-cols-2 gap-6 md:gap-8">
+                                                {residentData.houseNumber || residentData.street || residentData.sitio || residentData.purok || residentData.barangay ? (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p>
+                                                            <p className="text-xs md:text-lg font-bold italic uppercase">{residentData.houseNumber ? `${residentData.houseNumber} ` : ""}{residentData.street || "—"}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p>
+                                                            <p className="text-xs md:text-lg font-bold italic uppercase">{[residentData.sitio, residentData.purok].filter(Boolean).join(" ") || "—"}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay</p>
+                                                            <p className="text-xs md:text-lg font-bold italic uppercase">{residentData.barangay ? `Brgy. ${residentData.barangay}` : "—"}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Municipality & Province</p>
+                                                            <p className="text-xs md:text-lg font-bold italic uppercase">Mapandan, Pangasinan</p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="space-y-1 col-span-2">
+                                                        <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant / Project Address</p>
+                                                        <p className="text-xs md:text-lg font-bold italic uppercase">{additionalData.informantAddress || additionalData.projectAddress || additionalData.location || "Mapandan, Pangasinan"}</p>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 </Card>
                             </TabsContent>
