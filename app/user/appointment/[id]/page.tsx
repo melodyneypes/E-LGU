@@ -86,7 +86,27 @@ export default function AppointmentDetailsPage() {
         try {
             const res = await getAppointmentDetailsAction(id);
             if (res.success && res.data) {
-                setRequest(res.data);
+                const txData = res.data;
+                const typeCode = txData.type?.code || "";
+                const category = (txData.type?.category || "").toLowerCase();
+                const typeName = (txData.type?.name || "").toLowerCase();
+
+                const isEngineering = 
+                    isEngineeringPermitCode(typeCode) ||
+                    typeCode.startsWith("FENCING_PERMIT") ||
+                    typeCode.startsWith("OCCUPANCY_PERMIT") ||
+                    typeCode.startsWith("BUILDING_PERMIT") ||
+                    category.includes("engineering") ||
+                    typeName.includes("fencing permit") ||
+                    typeName.includes("occupancy permit") ||
+                    typeName.includes("building permit");
+
+                if (isEngineering) {
+                    router.replace(`/user/services/requests/${id}`);
+                    return;
+                }
+
+                setRequest(txData);
                 if (res.themeColor) {
                     setThemeColor(res.themeColor);
                 }
