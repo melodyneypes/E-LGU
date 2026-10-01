@@ -6,7 +6,7 @@ import * as React from "react";
 import {
     LayoutDashboard, Users, Newspaper,
     Briefcase, MapPin, Map,
-    UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
+    UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, Bed, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign, Store, Scale,
     FolderArchive, MessageSquareHeart, Boxes, Pill, LayoutTemplate, FileWarning, Landmark
@@ -155,7 +155,14 @@ export function Sidebar({
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isMarketStallsOpen, setIsMarketStallsOpen] = React.useState(pathname.startsWith("/admin/bplo/stall-registration"));
     const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings"));
+    const [isMedicineOpen, setIsMedicineOpen] = React.useState(pathname.startsWith("/admin/rhu/inventory"));
     const [isMDRRMOOpen, setIsMDRRMOOpen] = React.useState(pathname.startsWith("/admin/mdrrmo"));
+
+    React.useEffect(() => {
+        if (pathname.startsWith("/admin/rhu/inventory")) {
+            setIsMedicineOpen(true);
+        }
+    }, [pathname]);
 
     const [resolvedThemeColor, setResolvedThemeColor] = React.useState(themeColor || "#2563eb");
     const [resolvedLogoUrl, setResolvedLogoUrl] = React.useState(logoUrl);
@@ -583,6 +590,7 @@ export function Sidebar({
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsAnnouncementsOpen(pathname.startsWith("/admin/announcements"));
+        setIsMedicineOpen(pathname.startsWith("/admin/rhu/inventory"));
         setIsRegistrarOpen(
             pathname.startsWith("/admin/registrar") &&
             !pathname.startsWith("/admin/registrar/ledger") &&
@@ -790,10 +798,26 @@ export function Sidebar({
             ]
         },
         {
-            href: "/admin/rhu/inventory",
             label: "Medicine & Supplies",
             icon: Package,
-            category: rhuCategory
+            category: rhuCategory,
+            isDropdown: true,
+            isOpen: isMedicineOpen,
+            onToggle: () => {
+                if (isMedicineOpen) {
+                    setIsMedicineOpen(false);
+                } else {
+                    setIsMedicineOpen(true);
+                    if (!pathname.startsWith("/admin/rhu/inventory")) {
+                        router.push("/admin/rhu/inventory");
+                    }
+                }
+            },
+            subItems: [
+                { href: "/admin/rhu/inventory", label: "Physical Inventory" },
+                { href: "/admin/rhu/inventory/ledger", label: "Medicine Ledger" },
+                { href: "/admin/rhu/inventory/shortage-report", label: "Medicine Shortage Report" },
+            ]
         },
         {
             href: "/admin/rhu/equipment",
@@ -801,6 +825,12 @@ export function Sidebar({
             icon: Boxes,
             category: rhuCategory,
             badge: liveRhuEquipmentCount > 0 ? liveRhuEquipmentCount : undefined
+        },
+        {
+            href: "/admin/rhu/beds",
+            label: "Hospital Bed Monitoring",
+            icon: Bed,
+            category: rhuCategory
         },
         {
             href: "/admin/rhu/purchase-orders",
@@ -1372,13 +1402,21 @@ export function Sidebar({
                                                                         }}
                                                                     >
                                                                         <div className="flex items-center gap-2">
-                                                                            {isDashboard && (
+                                                                            {isDashboard ? (
                                                                                 <LayoutDashboard
                                                                                     size={13}
                                                                                     className={cn(
                                                                                         "transition-colors",
                                                                                         isSubActive ? "text-current" : "text-slate-400 dark:text-slate-500"
                                                                                     )}
+                                                                                />
+                                                                            ) : (
+                                                                                <span
+                                                                                    className={cn(
+                                                                                        "w-1.5 h-1.5 rounded-full transition-all shrink-0",
+                                                                                        isSubActive ? "scale-125" : "bg-slate-400/40 dark:bg-slate-600"
+                                                                                    )}
+                                                                                    style={{ backgroundColor: isSubActive ? resolvedThemeColor : undefined }}
                                                                                 />
                                                                             )}
                                                                             <span>{sub.label}</span>

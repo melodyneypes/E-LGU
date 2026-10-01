@@ -1,17 +1,17 @@
 import React from "react";
-import RHUInventoryClient from "./RHUInventoryClient";
-import { getRHUInventoryItems } from "./actions";
-import { getRHUHealthCenters } from "../centers/actions";
+import ShortageReportClient from "./ShortageReportClient";
+import { getRHUInventoryItems } from "../actions";
+import { getRHUHealthCenters } from "../../centers/actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getMatchedCenterForUser } from "../actions";
+import { getMatchedCenterForUser } from "../../actions";
 
 export const metadata = {
-    title: "RHU Inventory & Pharmacy | EMapandan Admin",
-    description: "Manage medicine catalog, center allocations, multi-batch delivery shipments, stock levels, and FEFO expiration dates.",
+    title: "Medicine Shortage Report | EMapandan Admin",
+    description: "Monitor medicines with low or no stock across RHU and health centers. Ensure continuous availability of essential medicines for better healthcare service.",
 };
 
-export default async function RHUInventoryPage() {
+export default async function ShortageReportPage() {
     const session = await getServerSession(authOptions);
     const currentUser = session?.user as any;
     const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
@@ -29,9 +29,9 @@ export default async function RHUInventoryPage() {
     const initialCenters = centersRes.success && centersRes.data ? centersRes.data : [];
 
     return (
-        <RHUInventoryClient
-            initialItems={initialItems as any}
-            initialCenters={initialCenters as any}
+        <ShortageReportClient
+            initialItems={initialItems}
+            initialCenters={initialCenters}
             currentUser={currentUser}
             matchedCenter={matchedCenter}
         />

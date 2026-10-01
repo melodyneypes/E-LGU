@@ -54,9 +54,11 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
         : (p.transaction?.additionalData || {});
 
     const resident = p.transaction?.user || {};
+    const comp = (additional.rptComputation as any) || {};
 
-    const rawDate = p.createdAt ? new Date(p.createdAt) : new Date();
-    const dateFormatted = format(rawDate, "MM/dd/yyyy");
+    const effectiveDateStr = comp.paymentDate || additional.paymentDate || p.createdAt;
+    const rawDate = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
+    const dateFormatted = !isNaN(rawDate.getTime()) ? format(rawDate, "MM/dd/yyyy") : "—";
 
     const taxPayer = (
         additional.ownerName ||
@@ -73,13 +75,24 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
         "CITIZEN / PAYEE"
     ).trim().toUpperCase();
 
-    const receiptNo = p.orNumber || additional.orSeriesNumber || p.reference || "—";
-    const periodCovered = String(
-        additional.taxYear ||
-        additional.periodCovered ||
-        additional.yearCovered ||
-        rawDate.getFullYear()
-    );
+    const receiptNo = p.orNumber || additional.orSeriesNumber || comp.orSeriesNumber || p.reference || "—";
+    
+    let periodCovered = "—";
+    const yearVal = comp.taxYear || additional.taxYear || additional.yearCovered;
+    const periodVal = comp.periodCovered || additional.periodCovered;
+    if (yearVal && periodVal) {
+        if (periodVal === "Current Year" || periodVal === "Full Year (Annual)") {
+            periodCovered = `${yearVal}`;
+        } else {
+            periodCovered = `${yearVal} (${periodVal.replace("Quarter", "Qtr")})`;
+        }
+    } else if (yearVal) {
+        periodCovered = String(yearVal);
+    } else if (periodVal) {
+        periodCovered = String(periodVal);
+    } else {
+        periodCovered = String(rawDate.getFullYear());
+    }
 
     const isRpt = Boolean(
         p.transaction?.type?.category?.toUpperCase() === "RPT" ||
@@ -89,7 +102,7 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
         additional.pin
     );
 
-    const totalCollected = Number(p.amount || 0);
+    const totalCollected = Number(p.amount || comp.totalAmountDue || additional.totalAmountDue || 0);
 
     let basicTotal = 0;
     let sefTotal = 0;
@@ -121,6 +134,9 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
         else if (rawType.includes("ind")) propertyClass = "Ind";
 
         const hasCustomBreakdown = (
+            comp.basicTax !== undefined ||
+            comp.basicTotal !== undefined ||
+            comp.totalAmountDue !== undefined ||
             additional.basicTax !== undefined ||
             additional.basicCurrent !== undefined ||
             additional.priorYear !== undefined ||
@@ -128,31 +144,36 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
         );
 
         if (hasCustomBreakdown) {
-            basicCurrent = Number(additional.basicCurrent ?? additional.basicTax ?? (totalCollected / 2));
-            sefCurrent = Number(additional.sefCurrent ?? additional.sefTax ?? (totalCollected / 2));
+            basicCurrent = Number(comp.basicTax ?? additional.basicCurrent ?? additional.basicTax ?? (totalCollected / 2));
+            sefCurrent = Number(comp.sefTax ?? additional.sefCurrent ?? additional.sefTax ?? (totalCollected / 2));
 
-            const discTotal = Number(additional.discount || 0);
-            basicDiscount = Number(additional.basicDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
-            sefDiscount = Number(additional.sefDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
+            const discTotal = Number(comp.discountAmount ?? additional.discount ?? 0);
+            basicDiscount = Number(comp.basicDiscount ?? additional.basicDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
+            sefDiscount = Number(comp.sefDiscount ?? additional.sefDiscount ?? (discTotal > 0 ? discTotal / 2 : 0));
 
-            const penTotal = Number(additional.penalties || additional.penalty || 0);
-            basicPenalty = Number(additional.basicPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
-            sefPenalty = Number(additional.sefPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
+            const penTotal = Number(comp.penaltyAmount ?? additional.penalties ?? additional.penalty ?? 0);
+            basicPenalty = Number(comp.basicPenalty ?? additional.basicPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
+            sefPenalty = Number(comp.sefPenalty ?? additional.sefPenalty ?? (penTotal > 0 ? penTotal / 2 : 0));
 
-            basicImmPreceding = Number(additional.basicImmPreceding ?? (Number(additional.immediatePrecedingYear || 0) / 2));
-            sefImmPreceding = Number(additional.sefImmPreceding ?? (Number(additional.immediatePrecedingYear || 0) / 2));
+            basicImmPreceding = Number(comp.basicImmPreceding ?? additional.basicImmPreceding ?? (Number(additional.immediatePrecedingYear || 0) / 2));
+            sefImmPreceding = Number(comp.sefImmPreceding ?? additional.sefImmPreceding ?? (Number(additional.immediatePrecedingYear || 0) / 2));
 
-            basicImmPenalty = Number(additional.basicImmPenalty ?? (Number(additional.immediatePrecedingPenalty || 0) / 2));
-            sefImmPenalty = Number(additional.sefImmPenalty ?? (Number(additional.immediatePrecedingPenalty || 0) / 2));
+            basicImmPenalty = Number(comp.basicImmPenalty ?? additional.basicImmPenalty ?? (Number(additional.immediatePrecedingPenalty || 0) / 2));
+            sefImmPenalty = Number(comp.sefImmPenalty ?? additional.sefImmPenalty ?? (Number(additional.immediatePrecedingPenalty || 0) / 2));
 
-            basicPriorYear = Number(additional.basicPriorYear ?? (Number(additional.priorYear || 0) / 2));
-            sefPriorYear = Number(additional.sefPriorYear ?? (Number(additional.priorYear || 0) / 2));
+            basicPriorYear = Number(comp.basicPriorYear ?? additional.basicPriorYear ?? (Number(additional.priorYear || 0) / 2));
+            sefPriorYear = Number(comp.sefPriorYear ?? additional.sefPriorYear ?? (Number(additional.priorYear || 0) / 2));
 
-            basicPriorPenalty = Number(additional.basicPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
-            sefPriorPenalty = Number(additional.sefPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
+            basicPriorPenalty = Number(comp.basicPriorPenalty ?? additional.basicPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
+            sefPriorPenalty = Number(comp.sefPriorPenalty ?? additional.sefPriorPenalty ?? (Number(additional.priorYearPenalty || 0) / 2));
 
-            basicTotal = basicCurrent - basicDiscount + basicPenalty + basicImmPreceding + basicImmPenalty + basicPriorYear + basicPriorPenalty;
-            sefTotal = sefCurrent - sefDiscount + sefPenalty + sefImmPreceding + sefImmPenalty + sefPriorYear + sefPriorPenalty;
+            basicTotal = comp.basicTotal !== undefined
+                ? Number(comp.basicTotal)
+                : (basicCurrent - basicDiscount + basicPenalty + basicImmPreceding + basicImmPenalty + basicPriorYear + basicPriorPenalty);
+
+            sefTotal = comp.sefTotal !== undefined
+                ? Number(comp.sefTotal)
+                : (sefCurrent - sefDiscount + sefPenalty + sefImmPreceding + sefImmPenalty + sefPriorYear + sefPriorPenalty);
         } else {
             const half = totalCollected / 2;
             const isDiscounted = Boolean(additional.isDiscounted || additional.hasDiscount);
@@ -174,7 +195,9 @@ export function mapPaymentToForm10A(p: any): Form10APaymentData {
             sefTotal = half;
         }
 
-        brgyShare = Number((basicTotal * 0.25).toFixed(2));
+        brgyShare = comp.allocBarangay !== undefined
+            ? Number(comp.allocBarangay)
+            : Number((basicTotal * 0.25).toFixed(2));
     } else {
         // Non-RPT collections (e.g. Cedula, Building Permit, Occupancy Permit, Civil Registry, etc.)
         // Place the full collected amount in Basic Current & Basic Total so the total adds up cleanly
