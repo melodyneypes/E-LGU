@@ -57,11 +57,30 @@ export async function endorseFencingPermitByZoning(id: string, notes?: string, f
             }
         };
 
+        const lineItems = validFees.map(f => ({
+            label: f.name,
+            amount: Number(f.amount) || 0
+        }));
+
+        const existingFiscal = typeof tx.fiscalSnapshot === "object" && tx.fiscalSnapshot !== null ? tx.fiscalSnapshot : {};
+        const fiscalSnapshot = {
+            ...existingFiscal,
+            totalAmount: totalZoningFee,
+            basicTax: 0,
+            additionalTax: 0,
+            penaltyCharge: 0,
+            lineItems: lineItems,
+            assessedBy: user.name || user.id,
+            assessedAt: new Date().toISOString(),
+            department: "MPDC_ZONING"
+        };
+
         const updated = await prisma.transaction.update({
             where: { id },
             data: {
                 status: totalZoningFee > 0 ? "UNPAID" : "FOR_INSPECTION",
                 totalAmount: totalZoningFee > 0 ? totalZoningFee : tx.totalAmount,
+                fiscalSnapshot: fiscalSnapshot as any,
                 additionalData: updatedAdditionalData as any,
                 updatedAt: new Date()
             }
