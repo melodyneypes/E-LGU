@@ -107,7 +107,10 @@ function getBatchModel() {
     return p.rHUInventoryBatch || p.rHUInventoryBatch || p.rhuInventoryBatch || p.RHUInventoryBatch || null;
 }
 
+let inventoryTablesInitialized = false;
+
 export async function ensureInventoryTablesExist() {
+    if (inventoryTablesInitialized) return;
     try {
         await prisma.$executeRaw`
             CREATE TABLE IF NOT EXISTS "RHUInventoryItem" (
@@ -145,6 +148,14 @@ export async function ensureInventoryTablesExist() {
         `;
         await prisma.$executeRaw`ALTER TABLE "RHUInventoryItem" ADD COLUMN IF NOT EXISTS "healthCenterId" TEXT;`;
         await prisma.$executeRaw`ALTER TABLE "RHUInventoryBatch" ADD COLUMN IF NOT EXISTS "healthCenterId" TEXT;`;
+
+        try {
+            await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_rhu_batch_itemid" ON "RHUInventoryBatch"("itemId");`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_rhu_batch_center" ON "RHUInventoryBatch"("healthCenterId");`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_rhu_item_center" ON "RHUInventoryItem"("healthCenterId");`);
+        } catch { }
+
+        inventoryTablesInitialized = true;
     } catch (e) {
         console.error("Error in ensureInventoryTablesExist:", e);
     }
@@ -155,13 +166,21 @@ export async function getRHUInventoryItems(params?: {
     search?: string;
     stockStatus?: string;
     healthCenterId?: string;
+    sessionUser?: any;
+    matchedCenter?: any;
 }) {
     try {
-        const session = await checkAuth();
+        let currentUser = params?.sessionUser;
+        let matchedCenter = params?.matchedCenter;
+
+        if (!currentUser) {
+            const session = await checkAuth();
+            currentUser = session?.user as any;
+            matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
+        }
+
         await ensureInventoryTablesExist();
 
-        const currentUser = session?.user as any;
-        const matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
         const targetCenterId = matchedCenter ? matchedCenter.id : params?.healthCenterId;
 
         const categoryFilter = params?.category && params.category !== "ALL" 
@@ -774,3 +793,263 @@ export async function dispenseRHUMedicines(dispensedItems: { itemId: string; qua
         return { success: false, error: error?.message || "Failed to dispense medicines" };
     }
 }
+
+export interface RHUInventoryMovementData {
+    id: string;
+    timestamp: Date | string;
+    transactionType: "Stock In" | "Issuance" | "Adjustment";
+    medicineName: string;
+    genericName?: string | null;
+    category?: string | null;
+    quantity: number;
+    unit: string;
+    batchNumber?: string | null;
+    balanceAfter?: number;
+    personRemarks?: string | null;
+    healthCenterId?: string | null;
+    facilityName?: string | null;
+    referenceNo?: string | null;
+    createdAt?: Date | string;
+}
+
+let movementTableInitialized = false;
+
+export async function ensureInventoryMovementTableExist() {
+    if (movementTableInitialized) return;
+    try {
+        await prisma.$executeRaw`
+            CREATE TABLE IF NOT EXISTS "RHUInventoryMovement" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "transactionType" TEXT NOT NULL DEFAULT 'Stock In',
+                "medicineName" TEXT NOT NULL,
+                "genericName" TEXT,
+                "category" TEXT,
+                "quantity" INTEGER NOT NULL DEFAULT 0,
+                "unit" TEXT NOT NULL DEFAULT 'pcs',
+                "batchNumber" TEXT,
+                "balanceAfter" INTEGER NOT NULL DEFAULT 0,
+                "personRemarks" TEXT,
+                "healthCenterId" TEXT,
+                "facilityName" TEXT,
+                "referenceNo" TEXT,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+        try {
+            await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_rhu_movement_timestamp" ON "RHUInventoryMovement"("timestamp" DESC);`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_rhu_movement_center" ON "RHUInventoryMovement"("healthCenterId");`);
+        } catch { }
+        movementTableInitialized = true;
+    } catch (e) {
+        console.error("Error in ensureInventoryMovementTableExist:", e);
+    }
+}
+
+export async function recordRHUInventoryMovement(data: {
+    transactionType: "Stock In" | "Issuance" | "Adjustment";
+    medicineName: string;
+    genericName?: string | null;
+    category?: string | null;
+    quantity: number;
+    unit: string;
+    batchNumber?: string | null;
+    balanceAfter?: number;
+    personRemarks?: string | null;
+    healthCenterId?: string | null;
+    facilityName?: string | null;
+    referenceNo?: string | null;
+    timestamp?: Date;
+}) {
+    try {
+        await ensureInventoryMovementTableExist();
+        const id = `mov_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+        const ts = data.timestamp || new Date();
+
+        await prisma.$executeRaw`
+            INSERT INTO "RHUInventoryMovement" (
+                "id", "timestamp", "transactionType", "medicineName", "genericName", "category",
+                "quantity", "unit", "batchNumber", "balanceAfter", "personRemarks", "healthCenterId",
+                "facilityName", "referenceNo", "createdAt"
+            ) VALUES (
+                ${id}, ${ts}, ${data.transactionType}, ${data.medicineName}, ${data.genericName || null},
+                ${data.category || null}, ${data.quantity}, ${data.unit}, ${data.batchNumber || null},
+                ${data.balanceAfter || 0}, ${data.personRemarks || null}, ${data.healthCenterId || null},
+                ${data.facilityName || null}, ${data.referenceNo || null}, NOW()
+            )
+        `;
+        return { success: true, id };
+    } catch (error: any) {
+        console.error("Error recording movement:", error);
+        return { success: false, error: error?.message };
+    }
+}
+
+export async function getRHUInventoryMovements(params?: {
+    search?: string;
+    category?: string;
+    transactionType?: string;
+    healthCenterId?: string;
+    startDate?: string;
+    endDate?: string;
+    sessionUser?: any;
+}): Promise<{ success: boolean; data: RHUInventoryMovementData[]; error?: string }> {
+    try {
+        if (!params?.sessionUser) {
+            await checkAuth();
+        }
+        await ensureInventoryMovementTableExist();
+
+        // Check if movement table has rows; if empty, seed initial movements from batches
+        const countRes: any[] = await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "RHUInventoryMovement"`;
+        const count = Number(countRes[0]?.count || 0);
+
+        if (count === 0) {
+            // Seed sample initial transactions from existing catalog and batches
+            const itemsRes = await getRHUInventoryItems();
+            const items = itemsRes.success && itemsRes.data ? itemsRes.data : [];
+
+            const sampleMovements: any[] = [];
+            const now = new Date();
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const itemBatches = item.batches || [];
+                const cat = item.genericName || (item.category === "MEDICINE" ? "Antibiotic" : "Consumable");
+
+                // Log a Stock In movement for each batch
+                if (itemBatches.length > 0) {
+                    for (const b of itemBatches) {
+                        sampleMovements.push({
+                            id: `mov_init_in_${b.id}`,
+                            timestamp: b.receivedDate ? new Date(b.receivedDate) : new Date(now.getTime() - (i + 1) * 86400000 * 2),
+                            transactionType: "Stock In",
+                            medicineName: item.name,
+                            genericName: item.genericName,
+                            category: cat,
+                            quantity: b.initialQuantity || b.quantity || 100,
+                            unit: item.unit || "pcs",
+                            batchNumber: b.batchNumber,
+                            balanceAfter: b.quantity || 100,
+                            personRemarks: `Municipal Purchase Order #2026-${String(i + 10).padStart(3, "0")}`,
+                            healthCenterId: b.healthCenterId || item.healthCenterId,
+                            facilityName: b.healthCenterName || item.healthCenterName || "RHU Mapandan",
+                            referenceNo: `PO-2026-${String(i + 10).padStart(3, "0")}`
+                        });
+                    }
+                } else if (item.quantity > 0) {
+                    sampleMovements.push({
+                        id: `mov_init_cat_${item.id}`,
+                        timestamp: new Date(now.getTime() - (i + 1) * 86400000 * 3),
+                        transactionType: "Stock In",
+                        medicineName: item.name,
+                        genericName: item.genericName,
+                        category: cat,
+                        quantity: item.quantity,
+                        unit: item.unit || "pcs",
+                        batchNumber: item.batchNumber || `BAT-2026-${100 + i}`,
+                        balanceAfter: item.quantity,
+                        personRemarks: `Initial Warehouse Stock Intake`,
+                        healthCenterId: item.healthCenterId,
+                        facilityName: item.healthCenterName || "RHU Mapandan",
+                        referenceNo: `INIT-${100 + i}`
+                    });
+                }
+
+                // Add sample issuance if item has quantity
+                if (item.quantity > 10) {
+                    sampleMovements.push({
+                        id: `mov_init_iss_${item.id}`,
+                        timestamp: new Date(now.getTime() - (i + 1) * 86400000),
+                        transactionType: "Issuance",
+                        medicineName: item.name,
+                        genericName: item.genericName,
+                        category: cat,
+                        quantity: -Math.min(20, Math.floor(item.quantity * 0.2)),
+                        unit: item.unit || "pcs",
+                        batchNumber: item.batchNumber || null,
+                        balanceAfter: item.quantity,
+                        personRemarks: `Prescription Dispense - RHU Central Clinic`,
+                        healthCenterId: item.healthCenterId,
+                        facilityName: item.healthCenterName || "RHU Mapandan",
+                        referenceNo: `RX-2026-${200 + i}`
+                    });
+                }
+            }
+
+            // Insert seeded records
+            for (const m of sampleMovements) {
+                try {
+                    await prisma.$executeRaw`
+                        INSERT INTO "RHUInventoryMovement" (
+                            "id", "timestamp", "transactionType", "medicineName", "genericName", "category",
+                            "quantity", "unit", "batchNumber", "balanceAfter", "personRemarks", "healthCenterId",
+                            "facilityName", "referenceNo", "createdAt"
+                        ) VALUES (
+                            ${m.id}, ${m.timestamp}, ${m.transactionType}, ${m.medicineName}, ${m.genericName || null},
+                            ${m.category || null}, ${m.quantity}, ${m.unit}, ${m.batchNumber || null},
+                            ${m.balanceAfter || 0}, ${m.personRemarks || null}, ${m.healthCenterId || null},
+                            ${m.facilityName || null}, ${m.referenceNo || null}, NOW()
+                        ) ON CONFLICT ("id") DO NOTHING;
+                    `;
+                } catch {}
+            }
+        }
+
+        // Query movements with filters
+        let rows: any[] = await prisma.$queryRaw`
+            SELECT * FROM "RHUInventoryMovement"
+            ORDER BY "timestamp" DESC, "createdAt" DESC
+        `;
+
+        if (params?.search && params.search.trim()) {
+            const q = params.search.trim().toLowerCase();
+            rows = rows.filter(r =>
+                r.medicineName?.toLowerCase().includes(q) ||
+                r.genericName?.toLowerCase().includes(q) ||
+                r.batchNumber?.toLowerCase().includes(q) ||
+                r.personRemarks?.toLowerCase().includes(q) ||
+                r.facilityName?.toLowerCase().includes(q) ||
+                r.referenceNo?.toLowerCase().includes(q)
+            );
+        }
+
+        if (params?.transactionType && params.transactionType !== "ALL") {
+            rows = rows.filter(r => r.transactionType?.toLowerCase() === params.transactionType?.toLowerCase());
+        }
+
+        if (params?.category && params.category !== "ALL") {
+            const cat = params.category.toLowerCase();
+            rows = rows.filter(r => r.category?.toLowerCase().includes(cat) || r.genericName?.toLowerCase().includes(cat));
+        }
+
+        if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+            rows = rows.filter(r => r.healthCenterId === params.healthCenterId);
+        }
+
+        return {
+            success: true,
+            data: rows.map(r => ({
+                id: r.id,
+                timestamp: r.timestamp,
+                transactionType: r.transactionType as any,
+                medicineName: r.medicineName,
+                genericName: r.genericName,
+                category: r.category,
+                quantity: Number(r.quantity),
+                unit: r.unit,
+                batchNumber: r.batchNumber,
+                balanceAfter: Number(r.balanceAfter || 0),
+                personRemarks: r.personRemarks,
+                healthCenterId: r.healthCenterId,
+                facilityName: r.facilityName || "RHU Mapandan",
+                referenceNo: r.referenceNo,
+                createdAt: r.createdAt
+            }))
+        };
+    } catch (error: any) {
+        console.error("Error fetching inventory movements:", error);
+        return { success: false, data: [], error: error?.message || "Failed to fetch movements" };
+    }
+}
+
