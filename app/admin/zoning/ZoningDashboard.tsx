@@ -71,12 +71,17 @@ function getResidentSnapshot(tx: any): any {
 function isPendingEngineeringTransaction(tx: any): boolean {
     if (tx.type?.code?.startsWith("FENCING_PERMIT")) {
         const isEndorsed = tx.additionalData?.feeAssessment?.engineerEndorsedToZoning === true;
+        const zStatus = tx.additionalData?.zoningStatus;
+        // If it's already in FOR_INSPECTION, or endorsed, or zoning active, it is NOT pending engineering
+        if (tx.status === "FOR_INSPECTION" || zStatus === "FOR_INSPECTION" || isEndorsed) {
+            return false;
+        }
         // If it's still in FOR_REQUESTING and not endorsed by Engineer, it is still pending Engineering review
         if (tx.status === "FOR_REQUESTING" && !isEndorsed) {
             return true;
         }
     }
-    return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
+    return !["FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 
 function getZoningTransactionUrl(tx: any): string {
@@ -421,6 +426,8 @@ export default function ZoningDashboard() {
                                                      tx.isCancelled ? "text-red-600" : ({
                                                          "FOR_REQUESTING": "text-amber-600",
                                                          "FOR_REVISION": "text-amber-600",
+                                                         "FOR_INSPECTION": "text-purple-600",
+                                                         "FOR_REINSPECTION": "text-violet-600",
                                                          "EVALUATED": tx.additionalData?.zoningStatus ? "text-purple-600" : "text-blue-600",
                                                          "FOR_CLAIM": "text-indigo-600",
                                                          "FOR_PROCESSING": "text-sky-600",
@@ -430,7 +437,7 @@ export default function ZoningDashboard() {
                                                      } as Record<string, string>)[tx.status] || "text-slate-500"
                                                  )}>
                                                      {tx.isCancelled ? "CANCELLED" : (() => {
-                                                         if (tx.status === "EVALUATED" && tx.additionalData?.zoningStatus) {
+                                                         if (tx.additionalData?.zoningStatus && tx.additionalData?.zoningStatus !== tx.status) {
                                                              return `ZONING: ${tx.additionalData.zoningStatus.replace(/_/g, " ")}`;
                                                          }
                                                          return tx.status?.replace(/_/g, " ");
