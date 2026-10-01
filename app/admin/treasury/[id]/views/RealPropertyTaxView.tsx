@@ -18,7 +18,6 @@ import {
     BadgeCheck,
     Camera,
     Check,
-    Clock,
     RotateCw,
     Download
 } from "lucide-react";
@@ -65,8 +64,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
         setActionLoading,
         handleViewFile,
         orSeriesNumber = "",
-        setOrSeriesNumber,
-        handleConfirmPayment
+        setOrSeriesNumber
     } = props;
 
     // --- State Toggles ---
@@ -75,6 +73,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     const [isRequirementsOpen, setIsRequirementsOpen] = useState(false);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
+    const [isExporting, setIsExporting] = useState<boolean>(false);
 
     // --- Transaction & Property Data Extraction ---
     const rpt = transaction?.realPropertyTax || {};
@@ -92,7 +91,9 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
             : (transaction.residentSnapshot || {});
     }, [transaction?.residentSnapshot]);
 
-    const baseResident = transaction?.user?.residentProfile || rawSnapshot || {};
+    const baseResident = useMemo(() => {
+        return transaction?.user?.residentProfile || rawSnapshot || {};
+    }, [transaction?.user?.residentProfile, rawSnapshot]);
 
     // Prioritize name from snapshot or user object
     const applicantFullName = (
@@ -178,7 +179,7 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     );
 
     // Audit fields
-    const [treasuryRemarks, setTreasuryRemarks] = useState<string>(savedComp.treasuryRemarks || "");
+    const [treasuryRemarks, _setTreasuryRemarks] = useState<string>(savedComp.treasuryRemarks || "");
     const [overrideReason, setOverrideReason] = useState<string>(savedComp.overrideReason || "");
 
     // Payment Form state
@@ -281,15 +282,6 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     if (!transaction) return null;
 
     const isReleased = transaction.status === "RELEASED";
-    const isCheckedIn = Boolean(
-        additional?.checkedIn === true ||
-        additional?.checkedInAt ||
-        additional?.checkInData ||
-        additional?.kioskCheckIn ||
-        additional?.checkInTime ||
-        (transaction as any)?.checkedIn === true ||
-        (transaction as any)?.checkedInAt
-    );
 
     const attachments = [
         { label: "Valid Government ID", url: rpt.validIdUrl || additional.validIdUrl },
@@ -390,7 +382,6 @@ export default function RealPropertyTaxView(props: TreasuryViewProps) {
     };
 
     // Export single transaction as official Form 10(A) PDF / Excel
-    const [isExporting, setIsExporting] = useState<boolean>(false);
     const handleExportSingleForm10A = async (mode: "pdf" | "excel" = "pdf") => {
         setIsExporting(true);
         const toastId = `export-form10a-single-${mode}`;

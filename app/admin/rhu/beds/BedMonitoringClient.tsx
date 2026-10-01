@@ -6,7 +6,6 @@ import {
     Search,
     Calendar,
     Building2,
-    Hospital,
     Plus,
     Eye,
     UserCheck,

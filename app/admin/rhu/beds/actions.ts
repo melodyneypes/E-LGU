@@ -107,12 +107,12 @@ export async function getRHUBeds(params?: {
 }): Promise<{ success: boolean; data: RHUBedData[]; error?: string }> {
     try {
         let currentUser = params?.sessionUser;
-        let matchedCenter = params?.matchedCenter;
+        let _matchedCenter = params?.matchedCenter;
 
         if (!currentUser) {
             const session = await checkAuth();
             currentUser = session?.user as any;
-            matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
+            _matchedCenter = currentUser ? await getMatchedCenterForUser(currentUser) : null;
         }
 
         await ensureBedTablesExist();
