@@ -8,7 +8,6 @@ import {
     Truck,
     Building2,
     CreditCard,
-    MapPin,
     FileText,
     Wallet,
     Info,
